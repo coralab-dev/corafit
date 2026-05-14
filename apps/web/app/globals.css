@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #f7f8f5;
+  --foreground: #101217;
+  --card: #ffffff;
+  --card-foreground: #101217;
+  --popover: #ffffff;
+  --popover-foreground: #101217;
+  --primary: #ff753a;
+  --primary-foreground: #0b0d0f;
+  --secondary: #ffffff;
+  --secondary-foreground: #101217;
+  --muted: #f3f3f3;
+  --muted-foreground: #6b7078;
+  --accent: #ff753a;
+  --accent-foreground: #0b0d0f;
+  --destructive: #e5484d;
+  --border: #daddd5;
+  --input: #daddd5;
+  --ring: #ff753a;
+}
+
+
+.dark {
+  --background: #141414;
+  --foreground: #e6e7e8;
+  --card: #1c1c1c;
+  --card-foreground: #e6e7e8;
+  --popover: #111318;
+  --popover-foreground: #e6e7e8;
+  --primary: #c8e35a;
+  --primary-foreground: #0b0d0f;
+  --secondary: #14161a;
+  --secondary-foreground: #e6e7e8;
+  --muted: #42454c;
+  --muted-foreground: #9aa0a6;
+  --accent: #c8e35a;
+  --accent-foreground: #0b0d0f;
+  --destructive: #ff5a5f;
+  --border: #2a2e35;
+  --input: #2a2e35;
+  --ring: #c8e35a;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 45%, transparent);
+}

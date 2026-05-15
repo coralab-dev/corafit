@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole, UserStatus } from 'db';
+import { UserStatus } from 'db';
 import { PrismaService } from '../prisma/prisma.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { SupabaseAuthService } from './supabase-auth.service';
@@ -14,12 +14,6 @@ import type { AuthenticatedRequest } from './authenticated-request';
 
 @Injectable()
 export class SupabaseJwtGuard implements CanActivate {
-  private readonly allowedRoles = new Set<UserRole>([
-    UserRole.coach,
-    UserRole.owner,
-    UserRole.admin_saas,
-  ]);
-
   constructor(
     private readonly reflector: Reflector,
     private readonly supabaseAuthService: SupabaseAuthService,
@@ -46,10 +40,6 @@ export class SupabaseJwtGuard implements CanActivate {
 
     if (!localUser || localUser.status !== UserStatus.active) {
       throw new ForbiddenException('Authenticated user is not enabled locally');
-    }
-
-    if (!this.allowedRoles.has(localUser.role)) {
-      throw new ForbiddenException('Authenticated user role is not allowed');
     }
 
     request.user = localUser;

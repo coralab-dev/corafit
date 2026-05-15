@@ -9,18 +9,53 @@
 * 🟢 You can import this file directly.
 */
 
-export const UserRole = {
-  coach: 'coach',
-  owner: 'owner',
+export const UserPlatformRole = {
+  user: 'user',
   admin_saas: 'admin_saas'
 } as const
 
-export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+export type UserPlatformRole = (typeof UserPlatformRole)[keyof typeof UserPlatformRole]
 
 
 export const UserStatus = {
   active: 'active',
-  inactive: 'inactive'
+  suspended: 'suspended',
+  deleted: 'deleted'
 } as const
 
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus]
+
+
+export const OrganizationType = {
+  individual: 'individual',
+  studio: 'studio'
+} as const
+
+export type OrganizationType = (typeof OrganizationType)[keyof typeof OrganizationType]
+
+
+export const OrganizationStatus = {
+  active: 'active',
+  suspended: 'suspended',
+  cancelled: 'cancelled'
+} as const
+
+export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus]
+
+
+export const OrganizationMemberRole = {
+  owner: 'owner',
+  coach: 'coach'
+} as const
+
+export type OrganizationMemberRole = (typeof OrganizationMemberRole)[keyof typeof OrganizationMemberRole]
+
+
+export const OrganizationMemberStatus = {
+  active: 'active',
+  invited: 'invited',
+  suspended: 'suspended',
+  removed: 'removed'
+} as const
+
+export type OrganizationMemberStatus = (typeof OrganizationMemberStatus)[keyof typeof OrganizationMemberStatus]

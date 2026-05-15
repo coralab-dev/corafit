@@ -7,25 +7,89 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  coach
-  owner
+enum UserPlatformRole {
+  user
   admin_saas
 }
 
 enum UserStatus {
   active
-  inactive
+  suspended
+  deleted
+}
+
+enum OrganizationType {
+  individual
+  studio
+}
+
+enum OrganizationStatus {
+  active
+  suspended
+  cancelled
+}
+
+enum OrganizationMemberRole {
+  owner
+  coach
+}
+
+enum OrganizationMemberStatus {
+  active
+  invited
+  suspended
+  removed
 }
 
 model User {
-  id             String     @id @default(cuid())
-  supabaseUserId String     @unique
-  email          String
-  role           UserRole
-  status         UserStatus @default(active)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id             String           @id @default(uuid())
+  supabaseUserId String           @unique @map("supabase_user_id")
+  platformRole   UserPlatformRole @default(user) @map("platform_role")
+  name           String
+  email          String           @unique
+  phone          String?
+  status         UserStatus       @default(active)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+  organizationMembers OrganizationMember[]
+
+  @@map("users")
+}
+
+model Organization {
+  id                        String             @id @default(uuid())
+  name                      String
+  type                      OrganizationType   @default(individual)
+  timezone                  String             @default("America/Mexico_City")
+  status                    OrganizationStatus @default(active)
+  ownerUserId               String             @map("owner_user_id")
+  onboardingCompletedAt     DateTime?          @map("onboarding_completed_at")
+  clientPortalPreviewSeenAt DateTime?          @map("client_portal_preview_seen_at")
+  createdAt                 DateTime           @default(now()) @map("created_at")
+  updatedAt                 DateTime           @updatedAt @map("updated_at")
+
+  owner   User                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
+  members OrganizationMember[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String                   @id @default(uuid())
+  organizationId String                   @map("organization_id")
+  userId         String                   @map("user_id")
+  role           OrganizationMemberRole
+  status         OrganizationMemberStatus @default(active)
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
 }
 
 model SystemSetting {

@@ -2,7 +2,7 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { UserRole, UserStatus, type User } from 'db';
+import { UserPlatformRole, UserStatus, type User } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedRequest } from './authenticated-request';
@@ -27,9 +27,11 @@ function createLocalUser(overrides: Partial<User> = {}): User {
   return {
     id: 'local-user-id',
     supabaseUserId: 'supabase-user-id',
+    platformRole: UserPlatformRole.user,
+    name: 'Test Coach',
     email: 'coach@corafit.test',
-    role: UserRole.coach,
     status: UserStatus.active,
+    phone: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -128,9 +130,9 @@ describe('SupabaseJwtGuard', () => {
     );
   });
 
-  it('rejects inactive local users', async () => {
+  it('rejects non-active local users', async () => {
     prismaService.user.findUnique.mockResolvedValue(
-      createLocalUser({ status: UserStatus.inactive }),
+      createLocalUser({ status: UserStatus.suspended }),
     );
     const context = createExecutionContext({
       headers: { authorization: 'Bearer valid-token' },

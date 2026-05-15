@@ -10,6 +10,9 @@
       "default": "./dist/index.js"
     }
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "scripts": {
     "generate": "prisma generate --schema prisma/schema.prisma",
     "db:push": "prisma db push --schema prisma/schema.prisma",
@@ -32,6 +35,7 @@
     "globals": "^16.5.0",
     "prettier": "^3.6.2",
     "prisma": "^7.8.0",
+    "tsx": "^4.22.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4"
   }

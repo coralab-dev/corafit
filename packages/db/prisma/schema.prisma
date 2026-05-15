@@ -41,6 +41,20 @@ enum OrganizationMemberStatus {
   removed
 }
 
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  expired
+  cancelled
+  suspended
+}
+
+enum SubscriptionPlanStatus {
+  active
+  inactive
+}
+
 model User {
   id             String           @id @default(uuid())
   supabaseUserId String           @unique @map("supabase_user_id")
@@ -72,6 +86,7 @@ model Organization {
 
   owner   User                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
   members OrganizationMember[]
+  subscription OrganizationSubscription?
 
   @@map("organizations")
 }
@@ -90,6 +105,43 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@map("organization_members")
+}
+
+model SubscriptionPlan {
+  id           String                 @id @default(uuid())
+  code         String                 @unique
+  name         String
+  description  String?
+  priceMonthly Float                  @map("price_monthly")
+  currency     String                 @default("MXN")
+  clientLimit  Int                    @map("client_limit")
+  memberLimit  Int                    @map("member_limit")
+  features     Json?
+  isPublic     Boolean                @default(true) @map("is_public")
+  status       SubscriptionPlanStatus @default(active)
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  subscriptions OrganizationSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model OrganizationSubscription {
+  id                 String             @id @default(uuid())
+  organizationId     String             @unique @map("organization_id")
+  subscriptionPlanId String             @map("subscription_plan_id")
+  status             SubscriptionStatus @default(trial)
+  startedAt          DateTime           @map("started_at")
+  renewsAt           DateTime?          @map("renews_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  subscriptionPlan SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+
+  @@map("organization_subscriptions")
 }
 
 model SystemSetting {

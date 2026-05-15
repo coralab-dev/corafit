@@ -59,3 +59,23 @@ export const OrganizationMemberStatus = {
 } as const
 
 export type OrganizationMemberStatus = (typeof OrganizationMemberStatus)[keyof typeof OrganizationMemberStatus]
+
+
+export const SubscriptionStatus = {
+  trial: 'trial',
+  active: 'active',
+  past_due: 'past_due',
+  expired: 'expired',
+  cancelled: 'cancelled',
+  suspended: 'suspended'
+} as const
+
+export type SubscriptionStatus = (typeof SubscriptionStatus)[keyof typeof SubscriptionStatus]
+
+
+export const SubscriptionPlanStatus = {
+  active: 'active',
+  inactive: 'inactive'
+} as const
+
+export type SubscriptionPlanStatus = (typeof SubscriptionPlanStatus)[keyof typeof SubscriptionPlanStatus]

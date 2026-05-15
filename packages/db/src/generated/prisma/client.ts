@@ -55,6 +55,16 @@ export type Organization = Prisma.OrganizationModel
  */
 export type OrganizationMember = Prisma.OrganizationMemberModel
 /**
+ * Model SubscriptionPlan
+ * 
+ */
+export type SubscriptionPlan = Prisma.SubscriptionPlanModel
+/**
+ * Model OrganizationSubscription
+ * 
+ */
+export type OrganizationSubscription = Prisma.OrganizationSubscriptionModel
+/**
  * Model SystemSetting
  * 
  */

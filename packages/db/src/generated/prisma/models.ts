@@ -11,5 +11,7 @@
 export type * from './models/User'
 export type * from './models/Organization'
 export type * from './models/OrganizationMember'
+export type * from './models/SubscriptionPlan'
+export type * from './models/OrganizationSubscription'
 export type * from './models/SystemSetting'
 export type * from './commonInputTypes'

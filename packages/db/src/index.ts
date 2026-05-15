@@ -4,13 +4,17 @@ export {
   OrganizationMemberStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionPlanStatus,
+  SubscriptionStatus,
   UserPlatformRole,
   UserStatus,
 } from './generated/prisma/client';
 export type {
   Organization,
   OrganizationMember,
+  OrganizationSubscription,
   Prisma,
+  SubscriptionPlan,
   SystemSetting,
   User,
 } from './generated/prisma/client';

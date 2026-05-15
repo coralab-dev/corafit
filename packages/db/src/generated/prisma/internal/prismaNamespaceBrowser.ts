@@ -54,6 +54,8 @@ export const ModelName = {
   User: 'User',
   Organization: 'Organization',
   OrganizationMember: 'OrganizationMember',
+  SubscriptionPlan: 'SubscriptionPlan',
+  OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting'
 } as const
 
@@ -117,6 +119,40 @@ export const OrganizationMemberScalarFieldEnum = {
 export type OrganizationMemberScalarFieldEnum = (typeof OrganizationMemberScalarFieldEnum)[keyof typeof OrganizationMemberScalarFieldEnum]
 
 
+export const SubscriptionPlanScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  priceMonthly: 'priceMonthly',
+  currency: 'currency',
+  clientLimit: 'clientLimit',
+  memberLimit: 'memberLimit',
+  features: 'features',
+  isPublic: 'isPublic',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SubscriptionPlanScalarFieldEnum = (typeof SubscriptionPlanScalarFieldEnum)[keyof typeof SubscriptionPlanScalarFieldEnum]
+
+
+export const OrganizationSubscriptionScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  subscriptionPlanId: 'subscriptionPlanId',
+  status: 'status',
+  startedAt: 'startedAt',
+  renewsAt: 'renewsAt',
+  cancelledAt: 'cancelledAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type OrganizationSubscriptionScalarFieldEnum = (typeof OrganizationSubscriptionScalarFieldEnum)[keyof typeof OrganizationSubscriptionScalarFieldEnum]
+
+
 export const SystemSettingScalarFieldEnum = {
   id: 'id',
   key: 'key',
@@ -134,6 +170,14 @@ export const SortOrder = {
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const JsonNullValueInput = {

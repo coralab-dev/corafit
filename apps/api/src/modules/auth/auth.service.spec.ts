@@ -5,6 +5,8 @@ import {
   OrganizationMemberStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionPlanStatus,
+  SubscriptionStatus,
   UserPlatformRole,
   UserStatus,
 } from 'db';
@@ -33,6 +35,12 @@ type TransactionMock = {
   };
   organizationMember: {
     create: ReturnType<typeof vi.fn>;
+  };
+  organizationSubscription: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  subscriptionPlan: {
+    findUnique: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -96,6 +104,51 @@ describe('AuthService', () => {
           updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
       },
+      organizationSubscription: {
+        create: vi.fn().mockResolvedValue({
+          id: 'subscription-id',
+          organizationId: 'organization-id',
+          subscriptionPlanId: 'trial-plan-id',
+          status: SubscriptionStatus.trial,
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          renewsAt: new Date('2026-01-31T00:00:00.000Z'),
+          cancelledAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          subscriptionPlan: {
+            id: 'trial-plan-id',
+            code: 'trial',
+            name: 'Trial',
+            description: 'Plan de prueba inicial para coaches nuevos',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 5,
+            memberLimit: 1,
+            features: null,
+            isPublic: true,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        }),
+      },
+      subscriptionPlan: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'trial-plan-id',
+          code: 'trial',
+          name: 'Trial',
+          description: 'Plan de prueba inicial para coaches nuevos',
+          priceMonthly: 0,
+          currency: 'MXN',
+          clientLimit: 5,
+          memberLimit: 1,
+          features: null,
+          isPublic: true,
+          status: SubscriptionPlanStatus.active,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        }),
+      },
     };
     prismaService = {
       user: {
@@ -133,6 +186,16 @@ describe('AuthService', () => {
     expect(result.member).toMatchObject({
       role: OrganizationMemberRole.owner,
       status: OrganizationMemberStatus.active,
+    });
+    expect(result.subscription).toMatchObject({
+      organizationId: 'organization-id',
+      subscriptionPlanId: 'trial-plan-id',
+      status: SubscriptionStatus.trial,
+      subscriptionPlan: {
+        code: 'trial',
+        clientLimit: 5,
+        memberLimit: 1,
+      },
     });
   });
 

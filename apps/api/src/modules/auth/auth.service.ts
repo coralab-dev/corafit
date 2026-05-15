@@ -9,12 +9,26 @@ import {
   OrganizationMemberStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionStatus,
+  type Organization,
+  type OrganizationMember,
+  type OrganizationSubscription,
+  type SubscriptionPlan,
   UserStatus,
   type User,
 } from 'db';
 import { SupabaseAuthService } from '../../common/auth/supabase-auth.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { RegisterProfileDto } from './dto/register-profile.dto';
+
+export type RegisterProfileResult = {
+  member: OrganizationMember;
+  organization: Organization;
+  subscription: OrganizationSubscription & {
+    subscriptionPlan: SubscriptionPlan;
+  };
+  user: User;
+};
 
 @Injectable()
 export class AuthService {
@@ -46,7 +60,7 @@ export class AuthService {
   async registerProfile(
     body: RegisterProfileDto,
     authorizationHeader: string | undefined,
-  ) {
+  ): Promise<RegisterProfileResult> {
     const name = this.normalizeName(body.name);
     const jwt = this.extractBearerToken(authorizationHeader);
     const supabaseUser = await this.supabaseAuthService.getUserFromJwt(jwt);
@@ -65,6 +79,14 @@ export class AuthService {
     }
 
     return this.prismaService.$transaction(async (transaction) => {
+      const trialPlan = await transaction.subscriptionPlan.findUnique({
+        where: { code: 'trial' },
+      });
+
+      if (!trialPlan) {
+        throw new BadRequestException('Trial subscription plan is not configured');
+      }
+
       const user = await transaction.user.create({
         data: {
           supabaseUserId: supabaseUser.id,
@@ -93,7 +115,24 @@ export class AuthService {
         },
       });
 
-      return { user, organization, member };
+      const startedAt = new Date();
+      const renewsAt = new Date(startedAt);
+      renewsAt.setDate(renewsAt.getDate() + 30);
+
+      const subscription = await transaction.organizationSubscription.create({
+        data: {
+          organizationId: organization.id,
+          subscriptionPlanId: trialPlan.id,
+          status: SubscriptionStatus.trial,
+          startedAt,
+          renewsAt,
+        },
+        include: {
+          subscriptionPlan: true,
+        },
+      });
+
+      return { user, organization, member, subscription };
     });
   }
 

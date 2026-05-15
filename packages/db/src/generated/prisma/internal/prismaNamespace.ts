@@ -389,6 +389,7 @@ export const ModelName = {
   OrganizationMember: 'OrganizationMember',
   Client: 'Client',
   ClientAccess: 'ClientAccess',
+  ClientPortalSession: 'ClientPortalSession',
   FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
@@ -408,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -779,6 +780,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ClientAccessCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ClientAccessCountAggregateOutputType> | number
+        }
+      }
+    }
+    ClientPortalSession: {
+      payload: Prisma.$ClientPortalSessionPayload<ExtArgs>
+      fields: Prisma.ClientPortalSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClientPortalSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClientPortalSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.ClientPortalSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClientPortalSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        findMany: {
+          args: Prisma.ClientPortalSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>[]
+        }
+        create: {
+          args: Prisma.ClientPortalSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        createMany: {
+          args: Prisma.ClientPortalSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClientPortalSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.ClientPortalSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        update: {
+          args: Prisma.ClientPortalSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClientPortalSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClientPortalSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClientPortalSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClientPortalSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPortalSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.ClientPortalSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClientPortalSession>
+        }
+        groupBy: {
+          args: Prisma.ClientPortalSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientPortalSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClientPortalSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientPortalSessionCountAggregateOutputType> | number
         }
       }
     }
@@ -1189,6 +1264,7 @@ export const ClientAccessScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
   tokenHash: 'tokenHash',
+  pinHash: 'pinHash',
   status: 'status',
   failedAttempts: 'failedAttempts',
   lockedUntil: 'lockedUntil',
@@ -1198,6 +1274,18 @@ export const ClientAccessScalarFieldEnum = {
 } as const
 
 export type ClientAccessScalarFieldEnum = (typeof ClientAccessScalarFieldEnum)[keyof typeof ClientAccessScalarFieldEnum]
+
+
+export const ClientPortalSessionScalarFieldEnum = {
+  id: 'id',
+  accessId: 'accessId',
+  sessionTokenHash: 'sessionTokenHash',
+  invalidated: 'invalidated',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ClientPortalSessionScalarFieldEnum = (typeof ClientPortalSessionScalarFieldEnum)[keyof typeof ClientPortalSessionScalarFieldEnum]
 
 
 export const FollowUpNoteScalarFieldEnum = {
@@ -1672,6 +1760,7 @@ export type GlobalOmitConfig = {
   organizationMember?: Prisma.OrganizationMemberOmit
   client?: Prisma.ClientOmit
   clientAccess?: Prisma.ClientAccessOmit
+  clientPortalSession?: Prisma.ClientPortalSessionOmit
   followUpNote?: Prisma.FollowUpNoteOmit
   subscriptionPlan?: Prisma.SubscriptionPlanOmit
   organizationSubscription?: Prisma.OrganizationSubscriptionOmit

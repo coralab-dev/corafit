@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
+import * as argon2 from 'argon2';
 import {
   ClientAccessStatus,
   ClientOperationalStatus,
@@ -30,6 +31,7 @@ type ClientAccessTokenResult = {
   };
   link: string;
   token: string;
+  pin: string;
 };
 
 @Injectable()
@@ -168,11 +170,14 @@ export class ClientsService {
 
     const token = this.generateToken();
     const tokenHash = this.hashToken(token);
+    const pin = this.generatePin();
+    const pinHash = await this.hashPin(pin);
     const access = existingAccess
       ? await this.prismaService.clientAccess.update({
           where: { clientId },
           data: {
             tokenHash,
+            pinHash,
             status: ClientAccessStatus.active,
             failedAttempts: 0,
             lockedUntil: null,
@@ -182,11 +187,12 @@ export class ClientsService {
           data: {
             clientId,
             tokenHash,
+            pinHash,
             status: ClientAccessStatus.active,
           },
         });
 
-    return this.formatAccessTokenResult(access, token);
+    return this.formatAccessTokenResult(access, token, pin);
   }
 
   async getAccess(clientId: string, member: OrganizationMember | undefined) {
@@ -217,22 +223,28 @@ export class ClientsService {
     await this.getClientForOrganization(clientId, organizationId);
     const token = this.generateToken();
     const tokenHash = this.hashToken(token);
+    const pin = this.generatePin();
+    const pinHash = await this.hashPin(pin);
     const access = await this.prismaService.clientAccess.upsert({
       where: { clientId },
       create: {
         clientId,
         tokenHash,
+        pinHash,
         status: ClientAccessStatus.active,
       },
       update: {
         tokenHash,
+        pinHash,
         status: ClientAccessStatus.active,
         failedAttempts: 0,
         lockedUntil: null,
       },
     });
 
-    return this.formatAccessTokenResult(access, token);
+    await this.invalidateSessions(access.id);
+
+    return this.formatAccessTokenResult(access, token, pin);
   }
 
   async disableAccess(clientId: string, member: OrganizationMember | undefined) {
@@ -246,10 +258,13 @@ export class ClientsService {
       throw new NotFoundException('Client access was not found');
     }
 
+    await this.invalidateSessions(access.id);
+
     return this.prismaService.clientAccess.update({
       where: { clientId },
       data: {
         tokenHash: null,
+        pinHash: null,
         status: ClientAccessStatus.disabled,
       },
     });
@@ -277,6 +292,7 @@ export class ClientsService {
   private formatAccessTokenResult(
     access: { clientId: string; id: string; status: ClientAccessStatus },
     token: string,
+    pin?: string,
   ): ClientAccessTokenResult {
     return {
       access: {
@@ -286,6 +302,7 @@ export class ClientsService {
       },
       link: `${this.configService.get('WEB_APP_URL', { infer: true })}/c/${token}`,
       token,
+      pin: pin ?? '',
     };
   }
 
@@ -455,5 +472,37 @@ export class ClientsService {
     }
 
     return trimmed;
+  }
+
+  generatePin(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
+  async hashPin(pin: string): Promise<string> {
+    return argon2.hash(pin, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 1,
+    });
+  }
+
+  async verifyPin(pin: string, hash: string): Promise<boolean> {
+    if (!hash) {
+      return false;
+    }
+
+    try {
+      return await argon2.verify(hash, pin);
+    } catch {
+      return false;
+    }
+  }
+
+  async invalidateSessions(accessId: string): Promise<void> {
+    await this.prismaService.clientPortalSession.updateMany({
+      where: { accessId, invalidated: false },
+      data: { invalidated: true },
+    });
   }
 }

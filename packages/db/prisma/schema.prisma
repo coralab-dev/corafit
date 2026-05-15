@@ -167,6 +167,7 @@ model ClientAccess {
   id             String             @id @default(uuid())
   clientId       String             @unique @map("client_id")
   tokenHash      String?            @unique @map("token_hash")
+  pinHash        String?            @map("pin_hash")
   status         ClientAccessStatus @default(active)
   failedAttempts Int                @default(0) @map("failed_attempts")
   lockedUntil    DateTime?          @map("locked_until")
@@ -174,9 +175,25 @@ model ClientAccess {
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
 
-  client Client @relation(fields: [clientId], references: [id])
+  client   Client                @relation(fields: [clientId], references: [id])
+  sessions ClientPortalSession[]
 
   @@map("client_accesses")
+}
+
+model ClientPortalSession {
+  id               String   @id @default(uuid())
+  accessId         String   @map("access_id")
+  sessionTokenHash String   @unique @map("session_token_hash")
+  invalidated      Boolean  @default(false) @map("invalidated")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  access ClientAccess @relation(fields: [accessId], references: [id])
+
+  @@index([accessId])
+  @@index([invalidated])
+  @@map("client_portal_sessions")
 }
 
 model FollowUpNote {

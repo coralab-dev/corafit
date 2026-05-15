@@ -38,6 +38,7 @@ export type ClientAccessMinAggregateOutputType = {
   id: string | null
   clientId: string | null
   tokenHash: string | null
+  pinHash: string | null
   status: $Enums.ClientAccessStatus | null
   failedAttempts: number | null
   lockedUntil: Date | null
@@ -50,6 +51,7 @@ export type ClientAccessMaxAggregateOutputType = {
   id: string | null
   clientId: string | null
   tokenHash: string | null
+  pinHash: string | null
   status: $Enums.ClientAccessStatus | null
   failedAttempts: number | null
   lockedUntil: Date | null
@@ -62,6 +64,7 @@ export type ClientAccessCountAggregateOutputType = {
   id: number
   clientId: number
   tokenHash: number
+  pinHash: number
   status: number
   failedAttempts: number
   lockedUntil: number
@@ -84,6 +87,7 @@ export type ClientAccessMinAggregateInputType = {
   id?: true
   clientId?: true
   tokenHash?: true
+  pinHash?: true
   status?: true
   failedAttempts?: true
   lockedUntil?: true
@@ -96,6 +100,7 @@ export type ClientAccessMaxAggregateInputType = {
   id?: true
   clientId?: true
   tokenHash?: true
+  pinHash?: true
   status?: true
   failedAttempts?: true
   lockedUntil?: true
@@ -108,6 +113,7 @@ export type ClientAccessCountAggregateInputType = {
   id?: true
   clientId?: true
   tokenHash?: true
+  pinHash?: true
   status?: true
   failedAttempts?: true
   lockedUntil?: true
@@ -207,6 +213,7 @@ export type ClientAccessGroupByOutputType = {
   id: string
   clientId: string
   tokenHash: string | null
+  pinHash: string | null
   status: $Enums.ClientAccessStatus
   failedAttempts: number
   lockedUntil: Date | null
@@ -242,6 +249,7 @@ export type ClientAccessWhereInput = {
   id?: Prisma.StringFilter<"ClientAccess"> | string
   clientId?: Prisma.StringFilter<"ClientAccess"> | string
   tokenHash?: Prisma.StringNullableFilter<"ClientAccess"> | string | null
+  pinHash?: Prisma.StringNullableFilter<"ClientAccess"> | string | null
   status?: Prisma.EnumClientAccessStatusFilter<"ClientAccess"> | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFilter<"ClientAccess"> | number
   lockedUntil?: Prisma.DateTimeNullableFilter<"ClientAccess"> | Date | string | null
@@ -249,12 +257,14 @@ export type ClientAccessWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"ClientAccess"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientAccess"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  sessions?: Prisma.ClientPortalSessionListRelationFilter
 }
 
 export type ClientAccessOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  pinHash?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   failedAttempts?: Prisma.SortOrder
   lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -262,6 +272,7 @@ export type ClientAccessOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
+  sessions?: Prisma.ClientPortalSessionOrderByRelationAggregateInput
 }
 
 export type ClientAccessWhereUniqueInput = Prisma.AtLeast<{
@@ -271,6 +282,7 @@ export type ClientAccessWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.ClientAccessWhereInput | Prisma.ClientAccessWhereInput[]
   OR?: Prisma.ClientAccessWhereInput[]
   NOT?: Prisma.ClientAccessWhereInput | Prisma.ClientAccessWhereInput[]
+  pinHash?: Prisma.StringNullableFilter<"ClientAccess"> | string | null
   status?: Prisma.EnumClientAccessStatusFilter<"ClientAccess"> | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFilter<"ClientAccess"> | number
   lockedUntil?: Prisma.DateTimeNullableFilter<"ClientAccess"> | Date | string | null
@@ -278,12 +290,14 @@ export type ClientAccessWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"ClientAccess"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ClientAccess"> | Date | string
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
+  sessions?: Prisma.ClientPortalSessionListRelationFilter
 }, "id" | "clientId" | "tokenHash">
 
 export type ClientAccessOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  pinHash?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   failedAttempts?: Prisma.SortOrder
   lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -304,6 +318,7 @@ export type ClientAccessScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"ClientAccess"> | string
   clientId?: Prisma.StringWithAggregatesFilter<"ClientAccess"> | string
   tokenHash?: Prisma.StringNullableWithAggregatesFilter<"ClientAccess"> | string | null
+  pinHash?: Prisma.StringNullableWithAggregatesFilter<"ClientAccess"> | string | null
   status?: Prisma.EnumClientAccessStatusWithAggregatesFilter<"ClientAccess"> | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntWithAggregatesFilter<"ClientAccess"> | number
   lockedUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"ClientAccess"> | Date | string | null
@@ -315,6 +330,7 @@ export type ClientAccessScalarWhereWithAggregatesInput = {
 export type ClientAccessCreateInput = {
   id?: string
   tokenHash?: string | null
+  pinHash?: string | null
   status?: $Enums.ClientAccessStatus
   failedAttempts?: number
   lockedUntil?: Date | string | null
@@ -322,23 +338,27 @@ export type ClientAccessCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   client: Prisma.ClientCreateNestedOneWithoutAccessInput
+  sessions?: Prisma.ClientPortalSessionCreateNestedManyWithoutAccessInput
 }
 
 export type ClientAccessUncheckedCreateInput = {
   id?: string
   clientId: string
   tokenHash?: string | null
+  pinHash?: string | null
   status?: $Enums.ClientAccessStatus
   failedAttempts?: number
   lockedUntil?: Date | string | null
   lastAccessAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessions?: Prisma.ClientPortalSessionUncheckedCreateNestedManyWithoutAccessInput
 }
 
 export type ClientAccessUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -346,24 +366,28 @@ export type ClientAccessUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.ClientUpdateOneRequiredWithoutAccessNestedInput
+  sessions?: Prisma.ClientPortalSessionUpdateManyWithoutAccessNestedInput
 }
 
 export type ClientAccessUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastAccessAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.ClientPortalSessionUncheckedUpdateManyWithoutAccessNestedInput
 }
 
 export type ClientAccessCreateManyInput = {
   id?: string
   clientId: string
   tokenHash?: string | null
+  pinHash?: string | null
   status?: $Enums.ClientAccessStatus
   failedAttempts?: number
   lockedUntil?: Date | string | null
@@ -375,6 +399,7 @@ export type ClientAccessCreateManyInput = {
 export type ClientAccessUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -387,6 +412,7 @@ export type ClientAccessUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   clientId?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -404,6 +430,7 @@ export type ClientAccessCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  pinHash?: Prisma.SortOrder
   status?: Prisma.SortOrder
   failedAttempts?: Prisma.SortOrder
   lockedUntil?: Prisma.SortOrder
@@ -420,6 +447,7 @@ export type ClientAccessMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  pinHash?: Prisma.SortOrder
   status?: Prisma.SortOrder
   failedAttempts?: Prisma.SortOrder
   lockedUntil?: Prisma.SortOrder
@@ -432,6 +460,7 @@ export type ClientAccessMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  pinHash?: Prisma.SortOrder
   status?: Prisma.SortOrder
   failedAttempts?: Prisma.SortOrder
   lockedUntil?: Prisma.SortOrder
@@ -442,6 +471,11 @@ export type ClientAccessMinOrderByAggregateInput = {
 
 export type ClientAccessSumOrderByAggregateInput = {
   failedAttempts?: Prisma.SortOrder
+}
+
+export type ClientAccessScalarRelationFilter = {
+  is?: Prisma.ClientAccessWhereInput
+  isNot?: Prisma.ClientAccessWhereInput
 }
 
 export type ClientAccessCreateNestedOneWithoutClientInput = {
@@ -488,26 +522,44 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type ClientAccessCreateNestedOneWithoutSessionsInput = {
+  create?: Prisma.XOR<Prisma.ClientAccessCreateWithoutSessionsInput, Prisma.ClientAccessUncheckedCreateWithoutSessionsInput>
+  connectOrCreate?: Prisma.ClientAccessCreateOrConnectWithoutSessionsInput
+  connect?: Prisma.ClientAccessWhereUniqueInput
+}
+
+export type ClientAccessUpdateOneRequiredWithoutSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientAccessCreateWithoutSessionsInput, Prisma.ClientAccessUncheckedCreateWithoutSessionsInput>
+  connectOrCreate?: Prisma.ClientAccessCreateOrConnectWithoutSessionsInput
+  upsert?: Prisma.ClientAccessUpsertWithoutSessionsInput
+  connect?: Prisma.ClientAccessWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientAccessUpdateToOneWithWhereWithoutSessionsInput, Prisma.ClientAccessUpdateWithoutSessionsInput>, Prisma.ClientAccessUncheckedUpdateWithoutSessionsInput>
+}
+
 export type ClientAccessCreateWithoutClientInput = {
   id?: string
   tokenHash?: string | null
+  pinHash?: string | null
   status?: $Enums.ClientAccessStatus
   failedAttempts?: number
   lockedUntil?: Date | string | null
   lastAccessAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessions?: Prisma.ClientPortalSessionCreateNestedManyWithoutAccessInput
 }
 
 export type ClientAccessUncheckedCreateWithoutClientInput = {
   id?: string
   tokenHash?: string | null
+  pinHash?: string | null
   status?: $Enums.ClientAccessStatus
   failedAttempts?: number
   lockedUntil?: Date | string | null
   lastAccessAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessions?: Prisma.ClientPortalSessionUncheckedCreateNestedManyWithoutAccessInput
 }
 
 export type ClientAccessCreateOrConnectWithoutClientInput = {
@@ -529,17 +581,89 @@ export type ClientAccessUpdateToOneWithWhereWithoutClientInput = {
 export type ClientAccessUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastAccessAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.ClientPortalSessionUpdateManyWithoutAccessNestedInput
 }
 
 export type ClientAccessUncheckedUpdateWithoutClientInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
+  failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastAccessAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.ClientPortalSessionUncheckedUpdateManyWithoutAccessNestedInput
+}
+
+export type ClientAccessCreateWithoutSessionsInput = {
+  id?: string
+  tokenHash?: string | null
+  pinHash?: string | null
+  status?: $Enums.ClientAccessStatus
+  failedAttempts?: number
+  lockedUntil?: Date | string | null
+  lastAccessAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  client: Prisma.ClientCreateNestedOneWithoutAccessInput
+}
+
+export type ClientAccessUncheckedCreateWithoutSessionsInput = {
+  id?: string
+  clientId: string
+  tokenHash?: string | null
+  pinHash?: string | null
+  status?: $Enums.ClientAccessStatus
+  failedAttempts?: number
+  lockedUntil?: Date | string | null
+  lastAccessAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ClientAccessCreateOrConnectWithoutSessionsInput = {
+  where: Prisma.ClientAccessWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientAccessCreateWithoutSessionsInput, Prisma.ClientAccessUncheckedCreateWithoutSessionsInput>
+}
+
+export type ClientAccessUpsertWithoutSessionsInput = {
+  update: Prisma.XOR<Prisma.ClientAccessUpdateWithoutSessionsInput, Prisma.ClientAccessUncheckedUpdateWithoutSessionsInput>
+  create: Prisma.XOR<Prisma.ClientAccessCreateWithoutSessionsInput, Prisma.ClientAccessUncheckedCreateWithoutSessionsInput>
+  where?: Prisma.ClientAccessWhereInput
+}
+
+export type ClientAccessUpdateToOneWithWhereWithoutSessionsInput = {
+  where?: Prisma.ClientAccessWhereInput
+  data: Prisma.XOR<Prisma.ClientAccessUpdateWithoutSessionsInput, Prisma.ClientAccessUncheckedUpdateWithoutSessionsInput>
+}
+
+export type ClientAccessUpdateWithoutSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
+  failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastAccessAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  client?: Prisma.ClientUpdateOneRequiredWithoutAccessNestedInput
+}
+
+export type ClientAccessUncheckedUpdateWithoutSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumClientAccessStatusFieldUpdateOperationsInput | $Enums.ClientAccessStatus
   failedAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -548,12 +672,42 @@ export type ClientAccessUncheckedUpdateWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+
+/**
+ * Count Type ClientAccessCountOutputType
+ */
+
+export type ClientAccessCountOutputType = {
+  sessions: number
+}
+
+export type ClientAccessCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  sessions?: boolean | ClientAccessCountOutputTypeCountSessionsArgs
+}
+
+/**
+ * ClientAccessCountOutputType without action
+ */
+export type ClientAccessCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientAccessCountOutputType
+   */
+  select?: Prisma.ClientAccessCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ClientAccessCountOutputType without action
+ */
+export type ClientAccessCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientPortalSessionWhereInput
+}
 
 
 export type ClientAccessSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
   tokenHash?: boolean
+  pinHash?: boolean
   status?: boolean
   failedAttempts?: boolean
   lockedUntil?: boolean
@@ -561,12 +715,15 @@ export type ClientAccessSelect<ExtArgs extends runtime.Types.Extensions.Internal
   createdAt?: boolean
   updatedAt?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  sessions?: boolean | Prisma.ClientAccess$sessionsArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientAccessCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientAccess"]>
 
 export type ClientAccessSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   clientId?: boolean
   tokenHash?: boolean
+  pinHash?: boolean
   status?: boolean
   failedAttempts?: boolean
   lockedUntil?: boolean
@@ -580,6 +737,7 @@ export type ClientAccessSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   id?: boolean
   clientId?: boolean
   tokenHash?: boolean
+  pinHash?: boolean
   status?: boolean
   failedAttempts?: boolean
   lockedUntil?: boolean
@@ -593,6 +751,7 @@ export type ClientAccessSelectScalar = {
   id?: boolean
   clientId?: boolean
   tokenHash?: boolean
+  pinHash?: boolean
   status?: boolean
   failedAttempts?: boolean
   lockedUntil?: boolean
@@ -601,9 +760,11 @@ export type ClientAccessSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ClientAccessOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "tokenHash" | "status" | "failedAttempts" | "lockedUntil" | "lastAccessAt" | "createdAt" | "updatedAt", ExtArgs["result"]["clientAccess"]>
+export type ClientAccessOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "clientId" | "tokenHash" | "pinHash" | "status" | "failedAttempts" | "lockedUntil" | "lastAccessAt" | "createdAt" | "updatedAt", ExtArgs["result"]["clientAccess"]>
 export type ClientAccessInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
+  sessions?: boolean | Prisma.ClientAccess$sessionsArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientAccessCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientAccessIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -616,11 +777,13 @@ export type $ClientAccessPayload<ExtArgs extends runtime.Types.Extensions.Intern
   name: "ClientAccess"
   objects: {
     client: Prisma.$ClientPayload<ExtArgs>
+    sessions: Prisma.$ClientPortalSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     clientId: string
     tokenHash: string | null
+    pinHash: string | null
     status: $Enums.ClientAccessStatus
     failedAttempts: number
     lockedUntil: Date | null
@@ -1022,6 +1185,7 @@ readonly fields: ClientAccessFieldRefs;
 export interface Prisma__ClientAccessClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   client<T extends Prisma.ClientDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientDefaultArgs<ExtArgs>>): Prisma.Prisma__ClientClient<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  sessions<T extends Prisma.ClientAccess$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientAccess$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientPortalSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1054,6 +1218,7 @@ export interface ClientAccessFieldRefs {
   readonly id: Prisma.FieldRef<"ClientAccess", 'String'>
   readonly clientId: Prisma.FieldRef<"ClientAccess", 'String'>
   readonly tokenHash: Prisma.FieldRef<"ClientAccess", 'String'>
+  readonly pinHash: Prisma.FieldRef<"ClientAccess", 'String'>
   readonly status: Prisma.FieldRef<"ClientAccess", 'ClientAccessStatus'>
   readonly failedAttempts: Prisma.FieldRef<"ClientAccess", 'Int'>
   readonly lockedUntil: Prisma.FieldRef<"ClientAccess", 'DateTime'>
@@ -1458,6 +1623,30 @@ export type ClientAccessDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.
    * Limit how many ClientAccesses to delete.
    */
   limit?: number
+}
+
+/**
+ * ClientAccess.sessions
+ */
+export type ClientAccess$sessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientPortalSession
+   */
+  select?: Prisma.ClientPortalSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClientPortalSession
+   */
+  omit?: Prisma.ClientPortalSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientPortalSessionInclude<ExtArgs> | null
+  where?: Prisma.ClientPortalSessionWhereInput
+  orderBy?: Prisma.ClientPortalSessionOrderByWithRelationInput | Prisma.ClientPortalSessionOrderByWithRelationInput[]
+  cursor?: Prisma.ClientPortalSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientPortalSessionScalarFieldEnum | Prisma.ClientPortalSessionScalarFieldEnum[]
 }
 
 /**

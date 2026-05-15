@@ -326,6 +326,17 @@ describe('ClientsController', () => {
       expect(result1.link).toMatch(/^https:\/\/corafit-web\.vercel\.app\/c\/.+$/);
       expect(result2.link).toMatch(/^https:\/\/corafit-web\.vercel\.app\/c\/.+$/);
     });
+
+    it('maps regenerate-pin route handler to regenerate access', async () => {
+      const request = createMockRequest();
+
+      await controller.regenerateAccess('client-id', request);
+
+      expect(service.regenerateAccess).toHaveBeenCalledWith(
+        'client-id',
+        request.organizationMember,
+      );
+    });
   });
 
   describe('disableAccess', () => {

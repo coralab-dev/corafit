@@ -28,6 +28,9 @@ type PrismaServiceMock = {
     update: ReturnType<typeof vi.fn>;
     upsert: ReturnType<typeof vi.fn>;
   };
+  clientPortalSession: {
+    updateMany: ReturnType<typeof vi.fn>;
+  };
   followUpNote: {
     findMany: ReturnType<typeof vi.fn>;
   };
@@ -36,6 +39,7 @@ type PrismaServiceMock = {
 type ClientAccessCreateArgs = {
   data: {
     clientId: string;
+    pinHash: string;
     status: ClientAccessStatus;
     tokenHash: string;
   };
@@ -44,6 +48,7 @@ type ClientAccessCreateArgs = {
 type ClientAccessUpsertArgs = {
   create: {
     clientId: string;
+    pinHash: string;
     status: ClientAccessStatus;
     tokenHash: string;
   };
@@ -108,6 +113,7 @@ describe('ClientsService', () => {
           Promise.resolve({
             id: 'access-id',
             clientId: data.clientId,
+            pinHash: data.pinHash,
             tokenHash: data.tokenHash,
             status: data.status,
             failedAttempts: 0,
@@ -123,6 +129,7 @@ describe('ClientsService', () => {
           Promise.resolve({
             id: 'access-id',
             clientId: create.clientId,
+            pinHash: create.pinHash,
             tokenHash: create.tokenHash,
             status: create.status,
             failedAttempts: 0,
@@ -132,6 +139,9 @@ describe('ClientsService', () => {
             updatedAt: new Date('2026-01-01T00:00:00.000Z'),
           }),
         ),
+      },
+      clientPortalSession: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       followUpNote: {
         findMany: vi.fn().mockResolvedValue([]),
@@ -309,6 +319,7 @@ describe('ClientsService', () => {
       where: { clientId: 'client-id' },
       data: {
         tokenHash: null,
+        pinHash: null,
         status: ClientAccessStatus.disabled,
       },
     });
@@ -370,12 +381,18 @@ describe('ClientsService', () => {
         update: expect.objectContaining({
           status: ClientAccessStatus.active,
           tokenHash: expect.any(String),
+          pinHash: expect.any(String),
         }),
       }),
     );
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: { accessId: 'access-id', invalidated: false },
+      data: { invalidated: true },
+    });
   });
 
   it('generates unique tokens in a practical sample', async () => {
+    vi.spyOn(service, 'hashPin').mockResolvedValue('pin-hash');
     const tokens = new Set<string>();
 
     for (let index = 0; index < 1000; index += 1) {
@@ -394,6 +411,57 @@ describe('ClientsService', () => {
         tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       },
       include: { client: true },
+    });
+  });
+
+  describe('PIN operations', () => {
+    it('generates a 6 digit numeric PIN', () => {
+      const pin = service.generatePin();
+
+      expect(pin).toMatch(/^\d{6}$/);
+      expect(Number(pin)).toBeGreaterThanOrEqual(100000);
+      expect(Number(pin)).toBeLessThanOrEqual(999999);
+    });
+
+    it('generates unique PINs in a sample', () => {
+      const pins = new Set<string>();
+
+      for (let i = 0; i < 100; i += 1) {
+        pins.add(service.generatePin());
+      }
+
+      expect(pins.size).toBe(100);
+    });
+
+    it('hashes PIN with Argon2id format', async () => {
+      const pin = '123456';
+      const hash = await service.hashPin(pin);
+
+      expect(hash).not.toBe(pin);
+      expect(hash).toMatch(/^\$argon2/);
+    });
+
+    it('verifies correct PIN', async () => {
+      const pin = '123456';
+      const hash = await service.hashPin(pin);
+
+      const result = await service.verifyPin(pin, hash);
+
+      expect(result).toBe(true);
+    });
+
+    it('rejects incorrect PIN', async () => {
+      const hash = await service.hashPin('123456');
+
+      const result = await service.verifyPin('654321', hash);
+
+      expect(result).toBe(false);
+    });
+
+    it('rejects PIN when hash is empty', async () => {
+      const result = await service.verifyPin('123456', '');
+
+      expect(result).toBe(false);
     });
   });
 });

@@ -43,6 +43,11 @@ export type Client = Prisma.ClientModel
  */
 export type ClientAccess = Prisma.ClientAccessModel
 /**
+ * Model ClientPortalSession
+ * 
+ */
+export type ClientPortalSession = Prisma.ClientPortalSessionModel
+/**
  * Model FollowUpNote
  * 
  */

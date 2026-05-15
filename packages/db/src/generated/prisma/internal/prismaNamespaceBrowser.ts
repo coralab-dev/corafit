@@ -56,6 +56,7 @@ export const ModelName = {
   OrganizationMember: 'OrganizationMember',
   Client: 'Client',
   ClientAccess: 'ClientAccess',
+  ClientPortalSession: 'ClientPortalSession',
   FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
@@ -150,6 +151,7 @@ export const ClientAccessScalarFieldEnum = {
   id: 'id',
   clientId: 'clientId',
   tokenHash: 'tokenHash',
+  pinHash: 'pinHash',
   status: 'status',
   failedAttempts: 'failedAttempts',
   lockedUntil: 'lockedUntil',
@@ -159,6 +161,18 @@ export const ClientAccessScalarFieldEnum = {
 } as const
 
 export type ClientAccessScalarFieldEnum = (typeof ClientAccessScalarFieldEnum)[keyof typeof ClientAccessScalarFieldEnum]
+
+
+export const ClientPortalSessionScalarFieldEnum = {
+  id: 'id',
+  accessId: 'accessId',
+  sessionTokenHash: 'sessionTokenHash',
+  invalidated: 'invalidated',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ClientPortalSessionScalarFieldEnum = (typeof ClientPortalSessionScalarFieldEnum)[keyof typeof ClientPortalSessionScalarFieldEnum]
 
 
 export const FollowUpNoteScalarFieldEnum = {

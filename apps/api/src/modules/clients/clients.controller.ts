@@ -113,7 +113,7 @@ export class ClientsController {
 
   @UseGuards(OrganizationGuard, RoleGuard)
   @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
-  @Post(':clientId/access/regenerate-token')
+  @Post(':clientId/access/regenerate-pin')
   regenerateAccess(
     @Param('clientId') clientId: string,
     @Req() request: AuthenticatedRequest,

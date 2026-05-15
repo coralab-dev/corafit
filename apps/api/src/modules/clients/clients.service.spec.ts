@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ClientAccessStatus,
@@ -196,6 +197,151 @@ describe('ClientsService', () => {
 
   it('returns an empty notes array when the client has no notes', async () => {
     await expect(service.getNotes('client-id', createMember())).resolves.toEqual([]);
+  });
+
+  it('getById throws NotFoundException when client not in organization', async () => {
+    prismaService.client.findFirst.mockResolvedValueOnce(null);
+
+    await expect(service.getById('client-id', createMember())).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('getById throws NotFoundException when client does not exist', async () => {
+    prismaService.client.findFirst.mockResolvedValueOnce(null);
+
+    await expect(service.getById('non-existent-id', createMember())).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('createAccess throws ConflictException when active access already exists', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce({
+      id: 'existing-access-id',
+      clientId: 'client-id',
+      tokenHash: 'somehash',
+      status: ClientAccessStatus.active,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastAccessAt: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    await expect(service.createAccess('client-id', createMember())).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('createAccess reuses disabled access with new token', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce({
+      id: 'existing-access-id',
+      clientId: 'client-id',
+      tokenHash: 'oldhash',
+      status: ClientAccessStatus.disabled,
+      failedAttempts: 5,
+      lockedUntil: new Date('2026-01-01T12:00:00.000Z'),
+      lastAccessAt: new Date('2026-01-01T10:00:00.000Z'),
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    prismaService.clientAccess.update.mockResolvedValueOnce({
+      id: 'existing-access-id',
+      clientId: 'client-id',
+      tokenHash: 'newhash',
+      status: ClientAccessStatus.active,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastAccessAt: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const result = await service.createAccess('client-id', createMember());
+
+    expect(prismaService.clientAccess.update).toHaveBeenCalledWith({
+      where: { clientId: 'client-id' },
+      data: expect.objectContaining({
+        tokenHash: expect.any(String),
+        status: ClientAccessStatus.active,
+        failedAttempts: 0,
+        lockedUntil: null,
+      }),
+    });
+    expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it('disableAccess throws NotFoundException when no access exists', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.disableAccess('client-id', createMember())).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('disableAccess sets tokenHash to null and status to disabled', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce({
+      id: 'access-id',
+      clientId: 'client-id',
+      tokenHash: 'somehash',
+      status: ClientAccessStatus.active,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastAccessAt: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    prismaService.clientAccess.update.mockResolvedValueOnce({
+      id: 'access-id',
+      clientId: 'client-id',
+      tokenHash: null,
+      status: ClientAccessStatus.disabled,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastAccessAt: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const result = await service.disableAccess('client-id', createMember());
+
+    expect(prismaService.clientAccess.update).toHaveBeenCalledWith({
+      where: { clientId: 'client-id' },
+      data: {
+        tokenHash: null,
+        status: ClientAccessStatus.disabled,
+      },
+    });
+    expect(result.tokenHash).toBeNull();
+    expect(result.status).toBe(ClientAccessStatus.disabled);
+  });
+
+  it('list filters by operationalStatus when provided', async () => {
+    await service.list({ status: ClientOperationalStatus.paused }, createMember());
+
+    expect(prismaService.client.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          operationalStatus: ClientOperationalStatus.paused,
+        }),
+      }),
+    );
+  });
+
+  it('list handles pagination with page and limit', async () => {
+    prismaService.client.findMany.mockResolvedValueOnce([createClient(), createClient()]);
+    prismaService.client.count.mockResolvedValueOnce(2);
+
+    const result = await service.list({ page: '2', limit: '10' }, createMember());
+
+    expect(prismaService.client.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 10,
+      }),
+    );
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(10);
   });
 
   it('generates a 32 byte base64url token and stores only its hash', async () => {

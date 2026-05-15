@@ -15,3 +15,6 @@ build/
 
 documentacion/
 docs/
+
+.agents/
+skills-lock.json

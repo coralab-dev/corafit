@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import type { AppConfig } from '../../config/env.schema';
 
 type SupabaseDatabase = {
@@ -26,6 +27,9 @@ export class SupabaseAuthService {
           autoRefreshToken: false,
           persistSession: false,
           detectSessionInUrl: false,
+        },
+        realtime: {
+          transport: WebSocket as never,
         },
       },
     );

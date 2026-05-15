@@ -200,6 +200,8 @@ export type OrganizationMemberWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"OrganizationMember"> | Date | string
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  assignedClients?: Prisma.ClientListRelationFilter
+  createdFollowUpNotes?: Prisma.FollowUpNoteListRelationFilter
 }
 
 export type OrganizationMemberOrderByWithRelationInput = {
@@ -212,6 +214,8 @@ export type OrganizationMemberOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   organization?: Prisma.OrganizationOrderByWithRelationInput
   user?: Prisma.UserOrderByWithRelationInput
+  assignedClients?: Prisma.ClientOrderByRelationAggregateInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteOrderByRelationAggregateInput
 }
 
 export type OrganizationMemberWhereUniqueInput = Prisma.AtLeast<{
@@ -228,6 +232,8 @@ export type OrganizationMemberWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"OrganizationMember"> | Date | string
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  assignedClients?: Prisma.ClientListRelationFilter
+  createdFollowUpNotes?: Prisma.FollowUpNoteListRelationFilter
 }, "id" | "organizationId_userId">
 
 export type OrganizationMemberOrderByWithAggregationInput = {
@@ -264,6 +270,8 @@ export type OrganizationMemberCreateInput = {
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
   user: Prisma.UserCreateNestedOneWithoutOrganizationMembersInput
+  assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberUncheckedCreateInput = {
@@ -274,6 +282,8 @@ export type OrganizationMemberUncheckedCreateInput = {
   status?: $Enums.OrganizationMemberStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberUpdateInput = {
@@ -284,6 +294,8 @@ export type OrganizationMemberUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutMembersNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutOrganizationMembersNestedInput
+  assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberUncheckedUpdateInput = {
@@ -294,6 +306,8 @@ export type OrganizationMemberUncheckedUpdateInput = {
   status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberCreateManyInput = {
@@ -367,6 +381,16 @@ export type OrganizationMemberMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type OrganizationMemberNullableScalarRelationFilter = {
+  is?: Prisma.OrganizationMemberWhereInput | null
+  isNot?: Prisma.OrganizationMemberWhereInput | null
+}
+
+export type OrganizationMemberScalarRelationFilter = {
+  is?: Prisma.OrganizationMemberWhereInput
+  isNot?: Prisma.OrganizationMemberWhereInput
 }
 
 export type OrganizationMemberCreateNestedManyWithoutUserInput = {
@@ -461,6 +485,36 @@ export type EnumOrganizationMemberStatusFieldUpdateOperationsInput = {
   set?: $Enums.OrganizationMemberStatus
 }
 
+export type OrganizationMemberCreateNestedOneWithoutAssignedClientsInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedCreateWithoutAssignedClientsInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutAssignedClientsInput
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+}
+
+export type OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedCreateWithoutAssignedClientsInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutAssignedClientsInput
+  upsert?: Prisma.OrganizationMemberUpsertWithoutAssignedClientsInput
+  disconnect?: Prisma.OrganizationMemberWhereInput | boolean
+  delete?: Prisma.OrganizationMemberWhereInput | boolean
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationMemberUpdateToOneWithWhereWithoutAssignedClientsInput, Prisma.OrganizationMemberUpdateWithoutAssignedClientsInput>, Prisma.OrganizationMemberUncheckedUpdateWithoutAssignedClientsInput>
+}
+
+export type OrganizationMemberCreateNestedOneWithoutCreatedFollowUpNotesInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutCreatedFollowUpNotesInput
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+}
+
+export type OrganizationMemberUpdateOneRequiredWithoutCreatedFollowUpNotesNestedInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutCreatedFollowUpNotesInput
+  upsert?: Prisma.OrganizationMemberUpsertWithoutCreatedFollowUpNotesInput
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationMemberUpdateToOneWithWhereWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUpdateWithoutCreatedFollowUpNotesInput>, Prisma.OrganizationMemberUncheckedUpdateWithoutCreatedFollowUpNotesInput>
+}
+
 export type OrganizationMemberCreateWithoutUserInput = {
   id?: string
   role: $Enums.OrganizationMemberRole
@@ -468,6 +522,8 @@ export type OrganizationMemberCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
+  assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberUncheckedCreateWithoutUserInput = {
@@ -477,6 +533,8 @@ export type OrganizationMemberUncheckedCreateWithoutUserInput = {
   status?: $Enums.OrganizationMemberStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberCreateOrConnectWithoutUserInput = {
@@ -525,6 +583,8 @@ export type OrganizationMemberCreateWithoutOrganizationInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutOrganizationMembersInput
+  assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberUncheckedCreateWithoutOrganizationInput = {
@@ -534,6 +594,8 @@ export type OrganizationMemberUncheckedCreateWithoutOrganizationInput = {
   status?: $Enums.OrganizationMemberStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type OrganizationMemberCreateOrConnectWithoutOrganizationInput = {
@@ -562,6 +624,126 @@ export type OrganizationMemberUpdateManyWithWhereWithoutOrganizationInput = {
   data: Prisma.XOR<Prisma.OrganizationMemberUpdateManyMutationInput, Prisma.OrganizationMemberUncheckedUpdateManyWithoutOrganizationInput>
 }
 
+export type OrganizationMemberCreateWithoutAssignedClientsInput = {
+  id?: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
+  user: Prisma.UserCreateNestedOneWithoutOrganizationMembersInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
+}
+
+export type OrganizationMemberUncheckedCreateWithoutAssignedClientsInput = {
+  id?: string
+  organizationId: string
+  userId: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type OrganizationMemberCreateOrConnectWithoutAssignedClientsInput = {
+  where: Prisma.OrganizationMemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedCreateWithoutAssignedClientsInput>
+}
+
+export type OrganizationMemberUpsertWithoutAssignedClientsInput = {
+  update: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedUpdateWithoutAssignedClientsInput>
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedCreateWithoutAssignedClientsInput>
+  where?: Prisma.OrganizationMemberWhereInput
+}
+
+export type OrganizationMemberUpdateToOneWithWhereWithoutAssignedClientsInput = {
+  where?: Prisma.OrganizationMemberWhereInput
+  data: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutAssignedClientsInput, Prisma.OrganizationMemberUncheckedUpdateWithoutAssignedClientsInput>
+}
+
+export type OrganizationMemberUpdateWithoutAssignedClientsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutMembersNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutOrganizationMembersNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
+}
+
+export type OrganizationMemberUncheckedUpdateWithoutAssignedClientsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type OrganizationMemberCreateWithoutCreatedFollowUpNotesInput = {
+  id?: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
+  user: Prisma.UserCreateNestedOneWithoutOrganizationMembersInput
+  assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
+}
+
+export type OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput = {
+  id?: string
+  organizationId: string
+  userId: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
+}
+
+export type OrganizationMemberCreateOrConnectWithoutCreatedFollowUpNotesInput = {
+  where: Prisma.OrganizationMemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput>
+}
+
+export type OrganizationMemberUpsertWithoutCreatedFollowUpNotesInput = {
+  update: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedUpdateWithoutCreatedFollowUpNotesInput>
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput>
+  where?: Prisma.OrganizationMemberWhereInput
+}
+
+export type OrganizationMemberUpdateToOneWithWhereWithoutCreatedFollowUpNotesInput = {
+  where?: Prisma.OrganizationMemberWhereInput
+  data: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutCreatedFollowUpNotesInput, Prisma.OrganizationMemberUncheckedUpdateWithoutCreatedFollowUpNotesInput>
+}
+
+export type OrganizationMemberUpdateWithoutCreatedFollowUpNotesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutMembersNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutOrganizationMembersNestedInput
+  assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
+}
+
+export type OrganizationMemberUncheckedUpdateWithoutCreatedFollowUpNotesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
+}
+
 export type OrganizationMemberCreateManyUserInput = {
   id?: string
   organizationId: string
@@ -578,6 +760,8 @@ export type OrganizationMemberUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutMembersNestedInput
+  assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberUncheckedUpdateWithoutUserInput = {
@@ -587,6 +771,8 @@ export type OrganizationMemberUncheckedUpdateWithoutUserInput = {
   status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberUncheckedUpdateManyWithoutUserInput = {
@@ -614,6 +800,8 @@ export type OrganizationMemberUpdateWithoutOrganizationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutOrganizationMembersNestedInput
+  assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberUncheckedUpdateWithoutOrganizationInput = {
@@ -623,6 +811,8 @@ export type OrganizationMemberUncheckedUpdateWithoutOrganizationInput = {
   status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type OrganizationMemberUncheckedUpdateManyWithoutOrganizationInput = {
@@ -635,6 +825,44 @@ export type OrganizationMemberUncheckedUpdateManyWithoutOrganizationInput = {
 }
 
 
+/**
+ * Count Type OrganizationMemberCountOutputType
+ */
+
+export type OrganizationMemberCountOutputType = {
+  assignedClients: number
+  createdFollowUpNotes: number
+}
+
+export type OrganizationMemberCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  assignedClients?: boolean | OrganizationMemberCountOutputTypeCountAssignedClientsArgs
+  createdFollowUpNotes?: boolean | OrganizationMemberCountOutputTypeCountCreatedFollowUpNotesArgs
+}
+
+/**
+ * OrganizationMemberCountOutputType without action
+ */
+export type OrganizationMemberCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the OrganizationMemberCountOutputType
+   */
+  select?: Prisma.OrganizationMemberCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * OrganizationMemberCountOutputType without action
+ */
+export type OrganizationMemberCountOutputTypeCountAssignedClientsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientWhereInput
+}
+
+/**
+ * OrganizationMemberCountOutputType without action
+ */
+export type OrganizationMemberCountOutputTypeCountCreatedFollowUpNotesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FollowUpNoteWhereInput
+}
+
 
 export type OrganizationMemberSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -646,6 +874,9 @@ export type OrganizationMemberSelect<ExtArgs extends runtime.Types.Extensions.In
   updatedAt?: boolean
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  assignedClients?: boolean | Prisma.OrganizationMember$assignedClientsArgs<ExtArgs>
+  createdFollowUpNotes?: boolean | Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>
+  _count?: boolean | Prisma.OrganizationMemberCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["organizationMember"]>
 
 export type OrganizationMemberSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -686,6 +917,9 @@ export type OrganizationMemberOmit<ExtArgs extends runtime.Types.Extensions.Inte
 export type OrganizationMemberInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  assignedClients?: boolean | Prisma.OrganizationMember$assignedClientsArgs<ExtArgs>
+  createdFollowUpNotes?: boolean | Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>
+  _count?: boolean | Prisma.OrganizationMemberCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type OrganizationMemberIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
@@ -701,6 +935,8 @@ export type $OrganizationMemberPayload<ExtArgs extends runtime.Types.Extensions.
   objects: {
     organization: Prisma.$OrganizationPayload<ExtArgs>
     user: Prisma.$UserPayload<ExtArgs>
+    assignedClients: Prisma.$ClientPayload<ExtArgs>[]
+    createdFollowUpNotes: Prisma.$FollowUpNotePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1106,6 +1342,8 @@ export interface Prisma__OrganizationMemberClient<T, Null = never, ExtArgs exten
   readonly [Symbol.toStringTag]: "PrismaPromise"
   organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  assignedClients<T extends Prisma.OrganizationMember$assignedClientsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$assignedClientsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  createdFollowUpNotes<T extends Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1540,6 +1778,54 @@ export type OrganizationMemberDeleteManyArgs<ExtArgs extends runtime.Types.Exten
    * Limit how many OrganizationMembers to delete.
    */
   limit?: number
+}
+
+/**
+ * OrganizationMember.assignedClients
+ */
+export type OrganizationMember$assignedClientsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Client
+   */
+  select?: Prisma.ClientSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Client
+   */
+  omit?: Prisma.ClientOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientInclude<ExtArgs> | null
+  where?: Prisma.ClientWhereInput
+  orderBy?: Prisma.ClientOrderByWithRelationInput | Prisma.ClientOrderByWithRelationInput[]
+  cursor?: Prisma.ClientWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientScalarFieldEnum | Prisma.ClientScalarFieldEnum[]
+}
+
+/**
+ * OrganizationMember.createdFollowUpNotes
+ */
+export type OrganizationMember$createdFollowUpNotesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FollowUpNote
+   */
+  select?: Prisma.FollowUpNoteSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FollowUpNote
+   */
+  omit?: Prisma.FollowUpNoteOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FollowUpNoteInclude<ExtArgs> | null
+  where?: Prisma.FollowUpNoteWhereInput
+  orderBy?: Prisma.FollowUpNoteOrderByWithRelationInput | Prisma.FollowUpNoteOrderByWithRelationInput[]
+  cursor?: Prisma.FollowUpNoteWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FollowUpNoteScalarFieldEnum | Prisma.FollowUpNoteScalarFieldEnum[]
 }
 
 /**

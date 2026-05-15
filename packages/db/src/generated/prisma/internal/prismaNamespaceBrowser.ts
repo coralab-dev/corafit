@@ -54,6 +54,9 @@ export const ModelName = {
   User: 'User',
   Organization: 'Organization',
   OrganizationMember: 'OrganizationMember',
+  Client: 'Client',
+  ClientAccess: 'ClientAccess',
+  FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting'
@@ -117,6 +120,59 @@ export const OrganizationMemberScalarFieldEnum = {
 } as const
 
 export type OrganizationMemberScalarFieldEnum = (typeof OrganizationMemberScalarFieldEnum)[keyof typeof OrganizationMemberScalarFieldEnum]
+
+
+export const ClientScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  assignedCoachMemberId: 'assignedCoachMemberId',
+  name: 'name',
+  phone: 'phone',
+  age: 'age',
+  sex: 'sex',
+  clientType: 'clientType',
+  mainGoal: 'mainGoal',
+  heightCm: 'heightCm',
+  initialWeightKg: 'initialWeightKg',
+  trainingLevel: 'trainingLevel',
+  injuriesNotes: 'injuriesNotes',
+  generalNotes: 'generalNotes',
+  canRegisterWeight: 'canRegisterWeight',
+  operationalStatus: 'operationalStatus',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientScalarFieldEnum = (typeof ClientScalarFieldEnum)[keyof typeof ClientScalarFieldEnum]
+
+
+export const ClientAccessScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  tokenHash: 'tokenHash',
+  status: 'status',
+  failedAttempts: 'failedAttempts',
+  lockedUntil: 'lockedUntil',
+  lastAccessAt: 'lastAccessAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientAccessScalarFieldEnum = (typeof ClientAccessScalarFieldEnum)[keyof typeof ClientAccessScalarFieldEnum]
+
+
+export const FollowUpNoteScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  createdByMemberId: 'createdByMemberId',
+  text: 'text',
+  visibility: 'visibility',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FollowUpNoteScalarFieldEnum = (typeof FollowUpNoteScalarFieldEnum)[keyof typeof FollowUpNoteScalarFieldEnum]
 
 
 export const SubscriptionPlanScalarFieldEnum = {

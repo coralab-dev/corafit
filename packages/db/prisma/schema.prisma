@@ -55,6 +55,30 @@ enum SubscriptionPlanStatus {
   inactive
 }
 
+enum ClientOperationalStatus {
+  active
+  paused
+  inactive
+  archived
+}
+
+enum ClientType {
+  presential
+  online
+  hybrid
+}
+
+enum ClientAccessStatus {
+  active
+  temporarily_locked
+  disabled
+}
+
+enum FollowUpNoteVisibility {
+  private
+  visible_to_client
+}
+
 model User {
   id             String           @id @default(uuid())
   supabaseUserId String           @unique @map("supabase_user_id")
@@ -87,6 +111,7 @@ model Organization {
   owner   User                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
   members OrganizationMember[]
   subscription OrganizationSubscription?
+  clients Client[]
 
   @@map("organizations")
 }
@@ -103,8 +128,71 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
 
+  assignedClients Client[]
+  createdFollowUpNotes FollowUpNote[]
+
   @@unique([organizationId, userId])
   @@map("organization_members")
+}
+
+model Client {
+  id                    String                  @id @default(uuid())
+  organizationId        String                  @map("organization_id")
+  assignedCoachMemberId String?                 @map("assigned_coach_member_id")
+  name                  String
+  phone                 String?
+  age                   Int?
+  sex                   String?
+  clientType            ClientType              @map("client_type")
+  mainGoal              String                  @map("main_goal")
+  heightCm              Float                   @map("height_cm")
+  initialWeightKg       Float                   @map("initial_weight_kg")
+  trainingLevel         String?                 @map("training_level")
+  injuriesNotes         String?                 @map("injuries_notes")
+  generalNotes          String?                 @map("general_notes")
+  canRegisterWeight     Boolean                 @default(false) @map("can_register_weight")
+  operationalStatus     ClientOperationalStatus @default(active) @map("operational_status")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+
+  organization  Organization        @relation(fields: [organizationId], references: [id])
+  assignedCoach OrganizationMember? @relation(fields: [assignedCoachMemberId], references: [id])
+  access        ClientAccess?
+  followUpNotes FollowUpNote[]
+
+  @@map("clients")
+}
+
+model ClientAccess {
+  id             String             @id @default(uuid())
+  clientId       String             @unique @map("client_id")
+  tokenHash      String?            @unique @map("token_hash")
+  status         ClientAccessStatus @default(active)
+  failedAttempts Int                @default(0) @map("failed_attempts")
+  lockedUntil    DateTime?          @map("locked_until")
+  lastAccessAt   DateTime?          @map("last_access_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("client_accesses")
+}
+
+model FollowUpNote {
+  id                String                 @id @default(uuid())
+  clientId          String                 @map("client_id")
+  createdByMemberId String                 @map("created_by_member_id")
+  text              String
+  visibility        FollowUpNoteVisibility @default(private)
+  deletedAt         DateTime?              @map("deleted_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  client    Client             @relation(fields: [clientId], references: [id])
+  createdBy OrganizationMember @relation(fields: [createdByMemberId], references: [id])
+
+  @@map("follow_up_notes")
 }
 
 model SubscriptionPlan {

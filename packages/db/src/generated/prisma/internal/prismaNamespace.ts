@@ -387,6 +387,9 @@ export const ModelName = {
   User: 'User',
   Organization: 'Organization',
   OrganizationMember: 'OrganizationMember',
+  Client: 'Client',
+  ClientAccess: 'ClientAccess',
+  FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting'
@@ -405,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "subscriptionPlan" | "organizationSubscription" | "systemSetting"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -628,6 +631,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.OrganizationMemberCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.OrganizationMemberCountAggregateOutputType> | number
+        }
+      }
+    }
+    Client: {
+      payload: Prisma.$ClientPayload<ExtArgs>
+      fields: Prisma.ClientFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClientFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClientFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        findFirst: {
+          args: Prisma.ClientFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClientFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        findMany: {
+          args: Prisma.ClientFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>[]
+        }
+        create: {
+          args: Prisma.ClientCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        createMany: {
+          args: Prisma.ClientCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClientCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>[]
+        }
+        delete: {
+          args: Prisma.ClientDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        update: {
+          args: Prisma.ClientUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClientDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClientUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClientUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClientUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientPayload>
+        }
+        aggregate: {
+          args: Prisma.ClientAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClient>
+        }
+        groupBy: {
+          args: Prisma.ClientGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClientCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientCountAggregateOutputType> | number
+        }
+      }
+    }
+    ClientAccess: {
+      payload: Prisma.$ClientAccessPayload<ExtArgs>
+      fields: Prisma.ClientAccessFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClientAccessFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClientAccessFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        findFirst: {
+          args: Prisma.ClientAccessFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClientAccessFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        findMany: {
+          args: Prisma.ClientAccessFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>[]
+        }
+        create: {
+          args: Prisma.ClientAccessCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        createMany: {
+          args: Prisma.ClientAccessCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClientAccessCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>[]
+        }
+        delete: {
+          args: Prisma.ClientAccessDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        update: {
+          args: Prisma.ClientAccessUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClientAccessDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClientAccessUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClientAccessUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClientAccessUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientAccessPayload>
+        }
+        aggregate: {
+          args: Prisma.ClientAccessAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClientAccess>
+        }
+        groupBy: {
+          args: Prisma.ClientAccessGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientAccessGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClientAccessCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientAccessCountAggregateOutputType> | number
+        }
+      }
+    }
+    FollowUpNote: {
+      payload: Prisma.$FollowUpNotePayload<ExtArgs>
+      fields: Prisma.FollowUpNoteFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FollowUpNoteFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FollowUpNoteFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        findFirst: {
+          args: Prisma.FollowUpNoteFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FollowUpNoteFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        findMany: {
+          args: Prisma.FollowUpNoteFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>[]
+        }
+        create: {
+          args: Prisma.FollowUpNoteCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        createMany: {
+          args: Prisma.FollowUpNoteCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FollowUpNoteCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>[]
+        }
+        delete: {
+          args: Prisma.FollowUpNoteDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        update: {
+          args: Prisma.FollowUpNoteUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        deleteMany: {
+          args: Prisma.FollowUpNoteDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FollowUpNoteUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FollowUpNoteUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>[]
+        }
+        upsert: {
+          args: Prisma.FollowUpNoteUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FollowUpNotePayload>
+        }
+        aggregate: {
+          args: Prisma.FollowUpNoteAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFollowUpNote>
+        }
+        groupBy: {
+          args: Prisma.FollowUpNoteGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FollowUpNoteGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FollowUpNoteCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FollowUpNoteCountAggregateOutputType> | number
         }
       }
     }
@@ -936,6 +1161,59 @@ export const OrganizationMemberScalarFieldEnum = {
 export type OrganizationMemberScalarFieldEnum = (typeof OrganizationMemberScalarFieldEnum)[keyof typeof OrganizationMemberScalarFieldEnum]
 
 
+export const ClientScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  assignedCoachMemberId: 'assignedCoachMemberId',
+  name: 'name',
+  phone: 'phone',
+  age: 'age',
+  sex: 'sex',
+  clientType: 'clientType',
+  mainGoal: 'mainGoal',
+  heightCm: 'heightCm',
+  initialWeightKg: 'initialWeightKg',
+  trainingLevel: 'trainingLevel',
+  injuriesNotes: 'injuriesNotes',
+  generalNotes: 'generalNotes',
+  canRegisterWeight: 'canRegisterWeight',
+  operationalStatus: 'operationalStatus',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientScalarFieldEnum = (typeof ClientScalarFieldEnum)[keyof typeof ClientScalarFieldEnum]
+
+
+export const ClientAccessScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  tokenHash: 'tokenHash',
+  status: 'status',
+  failedAttempts: 'failedAttempts',
+  lockedUntil: 'lockedUntil',
+  lastAccessAt: 'lastAccessAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientAccessScalarFieldEnum = (typeof ClientAccessScalarFieldEnum)[keyof typeof ClientAccessScalarFieldEnum]
+
+
+export const FollowUpNoteScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  createdByMemberId: 'createdByMemberId',
+  text: 'text',
+  visibility: 'visibility',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FollowUpNoteScalarFieldEnum = (typeof FollowUpNoteScalarFieldEnum)[keyof typeof FollowUpNoteScalarFieldEnum]
+
+
 export const SubscriptionPlanScalarFieldEnum = {
   id: 'id',
   code: 'code',
@@ -1148,20 +1426,6 @@ export type ListEnumOrganizationMemberStatusFieldRefInput<$PrismaModel> = FieldR
 
 
 /**
- * Reference to a field of type 'Float'
- */
-export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
-    
-
-
-/**
- * Reference to a field of type 'Float[]'
- */
-export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
-    
-
-
-/**
  * Reference to a field of type 'Int'
  */
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -1176,6 +1440,83 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'ClientType'
+ */
+export type EnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientType[]'
+ */
+export type ListEnumClientTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientOperationalStatus'
+ */
+export type EnumClientOperationalStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientOperationalStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientOperationalStatus[]'
+ */
+export type ListEnumClientOperationalStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientOperationalStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientAccessStatus'
+ */
+export type EnumClientAccessStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientAccessStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientAccessStatus[]'
+ */
+export type ListEnumClientAccessStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientAccessStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'FollowUpNoteVisibility'
+ */
+export type EnumFollowUpNoteVisibilityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FollowUpNoteVisibility'>
+    
+
+
+/**
+ * Reference to a field of type 'FollowUpNoteVisibility[]'
+ */
+export type ListEnumFollowUpNoteVisibilityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FollowUpNoteVisibility[]'>
+    
+
+
+/**
  * Reference to a field of type 'Json'
  */
 export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
@@ -1186,13 +1527,6 @@ export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'J
  * Reference to a field of type 'QueryMode'
  */
 export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -1336,6 +1670,9 @@ export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   organization?: Prisma.OrganizationOmit
   organizationMember?: Prisma.OrganizationMemberOmit
+  client?: Prisma.ClientOmit
+  clientAccess?: Prisma.ClientAccessOmit
+  followUpNote?: Prisma.FollowUpNoteOmit
   subscriptionPlan?: Prisma.SubscriptionPlanOmit
   organizationSubscription?: Prisma.OrganizationSubscriptionOmit
   systemSetting?: Prisma.SystemSettingOmit

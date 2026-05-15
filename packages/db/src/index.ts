@@ -1,5 +1,9 @@
 export { PrismaClient } from './generated/prisma/client';
 export {
+  ClientAccessStatus,
+  ClientOperationalStatus,
+  ClientType,
+  FollowUpNoteVisibility,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   OrganizationStatus,
@@ -10,6 +14,9 @@ export {
   UserStatus,
 } from './generated/prisma/client';
 export type {
+  Client,
+  ClientAccess,
+  FollowUpNote,
   Organization,
   OrganizationMember,
   OrganizationSubscription,

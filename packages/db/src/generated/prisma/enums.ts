@@ -79,3 +79,39 @@ export const SubscriptionPlanStatus = {
 } as const
 
 export type SubscriptionPlanStatus = (typeof SubscriptionPlanStatus)[keyof typeof SubscriptionPlanStatus]
+
+
+export const ClientOperationalStatus = {
+  active: 'active',
+  paused: 'paused',
+  inactive: 'inactive',
+  archived: 'archived'
+} as const
+
+export type ClientOperationalStatus = (typeof ClientOperationalStatus)[keyof typeof ClientOperationalStatus]
+
+
+export const ClientType = {
+  presential: 'presential',
+  online: 'online',
+  hybrid: 'hybrid'
+} as const
+
+export type ClientType = (typeof ClientType)[keyof typeof ClientType]
+
+
+export const ClientAccessStatus = {
+  active: 'active',
+  temporarily_locked: 'temporarily_locked',
+  disabled: 'disabled'
+} as const
+
+export type ClientAccessStatus = (typeof ClientAccessStatus)[keyof typeof ClientAccessStatus]
+
+
+export const FollowUpNoteVisibility = {
+  private: 'private',
+  visible_to_client: 'visible_to_client'
+} as const
+
+export type FollowUpNoteVisibility = (typeof FollowUpNoteVisibility)[keyof typeof FollowUpNoteVisibility]

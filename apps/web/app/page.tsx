@@ -1,5 +1,5 @@
-import { ClientsWorkspace } from "./clients-workspace";
+import { DashboardWorkspace } from "./dashboard-workspace";
 
 export default function Home() {
-  return <ClientsWorkspace />;
+  return <DashboardWorkspace />;
 }

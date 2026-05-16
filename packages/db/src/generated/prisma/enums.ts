@@ -158,3 +158,50 @@ export const Equipment = {
 } as const
 
 export type Equipment = (typeof Equipment)[keyof typeof Equipment]
+
+
+export const TrainingPlanStatus = {
+  draft: 'draft',
+  active: 'active',
+  archived: 'archived'
+} as const
+
+export type TrainingPlanStatus = (typeof TrainingPlanStatus)[keyof typeof TrainingPlanStatus]
+
+
+export const TrainingPlanType = {
+  template: 'template',
+  assigned_copy: 'assigned_copy'
+} as const
+
+export type TrainingPlanType = (typeof TrainingPlanType)[keyof typeof TrainingPlanType]
+
+
+export const TrainingDayType = {
+  training: 'training',
+  rest: 'rest'
+} as const
+
+export type TrainingDayType = (typeof TrainingDayType)[keyof typeof TrainingDayType]
+
+
+export const DayOfWeek = {
+  monday: 'monday',
+  tuesday: 'tuesday',
+  wednesday: 'wednesday',
+  thursday: 'thursday',
+  friday: 'friday',
+  saturday: 'saturday',
+  sunday: 'sunday'
+} as const
+
+export type DayOfWeek = (typeof DayOfWeek)[keyof typeof DayOfWeek]
+
+
+export const ClientTrainingPlanAssignmentStatus = {
+  active: 'active',
+  finished: 'finished',
+  removed: 'removed'
+} as const
+
+export type ClientTrainingPlanAssignmentStatus = (typeof ClientTrainingPlanAssignmentStatus)[keyof typeof ClientTrainingPlanAssignmentStatus]

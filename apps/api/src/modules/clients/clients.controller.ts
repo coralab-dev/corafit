@@ -16,6 +16,7 @@ import { RoleGuard } from '../../common/auth/role.guard';
 import { Roles } from '../../common/auth/roles.decorator';
 import { ClientsService } from './clients.service';
 import type {
+  AssignPlanDto,
   CreateClientDto,
   ListClientsQuery,
   UpdateClientDto,
@@ -132,5 +133,16 @@ export class ClientsController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.clientsService.disableAccess(clientId, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/assign-plan')
+  assignPlan(
+    @Param('clientId') clientId: string,
+    @Body() body: AssignPlanDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.assignPlan(clientId, body, request.organizationMember);
   }
 }

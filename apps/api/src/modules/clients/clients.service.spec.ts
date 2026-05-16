@@ -1,12 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ClientAccessStatus,
   ClientOperationalStatus,
+  ClientTrainingPlanAssignmentStatus,
   ClientType,
+  DayOfWeek,
   OrganizationMemberRole,
   OrganizationMemberStatus,
+  TrainingDayType,
+  TrainingPlanStatus,
+  TrainingPlanType,
   type OrganizationMember,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,8 +41,34 @@ type PrismaServiceMock = {
   clientPortalSession: {
     updateMany: ReturnType<typeof vi.fn>;
   };
+  clientTrainingPlanAssignment: {
+    findFirst: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
   followUpNote: {
     findMany: ReturnType<typeof vi.fn>;
+  };
+  systemSetting: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  trainingPlan: {
+    create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  trainingPlanWeek: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  trainingPlanDay: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  trainingSession: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  sessionExercise: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  sessionExerciseAlternative: {
+    create: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -53,6 +89,15 @@ type ClientAccessUpsertArgs = {
     tokenHash: string;
   };
 };
+
+function runMockTransaction(input: unknown, tx: PrismaServiceMock) {
+  if (typeof input === 'function') {
+    const runTransaction = input as (transactionClient: unknown) => Promise<unknown>;
+    return runTransaction(tx);
+  }
+
+  return Promise.all(input as Array<Promise<unknown>>);
+}
 
 function createMember(): OrganizationMember {
   return {
@@ -93,6 +138,10 @@ function createClient(overrides = {}) {
 describe('ClientsService', () => {
   let prismaService: PrismaServiceMock;
   let service: ClientsService;
+
+  function runCurrentMockTransaction(input: unknown) {
+    return runMockTransaction(input, prismaService);
+  }
 
   beforeEach(() => {
     prismaService = {
@@ -143,8 +192,39 @@ describe('ClientsService', () => {
       clientPortalSession: {
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      clientTrainingPlanAssignment: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(
+          ({ data }: { data: Record<string, unknown> }) =>
+            Promise.resolve({ id: 'assignment-id', ...data }),
+        ),
+      },
       followUpNote: {
         findMany: vi.fn().mockResolvedValue([]),
+      },
+      systemSetting: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      trainingPlan: {
+        create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'assigned-plan-id', ...data }),
+        ),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      trainingPlanWeek: {
+        create: vi.fn().mockResolvedValue({ id: 'week-id' }),
+      },
+      trainingPlanDay: {
+        create: vi.fn().mockResolvedValue({ id: 'day-id' }),
+      },
+      trainingSession: {
+        create: vi.fn().mockResolvedValue({ id: 'session-id' }),
+      },
+      sessionExercise: {
+        create: vi.fn().mockResolvedValue({ id: 'exercise-id' }),
+      },
+      sessionExerciseAlternative: {
+        create: vi.fn().mockResolvedValue({ id: 'alt-id' }),
       },
     };
     const configService = {
@@ -430,5 +510,217 @@ describe('ClientsService', () => {
       expect(hash).toMatch(/^\$argon2/);
     });
 
+  });
+
+  describe('assignPlan', () => {
+    const mockSourcePlan = {
+      id: 'template-plan-id',
+      organizationId: 'seed-org-id',
+      name: 'Plan A',
+      goal: 'Strength',
+      level: 'intermediate',
+      durationWeeks: 8,
+      generalNotes: 'Test notes',
+      status: TrainingPlanStatus.active,
+      planType: TrainingPlanType.template,
+      sourcePlanId: null,
+      assignedClientId: null,
+      createdByMemberId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      weeks: [
+        {
+          id: 'week-1',
+          trainingPlanId: 'template-plan-id',
+          weekNumber: 1,
+          notes: null,
+          days: [
+            {
+              id: 'day-1',
+              trainingPlanWeekId: 'week-1',
+              dayOfWeek: DayOfWeek.monday,
+              dayOrder: 1,
+              dayType: TrainingDayType.training,
+              session: {
+                id: 'session-1',
+                trainingPlanDayId: 'day-1',
+                name: 'Day 1',
+                description: null,
+                coachNote: null,
+                exercises: [
+                  {
+                    id: 'ex-1',
+                    trainingSessionId: 'session-1',
+                    exerciseId: 'exercise-id',
+                    orderIndex: 1,
+                    sets: 3,
+                    reps: '10',
+                    restSeconds: 60,
+                    coachNote: null,
+                    alternatives: [
+                      {
+                        id: 'alt-1',
+                        sessionExerciseId: 'ex-1',
+                        alternativeExerciseId: 'alternative-exercise-id',
+                        note: 'Use if needed',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      prismaService.client.findFirst.mockReset();
+      prismaService.clientTrainingPlanAssignment.findFirst.mockReset();
+      prismaService.trainingPlan.findFirst.mockReset();
+      prismaService.systemSetting.findFirst.mockReset();
+      prismaService.$transaction.mockImplementation(
+        runCurrentMockTransaction as never,
+      );
+      prismaService.client.findFirst.mockResolvedValue(createClient());
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValue(null);
+      prismaService.trainingPlan.findFirst.mockResolvedValue(mockSourcePlan);
+      prismaService.systemSetting.findFirst.mockResolvedValue(null);
+    });
+
+    it('assignPlan throws ForbiddenException when member is undefined', async () => {
+      await expect(
+        service.assignPlan('client-id', { trainingPlanId: 'plan-id' }, undefined as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('assignPlan throws NotFoundException when client not in organization', async () => {
+      prismaService.client.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.assignPlan('non-existent', { trainingPlanId: 'plan-id' }, createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('assignPlan throws NotFoundException when plan not found', async () => {
+      prismaService.trainingPlan.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.assignPlan('client-id', { trainingPlanId: 'non-existent' }, createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('assignPlan throws BadRequestException when trainingPlanId is empty', async () => {
+      await expect(
+        service.assignPlan('client-id', { trainingPlanId: '   ' }, createMember()),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('assignPlan throws BadRequestException when startDate is invalid', async () => {
+      await expect(
+        service.assignPlan(
+          'client-id',
+          { trainingPlanId: 'template-plan-id', startDate: 'invalid-date' },
+          createMember(),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('assignPlan throws ConflictException when active assignment already exists', async () => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce({
+        id: 'existing-assignment-id',
+        clientId: 'client-id',
+        sourceTrainingPlanId: 'some-plan',
+        assignedPlanId: 'some-copy',
+        assignedByMemberId: 'member-id',
+        startDate: new Date(),
+        endedAt: null,
+        status: ClientTrainingPlanAssignmentStatus.active,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        service.assignPlan('client-id', { trainingPlanId: 'plan-id' }, createMember()),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('assignPlan maps unique active assignment races to ConflictException', async () => {
+      prismaService.clientTrainingPlanAssignment.create.mockRejectedValueOnce({
+        code: 'P2002',
+        meta: {
+          target: ['client_id'],
+        },
+      });
+
+      await expect(
+        service.assignPlan('client-id', { trainingPlanId: 'template-plan-id' }, createMember()),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('assignPlan creates assigned copy, assignment and returns metadata', async () => {
+      const result = await service.assignPlan(
+        'client-id',
+        { trainingPlanId: 'template-plan-id' },
+        createMember(),
+      );
+
+      expect(result.assignedPlan).toBeDefined();
+      expect(result.assignment).toBeDefined();
+      expect(result.metadata.weeksCopied).toBe(1);
+      expect(result.metadata.daysCopied).toBe(1);
+      expect(result.metadata.sessionsCopied).toBe(1);
+      expect(result.metadata.exercisesCopied).toBe(1);
+      expect(result.metadata.alternativesCopied).toBe(1);
+      expect(result.assignedPlan.planType).toBe(TrainingPlanType.assigned_copy);
+      expect(result.assignedPlan.assignedClientId).toBe('client-id');
+      expect(result.assignedPlan.sourcePlanId).toBe('template-plan-id');
+      expect(prismaService.trainingPlan.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          assignedClientId: 'client-id',
+          planType: TrainingPlanType.assigned_copy,
+          sourcePlanId: 'template-plan-id',
+        }),
+      });
+      expect(prismaService.sessionExercise.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          exerciseId: 'exercise-id',
+        }),
+      });
+      expect(prismaService.sessionExerciseAlternative.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          alternativeExerciseId: 'alternative-exercise-id',
+        }),
+      });
+    });
+
+    it('assignPlan uses provided startDate when given', async () => {
+      prismaService.clientTrainingPlanAssignment.create.mockResolvedValue(
+        Object.assign({ id: 'assignment-id' }, { startDate: new Date('2026-06-01') }),
+      );
+
+      const result = await service.assignPlan(
+        'client-id',
+        { trainingPlanId: 'template-plan-id', startDate: '2026-06-01' },
+        createMember(),
+      );
+
+      expect(result.assignment.startDate).toBeInstanceOf(Date);
+      expect(result.assignment.startDate.toISOString().startsWith('2026-06-01')).toBe(true);
+    });
+
+    it('assignPlan uses current date when startDate not provided', async () => {
+      const before = new Date();
+
+      const result = await service.assignPlan(
+        'client-id',
+        { trainingPlanId: 'template-plan-id' },
+        createMember(),
+      );
+
+      const after = new Date();
+      expect(result.assignment.startDate.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      expect(result.assignment.startDate.getTime()).toBeLessThanOrEqual(after.getTime());
+    });
   });
 });

@@ -19,6 +19,7 @@ docs/         # Product and technical documentation
 ```bash
 pnpm install
 pnpm run dev
+pnpm run dev:auth
 pnpm run build
 pnpm run lint
 pnpm run typecheck
@@ -33,6 +34,36 @@ pnpm run typecheck
 3. Keep `NEXT_PUBLIC_API_URL=http://localhost:4000` for local web requests.
 4. Keep `WEB_APP_URL=http://localhost:3000` and include the same origin in `CORS_ALLOWED_ORIGINS`.
 5. Run `pnpm install`, then `pnpm run dev`.
+
+## Local test auth
+
+Protected web screens need a real Supabase access token and a local active
+organization membership. After filling `.env`, run:
+
+```bash
+pnpm run dev:auth
+```
+
+The helper creates or reuses a Supabase Auth user, creates the local user,
+organization, owner membership, and trial subscription, then prints the
+`Supabase JWT` and `Organization ID` for the web `Conexion` dialog. It also
+prints a `localStorage.setItem(...)` command you can paste in the browser
+console to configure the web app directly.
+
+Defaults are:
+
+```text
+DEV_AUTH_EMAIL=corafit.dev.coach@gmail.com
+DEV_AUTH_PASSWORD=CoraFitDev123!
+DEV_AUTH_NAME=Coach Demo
+DEV_ORGANIZATION_NAME=CoraFit Demo
+```
+
+If the Supabase user already exists with another password, set
+`DEV_AUTH_PASSWORD` to the real password or reset that user in Supabase.
+If you already have a real Supabase access token, you can set `DEV_AUTH_JWT`
+and the helper will only create or repair the local database profile and
+membership.
 
 The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the future Vercel domain.
 

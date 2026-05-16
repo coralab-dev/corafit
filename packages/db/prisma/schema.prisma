@@ -90,7 +90,7 @@ model User {
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+  ownedOrganizations  Organization[]       @relation("OrganizationOwner")
   organizationMembers OrganizationMember[]
 
   @@map("users")
@@ -108,11 +108,12 @@ model Organization {
   createdAt                 DateTime           @default(now()) @map("created_at")
   updatedAt                 DateTime           @updatedAt @map("updated_at")
 
-  owner   User                 @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
-  members OrganizationMember[]
-  subscription OrganizationSubscription?
-  clients Client[]
-  exercises Exercise[]
+  owner         User                      @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
+  members       OrganizationMember[]
+  subscription  OrganizationSubscription?
+  clients       Client[]
+  exercises     Exercise[]
+  trainingPlans TrainingPlan[]
 
   @@map("organizations")
 }
@@ -129,8 +130,10 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
 
-  assignedClients Client[]
-  createdFollowUpNotes FollowUpNote[]
+  assignedClients         Client[]
+  createdFollowUpNotes    FollowUpNote[]
+  createdTrainingPlans    TrainingPlan[]
+  createdPlanAssignments  ClientTrainingPlanAssignment[]
 
   @@unique([organizationId, userId])
   @@map("organization_members")
@@ -156,10 +159,12 @@ model Client {
   createdAt             DateTime                @default(now()) @map("created_at")
   updatedAt             DateTime                @updatedAt @map("updated_at")
 
-  organization  Organization        @relation(fields: [organizationId], references: [id])
-  assignedCoach OrganizationMember? @relation(fields: [assignedCoachMemberId], references: [id])
-  access        ClientAccess?
-  followUpNotes FollowUpNote[]
+  organization   Organization                       @relation(fields: [organizationId], references: [id])
+  assignedCoach  OrganizationMember?                @relation(fields: [assignedCoachMemberId], references: [id])
+  access         ClientAccess?
+  followUpNotes  FollowUpNote[]
+  assignedPlans  TrainingPlan[]                     @relation("AssignedClient")
+  planAssignments ClientTrainingPlanAssignment[]
 
   @@map("clients")
 }
@@ -289,27 +294,191 @@ enum Equipment {
   other
 }
 
+enum TrainingPlanStatus {
+  draft
+  active
+  archived
+}
+
+enum TrainingPlanType {
+  template
+  assigned_copy
+}
+
+enum TrainingDayType {
+  training
+  rest
+}
+
+enum DayOfWeek {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
+enum ClientTrainingPlanAssignmentStatus {
+  active
+  finished
+  removed
+}
+
 model Exercise {
-  id              String          @id @default(uuid())
-  organizationId  String?         @map("organization_id")
-  organization    Organization?    @relation(fields: [organizationId], references: [id])
-  createdByUserId String?         @map("created_by_user_id")
+  id              String        @id @default(uuid())
+  organizationId  String?       @map("organization_id")
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  createdByUserId String?       @map("created_by_user_id")
 
   name             String
-  primaryMuscle    PrimaryMuscle   @map("primary_muscle")
-  secondaryMuscles String[]        @map("secondary_muscles")
+  primaryMuscle    PrimaryMuscle      @map("primary_muscle")
+  secondaryMuscles String[]           @map("secondary_muscles")
   equipment        Equipment
   instructions     String?
   recommendations  String?
-  mediaUrl         String?        @map("media_url")
+  mediaUrl         String?            @map("media_url")
   mediaType        ExerciseMediaType? @map("media_type")
-  status           ExerciseStatus @default(active)
+  status           ExerciseStatus     @default(active)
 
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessionExercises     SessionExercise[]
+  alternativeExercises SessionExerciseAlternative[]
 
   @@unique([name, organizationId])
   @@index([organizationId])
   @@index([status])
   @@map("exercises")
+}
+
+model TrainingPlan {
+  id                String             @id @default(uuid())
+  organizationId    String             @map("organization_id")
+  createdByMemberId String             @map("created_by_member_id")
+  planType          TrainingPlanType   @default(template) @map("plan_type")
+  sourcePlanId      String?            @map("source_plan_id")
+  assignedClientId  String?            @map("assigned_client_id")
+  name              String
+  goal              String?
+  level             String?
+  durationWeeks     Int                @map("duration_weeks")
+  generalNotes      String?            @map("general_notes")
+  status            TrainingPlanStatus @default(draft)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  organization        Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy           OrganizationMember                @relation(fields: [createdByMemberId], references: [id], onDelete: Restrict)
+  sourcePlan          TrainingPlan?                     @relation("PlanCopies", fields: [sourcePlanId], references: [id], onDelete: SetNull)
+  copies              TrainingPlan[]                    @relation("PlanCopies")
+  assignedClient      Client?                           @relation("AssignedClient", fields: [assignedClientId], references: [id], onDelete: SetNull)
+  sourceAssignments   ClientTrainingPlanAssignment[]    @relation("AssignmentSource")
+  assignedAssignments ClientTrainingPlanAssignment[]    @relation("AssignmentCopy")
+  weeks               TrainingPlanWeek[]
+
+  @@map("training_plans")
+}
+
+model TrainingPlanWeek {
+  id             String   @id @default(uuid())
+  trainingPlanId String   @map("training_plan_id")
+  weekNumber     Int      @map("week_number")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  trainingPlan TrainingPlan      @relation(fields: [trainingPlanId], references: [id], onDelete: Restrict)
+  days         TrainingPlanDay[]
+
+  @@unique([trainingPlanId, weekNumber])
+  @@map("training_plan_weeks")
+}
+
+model TrainingPlanDay {
+  id                 String          @id @default(uuid())
+  trainingPlanWeekId String          @map("training_plan_week_id")
+  dayOfWeek          DayOfWeek       @map("day_of_week")
+  dayOrder           Int?            @map("day_order")
+  dayType            TrainingDayType @default(training) @map("day_type")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  week    TrainingPlanWeek @relation(fields: [trainingPlanWeekId], references: [id], onDelete: Restrict)
+  session TrainingSession?
+
+  @@unique([trainingPlanWeekId, dayOfWeek])
+  @@map("training_plan_days")
+}
+
+model TrainingSession {
+  id                String   @id @default(uuid())
+  trainingPlanDayId String   @unique @map("training_plan_day_id")
+  name              String
+  description       String?
+  coachNote         String?  @map("coach_note")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  day       TrainingPlanDay   @relation(fields: [trainingPlanDayId], references: [id], onDelete: Restrict)
+  exercises SessionExercise[]
+
+  @@map("training_sessions")
+}
+
+model SessionExercise {
+  id                String   @id @default(uuid())
+  trainingSessionId String   @map("training_session_id")
+  exerciseId        String   @map("exercise_id")
+  orderIndex        Int      @map("order_index")
+  sets              Int?
+  reps              String
+  restSeconds       Int?     @map("rest_seconds")
+  coachNote         String?  @map("coach_note")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  session      TrainingSession              @relation(fields: [trainingSessionId], references: [id], onDelete: Restrict)
+  exercise     Exercise                     @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  alternatives SessionExerciseAlternative[]
+
+  @@unique([trainingSessionId, orderIndex])
+  @@map("session_exercises")
+}
+
+model SessionExerciseAlternative {
+  id                    String   @id @default(uuid())
+  sessionExerciseId     String   @map("session_exercise_id")
+  alternativeExerciseId String   @map("alternative_exercise_id")
+  note                  String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  sessionExercise     SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Restrict)
+  alternativeExercise Exercise        @relation(fields: [alternativeExerciseId], references: [id], onDelete: Restrict)
+
+  @@index([sessionExerciseId])
+  @@map("session_exercise_alternatives")
+}
+
+model ClientTrainingPlanAssignment {
+  id                   String                            @id @default(uuid())
+  clientId             String                            @map("client_id")
+  sourceTrainingPlanId String                            @map("source_training_plan_id")
+  assignedPlanId       String                            @map("assigned_plan_id")
+  assignedByMemberId   String                            @map("assigned_by_member_id")
+  startDate            DateTime                          @map("start_date")
+  endedAt              DateTime?                         @map("ended_at")
+  status               ClientTrainingPlanAssignmentStatus @default(active)
+  createdAt            DateTime                          @default(now()) @map("created_at")
+  updatedAt            DateTime                          @updatedAt @map("updated_at")
+
+  client       Client             @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  sourcePlan   TrainingPlan       @relation("AssignmentSource", fields: [sourceTrainingPlanId], references: [id], onDelete: Restrict)
+  assignedPlan TrainingPlan       @relation("AssignmentCopy", fields: [assignedPlanId], references: [id], onDelete: Restrict)
+  assignedBy   OrganizationMember @relation(fields: [assignedByMemberId], references: [id], onDelete: Restrict)
+
+  @@map("client_training_plan_assignments")
 }

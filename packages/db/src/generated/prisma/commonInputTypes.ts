@@ -603,6 +603,91 @@ export type EnumExerciseStatusWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
 }
 
+export type EnumTrainingPlanTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanType | Prisma.EnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel> | $Enums.TrainingPlanType
+}
+
+export type EnumTrainingPlanStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanStatus | Prisma.EnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel> | $Enums.TrainingPlanStatus
+}
+
+export type EnumTrainingPlanTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanType | Prisma.EnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanTypeWithAggregatesFilter<$PrismaModel> | $Enums.TrainingPlanType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel>
+}
+
+export type EnumTrainingPlanStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanStatus | Prisma.EnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanStatusWithAggregatesFilter<$PrismaModel> | $Enums.TrainingPlanStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel>
+}
+
+export type EnumDayOfWeekFilter<$PrismaModel = never> = {
+  equals?: $Enums.DayOfWeek | Prisma.EnumDayOfWeekFieldRefInput<$PrismaModel>
+  in?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  notIn?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel> | $Enums.DayOfWeek
+}
+
+export type EnumTrainingDayTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingDayType | Prisma.EnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel> | $Enums.TrainingDayType
+}
+
+export type EnumDayOfWeekWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.DayOfWeek | Prisma.EnumDayOfWeekFieldRefInput<$PrismaModel>
+  in?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  notIn?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumDayOfWeekWithAggregatesFilter<$PrismaModel> | $Enums.DayOfWeek
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel>
+}
+
+export type EnumTrainingDayTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingDayType | Prisma.EnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingDayTypeWithAggregatesFilter<$PrismaModel> | $Enums.TrainingDayType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel>
+}
+
+export type EnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientTrainingPlanAssignmentStatus | Prisma.EnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel> | $Enums.ClientTrainingPlanAssignmentStatus
+}
+
+export type EnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientTrainingPlanAssignmentStatus | Prisma.EnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$PrismaModel> | $Enums.ClientTrainingPlanAssignmentStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1138,6 +1223,91 @@ export type NestedEnumExerciseStatusWithAggregatesFilter<$PrismaModel = never> =
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumTrainingPlanTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanType | Prisma.EnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel> | $Enums.TrainingPlanType
+}
+
+export type NestedEnumTrainingPlanStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanStatus | Prisma.EnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel> | $Enums.TrainingPlanStatus
+}
+
+export type NestedEnumTrainingPlanTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanType | Prisma.EnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanType[] | Prisma.ListEnumTrainingPlanTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanTypeWithAggregatesFilter<$PrismaModel> | $Enums.TrainingPlanType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingPlanTypeFilter<$PrismaModel>
+}
+
+export type NestedEnumTrainingPlanStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingPlanStatus | Prisma.EnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingPlanStatus[] | Prisma.ListEnumTrainingPlanStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingPlanStatusWithAggregatesFilter<$PrismaModel> | $Enums.TrainingPlanStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingPlanStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumDayOfWeekFilter<$PrismaModel = never> = {
+  equals?: $Enums.DayOfWeek | Prisma.EnumDayOfWeekFieldRefInput<$PrismaModel>
+  in?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  notIn?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel> | $Enums.DayOfWeek
+}
+
+export type NestedEnumTrainingDayTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingDayType | Prisma.EnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel> | $Enums.TrainingDayType
+}
+
+export type NestedEnumDayOfWeekWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.DayOfWeek | Prisma.EnumDayOfWeekFieldRefInput<$PrismaModel>
+  in?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  notIn?: $Enums.DayOfWeek[] | Prisma.ListEnumDayOfWeekFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumDayOfWeekWithAggregatesFilter<$PrismaModel> | $Enums.DayOfWeek
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumDayOfWeekFilter<$PrismaModel>
+}
+
+export type NestedEnumTrainingDayTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.TrainingDayType | Prisma.EnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.TrainingDayType[] | Prisma.ListEnumTrainingDayTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumTrainingDayTypeWithAggregatesFilter<$PrismaModel> | $Enums.TrainingDayType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumTrainingDayTypeFilter<$PrismaModel>
+}
+
+export type NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientTrainingPlanAssignmentStatus | Prisma.EnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel> | $Enums.ClientTrainingPlanAssignmentStatus
+}
+
+export type NestedEnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientTrainingPlanAssignmentStatus | Prisma.EnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientTrainingPlanAssignmentStatus[] | Prisma.ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$PrismaModel> | $Enums.ClientTrainingPlanAssignmentStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
 }
 
 

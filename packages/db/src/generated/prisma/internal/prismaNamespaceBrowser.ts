@@ -61,7 +61,14 @@ export const ModelName = {
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting',
-  Exercise: 'Exercise'
+  Exercise: 'Exercise',
+  TrainingPlan: 'TrainingPlan',
+  TrainingPlanWeek: 'TrainingPlanWeek',
+  TrainingPlanDay: 'TrainingPlanDay',
+  TrainingSession: 'TrainingSession',
+  SessionExercise: 'SessionExercise',
+  SessionExerciseAlternative: 'SessionExerciseAlternative',
+  ClientTrainingPlanAssignment: 'ClientTrainingPlanAssignment'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -253,6 +260,108 @@ export const ExerciseScalarFieldEnum = {
 } as const
 
 export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typeof ExerciseScalarFieldEnum]
+
+
+export const TrainingPlanScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  createdByMemberId: 'createdByMemberId',
+  planType: 'planType',
+  sourcePlanId: 'sourcePlanId',
+  assignedClientId: 'assignedClientId',
+  name: 'name',
+  goal: 'goal',
+  level: 'level',
+  durationWeeks: 'durationWeeks',
+  generalNotes: 'generalNotes',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrainingPlanScalarFieldEnum = (typeof TrainingPlanScalarFieldEnum)[keyof typeof TrainingPlanScalarFieldEnum]
+
+
+export const TrainingPlanWeekScalarFieldEnum = {
+  id: 'id',
+  trainingPlanId: 'trainingPlanId',
+  weekNumber: 'weekNumber',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrainingPlanWeekScalarFieldEnum = (typeof TrainingPlanWeekScalarFieldEnum)[keyof typeof TrainingPlanWeekScalarFieldEnum]
+
+
+export const TrainingPlanDayScalarFieldEnum = {
+  id: 'id',
+  trainingPlanWeekId: 'trainingPlanWeekId',
+  dayOfWeek: 'dayOfWeek',
+  dayOrder: 'dayOrder',
+  dayType: 'dayType',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrainingPlanDayScalarFieldEnum = (typeof TrainingPlanDayScalarFieldEnum)[keyof typeof TrainingPlanDayScalarFieldEnum]
+
+
+export const TrainingSessionScalarFieldEnum = {
+  id: 'id',
+  trainingPlanDayId: 'trainingPlanDayId',
+  name: 'name',
+  description: 'description',
+  coachNote: 'coachNote',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrainingSessionScalarFieldEnum = (typeof TrainingSessionScalarFieldEnum)[keyof typeof TrainingSessionScalarFieldEnum]
+
+
+export const SessionExerciseScalarFieldEnum = {
+  id: 'id',
+  trainingSessionId: 'trainingSessionId',
+  exerciseId: 'exerciseId',
+  orderIndex: 'orderIndex',
+  sets: 'sets',
+  reps: 'reps',
+  restSeconds: 'restSeconds',
+  coachNote: 'coachNote',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SessionExerciseScalarFieldEnum = (typeof SessionExerciseScalarFieldEnum)[keyof typeof SessionExerciseScalarFieldEnum]
+
+
+export const SessionExerciseAlternativeScalarFieldEnum = {
+  id: 'id',
+  sessionExerciseId: 'sessionExerciseId',
+  alternativeExerciseId: 'alternativeExerciseId',
+  note: 'note',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SessionExerciseAlternativeScalarFieldEnum = (typeof SessionExerciseAlternativeScalarFieldEnum)[keyof typeof SessionExerciseAlternativeScalarFieldEnum]
+
+
+export const ClientTrainingPlanAssignmentScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  sourceTrainingPlanId: 'sourceTrainingPlanId',
+  assignedPlanId: 'assignedPlanId',
+  assignedByMemberId: 'assignedByMemberId',
+  startDate: 'startDate',
+  endedAt: 'endedAt',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientTrainingPlanAssignmentScalarFieldEnum = (typeof ClientTrainingPlanAssignmentScalarFieldEnum)[keyof typeof ClientTrainingPlanAssignmentScalarFieldEnum]
 
 
 export const SortOrder = {

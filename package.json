@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.15.1",
   "scripts": {
     "dev": "pnpm --parallel --filter web --filter api dev",
+    "dev:auth": "pnpm --filter api dev:auth",
     "build": "pnpm -r --if-present build",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck"

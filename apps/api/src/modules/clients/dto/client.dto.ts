@@ -27,3 +27,8 @@ export type UpdateClientDto = Partial<CreateClientDto>;
 export type UpdateClientStatusDto = {
   status: ClientOperationalStatus;
 };
+
+export type AssignPlanDto = {
+  trainingPlanId: string;
+  startDate?: string;
+};

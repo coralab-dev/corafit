@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { OrganizationGuard } from './organization.guard';
+import { PlatformAdminGuard } from './platform-admin.guard';
 import { RoleGuard } from './role.guard';
 import { SupabaseAuthService } from './supabase-auth.service';
 import { SupabaseJwtGuard } from './supabase-jwt.guard';
@@ -9,6 +10,7 @@ import { SupabaseJwtGuard } from './supabase-jwt.guard';
 @Module({
   providers: [
     OrganizationGuard,
+    PlatformAdminGuard,
     RoleGuard,
     SupabaseAuthService,
     {
@@ -16,6 +18,11 @@ import { SupabaseJwtGuard } from './supabase-jwt.guard';
       useClass: SupabaseJwtGuard,
     },
   ],
-  exports: [OrganizationGuard, RoleGuard, SupabaseAuthService],
+  exports: [
+    OrganizationGuard,
+    PlatformAdminGuard,
+    RoleGuard,
+    SupabaseAuthService,
+  ],
 })
 export class CommonAuthModule {}

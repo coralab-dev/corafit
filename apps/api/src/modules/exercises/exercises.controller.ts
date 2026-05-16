@@ -8,14 +8,18 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { OrganizationMemberRole } from 'db';
 import type { AuthenticatedRequest } from '../../common/auth/authenticated-request';
 import { OrganizationGuard } from '../../common/auth/organization.guard';
 import { RoleGuard } from '../../common/auth/role.guard';
 import { Roles } from '../../common/auth/roles.decorator';
 import { ExercisesService } from './exercises.service';
+import { ExerciseMediaService } from './exercise-media.service';
 import type {
   CreateExerciseDto,
   ListExercisesQuery,
@@ -24,7 +28,10 @@ import type {
 
 @Controller('exercises')
 export class ExercisesController {
-  constructor(private readonly exercisesService: ExercisesService) {}
+  constructor(
+    private readonly exerciseMediaService: ExerciseMediaService,
+    private readonly exercisesService: ExercisesService,
+  ) {}
 
   @UseGuards(OrganizationGuard, RoleGuard)
   @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
@@ -51,6 +58,35 @@ export class ExercisesController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.exercisesService.createCustom(body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @Post(':exerciseId/media')
+  uploadMedia(
+    @Param('exerciseId') exerciseId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.exerciseMediaService.uploadCustomExerciseImage(
+      exerciseId,
+      file,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':exerciseId/media')
+  removeMedia(
+    @Param('exerciseId') exerciseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.exerciseMediaService.removeCustomExerciseMedia(
+      exerciseId,
+      request.organizationMember,
+    );
   }
 
   @UseGuards(OrganizationGuard, RoleGuard)

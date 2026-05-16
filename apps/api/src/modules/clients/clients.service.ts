@@ -11,17 +11,21 @@ import * as argon2 from 'argon2';
 import {
   ClientAccessStatus,
   ClientOperationalStatus,
+  ClientTrainingPlanAssignmentStatus,
   ClientType,
+  TrainingPlanStatus,
+  TrainingPlanType,
   type OrganizationMember,
 } from 'db';
-import type { AppConfig } from '../../config/env.schema';
-import { PrismaService } from '../../common/prisma/prisma.service';
 import type {
+  AssignPlanDto,
   CreateClientDto,
   ListClientsQuery,
   UpdateClientDto,
   UpdateClientStatusDto,
 } from './dto/client.dto';
+import type { AppConfig } from '../../config/env.schema';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 type ClientAccessTokenResult = {
   access: {
@@ -485,5 +489,232 @@ export class ClientsService {
       where: { accessId, invalidated: false },
       data: { invalidated: true },
     });
+  }
+
+  async assignPlan(
+    clientId: string,
+    body: AssignPlanDto,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const organizationId = this.getOrganizationId(member);
+    const trainingPlanId = this.parseRequiredString(
+      body.trainingPlanId,
+      'trainingPlanId',
+    );
+    const startDate = this.parseOptionalDate(body.startDate, 'startDate');
+
+    await this.getClientForOrganization(clientId, organizationId);
+
+    const seedOrgId = await this.getSeedOrganizationId();
+
+    const sourcePlan = await this.prismaService.trainingPlan.findFirst({
+      where: {
+        id: trainingPlanId,
+        planType: TrainingPlanType.template,
+        status: TrainingPlanStatus.active,
+        OR: [
+          { organizationId: member.organizationId },
+          ...(seedOrgId ? [{ organizationId: seedOrgId }] : []),
+        ],
+      },
+      include: {
+        weeks: {
+          orderBy: { weekNumber: 'asc' },
+          include: {
+            days: {
+              orderBy: { dayOrder: 'asc' },
+              include: {
+                session: {
+                  include: {
+                    exercises: {
+                      orderBy: { orderIndex: 'asc' },
+                      include: { alternatives: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!sourcePlan) {
+      throw new NotFoundException('PLAN_NOT_FOUND');
+    }
+
+    const existingAssignment =
+      await this.prismaService.clientTrainingPlanAssignment.findFirst({
+        where: {
+          clientId,
+          status: ClientTrainingPlanAssignmentStatus.active,
+        },
+      });
+
+    if (existingAssignment) {
+      throw new ConflictException('ACTIVE_ASSIGNMENT_EXISTS');
+    }
+
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        const assignedPlan = await tx.trainingPlan.create({
+          data: {
+            name: sourcePlan.name,
+            goal: sourcePlan.goal,
+            level: sourcePlan.level,
+            durationWeeks: sourcePlan.durationWeeks,
+            generalNotes: sourcePlan.generalNotes,
+            status: TrainingPlanStatus.active,
+            planType: TrainingPlanType.assigned_copy,
+            sourcePlanId: sourcePlan.id,
+            assignedClientId: clientId,
+            organizationId: member.organizationId,
+            createdByMemberId: member.id,
+          },
+        });
+
+        let weeksCopied = 0;
+        let daysCopied = 0;
+        let sessionsCopied = 0;
+        let exercisesCopied = 0;
+        let alternativesCopied = 0;
+
+        for (const originalWeek of sourcePlan.weeks) {
+          const week = await tx.trainingPlanWeek.create({
+            data: {
+              trainingPlanId: assignedPlan.id,
+              weekNumber: originalWeek.weekNumber,
+              notes: originalWeek.notes,
+            },
+          });
+          weeksCopied++;
+
+          for (const originalDay of originalWeek.days) {
+            const day = await tx.trainingPlanDay.create({
+              data: {
+                trainingPlanWeekId: week.id,
+                dayOfWeek: originalDay.dayOfWeek,
+                dayOrder: originalDay.dayOrder,
+                dayType: originalDay.dayType,
+              },
+            });
+            daysCopied++;
+
+            if (originalDay.session) {
+              const session = await tx.trainingSession.create({
+                data: {
+                  trainingPlanDayId: day.id,
+                  name: originalDay.session.name,
+                  description: originalDay.session.description,
+                  coachNote: originalDay.session.coachNote,
+                },
+              });
+              sessionsCopied++;
+
+              for (const originalExercise of originalDay.session.exercises) {
+                const exercise = await tx.sessionExercise.create({
+                  data: {
+                    trainingSessionId: session.id,
+                    exerciseId: originalExercise.exerciseId,
+                    orderIndex: originalExercise.orderIndex,
+                    sets: originalExercise.sets,
+                    reps: originalExercise.reps,
+                    restSeconds: originalExercise.restSeconds,
+                    coachNote: originalExercise.coachNote,
+                  },
+                });
+                exercisesCopied++;
+
+                for (const originalAlt of originalExercise.alternatives) {
+                  await tx.sessionExerciseAlternative.create({
+                    data: {
+                      sessionExerciseId: exercise.id,
+                      alternativeExerciseId: originalAlt.alternativeExerciseId,
+                      note: originalAlt.note,
+                    },
+                  });
+                  alternativesCopied++;
+                }
+              }
+            }
+          }
+        }
+
+        const assignment = await tx.clientTrainingPlanAssignment.create({
+          data: {
+            clientId,
+            sourceTrainingPlanId: sourcePlan.id,
+            assignedPlanId: assignedPlan.id,
+            assignedByMemberId: member.id,
+            startDate,
+            status: ClientTrainingPlanAssignmentStatus.active,
+          },
+        });
+
+        return {
+          assignment,
+          assignedPlan,
+          metadata: {
+            weeksCopied,
+            daysCopied,
+            sessionsCopied,
+            exercisesCopied,
+            alternativesCopied,
+          },
+        };
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException('ACTIVE_ASSIGNMENT_EXISTS');
+      }
+
+      throw error;
+    }
+  }
+
+  private async getSeedOrganizationId(): Promise<string | null> {
+    const setting = await this.prismaService.systemSetting.findFirst({
+      where: { key: 'system.seedOrganizationId' },
+    });
+    return (setting?.value as string | null) ?? null;
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002'
+    );
+  }
+
+  private parseOptionalDate(value: unknown, field: string) {
+    if (value === undefined) {
+      return new Date();
+    }
+
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(`${field} must be a valid date`);
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${field} must be a valid date`);
+    }
+
+    return parsed;
+  }
+
+  private parseRequiredString(value: unknown, field: string) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException(`${field} is required`);
+    }
+
+    return value.trim();
   }
 }

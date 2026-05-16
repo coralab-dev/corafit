@@ -72,3 +72,38 @@ export type SystemSetting = Prisma.SystemSettingModel
  * 
  */
 export type Exercise = Prisma.ExerciseModel
+/**
+ * Model TrainingPlan
+ * 
+ */
+export type TrainingPlan = Prisma.TrainingPlanModel
+/**
+ * Model TrainingPlanWeek
+ * 
+ */
+export type TrainingPlanWeek = Prisma.TrainingPlanWeekModel
+/**
+ * Model TrainingPlanDay
+ * 
+ */
+export type TrainingPlanDay = Prisma.TrainingPlanDayModel
+/**
+ * Model TrainingSession
+ * 
+ */
+export type TrainingSession = Prisma.TrainingSessionModel
+/**
+ * Model SessionExercise
+ * 
+ */
+export type SessionExercise = Prisma.SessionExerciseModel
+/**
+ * Model SessionExerciseAlternative
+ * 
+ */
+export type SessionExerciseAlternative = Prisma.SessionExerciseAlternativeModel
+/**
+ * Model ClientTrainingPlanAssignment
+ * 
+ */
+export type ClientTrainingPlanAssignment = Prisma.ClientTrainingPlanAssignmentModel

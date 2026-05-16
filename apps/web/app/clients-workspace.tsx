@@ -18,6 +18,7 @@ import {
   UserRoundIcon,
   UsersIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { type Control, type UseFormReturn, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -507,9 +508,9 @@ export function ClientsWorkspace() {
             </div>
           </div>
           <nav className="mt-8 flex flex-col gap-2">
-            <NavItem icon={ActivityIcon} label="Dashboard" />
-            <NavItem icon={UsersIcon} label="Clientes" active />
-            <NavItem icon={DumbbellIcon} label="Planes" />
+            <NavItem href="/" icon={ActivityIcon} label="Dashboard" />
+            <NavItem href="/clients" icon={UsersIcon} label="Clientes" active />
+            <NavItem href="/training-plans" icon={DumbbellIcon} label="Planes" />
             <NavItem icon={SmartphoneIcon} label="Portal" />
           </nav>
           <div className="mt-auto rounded-lg border bg-background p-3">
@@ -1107,19 +1108,30 @@ function SelectField({
 
 function NavItem({
   active,
+  href,
   icon: Icon,
   label,
 }: {
   active?: boolean;
+  href?: string;
   icon: typeof UsersIcon;
   label: string;
 }) {
+  const className = `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
+    active ? "bg-muted font-semibold text-primary" : "text-muted-foreground"
+  }`;
+
+  if (href) {
+    return (
+      <Link className={className} href={href}>
+        <Icon />
+        {label}
+      </Link>
+    );
+  }
+
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
-        active ? "bg-muted font-semibold text-primary" : "text-muted-foreground"
-      }`}
-    >
+    <div className={className}>
       <Icon />
       {label}
     </div>

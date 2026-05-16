@@ -24,6 +24,7 @@ type ClientsServiceMock = {
   getAccess: ReturnType<typeof vi.fn>;
   regenerateAccess: ReturnType<typeof vi.fn>;
   disableAccess: ReturnType<typeof vi.fn>;
+  assignPlan: ReturnType<typeof vi.fn>;
 };
 
 function createOrganizationMember(
@@ -114,6 +115,11 @@ describe('ClientsController', () => {
         clientId: 'client-id',
         id: 'access-id',
         status: ClientAccessStatus.disabled,
+      }),
+      assignPlan: vi.fn().mockResolvedValue({
+        assignment: { id: 'assignment-id', status: 'active' },
+        assignedPlan: { id: 'plan-copy-id', planType: 'assigned_copy' },
+        metadata: { weeksCopied: 1, daysCopied: 1, sessionsCopied: 1, exercisesCopied: 1, alternativesCopied: 0 },
       }),
     };
     controller = new ClientsController(service as unknown as ClientsService);
@@ -358,6 +364,20 @@ describe('ClientsController', () => {
       await expect(
         controller.disableAccess('client-id', request),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('assignPlan', () => {
+    it('delegates assignPlan to service with clientId, body and member', async () => {
+      const request = createMockRequest();
+      const body = { trainingPlanId: 'template-plan-id', startDate: '2026-06-01' };
+
+      const result = await controller.assignPlan('client-id', body, request);
+
+      expect(service.assignPlan).toHaveBeenCalledWith('client-id', body, request.organizationMember);
+      expect(result).toHaveProperty('assignment');
+      expect(result).toHaveProperty('assignedPlan');
+      expect(result).toHaveProperty('metadata');
     });
   });
 });

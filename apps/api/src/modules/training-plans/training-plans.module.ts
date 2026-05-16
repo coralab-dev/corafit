@@ -1,9 +1,21 @@
 import { Module } from '@nestjs/common';
-import { TrainingPlansController } from './training-plans.controller';
+import {
+  SessionExerciseAlternativesController,
+  SessionExercisesController,
+  TrainingPlanDaysController,
+  TrainingPlansController,
+  TrainingSessionsController,
+} from './training-plans.controller';
 import { TrainingPlansService } from './training-plans.service';
 
 @Module({
-  controllers: [TrainingPlansController],
+  controllers: [
+    TrainingPlansController,
+    TrainingPlanDaysController,
+    TrainingSessionsController,
+    SessionExercisesController,
+    SessionExerciseAlternativesController,
+  ],
   providers: [TrainingPlansService],
 })
 export class TrainingPlansModule {}

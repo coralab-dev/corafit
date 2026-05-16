@@ -270,13 +270,6 @@ export class ClientsService {
     });
   }
 
-  findAccessByPlainToken(token: string): Promise<unknown> {
-    return this.prismaService.clientAccess.findUnique({
-      where: { tokenHash: this.hashToken(token) },
-      include: { client: true },
-    });
-  }
-
   private async getClientForOrganization(clientId: string, organizationId: string) {
     const client = await this.prismaService.client.findFirst({
       where: { id: clientId, organizationId },
@@ -485,18 +478,6 @@ export class ClientsService {
       timeCost: 3,
       parallelism: 1,
     });
-  }
-
-  async verifyPin(pin: string, hash: string): Promise<boolean> {
-    if (!hash) {
-      return false;
-    }
-
-    try {
-      return await argon2.verify(hash, pin);
-    } catch {
-      return false;
-    }
   }
 
   async invalidateSessions(accessId: string): Promise<void> {

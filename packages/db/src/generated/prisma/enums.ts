@@ -115,3 +115,46 @@ export const FollowUpNoteVisibility = {
 } as const
 
 export type FollowUpNoteVisibility = (typeof FollowUpNoteVisibility)[keyof typeof FollowUpNoteVisibility]
+
+
+export const ExerciseStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  archived: 'archived'
+} as const
+
+export type ExerciseStatus = (typeof ExerciseStatus)[keyof typeof ExerciseStatus]
+
+
+export const ExerciseMediaType = {
+  image: 'image',
+  video_url: 'video_url'
+} as const
+
+export type ExerciseMediaType = (typeof ExerciseMediaType)[keyof typeof ExerciseMediaType]
+
+
+export const PrimaryMuscle = {
+  chest: 'chest',
+  back: 'back',
+  legs: 'legs',
+  shoulder: 'shoulder',
+  biceps: 'biceps',
+  triceps: 'triceps',
+  core: 'core',
+  glute: 'glute'
+} as const
+
+export type PrimaryMuscle = (typeof PrimaryMuscle)[keyof typeof PrimaryMuscle]
+
+
+export const Equipment = {
+  barbell: 'barbell',
+  dumbbell: 'dumbbell',
+  cable: 'cable',
+  machine: 'machine',
+  bodyweight: 'bodyweight',
+  other: 'other'
+} as const
+
+export type Equipment = (typeof Equipment)[keyof typeof Equipment]

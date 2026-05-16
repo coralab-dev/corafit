@@ -60,7 +60,8 @@ export const ModelName = {
   FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
-  SystemSetting: 'SystemSetting'
+  SystemSetting: 'SystemSetting',
+  Exercise: 'Exercise'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -232,6 +233,26 @@ export const SystemSettingScalarFieldEnum = {
 } as const
 
 export type SystemSettingScalarFieldEnum = (typeof SystemSettingScalarFieldEnum)[keyof typeof SystemSettingScalarFieldEnum]
+
+
+export const ExerciseScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  createdByUserId: 'createdByUserId',
+  name: 'name',
+  primaryMuscle: 'primaryMuscle',
+  secondaryMuscles: 'secondaryMuscles',
+  equipment: 'equipment',
+  instructions: 'instructions',
+  recommendations: 'recommendations',
+  mediaUrl: 'mediaUrl',
+  mediaType: 'mediaType',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typeof ExerciseScalarFieldEnum]
 
 
 export const SortOrder = {

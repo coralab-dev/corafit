@@ -112,6 +112,7 @@ model Organization {
   members OrganizationMember[]
   subscription OrganizationSubscription?
   clients Client[]
+  exercises Exercise[]
 
   @@map("organizations")
 }
@@ -255,4 +256,60 @@ model SystemSetting {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum ExerciseStatus {
+  active
+  inactive
+  archived
+}
+
+enum ExerciseMediaType {
+  image
+  video_url
+}
+
+enum PrimaryMuscle {
+  chest
+  back
+  legs
+  shoulder
+  biceps
+  triceps
+  core
+  glute
+}
+
+enum Equipment {
+  barbell
+  dumbbell
+  cable
+  machine
+  bodyweight
+  other
+}
+
+model Exercise {
+  id              String          @id @default(uuid())
+  organizationId  String?         @map("organization_id")
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  createdByUserId String?         @map("created_by_user_id")
+
+  name             String
+  primaryMuscle    PrimaryMuscle   @map("primary_muscle")
+  secondaryMuscles String[]        @map("secondary_muscles")
+  equipment        Equipment
+  instructions     String?
+  recommendations  String?
+  mediaUrl         String?        @map("media_url")
+  mediaType        ExerciseMediaType? @map("media_type")
+  status           ExerciseStatus @default(active)
+
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("exercises")
 }

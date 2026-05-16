@@ -535,6 +535,74 @@ export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
   _max?: Prisma.NestedJsonFilter<$PrismaModel>
 }
 
+export type EnumPrimaryMuscleFilter<$PrismaModel = never> = {
+  equals?: $Enums.PrimaryMuscle | Prisma.EnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  in?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel> | $Enums.PrimaryMuscle
+}
+
+export type EnumEquipmentFilter<$PrismaModel = never> = {
+  equals?: $Enums.Equipment | Prisma.EnumEquipmentFieldRefInput<$PrismaModel>
+  in?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  notIn?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEquipmentFilter<$PrismaModel> | $Enums.Equipment
+}
+
+export type EnumExerciseMediaTypeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseMediaType | Prisma.EnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel> | $Enums.ExerciseMediaType | null
+}
+
+export type EnumExerciseStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseStatus | Prisma.EnumExerciseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel> | $Enums.ExerciseStatus
+}
+
+export type EnumPrimaryMuscleWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PrimaryMuscle | Prisma.EnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  in?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPrimaryMuscleWithAggregatesFilter<$PrismaModel> | $Enums.PrimaryMuscle
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel>
+}
+
+export type EnumEquipmentWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.Equipment | Prisma.EnumEquipmentFieldRefInput<$PrismaModel>
+  in?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  notIn?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEquipmentWithAggregatesFilter<$PrismaModel> | $Enums.Equipment
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEquipmentFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEquipmentFilter<$PrismaModel>
+}
+
+export type EnumExerciseMediaTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseMediaType | Prisma.EnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumExerciseMediaTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.ExerciseMediaType | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel>
+}
+
+export type EnumExerciseStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseStatus | Prisma.EnumExerciseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExerciseStatusWithAggregatesFilter<$PrismaModel> | $Enums.ExerciseStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1002,6 +1070,74 @@ export type NestedJsonFilterBase<$PrismaModel = never> = {
   gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+}
+
+export type NestedEnumPrimaryMuscleFilter<$PrismaModel = never> = {
+  equals?: $Enums.PrimaryMuscle | Prisma.EnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  in?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel> | $Enums.PrimaryMuscle
+}
+
+export type NestedEnumEquipmentFilter<$PrismaModel = never> = {
+  equals?: $Enums.Equipment | Prisma.EnumEquipmentFieldRefInput<$PrismaModel>
+  in?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  notIn?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEquipmentFilter<$PrismaModel> | $Enums.Equipment
+}
+
+export type NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseMediaType | Prisma.EnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel> | $Enums.ExerciseMediaType | null
+}
+
+export type NestedEnumExerciseStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseStatus | Prisma.EnumExerciseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel> | $Enums.ExerciseStatus
+}
+
+export type NestedEnumPrimaryMuscleWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PrimaryMuscle | Prisma.EnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  in?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PrimaryMuscle[] | Prisma.ListEnumPrimaryMuscleFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPrimaryMuscleWithAggregatesFilter<$PrismaModel> | $Enums.PrimaryMuscle
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPrimaryMuscleFilter<$PrismaModel>
+}
+
+export type NestedEnumEquipmentWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.Equipment | Prisma.EnumEquipmentFieldRefInput<$PrismaModel>
+  in?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  notIn?: $Enums.Equipment[] | Prisma.ListEnumEquipmentFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEquipmentWithAggregatesFilter<$PrismaModel> | $Enums.Equipment
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEquipmentFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEquipmentFilter<$PrismaModel>
+}
+
+export type NestedEnumExerciseMediaTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseMediaType | Prisma.EnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ExerciseMediaType[] | Prisma.ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumExerciseMediaTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.ExerciseMediaType | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExerciseMediaTypeNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumExerciseStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExerciseStatus | Prisma.EnumExerciseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExerciseStatus[] | Prisma.ListEnumExerciseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExerciseStatusWithAggregatesFilter<$PrismaModel> | $Enums.ExerciseStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExerciseStatusFilter<$PrismaModel>
 }
 
 

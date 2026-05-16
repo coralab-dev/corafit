@@ -67,3 +67,8 @@ export type OrganizationSubscription = Prisma.OrganizationSubscriptionModel
  * 
  */
 export type SystemSetting = Prisma.SystemSettingModel
+/**
+ * Model Exercise
+ * 
+ */
+export type Exercise = Prisma.ExerciseModel

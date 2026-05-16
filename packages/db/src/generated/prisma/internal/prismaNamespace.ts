@@ -393,7 +393,8 @@ export const ModelName = {
   FollowUpNote: 'FollowUpNote',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
-  SystemSetting: 'SystemSetting'
+  SystemSetting: 'SystemSetting',
+  Exercise: 'Exercise'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -409,7 +410,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1153,6 +1154,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Exercise: {
+      payload: Prisma.$ExercisePayload<ExtArgs>
+      fields: Prisma.ExerciseFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ExerciseFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ExerciseFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        findFirst: {
+          args: Prisma.ExerciseFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ExerciseFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        findMany: {
+          args: Prisma.ExerciseFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>[]
+        }
+        create: {
+          args: Prisma.ExerciseCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        createMany: {
+          args: Prisma.ExerciseCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ExerciseCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>[]
+        }
+        delete: {
+          args: Prisma.ExerciseDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        update: {
+          args: Prisma.ExerciseUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        deleteMany: {
+          args: Prisma.ExerciseDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ExerciseUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ExerciseUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>[]
+        }
+        upsert: {
+          args: Prisma.ExerciseUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExercisePayload>
+        }
+        aggregate: {
+          args: Prisma.ExerciseAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateExercise>
+        }
+        groupBy: {
+          args: Prisma.ExerciseGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExerciseGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ExerciseCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExerciseCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1345,6 +1420,26 @@ export const SystemSettingScalarFieldEnum = {
 } as const
 
 export type SystemSettingScalarFieldEnum = (typeof SystemSettingScalarFieldEnum)[keyof typeof SystemSettingScalarFieldEnum]
+
+
+export const ExerciseScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  createdByUserId: 'createdByUserId',
+  name: 'name',
+  primaryMuscle: 'primaryMuscle',
+  secondaryMuscles: 'secondaryMuscles',
+  equipment: 'equipment',
+  instructions: 'instructions',
+  recommendations: 'recommendations',
+  mediaUrl: 'mediaUrl',
+  mediaType: 'mediaType',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typeof ExerciseScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1645,6 +1740,62 @@ export type EnumSubscriptionStatusFieldRefInput<$PrismaModel> = FieldRefInputTyp
 export type ListEnumSubscriptionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SubscriptionStatus[]'>
     
 
+
+/**
+ * Reference to a field of type 'PrimaryMuscle'
+ */
+export type EnumPrimaryMuscleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PrimaryMuscle'>
+    
+
+
+/**
+ * Reference to a field of type 'PrimaryMuscle[]'
+ */
+export type ListEnumPrimaryMuscleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PrimaryMuscle[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Equipment'
+ */
+export type EnumEquipmentFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Equipment'>
+    
+
+
+/**
+ * Reference to a field of type 'Equipment[]'
+ */
+export type ListEnumEquipmentFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Equipment[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ExerciseMediaType'
+ */
+export type EnumExerciseMediaTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseMediaType'>
+    
+
+
+/**
+ * Reference to a field of type 'ExerciseMediaType[]'
+ */
+export type ListEnumExerciseMediaTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseMediaType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ExerciseStatus'
+ */
+export type EnumExerciseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ExerciseStatus[]'
+ */
+export type ListEnumExerciseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseStatus[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -1765,6 +1916,7 @@ export type GlobalOmitConfig = {
   subscriptionPlan?: Prisma.SubscriptionPlanOmit
   organizationSubscription?: Prisma.OrganizationSubscriptionOmit
   systemSetting?: Prisma.SystemSettingOmit
+  exercise?: Prisma.ExerciseOmit
 }
 
 /* Types for Logging */

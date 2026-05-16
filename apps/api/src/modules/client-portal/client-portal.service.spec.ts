@@ -18,6 +18,7 @@ type PrismaServiceMock = {
   };
   clientPortalSession: {
     create: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -68,6 +69,7 @@ describe('ClientPortalService', () => {
           expiresAt: new Date('2026-01-08T00:00:00.000Z'),
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
     service = new ClientPortalService(prismaService as unknown as PrismaService);
@@ -183,5 +185,23 @@ describe('ClientPortalService', () => {
       },
     });
     expect(result.sessionToken).not.toBe('session-id');
+  });
+
+  it('invalidates an existing portal session on logout', async () => {
+    await service.logout('session-token');
+
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        sessionTokenHash: hashToken('session-token'),
+        invalidated: false,
+      },
+      data: { invalidated: true },
+    });
+  });
+
+  it('treats logout without cookie as idempotent', async () => {
+    await service.logout(undefined);
+
+    expect(prismaService.clientPortalSession.updateMany).not.toHaveBeenCalled();
   });
 });

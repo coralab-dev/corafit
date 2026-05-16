@@ -182,6 +182,20 @@ export class ClientPortalService {
     };
   }
 
+  async logout(sessionToken: string | undefined): Promise<void> {
+    if (!sessionToken) {
+      return;
+    }
+
+    await this.prismaService.clientPortalSession.updateMany({
+      where: {
+        sessionTokenHash: this.hashToken(sessionToken),
+        invalidated: false,
+      },
+      data: { invalidated: true },
+    });
+  }
+
   private parsePin(value: unknown) {
     if (typeof value !== 'string' || !/^\d{6}$/.test(value)) {
       throw new BadRequestException('PIN must be 6 digits');

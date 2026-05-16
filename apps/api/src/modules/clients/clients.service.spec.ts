@@ -403,17 +403,6 @@ describe('ClientsService', () => {
     expect(tokens.size).toBe(1000);
   });
 
-  it('validates plain tokens by hashing before lookup', async () => {
-    await service.findAccessByPlainToken('plain-token');
-
-    expect(prismaService.clientAccess.findUnique).toHaveBeenCalledWith({
-      where: {
-        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      },
-      include: { client: true },
-    });
-  });
-
   describe('PIN operations', () => {
     it('generates a 6 digit numeric PIN', () => {
       const pin = service.generatePin();
@@ -441,27 +430,5 @@ describe('ClientsService', () => {
       expect(hash).toMatch(/^\$argon2/);
     });
 
-    it('verifies correct PIN', async () => {
-      const pin = '123456';
-      const hash = await service.hashPin(pin);
-
-      const result = await service.verifyPin(pin, hash);
-
-      expect(result).toBe(true);
-    });
-
-    it('rejects incorrect PIN', async () => {
-      const hash = await service.hashPin('123456');
-
-      const result = await service.verifyPin('654321', hash);
-
-      expect(result).toBe(false);
-    });
-
-    it('rejects PIN when hash is empty', async () => {
-      const result = await service.verifyPin('123456', '');
-
-      expect(result).toBe(false);
-    });
   });
 });

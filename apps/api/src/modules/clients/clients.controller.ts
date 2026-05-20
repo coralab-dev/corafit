@@ -21,6 +21,7 @@ import type {
   ListClientsQuery,
   UpdateClientDto,
   UpdateClientStatusDto,
+  UpdateCurrentPlanAssignmentDto,
 } from './dto/client.dto';
 
 @Controller('clients')
@@ -144,5 +145,46 @@ export class ClientsController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.clientsService.assignPlan(clientId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Get(':clientId/plan-assignment/current')
+  getCurrentPlanAssignment(
+    @Param('clientId') clientId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.getCurrentPlanAssignment(
+      clientId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':clientId/plan-assignment/current')
+  updateCurrentPlanAssignment(
+    @Param('clientId') clientId: string,
+    @Body() body: UpdateCurrentPlanAssignmentDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.updateCurrentPlanAssignment(
+      clientId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/end')
+  endCurrentPlanAssignment(
+    @Param('clientId') clientId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.endCurrentPlanAssignment(
+      clientId,
+      request.organizationMember,
+    );
   }
 }

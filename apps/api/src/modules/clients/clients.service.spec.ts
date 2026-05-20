@@ -44,9 +44,13 @@ type PrismaServiceMock = {
   clientTrainingPlanAssignment: {
     findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   followUpNote: {
     findMany: ReturnType<typeof vi.fn>;
+  };
+  exercise: {
+    findFirst: ReturnType<typeof vi.fn>;
   };
   systemSetting: {
     findFirst: ReturnType<typeof vi.fn>;
@@ -54,6 +58,8 @@ type PrismaServiceMock = {
   trainingPlan: {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   trainingPlanWeek: {
     create: ReturnType<typeof vi.fn>;
@@ -63,9 +69,13 @@ type PrismaServiceMock = {
   };
   trainingSession: {
     create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   sessionExercise: {
     create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   sessionExerciseAlternative: {
     create: ReturnType<typeof vi.fn>;
@@ -145,9 +155,7 @@ describe('ClientsService', () => {
 
   beforeEach(() => {
     prismaService = {
-      $transaction: vi.fn(async (operations: Array<Promise<unknown>>) =>
-        Promise.all(operations),
-      ),
+      $transaction: vi.fn((input: unknown) => runMockTransaction(input, prismaService)),
       client: {
         count: vi.fn().mockResolvedValue(1),
         create: vi.fn().mockResolvedValue(createClient()),
@@ -198,9 +206,15 @@ describe('ClientsService', () => {
           ({ data }: { data: Record<string, unknown> }) =>
             Promise.resolve({ id: 'assignment-id', ...data }),
         ),
+        update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'assignment-id', ...data }),
+        ),
       },
       followUpNote: {
         findMany: vi.fn().mockResolvedValue([]),
+      },
+      exercise: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'exercise-id' }),
       },
       systemSetting: {
         findFirst: vi.fn().mockResolvedValue(null),
@@ -210,6 +224,10 @@ describe('ClientsService', () => {
           Promise.resolve({ id: 'assigned-plan-id', ...data }),
         ),
         findFirst: vi.fn().mockResolvedValue(null),
+        findUnique: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'updated-plan-id', ...data }),
+        ),
       },
       trainingPlanWeek: {
         create: vi.fn().mockResolvedValue({ id: 'week-id' }),
@@ -219,9 +237,17 @@ describe('ClientsService', () => {
       },
       trainingSession: {
         create: vi.fn().mockResolvedValue({ id: 'session-id' }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'session-id' }),
+        update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'session-id', ...data }),
+        ),
       },
       sessionExercise: {
         create: vi.fn().mockResolvedValue({ id: 'exercise-id' }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'session-exercise-id' }),
+        update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'session-exercise-id', ...data }),
+        ),
       },
       sessionExerciseAlternative: {
         create: vi.fn().mockResolvedValue({ id: 'alt-id' }),
@@ -721,6 +747,280 @@ describe('ClientsService', () => {
       const after = new Date();
       expect(result.assignment.startDate.getTime()).toBeGreaterThanOrEqual(before.getTime());
       expect(result.assignment.startDate.getTime()).toBeLessThanOrEqual(after.getTime());
+    });
+  });
+
+  describe('getCurrentPlanAssignment', () => {
+    it('returns null when no active assignment exists', async () => {
+      const result = await service.getCurrentPlanAssignment('client-id', createMember());
+
+      expect(result).toBeNull();
+      expect(prismaService.clientTrainingPlanAssignment.findFirst).toHaveBeenCalledWith({
+        where: {
+          clientId: 'client-id',
+          status: ClientTrainingPlanAssignmentStatus.active,
+        },
+      });
+    });
+
+    it('returns assignment with sourcePlan and assignedPlan tree when active', async () => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValue({
+        id: 'assignment-id',
+        clientId: 'client-id',
+        sourceTrainingPlanId: 'source-plan-id',
+        assignedPlanId: 'assigned-plan-id',
+        assignedByMemberId: 'member-id',
+        startDate: new Date('2026-06-01'),
+        endedAt: null,
+        status: ClientTrainingPlanAssignmentStatus.active,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prismaService.trainingPlan.findUnique
+        .mockResolvedValueOnce({ id: 'source-plan-id', name: 'Source Plan' })
+        .mockResolvedValueOnce({
+          id: 'assigned-plan-id',
+          name: 'Assigned Copy',
+          planType: TrainingPlanType.assigned_copy,
+          weeks: [],
+        });
+
+      const result = await service.getCurrentPlanAssignment('client-id', createMember());
+
+      expect(result).not.toBeNull();
+      expect(result?.assignment.id).toBe('assignment-id');
+      expect(result?.sourcePlan?.id).toBe('source-plan-id');
+      expect(result?.assignedPlan?.id).toBe('assigned-plan-id');
+    });
+
+    it('throws NotFoundException when client not in organization', async () => {
+      prismaService.client.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getCurrentPlanAssignment('non-existent', createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('updateCurrentPlanAssignment', () => {
+    const mockAssignment = {
+      id: 'assignment-id',
+      clientId: 'client-id',
+      sourceTrainingPlanId: 'source-plan-id',
+      assignedPlanId: 'assigned-plan-id',
+      assignedByMemberId: 'member-id',
+      startDate: new Date('2026-06-01'),
+      endedAt: null,
+      status: ClientTrainingPlanAssignmentStatus.active,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValue(mockAssignment);
+      prismaService.trainingPlan.findUnique.mockResolvedValue({
+        id: 'assigned-plan-id',
+        planType: TrainingPlanType.assigned_copy,
+      });
+    });
+
+    it('throws NotFoundException when no active assignment exists', async () => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateCurrentPlanAssignment('client-id', { name: 'New Name' }, createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws BadRequestException when plan is not assigned_copy', async () => {
+      prismaService.trainingPlan.findUnique.mockResolvedValueOnce({
+        id: 'assigned-plan-id',
+        planType: TrainingPlanType.template,
+      });
+
+      await expect(
+        service.updateCurrentPlanAssignment('client-id', { name: 'New Name' }, createMember()),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('updates plan metadata, session and exercise fields on the assigned copy', async () => {
+      const result = await service.updateCurrentPlanAssignment(
+        'client-id',
+        {
+          name: 'Updated Name',
+          goal: 'Hypertrophy',
+          durationWeeks: 12,
+          generalNotes: null,
+          sessions: [
+            {
+              sessionId: 'session-id',
+              name: 'Upper Day',
+              coachNote: null,
+            },
+          ],
+          exercises: [
+            {
+              sessionExerciseId: 'session-exercise-id',
+              exerciseId: 'replacement-exercise-id',
+              sets: 4,
+              reps: '8-10',
+              restSeconds: 90,
+              coachNote: 'Keep two reps in reserve',
+            },
+          ],
+        },
+        createMember(),
+      );
+
+      expect(prismaService.trainingPlan.update).toHaveBeenCalledWith({
+        where: { id: 'assigned-plan-id' },
+        data: {
+          name: 'Updated Name',
+          goal: 'Hypertrophy',
+          durationWeeks: 12,
+          generalNotes: null,
+        },
+        include: expect.any(Object),
+      });
+      expect(prismaService.trainingSession.update).toHaveBeenCalledWith({
+        where: { id: 'session-id' },
+        data: { name: 'Upper Day', coachNote: null },
+      });
+      expect(prismaService.sessionExercise.update).toHaveBeenCalledWith({
+        where: { id: 'session-exercise-id' },
+        data: {
+          exerciseId: 'replacement-exercise-id',
+          sets: 4,
+          reps: '8-10',
+          restSeconds: 90,
+          coachNote: 'Keep two reps in reserve',
+        },
+      });
+      expect(prismaService.exercise.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'replacement-exercise-id',
+          OR: [{ organizationId: null }, { organizationId: 'organization-id' }],
+        },
+      });
+      expect(result.assignment.id).toBe('assignment-id');
+      expect(result.assignedPlan.name).toBe('Updated Name');
+    });
+
+    it('does not update the source template when patching assigned plan details', async () => {
+      await service.updateCurrentPlanAssignment(
+        'client-id',
+        {
+          exercises: [
+            {
+              sessionExerciseId: 'session-exercise-id',
+              sets: 3,
+              reps: '12',
+            },
+          ],
+        },
+        createMember(),
+      );
+
+      expect(prismaService.trainingPlan.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'assigned-plan-id' },
+        }),
+      );
+      expect(prismaService.trainingPlan.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'source-plan-id' },
+        }),
+      );
+      expect(prismaService.sessionExercise.update).toHaveBeenCalledWith({
+        where: { id: 'session-exercise-id' },
+        data: { sets: 3, reps: '12' },
+      });
+    });
+
+    it('throws BadRequestException when patch body has no changes', async () => {
+      await expect(
+        service.updateCurrentPlanAssignment('client-id', {}, createMember()),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects invalid durationWeeks', async () => {
+      await expect(
+        service.updateCurrentPlanAssignment('client-id', { durationWeeks: 0 }, createMember()),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects invalid training level values', async () => {
+      await expect(
+        service.updateCurrentPlanAssignment(
+          'client-id',
+          { level: 'expert' },
+          createMember(),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws NotFoundException when session exercise does not belong to assigned plan', async () => {
+      prismaService.sessionExercise.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateCurrentPlanAssignment(
+          'client-id',
+          {
+            exercises: [
+              {
+                sessionExerciseId: 'other-exercise-id',
+                reps: '10',
+              },
+            ],
+          },
+          createMember(),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('endCurrentPlanAssignment', () => {
+    const mockAssignment = {
+      id: 'assignment-id',
+      clientId: 'client-id',
+      sourceTrainingPlanId: 'source-plan-id',
+      assignedPlanId: 'assigned-plan-id',
+      assignedByMemberId: 'member-id',
+      startDate: new Date('2026-06-01'),
+      endedAt: null,
+      status: ClientTrainingPlanAssignmentStatus.active,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValue(mockAssignment);
+    });
+
+    it('throws NotFoundException when no active assignment exists', async () => {
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.endCurrentPlanAssignment('client-id', createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('updates status to finished and sets endedAt', async () => {
+      const before = new Date();
+      const result = await service.endCurrentPlanAssignment('client-id', createMember());
+      const after = new Date();
+
+      expect(result.status).toBe(ClientTrainingPlanAssignmentStatus.finished);
+      expect(result.endedAt).toBeInstanceOf(Date);
+      expect(result.endedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      expect(result.endedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      expect(prismaService.clientTrainingPlanAssignment.update).toHaveBeenCalledWith({
+        where: { id: 'assignment-id' },
+        data: {
+          status: ClientTrainingPlanAssignmentStatus.finished,
+          endedAt: expect.any(Date),
+        },
+      });
     });
   });
 });

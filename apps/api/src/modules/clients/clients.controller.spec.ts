@@ -25,6 +25,9 @@ type ClientsServiceMock = {
   regenerateAccess: ReturnType<typeof vi.fn>;
   disableAccess: ReturnType<typeof vi.fn>;
   assignPlan: ReturnType<typeof vi.fn>;
+  getCurrentPlanAssignment: ReturnType<typeof vi.fn>;
+  updateCurrentPlanAssignment: ReturnType<typeof vi.fn>;
+  endCurrentPlanAssignment: ReturnType<typeof vi.fn>;
 };
 
 function createOrganizationMember(
@@ -120,6 +123,20 @@ describe('ClientsController', () => {
         assignment: { id: 'assignment-id', status: 'active' },
         assignedPlan: { id: 'plan-copy-id', planType: 'assigned_copy' },
         metadata: { weeksCopied: 1, daysCopied: 1, sessionsCopied: 1, exercisesCopied: 1, alternativesCopied: 0 },
+      }),
+      getCurrentPlanAssignment: vi.fn().mockResolvedValue({
+        assignment: { id: 'assignment-id', status: 'active' },
+        sourcePlan: { id: 'source-plan-id', name: 'Source Plan' },
+        assignedPlan: { id: 'plan-copy-id', name: 'Assigned Copy', planType: 'assigned_copy', weeks: [] },
+      }),
+      updateCurrentPlanAssignment: vi.fn().mockResolvedValue({
+        assignment: { id: 'assignment-id', status: 'active' },
+        assignedPlan: { id: 'plan-copy-id', name: 'Updated Name' },
+      }),
+      endCurrentPlanAssignment: vi.fn().mockResolvedValue({
+        id: 'assignment-id',
+        status: 'finished',
+        endedAt: new Date(),
       }),
     };
     controller = new ClientsController(service as unknown as ClientsService);
@@ -378,6 +395,43 @@ describe('ClientsController', () => {
       expect(result).toHaveProperty('assignment');
       expect(result).toHaveProperty('assignedPlan');
       expect(result).toHaveProperty('metadata');
+    });
+  });
+
+  describe('getCurrentPlanAssignment', () => {
+    it('delegates to service and returns assignment with plan tree', async () => {
+      const request = createMockRequest();
+
+      const result = await controller.getCurrentPlanAssignment('client-id', request);
+
+      expect(service.getCurrentPlanAssignment).toHaveBeenCalledWith('client-id', request.organizationMember);
+      expect(result).toHaveProperty('assignment');
+      expect(result).toHaveProperty('sourcePlan');
+      expect(result).toHaveProperty('assignedPlan');
+    });
+  });
+
+  describe('updateCurrentPlanAssignment', () => {
+    it('delegates to service with clientId, body and member', async () => {
+      const request = createMockRequest();
+      const body = { name: 'Updated Name' };
+
+      const result = await controller.updateCurrentPlanAssignment('client-id', body, request);
+
+      expect(service.updateCurrentPlanAssignment).toHaveBeenCalledWith('client-id', body, request.organizationMember);
+      expect(result).toHaveProperty('assignment');
+      expect(result).toHaveProperty('assignedPlan');
+    });
+  });
+
+  describe('endCurrentPlanAssignment', () => {
+    it('delegates to service and returns ended assignment', async () => {
+      const request = createMockRequest();
+
+      const result = await controller.endCurrentPlanAssignment('client-id', request);
+
+      expect(service.endCurrentPlanAssignment).toHaveBeenCalledWith('client-id', request.organizationMember);
+      expect(result.status).toBe('finished');
     });
   });
 });

@@ -23,6 +23,7 @@ import type {
   ListClientsQuery,
   UpdateClientDto,
   UpdateClientStatusDto,
+  UpdateCurrentPlanAssignmentDto,
 } from './dto/client.dto';
 import type { AppConfig } from '../../config/env.schema';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -37,6 +38,8 @@ type ClientAccessTokenResult = {
   token: string;
   pin: string;
 };
+
+const trainingLevelValues = ['beginner', 'intermediate', 'advanced'] as const;
 
 @Injectable()
 export class ClientsService {
@@ -666,6 +669,9 @@ export class ClientsService {
             alternativesCopied,
           },
         };
+      }, {
+        maxWait: 10_000,
+        timeout: 20_000,
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
@@ -673,6 +679,398 @@ export class ClientsService {
       }
 
       throw error;
+    }
+  }
+
+  async getCurrentPlanAssignment(
+    clientId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    const organizationId = this.getOrganizationId(member);
+    await this.getClientForOrganization(clientId, organizationId);
+
+    const assignment = await this.getCurrentAssignmentForClient(clientId);
+
+    if (!assignment) {
+      return null;
+    }
+
+    const sourcePlan = await this.prismaService.trainingPlan.findUnique({
+      where: { id: assignment.sourceTrainingPlanId },
+      select: { id: true, name: true },
+    });
+
+    const assignedPlan = await this.prismaService.trainingPlan.findUnique({
+      where: { id: assignment.assignedPlanId },
+      include: {
+        weeks: {
+          orderBy: { weekNumber: 'asc' },
+          include: {
+            days: {
+              orderBy: { dayOrder: 'asc' },
+              include: {
+                session: {
+                  include: {
+                    exercises: {
+                      orderBy: { orderIndex: 'asc' },
+                      include: {
+                        alternatives: true,
+                        exercise: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      assignment,
+      sourcePlan,
+      assignedPlan,
+    };
+  }
+
+  async updateCurrentPlanAssignment(
+    clientId: string,
+    body: UpdateCurrentPlanAssignmentDto,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const organizationId = this.getOrganizationId(member);
+    await this.getClientForOrganization(clientId, organizationId);
+
+    const assignment = await this.getCurrentAssignmentForClient(clientId);
+
+    if (!assignment) {
+      throw new NotFoundException('ACTIVE_ASSIGNMENT_NOT_FOUND');
+    }
+
+    await this.assertAssignedCopy(assignment);
+
+    const planData = this.parseCurrentAssignmentPlanUpdateData(body);
+    const sessionUpdates = this.parseCurrentAssignmentSessionUpdates(body);
+    const exerciseUpdates = this.parseCurrentAssignmentExerciseUpdates(body);
+
+    if (
+      !Object.keys(planData).length &&
+      !sessionUpdates.length &&
+      !exerciseUpdates.length
+    ) {
+      throw new BadRequestException('At least one field is required');
+    }
+
+    const updatedPlan = await this.prismaService.$transaction(async (tx) => {
+      for (const session of sessionUpdates) {
+        await this.ensureAssignedSessionInPlan(
+          session.sessionId,
+          assignment.assignedPlanId,
+        );
+        await tx.trainingSession.update({
+          where: { id: session.sessionId },
+          data: session.data,
+        });
+      }
+
+      for (const exercise of exerciseUpdates) {
+        await this.ensureAssignedSessionExerciseInPlan(
+          exercise.sessionExerciseId,
+          assignment.assignedPlanId,
+        );
+        if (exercise.data.exerciseId !== undefined) {
+          await this.ensureExerciseVisible(
+            exercise.data.exerciseId,
+            member.organizationId,
+          );
+        }
+        await tx.sessionExercise.update({
+          where: { id: exercise.sessionExerciseId },
+          data: exercise.data,
+        });
+      }
+
+      return tx.trainingPlan.update({
+        where: { id: assignment.assignedPlanId },
+        data: planData,
+        include: {
+          weeks: {
+            orderBy: { weekNumber: 'asc' },
+            include: {
+              days: {
+                orderBy: { dayOrder: 'asc' },
+                include: {
+                  session: {
+                    include: {
+                      exercises: {
+                        orderBy: { orderIndex: 'asc' },
+                        include: {
+                          alternatives: true,
+                          exercise: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    return {
+      assignment,
+      assignedPlan: updatedPlan,
+    };
+  }
+
+  async endCurrentPlanAssignment(
+    clientId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const organizationId = this.getOrganizationId(member);
+    await this.getClientForOrganization(clientId, organizationId);
+
+    const assignment = await this.getCurrentAssignmentForClient(clientId);
+
+    if (!assignment) {
+      throw new NotFoundException('ACTIVE_ASSIGNMENT_NOT_FOUND');
+    }
+
+    const updatedAssignment =
+      await this.prismaService.clientTrainingPlanAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          status: ClientTrainingPlanAssignmentStatus.finished,
+          endedAt: new Date(),
+        },
+      });
+
+    return updatedAssignment;
+  }
+
+  private async getCurrentAssignmentForClient(clientId: string) {
+    return this.prismaService.clientTrainingPlanAssignment.findFirst({
+      where: {
+        clientId,
+        status: ClientTrainingPlanAssignmentStatus.active,
+      },
+    });
+  }
+
+  private async assertAssignedCopy(assignment: {
+    assignedPlanId: string;
+  }) {
+    const plan = await this.prismaService.trainingPlan.findUnique({
+      where: { id: assignment.assignedPlanId },
+      select: { planType: true },
+    });
+
+    if (plan?.planType !== TrainingPlanType.assigned_copy) {
+      throw new BadRequestException('ASSIGNED_COPY_REQUIRED');
+    }
+  }
+
+  private parseCurrentAssignmentPlanUpdateData(
+    body: UpdateCurrentPlanAssignmentDto,
+  ) {
+    const data: {
+      name?: string;
+      goal?: string | null;
+      level?: string | null;
+      durationWeeks?: number;
+      generalNotes?: string | null;
+    } = {};
+
+    if (body.name !== undefined) {
+      data.name = this.parseRequiredString(body.name, 'name');
+    }
+    if (body.goal !== undefined) {
+      data.goal = this.parseOptionalString(body.goal, 'goal');
+    }
+    if (body.level !== undefined) {
+      data.level = this.parseTrainingLevel(body.level);
+    }
+    if (body.durationWeeks !== undefined) {
+      data.durationWeeks = this.parseDurationWeeks(body.durationWeeks);
+    }
+    if (body.generalNotes !== undefined) {
+      data.generalNotes = this.parseOptionalString(
+        body.generalNotes,
+        'generalNotes',
+      );
+    }
+
+    return data;
+  }
+
+  private parseCurrentAssignmentSessionUpdates(
+    body: UpdateCurrentPlanAssignmentDto,
+  ) {
+    if (body.sessions === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(body.sessions)) {
+      throw new BadRequestException('sessions must be an array');
+    }
+
+    return body.sessions.map((session) => {
+      const sessionId = this.parseRequiredString(session.sessionId, 'sessionId');
+      const data: {
+        name?: string;
+        description?: string | null;
+        coachNote?: string | null;
+      } = {};
+
+      if (session.name !== undefined) {
+        data.name = this.parseRequiredString(session.name, 'name');
+      }
+      if (session.description !== undefined) {
+        data.description = this.parseOptionalString(
+          session.description,
+          'description',
+        );
+      }
+      if (session.coachNote !== undefined) {
+        data.coachNote = this.parseOptionalString(
+          session.coachNote,
+          'coachNote',
+        );
+      }
+      if (!Object.keys(data).length) {
+        throw new BadRequestException('At least one session field is required');
+      }
+
+      return { sessionId, data };
+    });
+  }
+
+  private parseCurrentAssignmentExerciseUpdates(
+    body: UpdateCurrentPlanAssignmentDto,
+  ) {
+    if (body.exercises === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(body.exercises)) {
+      throw new BadRequestException('exercises must be an array');
+    }
+
+    return body.exercises.map((exercise) => {
+      const sessionExerciseId = this.parseRequiredString(
+        exercise.sessionExerciseId,
+        'sessionExerciseId',
+      );
+      const data: {
+        exerciseId?: string;
+        orderIndex?: number;
+        sets?: number | null;
+        reps?: string;
+        restSeconds?: number | null;
+        coachNote?: string | null;
+      } = {};
+
+      if (exercise.exerciseId !== undefined) {
+        data.exerciseId = this.parseRequiredString(
+          exercise.exerciseId,
+          'exerciseId',
+        );
+      }
+      if (exercise.orderIndex !== undefined) {
+        data.orderIndex = this.parseNonNegativeInt(
+          exercise.orderIndex,
+          'orderIndex',
+        );
+      }
+      if (exercise.sets !== undefined) {
+        data.sets = this.parseNullablePositiveInt(exercise.sets, 'sets');
+      }
+      if (exercise.reps !== undefined) {
+        data.reps = this.parseRequiredString(exercise.reps, 'reps');
+      }
+      if (exercise.restSeconds !== undefined) {
+        data.restSeconds = this.parseNullablePositiveInt(
+          exercise.restSeconds,
+          'restSeconds',
+        );
+      }
+      if (exercise.coachNote !== undefined) {
+        data.coachNote = this.parseOptionalString(
+          exercise.coachNote,
+          'coachNote',
+        );
+      }
+      if (!Object.keys(data).length) {
+        throw new BadRequestException('At least one exercise field is required');
+      }
+
+      return { sessionExerciseId, data };
+    });
+  }
+
+  private async ensureAssignedSessionInPlan(
+    sessionId: string,
+    assignedPlanId: string,
+  ) {
+    const session = await this.prismaService.trainingSession.findFirst({
+      where: {
+        id: sessionId,
+        day: {
+          week: {
+            trainingPlanId: assignedPlanId,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('SESSION_NOT_FOUND_IN_ASSIGNED_PLAN');
+    }
+  }
+
+  private async ensureAssignedSessionExerciseInPlan(
+    sessionExerciseId: string,
+    assignedPlanId: string,
+  ) {
+    const exercise = await this.prismaService.sessionExercise.findFirst({
+      where: {
+        id: sessionExerciseId,
+        session: {
+          day: {
+            week: {
+              trainingPlanId: assignedPlanId,
+            },
+          },
+        },
+      },
+    });
+
+    if (!exercise) {
+      throw new NotFoundException('EXERCISE_NOT_FOUND_IN_ASSIGNED_PLAN');
+    }
+  }
+
+  private async ensureExerciseVisible(exerciseId: string, organizationId: string) {
+    const exercise = await this.prismaService.exercise.findFirst({
+      where: {
+        id: exerciseId,
+        OR: [{ organizationId: null }, { organizationId }],
+      },
+    });
+
+    if (!exercise) {
+      throw new BadRequestException('Exercise does not exist or is not accessible');
     }
   }
 
@@ -708,6 +1106,47 @@ export class ClientsService {
     }
 
     return parsed;
+  }
+
+  private parseDurationWeeks(value: unknown) {
+    if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 52) {
+      throw new BadRequestException('durationWeeks must be between 1 and 52');
+    }
+
+    return value as number;
+  }
+
+  private parseNonNegativeInt(value: unknown, field: string) {
+    if (!Number.isInteger(value) || Number(value) < 0) {
+      throw new BadRequestException(`${field} must be a non-negative integer`);
+    }
+
+    return value as number;
+  }
+
+  private parseNullablePositiveInt(value: unknown, field: string) {
+    if (value === null || value === '') {
+      return null;
+    }
+
+    if (!Number.isInteger(value) || Number(value) <= 0) {
+      throw new BadRequestException(`${field} must be a positive integer`);
+    }
+
+    return value as number;
+  }
+
+  private parseTrainingLevel(value: unknown) {
+    const level = this.parseOptionalString(value, 'level');
+    if (level === null) {
+      return null;
+    }
+
+    if (!trainingLevelValues.includes(level as (typeof trainingLevelValues)[number])) {
+      throw new BadRequestException('level must be beginner, intermediate or advanced');
+    }
+
+    return level;
   }
 
   private parseRequiredString(value: unknown, field: string) {

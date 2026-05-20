@@ -32,3 +32,26 @@ export type AssignPlanDto = {
   trainingPlanId: string;
   startDate?: string;
 };
+
+export type UpdateCurrentPlanAssignmentDto = {
+  name?: string;
+  goal?: string | null;
+  level?: string | null;
+  durationWeeks?: number;
+  generalNotes?: string | null;
+  sessions?: Array<{
+    sessionId: string;
+    name?: string;
+    description?: string | null;
+    coachNote?: string | null;
+  }>;
+  exercises?: Array<{
+    sessionExerciseId: string;
+    exerciseId?: string;
+    orderIndex?: number;
+    sets?: number | null;
+    reps?: string;
+    restSeconds?: number | null;
+    coachNote?: string | null;
+  }>;
+};

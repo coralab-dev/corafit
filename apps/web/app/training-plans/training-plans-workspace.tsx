@@ -1,10 +1,13 @@
 "use client";
 
-import { CalendarDaysIcon, DumbbellIcon, Loader2Icon, SearchIcon } from "lucide-react";
+import { CalendarDaysIcon, DumbbellIcon, Loader2Icon, PlusIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,6 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   type TrainingPlanStatus,
@@ -31,9 +42,14 @@ const levelLabels: Record<string, string> = {
 };
 
 export function TrainingPlansWorkspace() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState<TrainingPlanStatus | "all">("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newPlanName, setNewPlanName] = useState("");
+  const [newPlanWeeks, setNewPlanWeeks] = useState("4");
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query), 250);
@@ -44,7 +60,7 @@ export function TrainingPlansWorkspace() {
     () => ({ search: debouncedQuery, status }),
     [debouncedQuery, status],
   );
-  const { error, isLoading, items, total } = useTrainingPlans(filters);
+  const { createPlan, error, isLoading, items, refresh, total } = useTrainingPlans(filters);
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -59,7 +75,13 @@ export function TrainingPlansWorkspace() {
               <h1 className="text-3xl font-semibold leading-tight">Planes</h1>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <PlusIcon data-icon="inline-start" />
+              Nuevo plan
+            </Button>
+          </div>
         </header>
 
         <Card>
@@ -152,6 +174,76 @@ export function TrainingPlansWorkspace() {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo plan de entrenamiento</DialogTitle>
+            <DialogDescription>
+              Crea un plan en borrador para empezar a editarlo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor="plan-name">
+                Nombre
+              </label>
+              <Input
+                id="plan-name"
+                placeholder="Ej: Plan de fuerza 4 semanas"
+                value={newPlanName}
+                onChange={(event) => setNewPlanName(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor="plan-weeks">
+                Semanas
+              </label>
+              <Input
+                id="plan-weeks"
+                min={1}
+                max={52}
+                type="number"
+                value={newPlanWeeks}
+                onChange={(event) => setNewPlanWeeks(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!newPlanName.trim() || isCreating}
+              onClick={async () => {
+                setIsCreating(true);
+                try {
+                  const plan = await createPlan({
+                    name: newPlanName.trim(),
+                    durationWeeks: Number(newPlanWeeks),
+                  });
+                  toast.success("Plan creado");
+                  setIsCreateOpen(false);
+                  setNewPlanName("");
+                  setNewPlanWeeks("4");
+                  void refresh();
+                  router.push(`/training-plans/${plan.id}/edit`);
+                } catch (caughtError) {
+                  toast.error(
+                    caughtError instanceof Error
+                      ? caughtError.message
+                      : "Error al crear plan",
+                  );
+                } finally {
+                  setIsCreating(false);
+                }
+              }}
+            >
+              {isCreating ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : null}
+              Crear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -371,6 +371,19 @@ describe('TrainingPlansService', () => {
       expect(prisma.trainingPlan.update).not.toHaveBeenCalled();
     });
 
+    it('rejects editing metadata when plan is active', async () => {
+      prisma.trainingPlan.findFirst.mockResolvedValue({
+        id: 'plan-1',
+        durationWeeks: 4,
+        status: TrainingPlanStatus.active,
+      });
+
+      await expect(
+        service.updatePlan('plan-1', { name: 'Nuevo' }, mockMember),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.trainingPlan.update).not.toHaveBeenCalled();
+    });
+
     it('adds an exercise to a visible session with validated prescription fields', async () => {
       prisma.trainingSession.findFirst.mockResolvedValue({ id: 'session-1' });
       prisma.exercise.findFirst.mockResolvedValue({ id: 'ex-1' });
@@ -838,6 +851,37 @@ describe('TrainingPlansService', () => {
       await expect(
         service.duplicateWeek('plan-1', 'week-1', mockMember),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('createWeek', () => {
+    it('updates durationWeeks when creating a week beyond the current duration', async () => {
+      prisma.trainingPlan.findFirst.mockResolvedValue({
+        id: 'plan-1',
+        durationWeeks: 3,
+        status: TrainingPlanStatus.draft,
+      });
+      prisma.trainingPlanWeek.findFirst.mockResolvedValue({ weekNumber: 3 });
+      prisma.trainingPlanWeek.create.mockResolvedValue({ id: 'week-4', weekNumber: 4 });
+
+      const result = await service.createWeek('plan-1', {}, mockMember);
+
+      expect(result).toEqual({ id: 'week-4', weekNumber: 4 });
+      expect(prisma.trainingPlan.update).toHaveBeenCalledWith({
+        where: { id: 'plan-1' },
+        data: { durationWeeks: 4 },
+      });
+    });
+
+    it('rejects creating weeks on an active plan', async () => {
+      prisma.trainingPlan.findFirst.mockResolvedValue({
+        id: 'plan-1',
+        durationWeeks: 3,
+        status: TrainingPlanStatus.active,
+      });
+
+      await expect(service.createWeek('plan-1', {}, mockMember)).rejects.toThrow(ConflictException);
+      expect(prisma.trainingPlanWeek.create).not.toHaveBeenCalled();
     });
   });
 

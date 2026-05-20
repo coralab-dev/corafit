@@ -79,3 +79,24 @@ export type UpdateSessionExerciseAlternativeDto = {
   alternativeExerciseId?: string;
   note?: string | null;
 };
+
+export type CreateWeekDto = {
+  weekNumber?: number;
+  notes?: string;
+};
+
+export type CreateDayDto = {
+  dayOfWeek: string;
+  dayType?: string;
+  dayOrder?: number;
+};
+
+export type CreateSessionDto = {
+  name: string;
+  description?: string | null;
+  coachNote?: string | null;
+};
+
+export type UpdatePlanStatusDto = {
+  status: string;
+};

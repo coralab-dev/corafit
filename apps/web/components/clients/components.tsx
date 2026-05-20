@@ -197,10 +197,17 @@ export function ClientDetail({
               <EditIcon data-icon="inline-start" />
               Editar
             </Button>
-            <Button variant={hasActivePlan ? "outline" : "default"} onClick={onOpenAssignPlan}>
-              <DumbbellIcon data-icon="inline-start" />
-              Asignar plan
-            </Button>
+            {hasActivePlan ? (
+              <Button variant="outline" onClick={onOpenCurrentPlan}>
+                <EyeIcon data-icon="inline-start" />
+                Ver plan actual
+              </Button>
+            ) : (
+              <Button onClick={onOpenAssignPlan}>
+                <DumbbellIcon data-icon="inline-start" />
+                Asignar plan
+              </Button>
+            )}
             <Sheet open={isAccessOpen} onOpenChange={setIsAccessOpen}>
               <Button onClick={() => setIsAccessOpen(true)}>
                 <KeyRoundIcon data-icon="inline-start" />

@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ClientAccessStatus,
+  ClientTrainingPlanAssignmentStatus,
   TrainingPlanType,
   type OrganizationMember,
 } from 'db';
@@ -49,10 +50,10 @@ export class DashboardService {
         }),
       ]);
 
-    const clientsWithPlan = await this.prismaService.client.count({
+    const clientsWithPlan = await this.prismaService.clientTrainingPlanAssignment.count({
       where: {
-        organizationId,
-        assignedPlans: { some: {} },
+        status: ClientTrainingPlanAssignmentStatus.active,
+        client: { organizationId },
       },
     });
 

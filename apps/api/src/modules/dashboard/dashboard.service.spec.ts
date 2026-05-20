@@ -1,5 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
-import { OrganizationMemberRole, type OrganizationMember } from 'db';
+import {
+  ClientTrainingPlanAssignmentStatus,
+  OrganizationMemberRole,
+  type OrganizationMember,
+} from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { DashboardService } from './dashboard.service';
@@ -16,6 +20,9 @@ type PrismaServiceMock = {
   clientAccess: {
     count: ReturnType<typeof vi.fn>;
   };
+  clientTrainingPlanAssignment: {
+    count: ReturnType<typeof vi.fn>;
+  };
 };
 
 function createMockPrisma(): PrismaServiceMock {
@@ -29,6 +36,9 @@ function createMockPrisma(): PrismaServiceMock {
       count: vi.fn(),
     },
     clientAccess: {
+      count: vi.fn(),
+    },
+    clientTrainingPlanAssignment: {
       count: vi.fn(),
     },
   };
@@ -81,6 +91,7 @@ describe('DashboardService', () => {
       prisma.client.count.mockResolvedValue(0);
       prisma.trainingPlan.count.mockResolvedValue(0);
       prisma.clientAccess.count.mockResolvedValue(0);
+      prisma.clientTrainingPlanAssignment.count.mockResolvedValue(0);
 
       const result = await service.getOnboardingStats(mockMember);
 
@@ -101,9 +112,10 @@ describe('DashboardService', () => {
     });
 
     it('returns stats with counts and completed checklist', async () => {
-      prisma.client.count.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
+      prisma.client.count.mockResolvedValue(3);
       prisma.trainingPlan.count.mockResolvedValue(2);
       prisma.clientAccess.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+      prisma.clientTrainingPlanAssignment.count.mockResolvedValue(2);
 
       const result = await service.getOnboardingStats(mockMember);
 
@@ -117,12 +129,19 @@ describe('DashboardService', () => {
       expect(result.checklist.hasAssignedPlan).toBe(true);
       expect(result.checklist.hasGeneratedAccess).toBe(true);
       expect(result.checklist.hasPreviewedPortal).toBe(true);
+      expect(prisma.clientTrainingPlanAssignment.count).toHaveBeenCalledWith({
+        where: {
+          status: ClientTrainingPlanAssignmentStatus.active,
+          client: { organizationId: 'org-1' },
+        },
+      });
     });
 
     it('keeps portal preview pending until an access has been used', async () => {
-      prisma.client.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+      prisma.client.count.mockResolvedValue(1);
       prisma.trainingPlan.count.mockResolvedValue(1);
       prisma.clientAccess.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      prisma.clientTrainingPlanAssignment.count.mockResolvedValue(1);
 
       const result = await service.getOnboardingStats(mockMember);
 

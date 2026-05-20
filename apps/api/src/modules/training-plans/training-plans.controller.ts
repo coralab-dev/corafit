@@ -29,6 +29,10 @@ import type {
   UpdateSessionDto,
   UpdateSessionExerciseAlternativeDto,
   UpdateSessionExerciseDto,
+  CreateWeekDto,
+  CreateDayDto,
+  CreateSessionDto,
+  UpdatePlanStatusDto,
 } from './dto/training-plan.dto';
 
 @Controller('training-plans')
@@ -104,6 +108,51 @@ export class TrainingPlansController {
   ) {
     return this.trainingPlansService.duplicateWeek(planId, weekId, request.organizationMember);
   }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':planId/weeks')
+  createWeek(
+    @Param('planId') planId: string,
+    @Body() body: CreateWeekDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.createWeek(planId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':planId/weeks/:weekId')
+  deleteWeek(
+    @Param('planId') _planId: string,
+    @Param('weekId') weekId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.deleteWeek(weekId, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':planId/weeks/:weekId/days')
+  createDay(
+    @Param('planId') _planId: string,
+    @Param('weekId') weekId: string,
+    @Body() body: CreateDayDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.createDay(weekId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':planId/status')
+  updatePlanStatus(
+    @Param('planId') planId: string,
+    @Body() body: UpdatePlanStatusDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.updatePlanStatus(planId, body, request.organizationMember);
+  }
 }
 
 @Controller('training-sessions')
@@ -130,6 +179,16 @@ export class TrainingSessionsController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.trainingPlansService.createSessionExercise(sessionId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':sessionId')
+  deleteSession(
+    @Param('sessionId') sessionId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.deleteSession(sessionId, request.organizationMember);
   }
 }
 
@@ -229,5 +288,26 @@ export class TrainingPlanDaysController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.trainingPlansService.copyDay(dayId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':dayId')
+  deleteDay(
+    @Param('dayId') dayId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.deleteDay(dayId, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':dayId/sessions')
+  createSession(
+    @Param('dayId') dayId: string,
+    @Body() body: CreateSessionDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.createSession(dayId, body, request.organizationMember);
   }
 }

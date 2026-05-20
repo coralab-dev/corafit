@@ -302,7 +302,8 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensurePlanVisible(planId, member.organizationId);
+    const plan = await this.ensurePlanVisible(planId, member.organizationId);
+    this.ensurePlanIsDraft(plan);
     const data = this.parsePlanUpdateData(body);
 
     if (!Object.keys(data).length) {
@@ -330,7 +331,8 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureSessionVisible(sessionId, member.organizationId);
+    const session = await this.ensureSessionVisible(sessionId, member.organizationId);
+    this.ensurePlanIsDraft(session.day?.week?.trainingPlan);
     const data = this.parseSessionUpdateData(body);
 
     if (!Object.keys(data).length) {
@@ -352,7 +354,8 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureSessionVisible(sessionId, member.organizationId);
+    const session = await this.ensureSessionVisible(sessionId, member.organizationId);
+    this.ensurePlanIsDraft(session.day?.week?.trainingPlan);
     await this.ensureExerciseVisible(body.exerciseId, member.organizationId);
 
     const maxExercise = await this.prismaService.sessionExercise.findFirst({
@@ -758,6 +761,7 @@ export class TrainingPlansService {
         },
       },
       include: {
+        trainingPlan: true,
         days: {
           include: {
             session: {
@@ -777,6 +781,7 @@ export class TrainingPlansService {
     if (!originalWeek) {
       throw new NotFoundException('Week was not found');
     }
+    this.ensurePlanIsDraft(originalWeek.trainingPlan);
 
     const maxWeek = await this.prismaService.trainingPlanWeek.findFirst({
       where: { trainingPlanId: planId },
@@ -840,6 +845,16 @@ export class TrainingPlansService {
         }
       }
 
+      if (
+        originalWeek.trainingPlan?.durationWeeks !== undefined &&
+        nextWeekNumber > originalWeek.trainingPlan.durationWeeks
+      ) {
+        await tx.trainingPlan.update({
+          where: { id: planId },
+          data: { durationWeeks: nextWeekNumber },
+        });
+      }
+
       return week;
     });
   }
@@ -865,6 +880,11 @@ export class TrainingPlansService {
         },
       },
       include: {
+        week: {
+          include: {
+            trainingPlan: true,
+          },
+        },
         session: {
           include: {
             exercises: {
@@ -880,6 +900,7 @@ export class TrainingPlansService {
     if (!originalDay) {
       throw new NotFoundException('Day was not found');
     }
+    this.ensurePlanIsDraft(originalDay.week?.trainingPlan);
 
     const existingDay = await this.prismaService.trainingPlanDay.findFirst({
       where: {
@@ -940,6 +961,297 @@ export class TrainingPlansService {
       }
 
       return day;
+    });
+  }
+
+  async createWeek(
+    planId: string,
+    body: { weekNumber?: number; notes?: string },
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const plan = await this.ensurePlanVisible(planId, member.organizationId);
+    this.ensurePlanIsDraft(plan);
+
+    const weekNumber = body.weekNumber !== undefined
+      ? this.parsePositiveInt(body.weekNumber.toString(), 1)
+      : undefined;
+
+    if (weekNumber !== undefined && (weekNumber < 1 || weekNumber > 52)) {
+      throw new BadRequestException('weekNumber must be between 1 and 52');
+    }
+
+    const notes = body.notes !== undefined
+      ? this.parseOptionalString(body.notes, 'notes')
+      : null;
+
+    const existingWeek = weekNumber !== undefined
+      ? await this.prismaService.trainingPlanWeek.findFirst({
+          where: { trainingPlanId: planId, weekNumber },
+        })
+      : null;
+
+    if (existingWeek) {
+      throw new ConflictException('A week with that number already exists');
+    }
+
+    const maxWeek = await this.prismaService.trainingPlanWeek.findFirst({
+      where: { trainingPlanId: planId },
+      orderBy: { weekNumber: 'desc' },
+    });
+
+    const nextWeekNumber = weekNumber ?? ((maxWeek?.weekNumber ?? 0) + 1);
+
+    const createdWeek = await this.prismaService.trainingPlanWeek.create({
+      data: {
+        trainingPlanId: planId,
+        weekNumber: nextWeekNumber,
+        notes,
+      },
+    });
+
+    if (nextWeekNumber > plan.durationWeeks) {
+      await this.prismaService.trainingPlan.update({
+        where: { id: planId },
+        data: { durationWeeks: nextWeekNumber },
+      });
+    }
+
+    return createdWeek;
+  }
+
+  async deleteWeek(
+    weekId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const week = await this.ensureWeekVisible(weekId, member.organizationId);
+    this.ensurePlanIsDraft(week.trainingPlan);
+
+    return this.prismaService.$transaction(async (tx) => {
+      const days = await tx.trainingPlanDay.findMany({
+        where: { trainingPlanWeekId: weekId },
+        include: { session: { include: { exercises: { include: { alternatives: true } } } } },
+      });
+
+      for (const day of days) {
+        if (day.session) {
+          for (const exercise of day.session.exercises) {
+            await tx.sessionExerciseAlternative.deleteMany({
+              where: { sessionExerciseId: exercise.id },
+            });
+            await tx.sessionExercise.delete({
+              where: { id: exercise.id },
+            });
+          }
+          await tx.trainingSession.delete({
+            where: { id: day.session.id },
+          });
+        }
+        await tx.trainingPlanDay.delete({
+          where: { id: day.id },
+        });
+      }
+
+      await tx.trainingPlanWeek.delete({
+        where: { id: weekId },
+      });
+
+      const lastWeek = await tx.trainingPlanWeek.findFirst({
+        where: { trainingPlanId: week.trainingPlanId },
+        orderBy: { weekNumber: 'desc' },
+      });
+      await tx.trainingPlan.update({
+        where: { id: week.trainingPlanId },
+        data: { durationWeeks: Math.max(lastWeek?.weekNumber ?? 1, 1) },
+      });
+
+      return { deleted: true };
+    });
+  }
+
+  async createDay(
+    weekId: string,
+    body: { dayOfWeek: string; dayType?: string; dayOrder?: number },
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const week = await this.ensureWeekVisible(weekId, member.organizationId);
+    this.ensurePlanIsDraft(week.trainingPlan);
+
+    const dayOfWeek = this.parseDayOfWeek(body.dayOfWeek);
+    const dayType = body.dayType !== undefined
+      ? this.parseDayType(body.dayType)
+      : TrainingDayType.training;
+    const dayOrder = body.dayOrder !== undefined
+      ? this.parseNonNegativeInt(body.dayOrder, 'dayOrder')
+      : null;
+
+    const existingDay = await this.prismaService.trainingPlanDay.findFirst({
+      where: { trainingPlanWeekId: weekId, dayOfWeek },
+    });
+
+    if (existingDay) {
+      throw new ConflictException('A day already exists for that day of week');
+    }
+
+    return this.prismaService.trainingPlanDay.create({
+      data: {
+        trainingPlanWeekId: weekId,
+        dayOfWeek,
+        dayType,
+        dayOrder,
+      },
+    });
+  }
+
+  async deleteDay(
+    dayId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const day = await this.ensureDayVisible(dayId, member.organizationId);
+    this.ensurePlanIsDraft(day.week?.trainingPlan);
+
+    return this.prismaService.$transaction(async (tx) => {
+      if (day.session) {
+        for (const exercise of day.session.exercises) {
+          await tx.sessionExerciseAlternative.deleteMany({
+            where: { sessionExerciseId: exercise.id },
+          });
+          await tx.sessionExercise.delete({
+            where: { id: exercise.id },
+          });
+        }
+        await tx.trainingSession.delete({
+          where: { id: day.session.id },
+        });
+      }
+
+      await tx.trainingPlanDay.delete({
+        where: { id: dayId },
+      });
+
+      return { deleted: true };
+    });
+  }
+
+  async createSession(
+    dayId: string,
+    body: { name: string; description?: string | null; coachNote?: string | null },
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const day = await this.ensureDayVisible(dayId, member.organizationId);
+    this.ensurePlanIsDraft(day.week?.trainingPlan);
+
+    const existingSession = await this.prismaService.trainingSession.findFirst({
+      where: { trainingPlanDayId: dayId },
+    });
+
+    if (existingSession) {
+      throw new ConflictException('A session already exists for this day');
+    }
+
+    const name = this.parseString(body.name, 'name', true);
+    const description = body.description !== undefined
+      ? this.parseOptionalString(body.description, 'description')
+      : null;
+    const coachNote = body.coachNote !== undefined
+      ? this.parseOptionalString(body.coachNote, 'coachNote')
+      : null;
+
+    return this.prismaService.trainingSession.create({
+      data: {
+        trainingPlanDayId: dayId,
+        name,
+        description,
+        coachNote,
+      },
+    });
+  }
+
+  async deleteSession(
+    sessionId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const session = await this.ensureSessionVisibleWithExercises(sessionId, member.organizationId);
+    this.ensurePlanIsDraft(session.day?.week?.trainingPlan);
+
+    return this.prismaService.$transaction(async (tx) => {
+      for (const exercise of session.exercises) {
+        await tx.sessionExerciseAlternative.deleteMany({
+          where: { sessionExerciseId: exercise.id },
+        });
+        await tx.sessionExercise.delete({
+          where: { id: exercise.id },
+        });
+      }
+
+      await tx.trainingSession.delete({
+        where: { id: sessionId },
+      });
+
+      return { deleted: true };
+    });
+  }
+
+  async updatePlanStatus(
+    planId: string,
+    body: { status: string },
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const plan = await this.ensurePlanVisible(planId, member.organizationId);
+    const newStatus = this.parsePlanStatus(body.status);
+
+    if (newStatus === TrainingPlanStatus.active && plan.status === TrainingPlanStatus.draft) {
+      const weeks = await this.prismaService.trainingPlanWeek.count({
+        where: { trainingPlanId: planId },
+      });
+      if (weeks === 0) {
+        throw new BadRequestException('Cannot activate a plan without weeks');
+      }
+
+      const sessions = await this.prismaService.trainingSession.count({
+        where: {
+          day: {
+            week: {
+              trainingPlanId: planId,
+            },
+          },
+        },
+      });
+      if (sessions === 0) {
+        throw new BadRequestException('Cannot activate a plan without sessions');
+      }
+    }
+
+    return this.prismaService.trainingPlan.update({
+      where: { id: planId },
+      data: { status: newStatus },
     });
   }
 
@@ -1008,6 +1320,17 @@ export class TrainingPlansService {
             trainingPlan: {
               organizationId,
               planType: TrainingPlanType.template,
+            },
+          },
+        },
+      },
+      include: {
+        day: {
+          include: {
+            week: {
+              include: {
+                trainingPlan: true,
+              },
             },
           },
         },
@@ -1336,5 +1659,130 @@ export class TrainingPlansService {
     }
 
     return trimmed as DayOfWeek;
+  }
+
+  private parseDayType(value: unknown): TrainingDayType {
+    if (typeof value !== 'string') {
+      throw new BadRequestException('dayType is required');
+    }
+
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed !== 'training' && trimmed !== 'rest') {
+      throw new BadRequestException('dayType must be training or rest');
+    }
+
+    return trimmed;
+  }
+
+  private parsePlanStatus(value: unknown): TrainingPlanStatus {
+    if (typeof value !== 'string') {
+      throw new BadRequestException('status is required');
+    }
+
+    const trimmed = value.trim().toLowerCase();
+    if (
+      trimmed !== TrainingPlanStatus.draft &&
+      trimmed !== TrainingPlanStatus.active &&
+      trimmed !== TrainingPlanStatus.archived
+    ) {
+      throw new BadRequestException('status must be draft, active or archived');
+    }
+
+    return trimmed;
+  }
+
+  private async ensureWeekVisible(weekId: string, organizationId: string) {
+    const week = await this.prismaService.trainingPlanWeek.findFirst({
+      where: {
+        id: weekId,
+        trainingPlan: {
+          organizationId,
+          planType: TrainingPlanType.template,
+        },
+      },
+      include: { trainingPlan: true },
+    });
+
+    if (!week) {
+      throw new NotFoundException('Week was not found');
+    }
+
+    return week;
+  }
+
+  private async ensureDayVisible(dayId: string, organizationId: string) {
+    const day = await this.prismaService.trainingPlanDay.findFirst({
+      where: {
+        id: dayId,
+        week: {
+          trainingPlan: {
+            organizationId,
+            planType: TrainingPlanType.template,
+          },
+        },
+      },
+      include: {
+        week: {
+          include: {
+            trainingPlan: true,
+          },
+        },
+        session: {
+          include: {
+            exercises: {
+              include: { alternatives: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!day) {
+      throw new NotFoundException('Day was not found');
+    }
+
+    return day;
+  }
+
+  private async ensureSessionVisibleWithExercises(sessionId: string, organizationId: string) {
+    const session = await this.prismaService.trainingSession.findFirst({
+      where: {
+        id: sessionId,
+        day: {
+          week: {
+            trainingPlan: {
+              organizationId,
+              planType: TrainingPlanType.template,
+            },
+          },
+        },
+      },
+      include: {
+        day: {
+          include: {
+            week: {
+              include: {
+                trainingPlan: true,
+              },
+            },
+          },
+        },
+        exercises: {
+          include: { alternatives: true },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session was not found');
+    }
+
+    return session;
+  }
+
+  private ensurePlanIsDraft(plan: { status?: TrainingPlanStatus } | null | undefined) {
+    if (plan?.status !== undefined && plan.status !== TrainingPlanStatus.draft) {
+      throw new ConflictException('Only draft plans can be edited');
+    }
   }
 }

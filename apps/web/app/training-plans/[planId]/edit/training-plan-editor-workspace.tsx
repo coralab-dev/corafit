@@ -11,6 +11,8 @@ import {
   PlusIcon,
   SaveIcon,
   Trash2Icon,
+  ArchiveIcon,
+  CheckCircle2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  type DayOfWeek,
   type SessionExercise,
   type TrainingPlan,
   type TrainingPlanDay,
@@ -52,6 +55,16 @@ const dayLabels: Record<string, string> = {
   tuesday: "Martes",
   wednesday: "Miercoles",
 };
+
+const dayOfWeekValues: Array<DayOfWeek> = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 const levelLabels: Record<string, string> = {
   advanced: "Avanzado",
@@ -186,6 +199,19 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
+  async function mutateStatus(status: "active" | "archived" | "draft", success: string) {
+    setPlanSaveState("saving");
+    try {
+      await editor.updatePlanStatus(status);
+      await editor.loadPlan();
+      setPlanSaveState("saved");
+      toast.success(success);
+    } catch (caughtError) {
+      setPlanSaveState("error");
+      toast.error(getErrorMessage(caughtError));
+    }
+  }
+
   if (editor.isLoading && !plan) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
@@ -233,12 +259,47 @@ export function TrainingPlanEditorWorkspace() {
           </div>
           <div className="flex items-center gap-3">
             <SaveIndicator state={saveState} />
+            {plan.status === "draft" ? (
+              <Button
+                disabled={isReadOnly}
+                onClick={() => mutateStatus("active", "Plan publicado")}
+              >
+                <CheckCircle2Icon data-icon="inline-start" />
+                Publicar
+              </Button>
+            ) : plan.status === "active" ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => mutateStatus("draft", "Plan devuelto a borrador")}
+                >
+                  <ArrowLeftIcon data-icon="inline-start" />
+                  Volver a borrador
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => mutateStatus("archived", "Plan archivado")}
+                >
+                  <ArchiveIcon data-icon="inline-start" />
+                  Archivar
+                </Button>
+              </>
+            ) : plan.status === "archived" ? (
+              <Button
+                variant="outline"
+                onClick={() => mutateStatus("draft", "Plan devuelto a borrador")}
+              >
+                <ArrowLeftIcon data-icon="inline-start" />
+                Volver a borrador
+              </Button>
+            ) : null}
             <ThemeToggle />
           </div>
         </header>
 
         <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <PlanTree
+            editor={editor}
             plan={plan}
             selectedSessionId={selectedSession?.id}
             onSelectSession={setSelectedSessionId}
@@ -347,14 +408,18 @@ export function TrainingPlanEditorWorkspace() {
 }
 
 function PlanTree({
+  editor,
   onSelectSession,
   plan,
   selectedSessionId,
 }: {
+  editor: ReturnType<typeof useTrainingPlanEditor>;
   onSelectSession: (sessionId: string) => void;
   plan: TrainingPlan;
   selectedSessionId?: string;
 }) {
+  const isReadOnly = plan.status !== "draft";
+
   return (
     <Card className="h-fit">
       <CardHeader>
@@ -364,18 +429,58 @@ function PlanTree({
       <CardContent className="flex flex-col gap-2">
         {plan.weeks?.map((week) => (
           <details key={week.id} className="rounded-lg border bg-background p-2" open>
-            <summary className="cursor-pointer text-sm font-semibold">
-              Semana {week.weekNumber}
+            <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold">
+              <span>Semana {week.weekNumber}</span>
+              <span className="flex gap-1">
+                <button
+                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  disabled={isReadOnly}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void editor.duplicateWeek(week.id).then(() => {
+                      void editor.loadPlan();
+                      toast.success("Semana duplicada");
+                    });
+                  }}
+                >
+                  <CopyIcon className="size-3" />
+                </button>
+                <button
+                  className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  disabled={isReadOnly}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (window.confirm("Eliminar esta semana y todo su contenido?")) {
+                      void editor.deleteWeek(week.id).then(() => {
+                        void editor.loadPlan();
+                        toast.success("Semana eliminada");
+                      });
+                    }
+                  }}
+                >
+                  <Trash2Icon className="size-3" />
+                </button>
+              </span>
             </summary>
             <div className="mt-2 flex flex-col gap-2">
               {week.days.map((day) => (
                 <DayNode
                   key={day.id}
                   day={day}
+                  editor={editor}
+                  isReadOnly={isReadOnly}
                   isSelected={day.session?.id === selectedSessionId}
                   onSelectSession={onSelectSession}
                 />
               ))}
+              <AddDayControl
+                editor={editor}
+                isReadOnly={isReadOnly}
+                usedDays={week.days.map((day) => day.dayOfWeek)}
+                weekId={week.id}
+              />
             </div>
           </details>
         ))}
@@ -384,33 +489,147 @@ function PlanTree({
   );
 }
 
+function AddDayControl({
+  editor,
+  isReadOnly,
+  usedDays,
+  weekId,
+}: {
+  editor: ReturnType<typeof useTrainingPlanEditor>;
+  isReadOnly: boolean;
+  usedDays: string[];
+  weekId: string;
+}) {
+  const availableDays = dayOfWeekValues.filter((day) => !usedDays.includes(day));
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(availableDays[0] ?? "monday");
+
+  useEffect(() => {
+    if (!availableDays.includes(selectedDay) && availableDays[0]) {
+      setSelectedDay(availableDays[0]);
+    }
+  }, [availableDays, selectedDay]);
+
+  return (
+    <div className="flex gap-2">
+      <select
+        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        disabled={isReadOnly || availableDays.length === 0}
+        value={selectedDay}
+        onChange={(event) => setSelectedDay(event.target.value as DayOfWeek)}
+      >
+        {availableDays.map((day) => (
+          <option key={day} value={day}>
+            {dayLabels[day]}
+          </option>
+        ))}
+      </select>
+      <Button
+        disabled={isReadOnly || availableDays.length === 0}
+        size="sm"
+        type="button"
+        variant="ghost"
+        onClick={() =>
+          void editor.createDay(weekId, { dayOfWeek: selectedDay }).then(() => {
+            void editor.loadPlan();
+            toast.success("Dia agregado");
+          })
+        }
+      >
+        <PlusIcon className="mr-1 size-3" />
+        Agregar
+      </Button>
+    </div>
+  );
+}
+
 function DayNode({
   day,
+  editor,
+  isReadOnly,
   isSelected,
   onSelectSession,
 }: {
   day: TrainingPlanDay;
+  editor: ReturnType<typeof useTrainingPlanEditor>;
+  isReadOnly: boolean;
   isSelected: boolean;
   onSelectSession: (sessionId: string) => void;
 }) {
   return (
     <details className="rounded-md border bg-card p-2" open>
-      <summary className="cursor-pointer text-sm text-muted-foreground">
-        {dayLabels[day.dayOfWeek] ?? day.dayOfWeek}
+      <summary className="flex cursor-pointer items-center justify-between text-sm text-muted-foreground">
+        <span>{dayLabels[day.dayOfWeek] ?? day.dayOfWeek}</span>
+        <button
+          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          disabled={isReadOnly}
+          title="Eliminar dia"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (window.confirm("Eliminar este dia y su contenido?")) {
+              void editor.deleteDay(day.id).then(() => {
+                void editor.loadPlan();
+                toast.success("Dia eliminado");
+              });
+            }
+          }}
+        >
+          <Trash2Icon className="size-3" />
+        </button>
       </summary>
       {day.session ? (
-        <button
-          className={cn(
-            "mt-2 w-full rounded-md border px-3 py-2 text-left text-sm transition-colors",
-            isSelected ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
-          )}
-          type="button"
-          onClick={() => onSelectSession(day.session?.id ?? "")}
-        >
-          {day.session.name}
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            className={cn(
+              "flex-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+              isSelected ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
+            )}
+            type="button"
+            onClick={() => onSelectSession(day.session?.id ?? "")}
+          >
+            {day.session.name}
+          </button>
+          <button
+            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            disabled={isReadOnly}
+            title="Eliminar sesion"
+            type="button"
+            onClick={() => {
+              if (window.confirm("Eliminar esta sesion y todos sus ejercicios?")) {
+                const sessionId = day.session?.id;
+                if (sessionId) {
+                  void editor.deleteSession(sessionId).then(() => {
+                    void editor.loadPlan();
+                    toast.success("Sesion eliminada");
+                  });
+                }
+              }
+            }}
+          >
+            <Trash2Icon className="size-3" />
+          </button>
+        </div>
       ) : (
-        <p className="mt-2 text-xs text-muted-foreground">Sin sesion</p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex-1 text-xs text-muted-foreground">Sin sesion</span>
+          <Button
+            disabled={isReadOnly}
+            size="sm"
+            type="button"
+            variant="ghost"
+            onClick={() =>
+              void editor
+                .createSession(day.id, { name: `Sesion ${dayLabels[day.dayOfWeek] ?? day.dayOfWeek}` })
+                .then(() => {
+                  void editor.loadPlan();
+                  toast.success("Sesion agregada");
+                })
+            }
+          >
+            <PlusIcon className="mr-1 size-3" />
+            Sesion
+          </Button>
+        </div>
       )}
     </details>
   );

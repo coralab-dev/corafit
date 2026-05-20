@@ -153,7 +153,27 @@ export function useTrainingPlans(filters: PlanListFilters) {
     return () => window.clearTimeout(timer);
   }, [loadPlans]);
 
-  return { error, isApiReady, isLoading, items, refresh: loadPlans, total };
+  async function createPlan(body: {
+    name: string;
+    durationWeeks: number;
+    goal?: string;
+    level?: string;
+    generalNotes?: string;
+  }) {
+    if (!isApiReady) {
+      throw new Error("Configura la conexion al API para crear planes.");
+    }
+
+    const response = await apiRequest<TrainingPlan>(
+      "/training-plans",
+      { method: "POST", body: JSON.stringify(body) },
+      apiConfig,
+    );
+
+    return response;
+  }
+
+  return { createPlan, error, isApiReady, isLoading, items, refresh: loadPlans, total };
 }
 
 export function useTrainingPlanEditor(planId: string) {
@@ -261,6 +281,51 @@ export function useTrainingPlanEditor(planId: string) {
       request<SessionExercise>(
         `/session-exercises/${sessionExerciseId}`,
         { method: "PATCH", body: JSON.stringify(body) },
+      ),
+    createWeek: (body: { weekNumber?: number; notes?: string }) =>
+      request<{ id: string }>(
+        `/training-plans/${planId}/weeks`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    deleteWeek: (weekId: string) =>
+      request<{ deleted: boolean }>(
+        `/training-plans/${planId}/weeks/${weekId}`,
+        { method: "DELETE" },
+      ),
+    duplicateWeek: (weekId: string) =>
+      request<{ id: string }>(
+        `/training-plans/${planId}/weeks/${weekId}/duplicate`,
+        { method: "POST" },
+      ),
+    createDay: (weekId: string, body: { dayOfWeek: string; dayType?: string; dayOrder?: number }) =>
+      request<{ id: string }>(
+        `/training-plans/${planId}/weeks/${weekId}/days`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    deleteDay: (dayId: string) =>
+      request<{ deleted: boolean }>(
+        `/training-plan-days/${dayId}`,
+        { method: "DELETE" },
+      ),
+    copyDay: (dayId: string, body: { dayOfWeek: string }) =>
+      request<{ id: string }>(
+        `/training-plan-days/${dayId}/copy`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    createSession: (dayId: string, body: { name: string; description?: string | null; coachNote?: string | null }) =>
+      request<{ id: string }>(
+        `/training-plan-days/${dayId}/sessions`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    deleteSession: (sessionId: string) =>
+      request<{ deleted: boolean }>(
+        `/training-sessions/${sessionId}`,
+        { method: "DELETE" },
+      ),
+    updatePlanStatus: (status: string) =>
+      request<TrainingPlan>(
+        `/training-plans/${planId}/status`,
+        { method: "PATCH", body: JSON.stringify({ status }) },
       ),
   };
 }

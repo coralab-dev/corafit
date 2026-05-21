@@ -198,10 +198,18 @@ export function ClientDetail({
               Editar
             </Button>
             {hasActivePlan ? (
-              <Button variant="outline" onClick={onOpenCurrentPlan}>
-                <EyeIcon data-icon="inline-start" />
-                Ver plan actual
-              </Button>
+              <>
+                <Button variant="outline" onClick={onOpenCurrentPlan}>
+                  <EyeIcon data-icon="inline-start" />
+                  Ver plan actual
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                    <EditIcon data-icon="inline-start" />
+                    Editar plan actual
+                  </Link>
+                </Button>
+              </>
             ) : (
               <Button onClick={onOpenAssignPlan}>
                 <DumbbellIcon data-icon="inline-start" />
@@ -273,6 +281,7 @@ export function ClientDetail({
                 onEndPlan={onEndPlan}
                 onOpenAssignPlan={onOpenAssignPlan}
                 onOpenCurrentPlan={onOpenCurrentPlan}
+                clientId={client.id}
               />
             </TabsContent>
             <TabsContent value="notas" className="mt-4">
@@ -306,12 +315,14 @@ export function ClientDetail({
 
 export function CurrentPlanPanel({
   assignment,
+  clientId,
   isLoading,
   onEndPlan,
   onOpenAssignPlan,
   onOpenCurrentPlan,
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
+  clientId: string;
   isLoading: boolean;
   onEndPlan: () => void;
   onOpenAssignPlan: () => void;
@@ -367,6 +378,12 @@ export function CurrentPlanPanel({
         <Button className="w-full" variant="outline" onClick={onOpenCurrentPlan}>
           <EyeIcon data-icon="inline-start" />
           Ver plan actual
+        </Button>
+        <Button asChild className="w-full" variant="outline">
+          <Link href={`/clients/${clientId}/plan-assignment/edit`}>
+            <EditIcon data-icon="inline-start" />
+            Editar plan actual
+          </Link>
         </Button>
         <Button className="w-full" variant="outline" onClick={onEndPlan}>
           <ArchiveIcon data-icon="inline-start" />

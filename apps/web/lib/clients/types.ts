@@ -56,12 +56,15 @@ export type DayOfWeek =
 
 export type SessionExerciseAlternative = {
   id: string;
+  alternativeExerciseId?: string;
   note: string | null;
   alternativeExercise?: { id: string; name: string };
 };
 
 export type SessionExercise = {
   id: string;
+  exerciseId?: string;
+  trainingSessionId?: string;
   orderIndex: number;
   sets: number | null;
   reps: string;
@@ -73,6 +76,7 @@ export type SessionExercise = {
 
 export type TrainingSession = {
   id: string;
+  trainingPlanDayId?: string;
   name: string;
   description: string | null;
   coachNote: string | null;
@@ -81,6 +85,7 @@ export type TrainingSession = {
 
 export type TrainingPlanDay = {
   id: string;
+  trainingPlanWeekId?: string;
   dayOfWeek: DayOfWeek;
   dayOrder: number | null;
   dayType: "training" | "rest";
@@ -89,6 +94,7 @@ export type TrainingPlanDay = {
 
 export type TrainingPlanWeek = {
   id: string;
+  trainingPlanId?: string;
   weekNumber: number;
   notes: string | null;
   days?: TrainingPlanDay[];

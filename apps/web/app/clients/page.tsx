@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { ClientsWorkspace } from "../clients-workspace";
 
 export default function ClientsPage() {
-  return <ClientsWorkspace />;
+  return (
+    <Suspense fallback={null}>
+      <ClientsWorkspace />
+    </Suspense>
+  );
 }

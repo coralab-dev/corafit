@@ -28,6 +28,8 @@ type ClientsServiceMock = {
   getCurrentPlanAssignment: ReturnType<typeof vi.fn>;
   updateCurrentPlanAssignment: ReturnType<typeof vi.fn>;
   endCurrentPlanAssignment: ReturnType<typeof vi.fn>;
+  createCurrentAssignmentWeek: ReturnType<typeof vi.fn>;
+  createCurrentAssignmentSessionExercise: ReturnType<typeof vi.fn>;
 };
 
 function createOrganizationMember(
@@ -138,6 +140,8 @@ describe('ClientsController', () => {
         status: 'finished',
         endedAt: new Date(),
       }),
+      createCurrentAssignmentWeek: vi.fn().mockResolvedValue({ id: 'week-id' }),
+      createCurrentAssignmentSessionExercise: vi.fn().mockResolvedValue({ id: 'session-exercise-id' }),
     };
     controller = new ClientsController(service as unknown as ClientsService);
   });
@@ -432,6 +436,42 @@ describe('ClientsController', () => {
 
       expect(service.endCurrentPlanAssignment).toHaveBeenCalledWith('client-id', request.organizationMember);
       expect(result.status).toBe('finished');
+    });
+  });
+
+  describe('current assignment structural editing', () => {
+    it('delegates week creation to service with current assignment context', async () => {
+      const request = createMockRequest();
+      const body = { weekNumber: 5, notes: 'Deload' };
+
+      const result = await controller.createCurrentAssignmentWeek('client-id', body, request);
+
+      expect(service.createCurrentAssignmentWeek).toHaveBeenCalledWith(
+        'client-id',
+        body,
+        request.organizationMember,
+      );
+      expect(result).toHaveProperty('id');
+    });
+
+    it('delegates session exercise creation to service with current assignment context', async () => {
+      const request = createMockRequest();
+      const body = { exerciseId: 'exercise-id', reps: '8-10', sets: 3 };
+
+      const result = await controller.createCurrentAssignmentSessionExercise(
+        'client-id',
+        'session-id',
+        body,
+        request,
+      );
+
+      expect(service.createCurrentAssignmentSessionExercise).toHaveBeenCalledWith(
+        'client-id',
+        'session-id',
+        body,
+        request.organizationMember,
+      );
+      expect(result).toHaveProperty('id');
     });
   });
 });

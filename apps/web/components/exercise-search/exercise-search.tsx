@@ -7,7 +7,7 @@ import {
   PlusIcon,
   SearchIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-se
 
 export interface ExerciseSearchProps {
   onSelect?: (exercise: Exercise) => void;
+  reloadToken?: number;
   selectionMode?: "card" | "explicit";
   selectedId?: string;
 }
@@ -39,7 +40,12 @@ export interface ExerciseSearchProps {
 const muscleOptions = Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>;
 const equipmentOptions = Object.entries(equipmentLabels) as Array<[Equipment, string]>;
 
-export function ExerciseSearch({ onSelect, selectionMode = "card", selectedId }: ExerciseSearchProps) {
+export function ExerciseSearch({
+  onSelect,
+  reloadToken,
+  selectionMode = "card",
+  selectedId,
+}: ExerciseSearchProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle | "all">("all");
@@ -47,6 +53,7 @@ export function ExerciseSearch({ onSelect, selectionMode = "card", selectedId }:
   const [type, setType] = useState<ExerciseType>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const didHandleReloadToken = useRef(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -66,7 +73,20 @@ export function ExerciseSearch({ onSelect, selectionMode = "card", selectedId }:
     [debouncedQuery, equipment, primaryMuscle, type],
   );
 
-  const { createExercise, error, isLoading, items, total } = useExercises(filters);
+  const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
+
+  useEffect(() => {
+    if (reloadToken === undefined) {
+      return;
+    }
+
+    if (!didHandleReloadToken.current) {
+      didHandleReloadToken.current = true;
+      return;
+    }
+
+    void refresh();
+  }, [refresh, reloadToken]);
 
   async function handleCreate(input: Parameters<typeof createExercise>[0]) {
     setIsCreating(true);

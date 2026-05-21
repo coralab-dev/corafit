@@ -56,6 +56,15 @@ export type CreateExerciseInput = {
   videoUrl?: string;
 };
 
+export type UpdateExerciseInput = {
+  name?: string;
+  primaryMuscle?: PrimaryMuscle;
+  equipment?: Equipment;
+  instructions?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: ExerciseMediaType | null;
+};
+
 type ExercisesResponse = {
   items: Exercise[];
   page: number;
@@ -202,6 +211,32 @@ export function useExerciseMediaActions() {
   );
 
   return { removeExerciseMedia, uploadExerciseImage };
+}
+
+export function useExerciseActions() {
+  const [apiConfig] = useState(getApiConfig);
+
+  const updateExercise = useCallback(
+    (exerciseId: string, input: UpdateExerciseInput) =>
+      apiRequest<Exercise>(
+        `/exercises/${exerciseId}`,
+        { method: "PATCH", body: JSON.stringify(input) },
+        apiConfig,
+      ),
+    [apiConfig],
+  );
+
+  const deactivateExercise = useCallback(
+    (exerciseId: string) =>
+      apiRequest<Exercise>(
+        `/exercises/${exerciseId}`,
+        { method: "DELETE" },
+        apiConfig,
+      ),
+    [apiConfig],
+  );
+
+  return { deactivateExercise, updateExercise };
 }
 
 async function uploadExerciseImageRequest(

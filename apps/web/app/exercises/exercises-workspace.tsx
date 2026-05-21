@@ -1,6 +1,6 @@
 "use client";
 
-import { DumbbellIcon } from "lucide-react";
+import { DumbbellIcon, Loader2Icon, PencilIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -14,10 +14,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   ExerciseSearch,
   type ExerciseSearchProps,
 } from "@/components/exercise-search";
-import { type Exercise, useExerciseMediaActions } from "@/hooks/use-exercises";
+import {
+  type Equipment,
+  type Exercise,
+  type PrimaryMuscle,
+  useExerciseActions,
+  useExerciseMediaActions,
+} from "@/hooks/use-exercises";
 
 const muscleLabels: Record<Exercise["primaryMuscle"], string> = {
   chest: "Pecho",
@@ -41,10 +56,16 @@ const equipmentLabels: Record<Exercise["equipment"], string> = {
 
 export function ExercisesWorkspace() {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const handleSelect: ExerciseSearchProps["onSelect"] = (exercise) => {
     setSelectedExercise(exercise);
   };
+
+  function handleExerciseChange(exercise: Exercise | null) {
+    setSelectedExercise(exercise);
+    setReloadToken((current) => current + 1);
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -64,12 +85,13 @@ export function ExercisesWorkspace() {
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <ExerciseSearch
+            reloadToken={reloadToken}
             selectedId={selectedExercise?.id}
             onSelect={handleSelect}
           />
           <SelectedExerciseCard
             exercise={selectedExercise}
-            onExerciseChange={setSelectedExercise}
+            onExerciseChange={handleExerciseChange}
           />
         </div>
       </div>
@@ -82,9 +104,12 @@ function SelectedExerciseCard({
   onExerciseChange,
 }: {
   exercise: Exercise | null;
-  onExerciseChange: (exercise: Exercise) => void;
+  onExerciseChange: (exercise: Exercise | null) => void;
 }) {
+  const { deactivateExercise, updateExercise } = useExerciseActions();
   const { removeExerciseMedia, uploadExerciseImage } = useExerciseMediaActions();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingMedia, setIsSavingMedia] = useState(false);
 
   if (!exercise) {
@@ -109,7 +134,7 @@ function SelectedExerciseCard({
   }
 
   const visibleExercise = exercise;
-  const canEditMedia = Boolean(visibleExercise.organizationId);
+  const canEditExercise = Boolean(visibleExercise.organizationId);
 
   async function handleImageChange(file: File | undefined) {
     if (!file || !visibleExercise) {
@@ -153,6 +178,53 @@ function SelectedExerciseCard({
     }
   }
 
+  async function handleUpdate(input: {
+    equipment: Equipment;
+    instructions: string | null;
+    mediaType?: Exercise["mediaType"];
+    mediaUrl?: string | null;
+    name: string;
+    primaryMuscle: PrimaryMuscle;
+  }) {
+    if (!visibleExercise) {
+      return;
+    }
+
+    const updatedExercise = await updateExercise(visibleExercise.id, input);
+    onExerciseChange(updatedExercise);
+    setIsEditOpen(false);
+    toast.success("Ejercicio actualizado");
+  }
+
+  async function handleDeactivate() {
+    if (!visibleExercise) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Desactivar "${visibleExercise.name}"? Ya no aparecera en la biblioteca activa.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deactivateExercise(visibleExercise.id);
+      onExerciseChange(null);
+      toast.success("Ejercicio desactivado");
+    } catch (caughtError) {
+      toast.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "No se pudo desactivar el ejercicio",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <Card className="min-w-0">
       <CardHeader>
@@ -169,6 +241,37 @@ function SelectedExerciseCard({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {canEditExercise ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="sm:flex-1"
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditOpen(true)}
+            >
+              <PencilIcon data-icon="inline-start" />
+              Editar
+            </Button>
+            <Button
+              className="sm:flex-1"
+              disabled={isDeleting}
+              type="button"
+              variant="destructive"
+              onClick={() => void handleDeactivate()}
+            >
+              {isDeleting ? (
+                <Loader2Icon data-icon="inline-start" />
+              ) : (
+                <Trash2Icon data-icon="inline-start" />
+              )}
+              Desactivar
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">
+            Los ejercicios globales solo se administran desde Admin SaaS.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Badge variant="muted">{muscleLabels[visibleExercise.primaryMuscle]}</Badge>
           <Badge variant="outline">{equipmentLabels[visibleExercise.equipment]}</Badge>
@@ -181,7 +284,7 @@ function SelectedExerciseCard({
           <p className="mt-2 break-all text-sm text-muted-foreground">
             {visibleExercise.mediaUrl || "Sin media registrada."}
           </p>
-          {canEditMedia ? (
+          {canEditExercise ? (
             <div className="mt-3 flex flex-col gap-2">
               <input
                 accept="image/jpeg,image/png,image/webp"
@@ -216,6 +319,167 @@ function SelectedExerciseCard({
           </p>
         </div>
       </CardContent>
+      {isEditOpen ? (
+        <ExerciseEditDialog
+          key={`${visibleExercise.id}-${visibleExercise.updatedAt}`}
+          exercise={visibleExercise}
+          isOpen={isEditOpen}
+          onOpenChange={setIsEditOpen}
+          onUpdate={handleUpdate}
+        />
+      ) : null}
     </Card>
   );
+}
+
+function ExerciseEditDialog({
+  exercise,
+  isOpen,
+  onOpenChange,
+  onUpdate,
+}: {
+  exercise: Exercise;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: (input: {
+    equipment: Equipment;
+    instructions: string | null;
+    mediaType?: Exercise["mediaType"];
+    mediaUrl?: string | null;
+    name: string;
+    primaryMuscle: PrimaryMuscle;
+  }) => Promise<void>;
+}) {
+  const [equipment, setEquipment] = useState<Equipment>(exercise.equipment);
+  const [instructions, setInstructions] = useState(exercise.instructions ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [name, setName] = useState(exercise.name);
+  const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle>(exercise.primaryMuscle);
+  const [videoUrl, setVideoUrl] = useState(
+    exercise.mediaType === "video_url" ? exercise.mediaUrl ?? "" : "",
+  );
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      toast.error("El nombre debe tener al menos 2 caracteres");
+      return;
+    }
+
+    const trimmedVideoUrl = videoUrl.trim();
+    if (trimmedVideoUrl && !isValidUrl(trimmedVideoUrl)) {
+      toast.error("La URL de video no es valida");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onUpdate({
+        equipment,
+        instructions: instructions.trim() || null,
+        mediaType: trimmedVideoUrl ? "video_url" : exercise.mediaType === "video_url" ? null : undefined,
+        mediaUrl: trimmedVideoUrl || (exercise.mediaType === "video_url" ? null : undefined),
+        name: trimmedName,
+        primaryMuscle,
+      });
+    } catch (caughtError) {
+      toast.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "No se pudo actualizar el ejercicio",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar ejercicio</DialogTitle>
+          <DialogDescription>
+            Solo puedes editar ejercicios personalizados de tu organizacion.
+          </DialogDescription>
+        </DialogHeader>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Nombre
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Musculo principal
+            <select
+              className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={primaryMuscle}
+              onChange={(event) => setPrimaryMuscle(event.target.value as PrimaryMuscle)}
+            >
+              {Object.entries(muscleLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Equipamiento
+            <select
+              className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={equipment}
+              onChange={(event) => setEquipment(event.target.value as Equipment)}
+            >
+              {Object.entries(equipmentLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Instrucciones
+            <textarea
+              className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+            />
+          </label>
+          {exercise.mediaType !== "image" ? (
+            <label className="flex flex-col gap-2 text-sm font-medium">
+              URL de video externo
+              <Input value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} />
+            </label>
+          ) : null}
+          <DialogFooter>
+            <Button
+              disabled={isSaving}
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button disabled={isSaving} type="submit">
+              {isSaving ? (
+                <Loader2Icon data-icon="inline-start" />
+              ) : (
+                <SaveIcon data-icon="inline-start" />
+              )}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function isValidUrl(value: string) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

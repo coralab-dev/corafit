@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -23,6 +24,18 @@ import type {
   UpdateClientStatusDto,
   UpdateCurrentPlanAssignmentDto,
 } from './dto/client.dto';
+import type {
+  CopyDayDto,
+  CreateDayDto,
+  CreateSessionDto,
+  CreateSessionExerciseAlternativeDto,
+  CreateSessionExerciseDto,
+  CreateWeekDto,
+  ReorderSessionExercisesDto,
+  UpdateSessionDto,
+  UpdateSessionExerciseAlternativeDto,
+  UpdateSessionExerciseDto,
+} from '../training-plans/dto/training-plan.dto';
 
 @Controller('clients')
 export class ClientsController {
@@ -184,6 +197,277 @@ export class ClientsController {
   ) {
     return this.clientsService.endCurrentPlanAssignment(
       clientId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/weeks')
+  createCurrentAssignmentWeek(
+    @Param('clientId') clientId: string,
+    @Body() body: CreateWeekDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.createCurrentAssignmentWeek(
+      clientId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/weeks/:weekId/duplicate')
+  duplicateCurrentAssignmentWeek(
+    @Param('clientId') clientId: string,
+    @Param('weekId') weekId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.duplicateCurrentAssignmentWeek(
+      clientId,
+      weekId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':clientId/plan-assignment/current/weeks/:weekId')
+  deleteCurrentAssignmentWeek(
+    @Param('clientId') clientId: string,
+    @Param('weekId') weekId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.deleteCurrentAssignmentWeek(
+      clientId,
+      weekId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/weeks/:weekId/days')
+  createCurrentAssignmentDay(
+    @Param('clientId') clientId: string,
+    @Param('weekId') weekId: string,
+    @Body() body: CreateDayDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.createCurrentAssignmentDay(
+      clientId,
+      weekId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/days/:dayId/copy')
+  copyCurrentAssignmentDay(
+    @Param('clientId') clientId: string,
+    @Param('dayId') dayId: string,
+    @Body() body: CopyDayDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.copyCurrentAssignmentDay(
+      clientId,
+      dayId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':clientId/plan-assignment/current/days/:dayId')
+  deleteCurrentAssignmentDay(
+    @Param('clientId') clientId: string,
+    @Param('dayId') dayId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.deleteCurrentAssignmentDay(
+      clientId,
+      dayId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/days/:dayId/sessions')
+  createCurrentAssignmentSession(
+    @Param('clientId') clientId: string,
+    @Param('dayId') dayId: string,
+    @Body() body: CreateSessionDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.createCurrentAssignmentSession(
+      clientId,
+      dayId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':clientId/plan-assignment/current/sessions/:sessionId')
+  updateCurrentAssignmentSession(
+    @Param('clientId') clientId: string,
+    @Param('sessionId') sessionId: string,
+    @Body() body: UpdateSessionDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.updateCurrentAssignmentSession(
+      clientId,
+      sessionId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':clientId/plan-assignment/current/sessions/:sessionId')
+  deleteCurrentAssignmentSession(
+    @Param('clientId') clientId: string,
+    @Param('sessionId') sessionId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.deleteCurrentAssignmentSession(
+      clientId,
+      sessionId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/sessions/:sessionId/exercises')
+  createCurrentAssignmentSessionExercise(
+    @Param('clientId') clientId: string,
+    @Param('sessionId') sessionId: string,
+    @Body() body: CreateSessionExerciseDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.createCurrentAssignmentSessionExercise(
+      clientId,
+      sessionId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/exercises/reorder')
+  reorderCurrentAssignmentSessionExercises(
+    @Param('clientId') clientId: string,
+    @Body() body: ReorderSessionExercisesDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.reorderCurrentAssignmentSessionExercises(
+      clientId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':clientId/plan-assignment/current/exercises/:sessionExerciseId')
+  updateCurrentAssignmentSessionExercise(
+    @Param('clientId') clientId: string,
+    @Param('sessionExerciseId') sessionExerciseId: string,
+    @Body() body: UpdateSessionExerciseDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.updateCurrentAssignmentSessionExercise(
+      clientId,
+      sessionExerciseId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':clientId/plan-assignment/current/exercises/:sessionExerciseId')
+  deleteCurrentAssignmentSessionExercise(
+    @Param('clientId') clientId: string,
+    @Param('sessionExerciseId') sessionExerciseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.deleteCurrentAssignmentSessionExercise(
+      clientId,
+      sessionExerciseId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/exercises/:sessionExerciseId/duplicate')
+  duplicateCurrentAssignmentSessionExercise(
+    @Param('clientId') clientId: string,
+    @Param('sessionExerciseId') sessionExerciseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.duplicateCurrentAssignmentSessionExercise(
+      clientId,
+      sessionExerciseId,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post(':clientId/plan-assignment/current/exercises/:sessionExerciseId/alternative')
+  createCurrentAssignmentAlternative(
+    @Param('clientId') clientId: string,
+    @Param('sessionExerciseId') sessionExerciseId: string,
+    @Body() body: CreateSessionExerciseAlternativeDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.createCurrentAssignmentAlternative(
+      clientId,
+      sessionExerciseId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':clientId/plan-assignment/current/alternatives/:alternativeId')
+  updateCurrentAssignmentAlternative(
+    @Param('clientId') clientId: string,
+    @Param('alternativeId') alternativeId: string,
+    @Body() body: UpdateSessionExerciseAlternativeDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.updateCurrentAssignmentAlternative(
+      clientId,
+      alternativeId,
+      body,
+      request.organizationMember,
+    );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete(':clientId/plan-assignment/current/alternatives/:alternativeId')
+  deleteCurrentAssignmentAlternative(
+    @Param('clientId') clientId: string,
+    @Param('alternativeId') alternativeId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.clientsService.deleteCurrentAssignmentAlternative(
+      clientId,
+      alternativeId,
       request.organizationMember,
     );
   }

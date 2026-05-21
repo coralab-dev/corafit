@@ -11,6 +11,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -22,6 +23,8 @@ import type { ClientFormValues } from "@/lib/clients/api";
 import type { AccessStatus, ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus, PlansResponse, TrainingPlan } from "@/lib/clients/types";
 
 export function ClientsWorkspace() {
+  const searchParams = useSearchParams();
+  const selectedFromQuery = searchParams.get("selected");
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
@@ -182,6 +185,9 @@ export function ClientsWorkspace() {
       setClients(nextClients);
       void loadAssignmentsForClients(nextClients);
       setSelectedId((current) => {
+        if (selectedFromQuery && nextClients.some((client) => client.id === selectedFromQuery)) {
+          return selectedFromQuery;
+        }
         if (nextClients.some((client) => client.id === current)) {
           return current;
         }
@@ -193,7 +199,7 @@ export function ClientsWorkspace() {
     } finally {
       setIsLoading(false);
     }
-  }, [apiConfig, isApiReady, loadAssignmentsForClients, query, statusFilter]);
+  }, [apiConfig, isApiReady, loadAssignmentsForClients, query, selectedFromQuery, statusFilter]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

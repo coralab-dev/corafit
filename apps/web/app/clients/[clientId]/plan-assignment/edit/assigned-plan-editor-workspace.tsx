@@ -4,7 +4,6 @@
 
 import {
   ArrowDownIcon,
-  ArrowLeftIcon,
   ArrowUpIcon,
   CopyIcon,
   Loader2Icon,
@@ -13,39 +12,26 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExerciseSearch } from "@/components/exercise-search";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
+import { PlanTree } from "@/components/training-plans/assigned-plan-tree";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCurrentAssignmentEditor, type CurrentAssignmentEditor } from "@/hooks/use-current-assignment-editor";
 import type { Exercise } from "@/hooks/use-exercises";
-import { dayLabels, levelLabels } from "@/lib/clients/api";
-import type { DayOfWeek, SessionExercise, TrainingPlan, TrainingPlanDay, TrainingSession } from "@/lib/clients/types";
-import { cn } from "@/lib/utils";
+import { levelLabels } from "@/lib/clients/api";
+import type { SessionExercise, TrainingPlan, TrainingSession } from "@/lib/clients/types";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type DraftPlan = Pick<TrainingPlan, "name" | "goal" | "level" | "durationWeeks" | "generalNotes">;
 type DraftSession = Pick<TrainingSession, "name" | "description" | "coachNote">;
 
-const dayOfWeekValues: DayOfWeek[] = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
-
 export function AssignedPlanEditorWorkspace() {
   const params = useParams<{ clientId: string }>();
-  const router = useRouter();
   const clientId = params.clientId;
   const editor = useCurrentAssignmentEditor(clientId);
   const plan = editor.plan;
@@ -56,7 +42,6 @@ export function AssignedPlanEditorWorkspace() {
   const [sessionDraft, setSessionDraft] = useState<DraftSession | null>(null);
   const [planSaveState, setPlanSaveState] = useState<SaveState>("idle");
   const [sessionSaveState, setSessionSaveState] = useState<SaveState>("idle");
-  const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
   const isDirty = planSaveState === "dirty" || sessionSaveState === "dirty";
 
   useEffect(() => {
@@ -151,13 +136,6 @@ export function AssignedPlanEditorWorkspace() {
     }
   }
 
-  function goBack() {
-    if (isDirty && !window.confirm("Hay cambios sin guardar. Salir de todos modos?")) {
-      return;
-    }
-    router.push(`/clients?selected=${clientId}`);
-  }
-
   if (editor.isLoading && !plan) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
@@ -186,31 +164,13 @@ export function AssignedPlanEditorWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 p-4 lg:p-6">
-        <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button size="icon" type="button" variant="outline" onClick={goBack}>
-              <ArrowLeftIcon className="size-4" />
-            </Button>
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">Plan asignado</p>
-              <h1 className="truncate text-2xl font-semibold leading-tight">{plan.name}</h1>
-            </div>
-            <Badge variant="secondary">Copia del cliente</Badge>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <SaveIndicator state={saveState} />
-            <ThemeToggle />
-          </div>
-        </header>
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+        <span className="font-semibold">Estos cambios solo aplican a este cliente.</span>{" "}
+        El template original no se modifica desde esta pantalla.
+      </div>
 
-        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-          <span className="font-semibold">Estos cambios solo aplican a este cliente.</span>{" "}
-          El template original no se modifica desde esta pantalla.
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <PlanTree
             editor={editor}
             plan={plan}
@@ -251,220 +211,6 @@ export function AssignedPlanEditorWorkspace() {
           </div>
         </div>
       </div>
-    </main>
-  );
-}
-
-function PlanTree({
-  editor,
-  onMutate,
-  onSelectSession,
-  plan,
-  selectedSessionId,
-}: {
-  editor: CurrentAssignmentEditor;
-  onMutate: (action: () => Promise<unknown>, success: string) => Promise<void>;
-  onSelectSession: (sessionId: string) => void;
-  plan: TrainingPlan;
-  selectedSessionId?: string;
-}) {
-  return (
-    <Card className="h-fit">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle>Estructura</CardTitle>
-            <CardDescription>Semanas, dias y sesiones de la copia.</CardDescription>
-          </div>
-          <Button
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => void onMutate(() => editor.createWeek({}), "Semana agregada")}
-          >
-            <PlusIcon data-icon="inline-start" />
-            Semana
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {plan.weeks?.map((week) => (
-          <details key={week.id} className="rounded-lg border bg-background p-2" open>
-            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold">
-              <span>Semana {week.weekNumber}</span>
-              <span className="flex gap-1">
-                <IconButton
-                  label="Duplicar semana"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void onMutate(() => editor.duplicateWeek(week.id), "Semana duplicada");
-                  }}
-                >
-                  <CopyIcon className="size-3" />
-                </IconButton>
-                <IconButton
-                  label="Eliminar semana"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (window.confirm("Eliminar esta semana y todo su contenido?")) {
-                      void onMutate(() => editor.deleteWeek(week.id), "Semana eliminada");
-                    }
-                  }}
-                >
-                  <Trash2Icon className="size-3" />
-                </IconButton>
-              </span>
-            </summary>
-            <div className="mt-2 flex flex-col gap-2">
-              {week.days?.map((day) => (
-                <DayNode
-                  key={day.id}
-                  day={day}
-                  editor={editor}
-                  isSelected={day.session?.id === selectedSessionId}
-                  onMutate={onMutate}
-                  onSelectSession={onSelectSession}
-                />
-              ))}
-              <AddDayControl
-                editor={editor}
-                onMutate={onMutate}
-                usedDays={(week.days ?? []).map((day) => day.dayOfWeek)}
-                weekId={week.id}
-              />
-            </div>
-          </details>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function DayNode({
-  day,
-  editor,
-  isSelected,
-  onMutate,
-  onSelectSession,
-}: {
-  day: TrainingPlanDay;
-  editor: CurrentAssignmentEditor;
-  isSelected: boolean;
-  onMutate: (action: () => Promise<unknown>, success: string) => Promise<void>;
-  onSelectSession: (sessionId: string) => void;
-}) {
-  return (
-    <details className="rounded-md border bg-card p-2" open>
-      <summary className="flex cursor-pointer items-center justify-between text-sm text-muted-foreground">
-        <span>{dayLabels[day.dayOfWeek]}</span>
-        <IconButton
-          label="Eliminar dia"
-          onClick={(event) => {
-            event.stopPropagation();
-            if (window.confirm("Eliminar este dia y su contenido?")) {
-              void onMutate(() => editor.deleteDay(day.id), "Dia eliminado");
-            }
-          }}
-        >
-          <Trash2Icon className="size-3" />
-        </IconButton>
-      </summary>
-      {day.session ? (
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            className={cn(
-              "min-w-0 flex-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-              isSelected ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
-            )}
-            type="button"
-            onClick={() => onSelectSession(day.session?.id ?? "")}
-          >
-            <span className="block truncate">{day.session.name}</span>
-          </button>
-          <IconButton
-            label="Eliminar sesion"
-            onClick={() => {
-              const sessionId = day.session?.id;
-              if (sessionId && window.confirm("Eliminar esta sesion y sus ejercicios?")) {
-                void onMutate(() => editor.deleteSession(sessionId), "Sesion eliminada");
-              }
-            }}
-          >
-            <Trash2Icon className="size-3" />
-          </IconButton>
-        </div>
-      ) : (
-        <div className="mt-2 flex items-center gap-2">
-          <span className="flex-1 text-xs text-muted-foreground">Sin sesion</span>
-          <Button
-            size="sm"
-            type="button"
-            variant="ghost"
-            onClick={() =>
-              void onMutate(
-                () => editor.createSession(day.id, { name: `Sesion ${dayLabels[day.dayOfWeek]}` }),
-                "Sesion agregada",
-              )
-            }
-          >
-            <PlusIcon data-icon="inline-start" />
-            Sesion
-          </Button>
-        </div>
-      )}
-    </details>
-  );
-}
-
-function AddDayControl({
-  editor,
-  onMutate,
-  usedDays,
-  weekId,
-}: {
-  editor: CurrentAssignmentEditor;
-  onMutate: (action: () => Promise<unknown>, success: string) => Promise<void>;
-  usedDays: string[];
-  weekId: string;
-}) {
-  const availableDays = dayOfWeekValues.filter((day) => !usedDays.includes(day));
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(availableDays[0] ?? "monday");
-
-  useEffect(() => {
-    if (!availableDays.includes(selectedDay) && availableDays[0]) {
-      setSelectedDay(availableDays[0]);
-    }
-  }, [availableDays, selectedDay]);
-
-  return (
-    <div className="flex gap-2">
-      <select
-        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-        disabled={availableDays.length === 0}
-        value={selectedDay}
-        onChange={(event) => setSelectedDay(event.target.value as DayOfWeek)}
-      >
-        {availableDays.map((day) => (
-          <option key={day} value={day}>
-            {dayLabels[day]}
-          </option>
-        ))}
-      </select>
-      <Button
-        disabled={availableDays.length === 0}
-        size="sm"
-        type="button"
-        variant="ghost"
-        onClick={() =>
-          void onMutate(
-            () => editor.createDay(weekId, { dayOfWeek: selectedDay }),
-            "Dia agregado",
-          )
-        }
-      >
-        <PlusIcon className="size-3" />
-      </Button>
-    </div>
   );
 }
 
@@ -784,27 +530,6 @@ function SessionExerciseRow({
   );
 }
 
-function IconButton({
-  children,
-  label,
-  onClick,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-      title={label}
-      type="button"
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Field({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
@@ -814,45 +539,12 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
   );
 }
 
-function SaveIndicator({ state }: { state: SaveState }) {
-  const label = {
-    dirty: "Cambios pendientes",
-    error: "Error al guardar",
-    idle: "Sin cambios",
-    saved: "Guardado",
-    saving: "Guardando...",
-  }[state];
-
-  return (
-    <span className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
-      {state === "saving" ? <Loader2Icon className="size-4 animate-spin" /> : <SaveIcon className="size-4" />}
-      {label}
-    </span>
-  );
-}
-
 function getSessions(plan: TrainingPlan | null) {
   if (!plan?.weeks) {
     return [];
   }
 
   return plan.weeks.flatMap((week) => (week.days ?? []).flatMap((day) => (day.session ? [day.session] : [])));
-}
-
-function getCombinedSaveState(planState: SaveState, sessionState: SaveState): SaveState {
-  if (planState === "saving" || sessionState === "saving") {
-    return "saving";
-  }
-  if (planState === "error" || sessionState === "error") {
-    return "error";
-  }
-  if (planState === "dirty" || sessionState === "dirty") {
-    return "dirty";
-  }
-  if (planState === "saved" || sessionState === "saved") {
-    return "saved";
-  }
-  return "idle";
 }
 
 function getErrorMessage(error: unknown) {

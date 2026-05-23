@@ -9,14 +9,14 @@ import type {
 } from "./types";
 
 export const clientSchema = z.object({
-  name: z.string().trim().min(2, "Nombre requerido"),
+  name: z.string().trim().min(2, "El nombre completo es obligatorio"),
   phone: z.string().trim().optional(),
-  age: z.number().int().positive("Edad invalida").max(100).optional(),
+  age: z.number({ error: "Ingresa una edad valida" }).int("Ingresa una edad valida").positive("Ingresa una edad valida").max(100, "Ingresa una edad valida").optional(),
   sex: z.string().trim().optional(),
   clientType: z.enum(["online", "presential", "hybrid"]),
-  mainGoal: z.string().trim().min(3, "Objetivo requerido"),
-  heightCm: z.number().positive("Altura requerida"),
-  initialWeightKg: z.number().positive("Peso requerido"),
+  mainGoal: z.string().trim().min(3, "El objetivo principal es obligatorio"),
+  heightCm: z.number({ error: "La estatura es obligatoria" }).positive("La estatura es obligatoria"),
+  initialWeightKg: z.number({ error: "El peso inicial es obligatorio" }).positive("El peso inicial es obligatorio"),
   trainingLevel: z.string().trim().optional(),
   injuriesNotes: z.string().trim().optional(),
   generalNotes: z.string().trim().optional(),

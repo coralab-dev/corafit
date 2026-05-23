@@ -6,6 +6,11 @@ node_modules/
 out/
 dist/
 build/
+coverage/
+.turbo/
+.cache/
+playwright-report/
+test-results/
 
 .env
 .env.*
@@ -15,7 +20,11 @@ build/
 *.log
 
 documentacion/
-docs/
+docs/*
+!docs/
+!docs/agent-notes.md
+!docs/architecture-short.md
+!docs/testing.md
 
 .agents/
 skills-lock.json

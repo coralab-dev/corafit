@@ -397,6 +397,34 @@ describe('ClientsService', () => {
     expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
+  it('getAccess returns access timestamps for coach access management', async () => {
+    const createdAt = new Date('2026-01-01T00:00:00.000Z');
+    const updatedAt = new Date('2026-01-02T00:00:00.000Z');
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce({
+      id: 'access-id',
+      clientId: 'client-id',
+      tokenHash: 'token-hash',
+      status: ClientAccessStatus.active,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastAccessAt: null,
+      createdAt,
+      updatedAt,
+    });
+
+    const result = await service.getAccess('client-id', createMember());
+
+    expect(result).toEqual({
+      clientId: 'client-id',
+      id: 'access-id',
+      lastAccessAt: null,
+      lockedUntil: null,
+      status: ClientAccessStatus.active,
+      createdAt,
+      updatedAt,
+    });
+  });
+
   it('disableAccess throws NotFoundException when no access exists', async () => {
     prismaService.clientAccess.findUnique.mockResolvedValueOnce(null);
 

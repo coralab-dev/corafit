@@ -15,8 +15,7 @@ pnpm --filter db typecheck
 To seed global exercises and system base templates for development (requires running `db:push` first):
 
 ```bash
-cd packages/db
-npx prisma db seed
+pnpm --dir packages/db exec prisma db seed
 ```
 
 The seed creates idempotently:

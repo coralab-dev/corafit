@@ -1,3 +1,5 @@
 # apps/api
 
-Reserved for the future CoraFit backend application.
+NestJS backend API for CoraFit.
+
+Use `AGENTS.md` in this directory for local commands, verification, and context rules.

@@ -3,12 +3,14 @@ export type OperationalStatus = "active" | "paused" | "inactive" | "archived";
 export type AccessStatus = "none" | "active" | "disabled" | "temporarily_locked";
 
 export type ClientAccess = {
+  createdAt?: string | null;
   id?: string;
   lastAccessAt?: string | null;
   lockedUntil?: string | null;
   status: AccessStatus;
   link?: string;
   pin?: string;
+  updatedAtRaw?: string | null;
   updatedAt?: string;
 };
 

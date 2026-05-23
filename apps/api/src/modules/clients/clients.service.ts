@@ -239,10 +239,12 @@ export class ClientsService {
 
     return {
       clientId: access.clientId,
+      createdAt: access.createdAt,
       id: access.id,
       lastAccessAt: access.lastAccessAt,
       lockedUntil: access.lockedUntil,
       status: access.status,
+      updatedAt: access.updatedAt,
     };
   }
 

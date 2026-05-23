@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ClientsWorkspace } from "../clients-workspace";
+import { ClientsWorkspace } from "@/app/clients-workspace";
 
 export default function ClientsPage() {
   return (

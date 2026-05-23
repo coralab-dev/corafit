@@ -1,11 +1,10 @@
 "use client";
 
-import { CalendarDaysIcon, DumbbellIcon, Loader2Icon, PlusIcon, SearchIcon } from "lucide-react";
+import { DumbbellIcon, Loader2Icon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,28 +62,8 @@ export function TrainingPlansWorkspace() {
   const { createPlan, error, isLoading, items, refresh, total } = useTrainingPlans(filters);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col gap-4 p-4 lg:p-6">
-        <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-primary">
-              <CalendarDaysIcon />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Biblioteca</p>
-              <h1 className="text-3xl font-semibold leading-tight">Planes</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <PlusIcon data-icon="inline-start" />
-              Nuevo plan
-            </Button>
-          </div>
-        </header>
-
-        <Card>
+    <div className="flex flex-col gap-4">
+      <Card>
           <CardHeader className="gap-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -173,7 +152,6 @@ export function TrainingPlansWorkspace() {
             ) : null}
           </CardContent>
         </Card>
-      </div>
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -244,6 +222,6 @@ export function TrainingPlansWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

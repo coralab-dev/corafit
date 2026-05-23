@@ -1,38 +1,35 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ActivityIcon,
-  DumbbellIcon,
-  KeyRoundIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  SmartphoneIcon,
-  UsersIcon,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ApiConfigDialog, AssignPlanDialog, ClientDetail, ClientFormDialog, ClientList, CurrentPlanSheet, EmptyState, EndPlanDialog, MetricCard, NavItem } from "@/components/clients/components";
-import { apiBaseUrl, apiConfigStorageKey, apiRequest, clientSchema, emptyDefaults, formatDate, getErrorMessage, getInitialApiConfig, hasStoredApiConfig, normalizeFormValues, statusLabels } from "@/lib/clients/api";
+import { PlusIcon } from "lucide-react";
+import Link from "next/link";
+import { PageHeader } from "@/components/layout/page-header";
+import { AssignPlanDialog, ClientDetail, ClientFormDialog, ClientList, CurrentPlanSheet, EndPlanDialog } from "@/components/clients/components";
+import { ClientActivityPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
+import { apiRequest, clientSchema, emptyDefaults, formatDate, getErrorMessage, getInitialApiConfig, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
-import type { AccessStatus, ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus, PlansResponse, TrainingPlan } from "@/lib/clients/types";
+import type { ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus, PlansResponse, TrainingPlan } from "@/lib/clients/types";
 
-export function ClientsWorkspace() {
+interface ClientsWorkspaceProps {
+  mode?: "list" | "detail";
+  selectedClientId?: string;
+}
+
+export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWorkspaceProps = {}) {
   const searchParams = useSearchParams();
-  const selectedFromQuery = searchParams.get("selected");
-  const [clients, setClients] = useState<Client[]>([]);
+  const selectedFromQuery = selectedClientId ?? searchParams.get("selected");
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig, setApiConfig] = useState<ApiConfig>(getInitialApiConfig);
-  const [isConfigOpen, setIsConfigOpen] = useState(() => !hasStoredApiConfig());
+  const [apiConfig] = useState<ApiConfig>(getInitialApiConfig);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [assignmentsByClient, setAssignmentsByClient] = useState<
@@ -53,7 +50,7 @@ export function ClientsWorkspace() {
   const [isAssigningPlan, setIsAssigningPlan] = useState(false);
   const [isEndingPlan, setIsEndingPlan] = useState(false);
 
-  const selectedClient = clients.find((client) => client.id === selectedId);
+  const selectedClient = allClients.find((client) => client.id === selectedId);
   const selectedAssignment = selectedClient
     ? assignmentsByClient[selectedClient.id]
     : null;
@@ -127,7 +124,7 @@ export function ClientsWorkspace() {
         apiConfig,
       );
 
-      setClients((current) =>
+      setAllClients((current) =>
         current.map((client) =>
           client.id === clientId
             ? {
@@ -135,10 +132,12 @@ export function ClientsWorkspace() {
                 access: access
                   ? {
                       id: access.id,
+                      createdAt: access.createdAt,
                       lastAccessAt: access.lastAccessAt,
                       lockedUntil: access.lockedUntil,
                       status: access.status,
-                      updatedAt: formatDate(access.lastAccessAt ?? access.lockedUntil),
+                      updatedAtRaw: access.updatedAt,
+                      updatedAt: formatDate(access.updatedAt ?? access.lastAccessAt ?? access.lockedUntil),
                     }
                   : { status: "none" },
               }
@@ -151,7 +150,7 @@ export function ClientsWorkspace() {
 
   const loadClients = useCallback(async () => {
     if (!isApiReady) {
-      setClients([]);
+      setAllClients([]);
       setError("Configura el JWT del coach y la organizacion para leer clientes reales.");
       return;
     }
@@ -164,14 +163,6 @@ export function ClientsWorkspace() {
         limit: "50",
       });
 
-      if (query.trim()) {
-        searchParams.set("search", query.trim());
-      }
-
-      if (statusFilter !== "all") {
-        searchParams.set("status", statusFilter);
-      }
-
       const response = await apiRequest<ClientsResponse>(
         `/clients?${searchParams.toString()}`,
         { method: "GET" },
@@ -182,7 +173,7 @@ export function ClientsWorkspace() {
         access: { status: "none" as const },
       }));
 
-      setClients(nextClients);
+      setAllClients(nextClients);
       void loadAssignmentsForClients(nextClients);
       setSelectedId((current) => {
         if (selectedFromQuery && nextClients.some((client) => client.id === selectedFromQuery)) {
@@ -199,7 +190,7 @@ export function ClientsWorkspace() {
     } finally {
       setIsLoading(false);
     }
-  }, [apiConfig, isApiReady, loadAssignmentsForClients, query, selectedFromQuery, statusFilter]);
+  }, [apiConfig, isApiReady, loadAssignmentsForClients, selectedFromQuery]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -212,7 +203,9 @@ export function ClientsWorkspace() {
   useEffect(() => {
     if (selectedId) {
       const timer = window.setTimeout(() => {
-        void loadAccessForClient(selectedId);
+        void loadAccessForClient(selectedId).catch((caughtError) => {
+          setError(getErrorMessage(caughtError));
+        });
       }, 0);
 
       return () => window.clearTimeout(timer);
@@ -226,28 +219,40 @@ export function ClientsWorkspace() {
 
     const timer = window.setTimeout(() => {
       setAssignmentLoadingId(selectedId);
-      void loadCurrentPlanAssignment(selectedId)
-        .catch((caughtError) => {
-          setAssignmentsByClient((current) => ({
-            ...current,
-            [selectedId]: null,
-          }));
-          setError(getErrorMessage(caughtError));
-        })
-        .finally(() => {
-          setAssignmentLoadingId((current) => (current === selectedId ? "" : current));
-        });
+      void loadCurrentPlanAssignment(selectedId).catch((caughtError) => {
+        setAssignmentsByClient((current) => ({
+          ...current,
+          [selectedId]: null,
+        }));
+        setError(getErrorMessage(caughtError));
+      }).finally(() => {
+        setAssignmentLoadingId((current) => (current === selectedId ? "" : current));
+      });
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, [isApiReady, loadCurrentPlanAssignment, selectedId]);
 
-  const filteredClients = clients;
+  const displayClients = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
-  const activeCount = clients.filter(
+    return allClients.filter((client) => {
+      const matchesStatus =
+        statusFilter === "all" || client.operationalStatus === statusFilter;
+      const matchesQuery =
+        !normalizedQuery ||
+        client.name.toLowerCase().includes(normalizedQuery) ||
+        client.phone.toLowerCase().includes(normalizedQuery) ||
+        client.mainGoal.toLowerCase().includes(normalizedQuery);
+
+      return matchesStatus && matchesQuery;
+    });
+  }, [allClients, query, statusFilter]);
+
+  const activeCount = allClients.filter(
     (client) => client.operationalStatus === "active",
   ).length;
-  const accessCount = clients.filter((client) => client.access.status === "active").length;
+  const accessCount = allClients.filter((client) => client.access.status === "active").length;
 
   function openCreateForm() {
     setEditingClient(null);
@@ -287,7 +292,7 @@ export function ClientsWorkspace() {
           { method: "PATCH", body: JSON.stringify(payload) },
           apiConfig,
         );
-        setClients((current) =>
+        setAllClients((current) =>
           current.map((client) =>
             client.id === editingClient.id
               ? { ...updatedClient, access: client.access }
@@ -301,7 +306,7 @@ export function ClientsWorkspace() {
           { method: "POST", body: JSON.stringify(payload) },
           apiConfig,
         );
-        setClients((current) => [
+        setAllClients((current) => [
           { ...createdClient, access: { status: "none" } },
           ...current,
         ]);
@@ -317,64 +322,6 @@ export function ClientsWorkspace() {
     }
   }
 
-  async function generateAccess(clientId: string) {
-    setError("");
-    try {
-      const currentClient = clients.find((client) => client.id === clientId);
-      const endpoint =
-        currentClient?.access.status === "none" ||
-        currentClient?.access.status === "disabled"
-          ? `/clients/${clientId}/access`
-          : `/clients/${clientId}/access/regenerate-pin`;
-      const response = await apiRequest<{
-        access: { id: string; status: AccessStatus };
-        link: string;
-        pin: string;
-      }>(endpoint, { method: "POST" }, apiConfig);
-
-      setClients((current) =>
-        current.map((client) =>
-          client.id === clientId
-            ? {
-                ...client,
-                access: {
-                  id: response.access.id,
-                  link: response.link,
-                  pin: response.pin,
-                  status: response.access.status,
-                  updatedAt: "Ahora",
-                },
-              }
-            : client,
-        ),
-      );
-      toast.success("Acceso generado");
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  }
-
-  async function disableAccess(clientId: string) {
-    setError("");
-    try {
-      await apiRequest<ClientAccess>(
-        `/clients/${clientId}/access/disable`,
-        { method: "PATCH" },
-        apiConfig,
-      );
-      setClients((current) =>
-        current.map((client) =>
-          client.id === clientId
-            ? { ...client, access: { status: "disabled", updatedAt: "Ahora" } }
-            : client,
-        ),
-      );
-      toast.success("Acceso desactivado");
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  }
-
   async function updateStatus(clientId: string, status: OperationalStatus) {
     setError("");
     try {
@@ -383,7 +330,7 @@ export function ClientsWorkspace() {
         { method: "PATCH", body: JSON.stringify({ status }) },
         apiConfig,
       );
-      setClients((current) =>
+      setAllClients((current) =>
         current.map((client) =>
           client.id === clientId
             ? { ...updatedClient, access: client.access }
@@ -396,11 +343,12 @@ export function ClientsWorkspace() {
     }
   }
 
-  async function openAssignPlanDialog() {
-    if (!selectedClient) {
+  async function openAssignPlanDialog(client = selectedClient) {
+    if (!client) {
       return;
     }
 
+    setSelectedId(client.id);
     setIsAssignDialogOpen(true);
     setPlansError("");
     setPreviewError("");
@@ -517,139 +465,8 @@ export function ClientsWorkspace() {
     return () => window.clearTimeout(timer);
   }, [apiConfig, isApiReady, isAssignDialogOpen, selectedPlanId]);
 
-  function saveApiConfig(nextConfig: ApiConfig) {
-    const normalizedConfig = {
-      apiUrl: nextConfig.apiUrl.replace(/\/$/, ""),
-      bearerToken: nextConfig.bearerToken.trim(),
-      organizationId: nextConfig.organizationId.trim(),
-    };
-    setApiConfig(normalizedConfig);
-    window.localStorage.setItem(apiConfigStorageKey, JSON.stringify(normalizedConfig));
-    setIsConfigOpen(false);
-    toast.success("Conexion configurada");
-  }
-
-  function clearApiConfig() {
-    window.localStorage.removeItem(apiConfigStorageKey);
-    setApiConfig({ apiUrl: apiBaseUrl, bearerToken: "", organizationId: "" });
-    setClients([]);
-    setSelectedId("");
-    setIsConfigOpen(true);
-  }
-
-  async function copyAccess(link: string | undefined) {
-    if (!link) {
-      setError("El backend solo devuelve el link al generar o regenerar acceso.");
-      return;
-    }
-
-    await navigator.clipboard.writeText(link);
-    toast.success("Link copiado");
-  }
-
-  function refreshClients() {
-    void loadClients();
-  }
-
-  return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 p-4 lg:flex-row lg:p-6">
-        <aside className="hidden w-64 shrink-0 rounded-xl border bg-card p-4 lg:flex lg:flex-col">
-          <div className="flex items-center gap-3 px-2 py-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-primary">
-              <DumbbellIcon />
-            </div>
-            <div>
-              <p className="text-lg font-semibold tracking-normal">CoraFit</p>
-              <p className="text-xs text-muted-foreground">Coach OS</p>
-            </div>
-          </div>
-          <nav className="mt-8 flex flex-col gap-2">
-            <NavItem href="/" icon={ActivityIcon} label="Dashboard" />
-            <NavItem href="/clients" icon={UsersIcon} label="Clientes" active />
-            <NavItem href="/training-plans" icon={DumbbellIcon} label="Planes" />
-            <NavItem icon={SmartphoneIcon} label="Portal" />
-          </nav>
-          <div className="mt-auto rounded-lg border bg-background p-3">
-            <p className="text-sm font-semibold">Alex Ruiz</p>
-            <p className="text-xs text-muted-foreground">Owner / Coach</p>
-          </div>
-        </aside>
-
-        <section className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Clientes</p>
-              <h1 className="text-3xl font-semibold leading-tight">
-                Gestion de clientes
-              </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ThemeToggle />
-              <Button variant="outline" onClick={() => setIsConfigOpen(true)}>
-                <KeyRoundIcon data-icon="inline-start" />
-                Conexion
-              </Button>
-              <Button variant="outline" onClick={refreshClients}>
-                <RefreshCwIcon data-icon="inline-start" />
-                Actualizar
-              </Button>
-              <Button onClick={openCreateForm}>
-                <PlusIcon data-icon="inline-start" />
-                Nuevo cliente
-              </Button>
-            </div>
-          </header>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard label="Clientes totales" value={String(clients.length)} />
-            <MetricCard label="Activos" value={String(activeCount)} />
-            <MetricCard label="Accesos activos" value={String(accessCount)} />
-          </div>
-
-          <div className="grid min-h-[640px] gap-4 xl:grid-cols-[410px_1fr]">
-            <ClientList
-              assignmentsByClient={assignmentsByClient}
-              clients={filteredClients}
-              error={error}
-              isLoading={isLoading}
-              query={query}
-              selectedClientId={selectedClient?.id ?? ""}
-              statusFilter={statusFilter}
-              onCreateClient={openCreateForm}
-              onQueryChange={setQuery}
-              onSelectClient={setSelectedId}
-              onStatusFilterChange={setStatusFilter}
-            />
-
-            {selectedClient ? (
-              <ClientDetail
-                assignment={selectedAssignment}
-                client={selectedClient}
-                isPlanLoading={assignmentLoadingId === selectedClient.id}
-                onCopyAccess={copyAccess}
-                onDisableAccess={disableAccess}
-                onEndPlan={() => setIsEndPlanOpen(true)}
-                onEdit={openEditForm}
-                onGenerateAccess={generateAccess}
-                onOpenAssignPlan={openAssignPlanDialog}
-                onOpenCurrentPlan={() => setIsCurrentPlanOpen(true)}
-                onStatusChange={updateStatus}
-              />
-            ) : (
-              <Card>
-                <CardContent className="pt-6">
-                  <EmptyState
-                    title="Selecciona un cliente"
-                    description="La ficha operativa aparecera aqui."
-                  />
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </section>
-      </div>
-
+  const sharedDialogs = (
+    <>
       <ClientFormDialog
         form={form}
         isLoading={isLoading}
@@ -657,14 +474,6 @@ export function ClientsWorkspace() {
         mode={editingClient ? "edit" : "create"}
         onOpenChange={setIsFormOpen}
         onSubmit={submitClient}
-      />
-      <ApiConfigDialog
-        key={`${apiConfig.apiUrl}-${apiConfig.organizationId}-${apiConfig.bearerToken.length}`}
-        config={apiConfig}
-        isOpen={isConfigOpen}
-        onClear={clearApiConfig}
-        onOpenChange={setIsConfigOpen}
-        onSave={saveApiConfig}
       />
       <AssignPlanDialog
         error={plansError}
@@ -697,6 +506,103 @@ export function ClientsWorkspace() {
         onConfirm={endCurrentPlanForSelectedClient}
         onOpenChange={setIsEndPlanOpen}
       />
-    </main>
+    </>
+  );
+
+  if (mode === "detail") {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          eyebrow="Clientes"
+          title={selectedClient?.name ?? "Ficha de cliente"}
+          description="Datos operativos, acceso y plan actual del cliente."
+          actions={
+            <Button asChild variant="outline">
+              <Link href="/clients">Volver a clientes</Link>
+            </Button>
+          }
+        />
+
+        {error ? (
+          <ClientErrorCard error={error} />
+        ) : null}
+
+        {isLoading ? (
+          <ClientDetailLoadingCard />
+        ) : selectedClient ? (
+          <ClientDetail
+            assignment={selectedAssignment}
+            client={selectedClient}
+            isPlanLoading={assignmentLoadingId === selectedClient.id}
+            onEndPlan={() => setIsEndPlanOpen(true)}
+            onEdit={openEditForm}
+            onOpenAssignPlan={openAssignPlanDialog}
+            onOpenCurrentPlan={() => setIsCurrentPlanOpen(true)}
+            onStatusChange={updateStatus}
+          />
+        ) : (
+          <ClientNotFoundCard />
+        )}
+
+        {sharedDialogs}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        eyebrow="Clientes"
+        title="Gestion de clientes"
+        description="Administra tus clientes, planes y accesos al portal."
+        actions={
+          <Button onClick={openCreateForm}>
+            <PlusIcon className="mr-2 size-4" />
+            Nuevo cliente
+          </Button>
+        }
+      />
+
+      {/* MÃ©tricas estilo referencia */}
+      <ClientMetrics
+        accessCount={accessCount}
+        activeCount={activeCount}
+        assignmentCount={Object.values(assignmentsByClient).filter(Boolean).length}
+        totalCount={allClients.length}
+      />
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+        <ClientList
+          assignmentsByClient={assignmentsByClient}
+          clients={displayClients}
+          error={error}
+          isLoading={isLoading}
+          query={query}
+          selectedClientId={selectedClient?.id ?? ""}
+          statusFilter={statusFilter}
+          onCreateClient={openCreateForm}
+          onEditClient={(client) => {
+            setSelectedId(client.id);
+            openEditForm(client);
+          }}
+          onEndPlan={(client) => {
+            setSelectedId(client.id);
+            setIsEndPlanOpen(true);
+          }}
+          onOpenAssignPlan={openAssignPlanDialog}
+          onOpenCurrentPlan={(client) => {
+            setSelectedId(client.id);
+            setIsCurrentPlanOpen(true);
+          }}
+          onQueryChange={setQuery}
+          onSelectClient={setSelectedId}
+          onStatusFilterChange={setStatusFilter}
+        />
+
+        <ClientActivityPanel />
+      </div>
+
+      {sharedDialogs}
+    </div>
   );
 }

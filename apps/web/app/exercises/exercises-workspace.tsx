@@ -3,7 +3,6 @@
 import { DumbbellIcon, Loader2Icon, PencilIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,22 +67,8 @@ export function ExercisesWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1180px] flex-col gap-4 p-4 lg:p-6">
-        <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-primary">
-              <DumbbellIcon />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Biblioteca</p>
-              <h1 className="text-3xl font-semibold leading-tight">Ejercicios</h1>
-            </div>
-          </div>
-          <ThemeToggle />
-        </header>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <ExerciseSearch
             reloadToken={reloadToken}
             selectedId={selectedExercise?.id}
@@ -93,9 +78,8 @@ export function ExercisesWorkspace() {
             exercise={selectedExercise}
             onExerciseChange={handleExerciseChange}
           />
-        </div>
       </div>
-    </main>
+    </div>
   );
 }
 

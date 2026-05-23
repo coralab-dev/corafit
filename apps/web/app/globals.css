@@ -52,9 +52,9 @@
 
 
 .dark {
-  --background: #141414;
+  --background: #0F1013;
   --foreground: #e6e7e8;
-  --card: #1c1c1c;
+  --card: #17181C;
   --card-foreground: #e6e7e8;
   --popover: #111318;
   --popover-foreground: #e6e7e8;
@@ -74,6 +74,10 @@
 
 * {
   border-color: var(--border);
+}
+
+html {
+  font-size: 93.75%;
 }
 
 body {

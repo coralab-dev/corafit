@@ -4,15 +4,15 @@
 
 import {
   ArrowDownIcon,
-  ArrowLeftIcon,
   ArrowUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CopyIcon,
   Loader2Icon,
+  MoreVerticalIcon,
   PlusIcon,
   SaveIcon,
   Trash2Icon,
-  ArchiveIcon,
-  CheckCircle2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -20,56 +20,71 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExerciseSearch } from "@/components/exercise-search";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
+import { PlanTree } from "@/components/training-plans/training-plan-tree";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
-  type DayOfWeek,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
   type SessionExercise,
   type TrainingPlan,
-  type TrainingPlanDay,
   type TrainingSession,
   useTrainingPlanEditor,
 } from "@/hooks/use-training-plans";
 import type { Exercise } from "@/hooks/use-exercises";
-import { cn } from "@/lib/utils";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
-type DraftPlan = Pick<TrainingPlan, "name" | "goal" | "level" | "durationWeeks" | "generalNotes">;
+type DraftPlan = Pick<
+  TrainingPlan,
+  "name" | "goal" | "level" | "durationWeeks" | "generalNotes"
+>;
 type DraftSession = Pick<TrainingSession, "name" | "description" | "coachNote">;
-
-const dayLabels: Record<string, string> = {
-  friday: "Viernes",
-  monday: "Lunes",
-  saturday: "Sabado",
-  sunday: "Domingo",
-  thursday: "Jueves",
-  tuesday: "Martes",
-  wednesday: "Miercoles",
-};
-
-const dayOfWeekValues: Array<DayOfWeek> = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
 
 const levelLabels: Record<string, string> = {
   advanced: "Avanzado",
   beginner: "Principiante",
   intermediate: "Intermedio",
+};
+
+const muscleLabels: Record<string, string> = {
+  back: "Espalda",
+  biceps: "Biceps",
+  chest: "Pecho",
+  core: "Core",
+  glute: "Gluteo",
+  legs: "Pierna",
+  shoulder: "Hombro",
+  triceps: "Triceps",
+};
+
+const equipmentLabels: Record<string, string> = {
+  barbell: "Barra",
+  bodyweight: "Peso corporal",
+  cable: "Cable",
+  dumbbell: "Mancuernas",
+  machine: "Maquina",
+  other: "Otro",
+};
+
+const statusLabels: Record<string, string> = {
+  active: "Activo",
+  archived: "Archivado",
+  draft: "Draft",
 };
 
 export function TrainingPlanEditorWorkspace() {
@@ -79,12 +94,14 @@ export function TrainingPlanEditorWorkspace() {
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [planSaveState, setPlanSaveState] = useState<SaveState>("idle");
   const [sessionSaveState, setSessionSaveState] = useState<SaveState>("idle");
+  const [publishState, setPublishState] = useState<SaveState>("idle");
   const [planDraft, setPlanDraft] = useState<DraftPlan | null>(null);
   const [sessionDraft, setSessionDraft] = useState<DraftSession | null>(null);
 
   const plan = editor.plan;
   const sessions = useMemo(() => getSessions(plan), [plan]);
-  const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? sessions[0];
+  const selectedSession =
+    sessions.find((session) => session.id === selectedSessionId) ?? sessions[0];
   const isReadOnly = plan?.status !== "draft";
   const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
 
@@ -168,7 +185,10 @@ export function TrainingPlanEditorWorkspace() {
 
     setSessionSaveState("saving");
     try {
-      const updatedSession = await editor.updateSession(selectedSession.id, sessionDraft);
+      const updatedSession = await editor.updateSession(
+        selectedSession.id,
+        sessionDraft,
+      );
       setSessionDraft({
         coachNote: updatedSession.coachNote,
         description: updatedSession.description,
@@ -182,7 +202,14 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
-  async function mutateStructure(action: () => Promise<unknown>, success: string) {
+  async function saveAllDrafts() {
+    await Promise.all([savePlanDraft(), saveSessionDraft()]);
+  }
+
+  async function mutateStructure(
+    action: () => Promise<unknown>,
+    success: string,
+  ) {
     if (isReadOnly) {
       return;
     }
@@ -199,15 +226,29 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
-  async function mutateStatus(status: "active" | "archived" | "draft", success: string) {
-    setPlanSaveState("saving");
+  async function publishPlan() {
+    if (isReadOnly || publishState === "saving") {
+      return;
+    }
+
+    setPublishState("saving");
     try {
-      await editor.updatePlanStatus(status);
+      if (planSaveState === "dirty" && planDraft) {
+        setPlanSaveState("saving");
+        await editor.updatePlan(planDraft);
+        setPlanSaveState("saved");
+      }
+      if (sessionSaveState === "dirty" && selectedSession && sessionDraft) {
+        setSessionSaveState("saving");
+        await editor.updateSession(selectedSession.id, sessionDraft);
+        setSessionSaveState("saved");
+      }
+      await editor.updatePlanStatus("active");
       await editor.loadPlan();
-      setPlanSaveState("saved");
-      toast.success(success);
+      setPublishState("saved");
+      toast.success("Plan publicado");
     } catch (caughtError) {
-      setPlanSaveState("error");
+      setPublishState("error");
       toast.error(getErrorMessage(caughtError));
     }
   }
@@ -227,7 +268,9 @@ export function TrainingPlanEditorWorkspace() {
     return (
       <main className="min-h-screen bg-background p-4 text-foreground">
         <div className="mx-auto max-w-3xl rounded-lg border bg-card p-6">
-          <p className="text-sm text-destructive">{editor.error || "Plan no disponible."}</p>
+          <p className="text-sm text-destructive">
+            {editor.error || "Plan no disponible."}
+          </p>
           <Button asChild className="mt-4" variant="outline">
             <Link href="/training-plans">Volver a planes</Link>
           </Button>
@@ -237,84 +280,31 @@ export function TrainingPlanEditorWorkspace() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 p-4 lg:p-6">
-        <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button asChild size="icon" variant="outline">
-              <Link href="/training-plans" aria-label="Volver">
-                <ArrowLeftIcon className="size-4" />
-              </Link>
-            </Button>
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">Editor de plan</p>
-              <h1 className="truncate text-2xl font-semibold leading-tight">{plan.name}</h1>
-            </div>
-            {plan.isSystemTemplate ? (
-              <Badge variant="secondary">Base del sistema</Badge>
-            ) : null}
-            <Badge variant={plan.status === "draft" ? "secondary" : "outline"}>
-              {plan.status}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <SaveIndicator state={saveState} />
-            {plan.status === "draft" ? (
-              <Button
-                disabled={isReadOnly}
-                onClick={() => mutateStatus("active", "Plan publicado")}
-              >
-                <CheckCircle2Icon data-icon="inline-start" />
-                Publicar
-              </Button>
-            ) : plan.status === "active" ? (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => mutateStatus("draft", "Plan devuelto a borrador")}
-                >
-                  <ArrowLeftIcon data-icon="inline-start" />
-                  Volver a borrador
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => mutateStatus("archived", "Plan archivado")}
-                >
-                  <ArchiveIcon data-icon="inline-start" />
-                  Archivar
-                </Button>
-              </>
-            ) : plan.status === "archived" ? (
-              <Button
-                variant="outline"
-                onClick={() => mutateStatus("draft", "Plan devuelto a borrador")}
-              >
-                <ArrowLeftIcon data-icon="inline-start" />
-                Volver a borrador
-              </Button>
-            ) : null}
-            <ThemeToggle />
-          </div>
-        </header>
+    <div className="flex flex-col gap-6">
+      <EditorHeader
+        isReadOnly={isReadOnly}
+        plan={plan}
+        saveState={saveState}
+        publishState={publishState}
+        onPublish={() => void publishPlan()}
+        onSave={() => void saveAllDrafts()}
+      />
 
-        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <PlanTree
-            editor={editor}
-            plan={plan}
-            selectedSessionId={selectedSession?.id}
-            onSelectSession={setSelectedSessionId}
-          />
+      <Tabs className="flex flex-col gap-5" defaultValue="structure">
+        <TabsList className="w-fit">
+          <TabsTrigger value="structure">Estructura</TabsTrigger>
+          <TabsTrigger value="details">Informacion general</TabsTrigger>
+        </TabsList>
 
-          <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <PlanDetails
-              draft={planDraft}
-              isReadOnly={isReadOnly}
-                onChange={(draft) => {
-                  setPlanDraft(draft);
-                setPlanSaveState("dirty");
-              }}
-              onSave={() => void savePlanDraft()}
+        <TabsContent className="m-0" value="structure">
+          <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <PlanTree
+              editor={editor}
+              plan={plan}
+              selectedSessionId={selectedSession?.id}
+              onSelectSession={setSelectedSessionId}
             />
+
             {selectedSession && sessionDraft ? (
               <SessionEditor
                 draft={sessionDraft}
@@ -366,13 +356,18 @@ export function TrainingPlanEditorWorkspace() {
                   const exercises = [...selectedSession.exercises].sort(
                     (first, second) => first.orderIndex - second.orderIndex,
                   );
-                  const index = exercises.findIndex((item) => item.id === sessionExercise.id);
+                  const index = exercises.findIndex(
+                    (item) => item.id === sessionExercise.id,
+                  );
                   const swapIndex = direction === "up" ? index - 1 : index + 1;
                   if (swapIndex < 0 || swapIndex >= exercises.length) {
                     return;
                   }
                   const reordered = [...exercises];
-                  [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
+                  [reordered[index], reordered[swapIndex]] = [
+                    reordered[swapIndex],
+                    reordered[index],
+                  ];
                   void mutateStructure(
                     () =>
                       editor.reorderSessionExercises(
@@ -393,278 +388,170 @@ export function TrainingPlanEditorWorkspace() {
                 }
               />
             ) : (
-              <Card>
+              <Card className="min-h-72">
                 <CardHeader>
                   <CardTitle>Sesion</CardTitle>
-                  <CardDescription>Selecciona una sesion para editarla.</CardDescription>
+                  <CardDescription>
+                    Selecciona una sesion para editarla.
+                  </CardDescription>
                 </CardHeader>
               </Card>
             )}
           </div>
-        </div>
-      </div>
-    </main>
-  );
-}
+        </TabsContent>
 
-function PlanTree({
-  editor,
-  onSelectSession,
-  plan,
-  selectedSessionId,
-}: {
-  editor: ReturnType<typeof useTrainingPlanEditor>;
-  onSelectSession: (sessionId: string) => void;
-  plan: TrainingPlan;
-  selectedSessionId?: string;
-}) {
-  const isReadOnly = plan.status !== "draft";
-
-  return (
-    <Card className="h-fit">
-      <CardHeader>
-        <CardTitle>Estructura</CardTitle>
-        <CardDescription>Semanas, dias y sesiones del template.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {plan.weeks?.map((week) => (
-          <details key={week.id} className="rounded-lg border bg-background p-2" open>
-            <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold">
-              <span>Semana {week.weekNumber}</span>
-              <span className="flex gap-1">
-                <button
-                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  disabled={isReadOnly}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void editor.duplicateWeek(week.id).then(() => {
-                      void editor.loadPlan();
-                      toast.success("Semana duplicada");
-                    });
-                  }}
-                >
-                  <CopyIcon className="size-3" />
-                </button>
-                <button
-                  className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  disabled={isReadOnly}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (window.confirm("Eliminar esta semana y todo su contenido?")) {
-                      void editor.deleteWeek(week.id).then(() => {
-                        void editor.loadPlan();
-                        toast.success("Semana eliminada");
-                      });
-                    }
-                  }}
-                >
-                  <Trash2Icon className="size-3" />
-                </button>
-              </span>
-            </summary>
-            <div className="mt-2 flex flex-col gap-2">
-              {week.days.map((day) => (
-                <DayNode
-                  key={day.id}
-                  day={day}
-                  editor={editor}
-                  isReadOnly={isReadOnly}
-                  isSelected={day.session?.id === selectedSessionId}
-                  onSelectSession={onSelectSession}
-                />
-              ))}
-              <AddDayControl
-                editor={editor}
-                isReadOnly={isReadOnly}
-                usedDays={week.days.map((day) => day.dayOfWeek)}
-                weekId={week.id}
-              />
-            </div>
-          </details>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AddDayControl({
-  editor,
-  isReadOnly,
-  usedDays,
-  weekId,
-}: {
-  editor: ReturnType<typeof useTrainingPlanEditor>;
-  isReadOnly: boolean;
-  usedDays: string[];
-  weekId: string;
-}) {
-  const availableDays = dayOfWeekValues.filter((day) => !usedDays.includes(day));
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(availableDays[0] ?? "monday");
-
-  useEffect(() => {
-    if (!availableDays.includes(selectedDay) && availableDays[0]) {
-      setSelectedDay(availableDays[0]);
-    }
-  }, [availableDays, selectedDay]);
-
-  return (
-    <div className="flex gap-2">
-      <select
-        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-        disabled={isReadOnly || availableDays.length === 0}
-        value={selectedDay}
-        onChange={(event) => setSelectedDay(event.target.value as DayOfWeek)}
-      >
-        {availableDays.map((day) => (
-          <option key={day} value={day}>
-            {dayLabels[day]}
-          </option>
-        ))}
-      </select>
-      <Button
-        disabled={isReadOnly || availableDays.length === 0}
-        size="sm"
-        type="button"
-        variant="ghost"
-        onClick={() =>
-          void editor.createDay(weekId, { dayOfWeek: selectedDay }).then(() => {
-            void editor.loadPlan();
-            toast.success("Dia agregado");
-          })
-        }
-      >
-        <PlusIcon className="mr-1 size-3" />
-        Agregar
-      </Button>
+        <TabsContent className="m-0" value="details">
+          <PlanDetails
+            draft={planDraft}
+            isReadOnly={isReadOnly}
+            saveState={planSaveState}
+            onChange={(draft) => {
+              setPlanDraft(draft);
+              setPlanSaveState("dirty");
+            }}
+            onSave={() => void savePlanDraft()}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function DayNode({
-  day,
-  editor,
+function EditorHeader({
   isReadOnly,
-  isSelected,
-  onSelectSession,
+  onPublish,
+  onSave,
+  plan,
+  saveState,
+  publishState,
 }: {
-  day: TrainingPlanDay;
-  editor: ReturnType<typeof useTrainingPlanEditor>;
   isReadOnly: boolean;
-  isSelected: boolean;
-  onSelectSession: (sessionId: string) => void;
+  onPublish: () => void;
+  onSave: () => void;
+  plan: TrainingPlan;
+  saveState: SaveState;
+  publishState: SaveState;
 }) {
+  const isSaving = saveState === "saving";
+  const isPublishing = publishState === "saving";
+
   return (
-    <details className="rounded-md border bg-card p-2" open>
-      <summary className="flex cursor-pointer items-center justify-between text-sm text-muted-foreground">
-        <span>{dayLabels[day.dayOfWeek] ?? day.dayOfWeek}</span>
-        <button
-          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          disabled={isReadOnly}
-          title="Eliminar dia"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            if (window.confirm("Eliminar este dia y su contenido?")) {
-              void editor.deleteDay(day.id).then(() => {
-                void editor.loadPlan();
-                toast.success("Dia eliminado");
-              });
-            }
-          }}
-        >
-          <Trash2Icon className="size-3" />
-        </button>
-      </summary>
-      {day.session ? (
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            className={cn(
-              "flex-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-              isSelected ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
-            )}
-            type="button"
-            onClick={() => onSelectSession(day.session?.id ?? "")}
-          >
-            {day.session.name}
-          </button>
-          <button
-            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            disabled={isReadOnly}
-            title="Eliminar sesion"
-            type="button"
-            onClick={() => {
-              if (window.confirm("Eliminar esta sesion y todos sus ejercicios?")) {
-                const sessionId = day.session?.id;
-                if (sessionId) {
-                  void editor.deleteSession(sessionId).then(() => {
-                    void editor.loadPlan();
-                    toast.success("Sesion eliminada");
-                  });
-                }
-              }
-            }}
-          >
-            <Trash2Icon className="size-3" />
-          </button>
+    <header className="rounded-xl border bg-card px-4 py-5 shadow-sm md:px-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <nav className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Button asChild size="icon" variant="ghost">
+              <Link aria-label="Volver a planes" href="/training-plans">
+                <ChevronLeftIcon />
+              </Link>
+            </Button>
+            <Link className="hover:text-foreground" href="/training-plans">
+              Planes
+            </Link>
+            <ChevronRightIcon className="size-4" />
+            <span className="truncate">{plan.name}</span>
+          </nav>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="truncate text-3xl font-semibold leading-tight">
+              {plan.name}
+            </h1>
+            <Badge variant={plan.status === "draft" ? "secondary" : "outline"}>
+              {statusLabels[plan.status] ?? plan.status}
+            </Badge>
+          </div>
+          <dl className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <dt className="font-medium text-foreground">Objetivo:</dt>
+              <dd>{plan.goal || "Sin objetivo"}</dd>
+            </div>
+            <span aria-hidden="true">/</span>
+            <div className="flex items-center gap-1.5">
+              <dt className="font-medium text-foreground">Nivel:</dt>
+              <dd>
+                {plan.level
+                  ? (levelLabels[plan.level] ?? plan.level)
+                  : "Sin nivel"}
+              </dd>
+            </div>
+            <span aria-hidden="true">/</span>
+            <div className="flex items-center gap-1.5">
+              <dt className="font-medium text-foreground">Duracion:</dt>
+              <dd>{plan.durationWeeks} semanas</dd>
+            </div>
+          </dl>
         </div>
-      ) : (
-        <div className="mt-2 flex items-center gap-2">
-          <span className="flex-1 text-xs text-muted-foreground">Sin sesion</span>
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <Button disabled type="button" variant="outline">
+            Vista previa
+            <Badge variant="secondary">Proximamente</Badge>
+          </Button>
           <Button
-            disabled={isReadOnly}
-            size="sm"
+            disabled={isReadOnly || isSaving}
             type="button"
-            variant="ghost"
-            onClick={() =>
-              void editor
-                .createSession(day.id, { name: `Sesion ${dayLabels[day.dayOfWeek] ?? day.dayOfWeek}` })
-                .then(() => {
-                  void editor.loadPlan();
-                  toast.success("Sesion agregada");
-                })
-            }
+            variant="outline"
+            onClick={onSave}
           >
-            <PlusIcon className="mr-1 size-3" />
-            Sesion
+            {isSaving ? (
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            ) : (
+              <SaveIcon data-icon="inline-start" />
+            )}
+            Guardar
+          </Button>
+          <Button
+            disabled={isReadOnly || isPublishing}
+            type="button"
+            onClick={onPublish}
+          >
+            {isPublishing ? (
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            ) : null}
+            Publicar
           </Button>
         </div>
-      )}
-    </details>
+      </div>
+    </header>
   );
 }
 
 function PlanDetails({
   draft,
   isReadOnly,
+  saveState,
   onChange,
   onSave,
 }: {
   draft: DraftPlan;
   isReadOnly: boolean;
+  saveState: SaveState;
   onChange: (draft: DraftPlan) => void;
   onSave: () => void;
 }) {
   return (
-    <Card className="h-fit">
+    <Card className="max-w-4xl">
       <CardHeader>
-        <CardTitle>Datos del plan</CardTitle>
-        <CardDescription>El autosave guarda cambios cada 2 segundos.</CardDescription>
+        <CardTitle>Informacion general</CardTitle>
+        <CardDescription>
+          El autosave guarda cambios cada 2 segundos.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="grid gap-4 md:grid-cols-2">
         <Field label="Nombre">
           <Input
             disabled={isReadOnly}
             value={draft.name}
-            onChange={(event) => onChange({ ...draft, name: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...draft, name: event.target.value })
+            }
           />
         </Field>
         <Field label="Objetivo">
           <Input
             disabled={isReadOnly}
             value={draft.goal ?? ""}
-            onChange={(event) => onChange({ ...draft, goal: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...draft, goal: event.target.value })
+            }
           />
         </Field>
         <Field label="Nivel">
@@ -672,7 +559,9 @@ function PlanDetails({
             className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
             disabled={isReadOnly}
             value={draft.level ?? ""}
-            onChange={(event) => onChange({ ...draft, level: event.target.value || null })}
+            onChange={(event) =>
+              onChange({ ...draft, level: event.target.value || null })
+            }
           >
             <option value="">Sin nivel</option>
             <option value="beginner">{levelLabels.beginner}</option>
@@ -696,14 +585,28 @@ function PlanDetails({
             className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
             disabled={isReadOnly}
             value={draft.generalNotes ?? ""}
-            onChange={(event) => onChange({ ...draft, generalNotes: event.target.value })}
+            onChange={(event) =>
+              onChange({ ...draft, generalNotes: event.target.value })
+            }
           />
         </Field>
-        <Button disabled={isReadOnly} type="button" onClick={onSave}>
+      </CardContent>
+      <CardFooter className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {getSaveStateLabel(saveState)}
+        </p>
+        <Button
+          disabled={isReadOnly || saveState === "saving"}
+          type="button"
+          onClick={onSave}
+        >
+          {saveState === "saving" ? (
+            <Loader2Icon className="animate-spin" data-icon="inline-start" />
+          ) : null}
           <SaveIcon data-icon="inline-start" />
           Guardar ahora
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }
@@ -732,22 +635,33 @@ function SessionEditor({
   onDuplicateExercise: (sessionExerciseId: string) => void;
   onMoveExercise: (exercise: SessionExercise, direction: "up" | "down") => void;
   onSave: () => void;
-  onUpdateExercise: (sessionExerciseId: string, body: Partial<Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">>) => void;
+  onUpdateExercise: (
+    sessionExerciseId: string,
+    body: Partial<
+      Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
+    >,
+  ) => void;
   session: TrainingSession;
 }) {
   const [isAdding, setIsAdding] = useState(false);
 
   return (
-    <Card>
-      <CardHeader className="gap-4">
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle>Sesion</CardTitle>
-            <CardDescription>Ejercicios, cargas prescritas y notas del coach.</CardDescription>
+            <CardTitle>{session.name}</CardTitle>
+            <CardDescription>
+              Ejercicios, cargas prescritas y notas del coach.
+            </CardDescription>
           </div>
-          <Button disabled={isReadOnly} type="button" onClick={() => setIsAdding((value) => !value)}>
+          <Button
+            disabled={isReadOnly}
+            type="button"
+            onClick={() => setIsAdding((value) => !value)}
+          >
             <PlusIcon data-icon="inline-start" />
-            Agregar
+            Agregar ejercicio
           </Button>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
@@ -755,32 +669,54 @@ function SessionEditor({
             <Input
               disabled={isReadOnly}
               value={draft.name}
-              onChange={(event) => onChange({ ...draft, name: event.target.value })}
+              onChange={(event) =>
+                onChange({ ...draft, name: event.target.value })
+              }
             />
           </Field>
           <Field label="Descripcion">
             <Input
               disabled={isReadOnly}
               value={draft.description ?? ""}
-              onChange={(event) => onChange({ ...draft, description: event.target.value })}
+              onChange={(event) =>
+                onChange({ ...draft, description: event.target.value })
+              }
             />
           </Field>
           <Field label="Nota del coach">
             <Input
               disabled={isReadOnly}
               value={draft.coachNote ?? ""}
-              onChange={(event) => onChange({ ...draft, coachNote: event.target.value })}
+              onChange={(event) =>
+                onChange({ ...draft, coachNote: event.target.value })
+              }
             />
           </Field>
           <div className="flex items-end">
-            <Button disabled={isReadOnly} type="button" variant="outline" onClick={onSave}>
+            <Button
+              disabled={isReadOnly}
+              type="button"
+              variant="outline"
+              onClick={onSave}
+            >
               <SaveIcon data-icon="inline-start" />
               Guardar sesion
             </Button>
           </div>
         </div>
+        <Field label="Nota de la sesion (opcional)">
+          <textarea
+            className="min-h-16 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={isReadOnly}
+            placeholder="Escribe una nota general para esta sesion..."
+            value={draft.coachNote ?? ""}
+            onChange={(event) =>
+              onChange({ ...draft, coachNote: event.target.value })
+            }
+          />
+        </Field>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-5">
         {isAdding && !isReadOnly ? (
           <ExerciseSearch
             selectionMode="explicit"
@@ -790,26 +726,48 @@ function SessionEditor({
             }}
           />
         ) : null}
-        <div className="flex flex-col gap-3">
-          {[...session.exercises]
-            .sort((first, second) => first.orderIndex - second.orderIndex)
-            .map((exercise, index, exercises) => (
-              <SessionExerciseRow
-                key={exercise.id}
-                exercise={exercise}
-                isFirst={index === 0}
-                isLast={index === exercises.length - 1}
-                isReadOnly={isReadOnly}
-                onDelete={() => onDeleteExercise(exercise.id)}
-                onDeleteAlternative={onDeleteAlternative}
-                onDuplicate={() => onDuplicateExercise(exercise.id)}
-                onMoveDown={() => onMoveExercise(exercise, "down")}
-                onMoveUp={() => onMoveExercise(exercise, "up")}
-                onAddAlternative={(alternative) => onAddAlternative(exercise.id, alternative)}
-                onUpdate={(body) => onUpdateExercise(exercise.id, body)}
-              />
-            ))}
-        </div>
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Ejercicios</h2>
+            <Button
+              disabled={isReadOnly}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => setIsAdding((value) => !value)}
+            >
+              <PlusIcon data-icon="inline-start" />
+              Agregar ejercicio
+            </Button>
+          </div>
+          <div className="overflow-hidden rounded-lg border">
+            {[...session.exercises]
+              .sort((first, second) => first.orderIndex - second.orderIndex)
+              .map((exercise, index, exercises) => (
+                <SessionExerciseRow
+                  key={exercise.id}
+                  exercise={exercise}
+                  isFirst={index === 0}
+                  isLast={index === exercises.length - 1}
+                  isReadOnly={isReadOnly}
+                  onDelete={() => onDeleteExercise(exercise.id)}
+                  onDeleteAlternative={onDeleteAlternative}
+                  onDuplicate={() => onDuplicateExercise(exercise.id)}
+                  onMoveDown={() => onMoveExercise(exercise, "down")}
+                  onMoveUp={() => onMoveExercise(exercise, "up")}
+                  onAddAlternative={(alternative) =>
+                    onAddAlternative(exercise.id, alternative)
+                  }
+                  onUpdate={(body) => onUpdateExercise(exercise.id, body)}
+                />
+              ))}
+            {session.exercises.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Esta sesion todavia no tiene ejercicios.
+              </div>
+            ) : null}
+          </div>
+        </section>
       </CardContent>
     </Card>
   );
@@ -838,7 +796,11 @@ function SessionExerciseRow({
   onMoveDown: () => void;
   onMoveUp: () => void;
   onAddAlternative: (exercise: Exercise) => void;
-  onUpdate: (body: Partial<Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">>) => void;
+  onUpdate: (
+    body: Partial<
+      Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
+    >,
+  ) => void;
 }) {
   const [draft, setDraft] = useState({
     coachNote: exercise.coachNote ?? "",
@@ -858,77 +820,131 @@ function SessionExerciseRow({
   }, [exercise]);
 
   return (
-    <div className="rounded-lg border bg-background p-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="truncate font-semibold">
-            {exercise.exercise?.name ?? `Ejercicio ${exercise.exerciseId}`}
-          </p>
-          <p className="text-xs text-muted-foreground">Orden {exercise.orderIndex + 1}</p>
+    <div className="border-b bg-background last:border-b-0">
+      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_88px_120px_96px_44px] lg:items-center">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
+            {exercise.orderIndex + 1}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-semibold">
+              {exercise.exercise?.name ?? `Ejercicio ${exercise.exerciseId}`}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {exercise.exercise?.primaryMuscle
+                ? (muscleLabels[exercise.exercise.primaryMuscle] ??
+                  exercise.exercise.primaryMuscle)
+                : "Ejercicio"}{" "}
+              /{" "}
+              {exercise.exercise?.equipment
+                ? (equipmentLabels[exercise.exercise.equipment] ??
+                  exercise.exercise.equipment)
+                : "Sin equipo"}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button disabled={isReadOnly || isFirst} size="icon" type="button" variant="outline" onClick={onMoveUp}>
-            <ArrowUpIcon className="size-4" />
-          </Button>
-          <Button disabled={isReadOnly || isLast} size="icon" type="button" variant="outline" onClick={onMoveDown}>
-            <ArrowDownIcon className="size-4" />
-          </Button>
-          <Button disabled={isReadOnly} size="icon" type="button" variant="outline" onClick={onDuplicate}>
-            <CopyIcon className="size-4" />
-          </Button>
-          <Button disabled={isReadOnly} size="icon" type="button" variant="outline" onClick={onDelete}>
-            <Trash2Icon className="size-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-4">
-        <Field label="Sets">
+        <CompactField label="Series">
           <Input
             disabled={isReadOnly}
             min={1}
             type="number"
             value={draft.sets}
-            onChange={(event) => setDraft({ ...draft, sets: event.target.value })}
-            onBlur={() => onUpdate({ sets: draft.sets === "" ? null : Number(draft.sets) })}
+            onChange={(event) =>
+              setDraft({ ...draft, sets: event.target.value })
+            }
+            onBlur={() =>
+              onUpdate({ sets: draft.sets === "" ? null : Number(draft.sets) })
+            }
           />
-        </Field>
-        <Field label="Reps">
+        </CompactField>
+        <CompactField label="Repeticiones">
           <Input
             disabled={isReadOnly}
             value={draft.reps}
-            onChange={(event) => setDraft({ ...draft, reps: event.target.value })}
+            onChange={(event) =>
+              setDraft({ ...draft, reps: event.target.value })
+            }
             onBlur={() => onUpdate({ reps: draft.reps })}
           />
-        </Field>
-        <Field label="Descanso">
+        </CompactField>
+        <CompactField label="Descanso">
           <Input
             disabled={isReadOnly}
             min={1}
             type="number"
             value={draft.restSeconds}
-            onChange={(event) => setDraft({ ...draft, restSeconds: event.target.value })}
+            onChange={(event) =>
+              setDraft({ ...draft, restSeconds: event.target.value })
+            }
             onBlur={() =>
-              onUpdate({ restSeconds: draft.restSeconds === "" ? null : Number(draft.restSeconds) })
+              onUpdate({
+                restSeconds:
+                  draft.restSeconds === "" ? null : Number(draft.restSeconds),
+              })
             }
           />
-        </Field>
+        </CompactField>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label="Acciones de ejercicio"
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MoreVerticalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={isReadOnly || isFirst}
+                onSelect={onMoveUp}
+              >
+                <ArrowUpIcon data-icon="inline-start" />
+                Subir
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isReadOnly || isLast}
+                onSelect={onMoveDown}
+              >
+                <ArrowDownIcon data-icon="inline-start" />
+                Bajar
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isReadOnly} onSelect={onDuplicate}>
+                <CopyIcon data-icon="inline-start" />
+                Duplicar
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isReadOnly} onSelect={onDelete}>
+                <Trash2Icon data-icon="inline-start" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="px-3 pb-3">
         <Field label="Nota">
           <Input
             disabled={isReadOnly}
             value={draft.coachNote}
-            onChange={(event) => setDraft({ ...draft, coachNote: event.target.value })}
+            onChange={(event) =>
+              setDraft({ ...draft, coachNote: event.target.value })
+            }
             onBlur={() => onUpdate({ coachNote: draft.coachNote })}
           />
         </Field>
       </div>
       {exercise.alternatives.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 border-t px-3 py-3">
           {exercise.alternatives.map((alternative) => (
             <span
               key={alternative.id}
               className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
             >
-              Alt: {alternative.alternativeExercise?.name ?? alternative.alternativeExerciseId}
+              Alt:{" "}
+              {alternative.alternativeExercise?.name ??
+                alternative.alternativeExerciseId}
               <button
                 className="text-muted-foreground hover:text-destructive"
                 disabled={isReadOnly}
@@ -941,7 +957,7 @@ function SessionExerciseRow({
           ))}
         </div>
       ) : null}
-      <div className="mt-3">
+      <div className="border-t px-3 py-3">
         <Button
           disabled={isReadOnly || exercise.alternatives.length >= 3}
           size="sm"
@@ -968,7 +984,13 @@ function SessionExerciseRow({
   );
 }
 
-function Field({ children, label }: { children: React.ReactNode; label: string }) {
+function Field({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
   return (
     <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
       {label}
@@ -977,38 +999,37 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
   );
 }
 
-function SaveIndicator({ state }: { state: SaveState }) {
-  const label = {
-    dirty: "Cambios pendientes",
-    error: "Error al guardar",
-    idle: "Sin cambios",
-    saved: "Guardado",
-    saving: "Guardando...",
-  }[state];
-
+function CompactField({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
-      {state === "saving" ? <Loader2Icon className="size-4 animate-spin" /> : <SaveIcon className="size-4" />}
+    <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
       {label}
-    </span>
+      {children}
+    </label>
   );
 }
 
-function getSessions(plan: TrainingPlan | null) {
-  if (!plan?.weeks) {
-    return [];
-  }
+function getSaveStateLabel(state: SaveState) {
+  const labels: Record<SaveState, string> = {
+    dirty: "Cambios pendientes de guardar.",
+    error: "No se pudo guardar el ultimo cambio.",
+    idle: "Sin cambios pendientes.",
+    saved: "Cambios guardados.",
+    saving: "Guardando cambios...",
+  };
 
-  return plan.weeks.flatMap((week) =>
-    week.days.flatMap((day) => (day.session ? [day.session] : [])),
-  );
+  return labels[state];
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "No se pudo guardar el cambio";
-}
-
-function getCombinedSaveState(planState: SaveState, sessionState: SaveState): SaveState {
+function getCombinedSaveState(
+  planState: SaveState,
+  sessionState: SaveState,
+): SaveState {
   if (planState === "saving" || sessionState === "saving") {
     return "saving";
   }
@@ -1022,4 +1043,20 @@ function getCombinedSaveState(planState: SaveState, sessionState: SaveState): Sa
     return "saved";
   }
   return "idle";
+}
+
+function getSessions(plan: TrainingPlan | null) {
+  if (!plan?.weeks) {
+    return [];
+  }
+
+  return plan.weeks.flatMap((week) =>
+    week.days.flatMap((day) => (day.session ? [day.session] : [])),
+  );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "No se pudo guardar el cambio";
 }

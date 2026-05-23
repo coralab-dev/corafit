@@ -4,20 +4,16 @@ import {
   CheckCircle2Icon,
   CircleIcon,
   DumbbellIcon,
-  LayoutDashboardIcon,
   LinkIcon,
   Loader2Icon,
   PlusIcon,
-  SearchIcon,
   SmartphoneIcon,
   UserRoundIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -36,33 +32,8 @@ type ChecklistItem = {
   icon: React.ReactNode;
 };
 
-const navItems = [
-  { label: "Dashboard", href: "/", icon: <LayoutDashboardIcon className="size-4" /> },
-  { label: "Clientes", href: "/clients", icon: <UsersIcon className="size-4" /> },
-  { label: "Planes", href: "/training-plans", icon: <DumbbellIcon className="size-4" /> },
-  { label: "Portal", href: "#", icon: <SmartphoneIcon className="size-4" />, disabled: true },
-];
-
-function ApiConfigPrompt({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-xl border bg-card p-8 text-center">
-      <SearchIcon className="size-8 text-muted-foreground" />
-      <div>
-        <p className="font-medium">Configuracion requerida</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Abre el panel de conexion en Clientes y guarda tu bearer token y organization ID.
-        </p>
-      </div>
-      <Button onClick={onRetry} variant="outline">
-        Reintentar
-      </Button>
-    </div>
-  );
-}
-
 export function DashboardWorkspace() {
   const { error, isApiReady, isLoading, refresh, stats } = useDashboard();
-  const [activeNav] = useState("Dashboard");
 
   const checklist: ChecklistItem[] = stats
     ? [
@@ -113,50 +84,25 @@ export function DashboardWorkspace() {
   const nextStep = checklist.find((item) => !item.completed);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col gap-4 p-4 lg:p-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-primary">
-              <LayoutDashboardIcon />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Bienvenido a CoraFit</p>
-              <h1 className="text-3xl font-semibold leading-tight">Dashboard</h1>
-            </div>
+    <div className="flex flex-col gap-4">
+      {isLoading ? (
+        <div className="flex min-h-96 flex-col items-center justify-center gap-3">
+          <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Cargando dashboard...</p>
+        </div>
+      ) : error && !isApiReady ? (
+        <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-xl border bg-card p-8 text-center">
+          <div>
+            <p className="font-medium">Configuracion requerida</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Configura la conexion al API para usar el dashboard.
+            </p>
           </div>
-          <ThemeToggle />
-        </header>
-
-        {/* Navigation */}
-        <nav className="flex gap-2 overflow-x-auto">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                item.disabled
-                  ? "pointer-events-none text-muted-foreground/50"
-                  : activeNav === item.label
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted hover:bg-muted/80"
-              }`}
-              href={item.href}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        {isLoading ? (
-          <div className="flex min-h-96 flex-col items-center justify-center gap-3">
-            <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Cargando dashboard...</p>
-          </div>
-        ) : error && !isApiReady ? (
-          <ApiConfigPrompt onRetry={refresh} />
-        ) : error ? (
+          <Button onClick={refresh} variant="outline">
+            Reintentar
+          </Button>
+        </div>
+      ) : error ? (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
             {error}
             <Button className="mt-2" onClick={refresh} size="sm" variant="outline">
@@ -332,8 +278,7 @@ export function DashboardWorkspace() {
               </Card>
             </div>
           </div>
-        ) : null}
-      </div>
-    </main>
+      ) : null}
+    </div>
   );
 }

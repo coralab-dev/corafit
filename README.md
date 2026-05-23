@@ -6,8 +6,8 @@ CoraFit is organized as a pnpm workspace monorepo so the frontend, backend, Pris
 
 ```text
 apps/
-  web/        # Future frontend application
-  api/        # Future backend application
+  web/        # Next.js frontend application
+  api/        # NestJS backend application
 packages/
   db/         # Prisma schema, migrations, seed scripts, and shared database client
   shared/     # Shared types, constants, and validators without Next.js or NestJS dependencies

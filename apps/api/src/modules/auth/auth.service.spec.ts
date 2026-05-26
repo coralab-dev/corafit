@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import {
   OrganizationMemberRole,
@@ -20,6 +20,9 @@ type SupabaseAuthServiceMock = {
 };
 
 type PrismaServiceMock = {
+  organizationMember: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
   user: {
     findUnique: ReturnType<typeof vi.fn>;
   };
@@ -40,7 +43,7 @@ type TransactionMock = {
     create: ReturnType<typeof vi.fn>;
   };
   subscriptionPlan: {
-    findUnique: ReturnType<typeof vi.fn>;
+    upsert: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -59,13 +62,14 @@ function createSupabaseUser(overrides: Partial<SupabaseUser> = {}): SupabaseUser
 describe('AuthService', () => {
   let supabaseAuthService: SupabaseAuthServiceMock;
   let prismaService: PrismaServiceMock;
+  let transaction: TransactionMock;
   let service: AuthService;
 
   beforeEach(() => {
     supabaseAuthService = {
       getUserFromJwt: vi.fn().mockResolvedValue(createSupabaseUser()),
     };
-    const transaction: TransactionMock = {
+    transaction = {
       user: {
         create: vi.fn().mockResolvedValue({
           id: 'user-id',
@@ -133,7 +137,7 @@ describe('AuthService', () => {
         }),
       },
       subscriptionPlan: {
-        findUnique: vi.fn().mockResolvedValue({
+        upsert: vi.fn().mockResolvedValue({
           id: 'trial-plan-id',
           code: 'trial',
           name: 'Trial',
@@ -151,6 +155,55 @@ describe('AuthService', () => {
       },
     };
     prismaService = {
+      organizationMember: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'member-id',
+          organizationId: 'organization-id',
+          userId: 'user-id',
+          role: OrganizationMemberRole.owner,
+          status: OrganizationMemberStatus.active,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          organization: {
+            id: 'organization-id',
+            name: 'Test Coach',
+            type: OrganizationType.individual,
+            timezone: 'America/Mexico_City',
+            status: OrganizationStatus.active,
+            ownerUserId: 'user-id',
+            onboardingCompletedAt: null,
+            clientPortalPreviewSeenAt: null,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            subscription: {
+              id: 'subscription-id',
+              organizationId: 'organization-id',
+              subscriptionPlanId: 'trial-plan-id',
+              status: SubscriptionStatus.trial,
+              startedAt: new Date('2026-01-01T00:00:00.000Z'),
+              renewsAt: new Date('2026-01-31T00:00:00.000Z'),
+              cancelledAt: null,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              subscriptionPlan: {
+                id: 'trial-plan-id',
+                code: 'trial',
+                name: 'Trial',
+                description: 'Plan de prueba inicial para coaches nuevos',
+                priceMonthly: 0,
+                currency: 'MXN',
+                clientLimit: 5,
+                memberLimit: 1,
+                features: null,
+                isPublic: true,
+                status: SubscriptionPlanStatus.active,
+                createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              },
+            },
+          },
+        }),
+      },
       user: {
         findUnique: vi.fn().mockResolvedValue(null),
       },
@@ -167,7 +220,7 @@ describe('AuthService', () => {
 
   it('creates a user, individual organization, and owner member atomically', async () => {
     const result = await service.registerProfile(
-      { name: ' Test Coach ' },
+      { name: ' Test Coach ', phone: ' 555-0100 ' },
       'Bearer valid-token',
     );
 
@@ -176,6 +229,27 @@ describe('AuthService', () => {
       where: { supabaseUserId: 'supabase-user-id' },
     });
     expect(prismaService.$transaction).toHaveBeenCalledOnce();
+    const upsertPlanInput = transaction.subscriptionPlan.upsert.mock.calls[0]?.[0] as {
+      create: {
+        clientLimit: number;
+        code: string;
+        memberLimit: number;
+        status: SubscriptionPlanStatus;
+      };
+      update: { status: SubscriptionPlanStatus };
+      where: { code: string };
+    };
+    expect(upsertPlanInput.where.code).toBe('trial');
+    expect(upsertPlanInput.create.code).toBe('trial');
+    expect(upsertPlanInput.create.clientLimit).toBe(5);
+    expect(upsertPlanInput.create.memberLimit).toBe(1);
+    expect(upsertPlanInput.create.status).toBe(SubscriptionPlanStatus.active);
+    expect(upsertPlanInput.update.status).toBe(SubscriptionPlanStatus.active);
+    const createUserInput = transaction.user.create.mock.calls[0]?.[0] as {
+      data: { name: string; phone: string | null };
+    };
+    expect(createUserInput.data.name).toBe('Test Coach');
+    expect(createUserInput.data.phone).toBe('555-0100');
     expect(result.organization).toMatchObject({
       name: 'Test Coach',
       type: OrganizationType.individual,
@@ -205,5 +279,68 @@ describe('AuthService', () => {
     await expect(
       service.registerProfile({ name: 'Test Coach' }, 'Bearer valid-token'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('returns the internal profile with organization, member, and subscription', async () => {
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      supabaseUserId: 'supabase-user-id',
+      email: 'coach@corafit.test',
+      name: 'Test Coach',
+      phone: '555-0100',
+      platformRole: UserPlatformRole.user,
+      status: UserStatus.active,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    await expect(service.getMe('Bearer valid-token')).resolves.toMatchObject({
+      user: {
+        id: 'user-id',
+        email: 'coach@corafit.test',
+        name: 'Test Coach',
+        phone: '555-0100',
+      },
+      organization: {
+        id: 'organization-id',
+        name: 'Test Coach',
+      },
+      member: {
+        id: 'member-id',
+        role: OrganizationMemberRole.owner,
+      },
+      subscription: {
+        id: 'subscription-id',
+        status: SubscriptionStatus.trial,
+        subscriptionPlan: {
+          code: 'trial',
+        },
+      },
+    });
+  });
+
+  it('throws PROFILE_NOT_FOUND when no internal profile is available', async () => {
+    await expect(service.getMe('Bearer valid-token')).rejects.toMatchObject({
+      response: {
+        error: 'PROFILE_NOT_FOUND',
+      },
+    });
+
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      supabaseUserId: 'supabase-user-id',
+      email: 'coach@corafit.test',
+      name: 'Test Coach',
+      phone: null,
+      platformRole: UserPlatformRole.user,
+      status: UserStatus.active,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    prismaService.organizationMember.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.getMe('Bearer valid-token'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

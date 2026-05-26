@@ -14,9 +14,10 @@ export class AuthController {
     return this.authService.getStatus();
   }
 
+  @Public()
   @Get('me')
   getMe(@Req() request: AuthenticatedRequest) {
-    return this.authService.getMe(request.user);
+    return this.authService.getMe(request.headers.authorization);
   }
 
   @Public()

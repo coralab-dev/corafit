@@ -24,6 +24,10 @@ export type CopyDayDto = {
   dayOfWeek: string;
 };
 
+export type UpdateDayDto = {
+  dayOfWeek: string;
+};
+
 export type ListPlansQuery = {
   limit?: string;
   page?: string;

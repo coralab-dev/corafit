@@ -1,6 +1,16 @@
 "use client";
 
-import { DumbbellIcon, Loader2Icon, PencilIcon, SaveIcon, Trash2Icon } from "lucide-react";
+import {
+  DumbbellIcon,
+  ImageIcon,
+  Loader2Icon,
+  PencilIcon,
+  PlayCircleIcon,
+  SaveIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -67,17 +77,39 @@ export function ExercisesWorkspace() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="flex min-h-0 flex-col gap-4">
+      <div className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Biblioteca
+          </p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight">
+            Ejercicios
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Administra la base de movimientos que reutilizas en planes y sesiones.
+          </p>
+        </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+          <DumbbellIcon className="size-4" aria-hidden="true" />
+          {selectedExercise ? "Ejercicio seleccionado" : "Selecciona un ejercicio"}
+        </div>
+      </div>
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="min-w-0">
           <ExerciseSearch
             reloadToken={reloadToken}
             selectedId={selectedExercise?.id}
             onSelect={handleSelect}
           />
+        </section>
+        <aside className="min-w-0 xl:sticky xl:top-8 xl:self-start">
           <SelectedExerciseCard
             exercise={selectedExercise}
             onExerciseChange={handleExerciseChange}
           />
+        </aside>
       </div>
     </div>
   );
@@ -98,21 +130,21 @@ function SelectedExerciseCard({
 
   if (!exercise) {
     return (
-      <Card className="min-w-0">
-        <CardHeader>
-          <CardTitle>Seleccion</CardTitle>
-          <CardDescription>
-            Elige un ejercicio para revisar sus detalles.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border bg-background p-6 text-center">
-            <DumbbellIcon className="text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              La seleccion queda lista para conectarse con planes o bloques de rutina.
-            </p>
-          </div>
-        </CardContent>
+    <Card className="min-w-0 overflow-hidden rounded-lg border-border/80 shadow-none">
+      <CardHeader className="border-b p-4">
+        <CardTitle className="text-base">Detalle</CardTitle>
+        <CardDescription>
+          Elige un ejercicio para revisar sus detalles.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-4">
+        <div className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-md border border-dashed bg-background p-5 text-center">
+          <DumbbellIcon className="size-7 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            La seleccion queda lista para revisar media, instrucciones y permisos.
+          </p>
+        </div>
+      </CardContent>
       </Card>
     );
   }
@@ -210,12 +242,33 @@ function SelectedExerciseCard({
   }
 
   return (
-    <Card className="min-w-0">
-      <CardHeader>
+    <Card className="min-w-0 overflow-hidden rounded-lg border-border/80 shadow-none">
+      <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b bg-muted text-muted-foreground">
+        {visibleExercise.mediaUrl && visibleExercise.mediaType === "image" ? (
+          <Image
+            alt=""
+            className="size-full object-cover"
+            fill
+            sizes="(min-width: 1280px) 380px, 100vw"
+            src={visibleExercise.mediaUrl}
+            unoptimized
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-sm">
+            {visibleExercise.mediaType === "video_url" ? (
+              <PlayCircleIcon className="size-8" aria-hidden="true" />
+            ) : (
+              <ImageIcon className="size-8" aria-hidden="true" />
+            )}
+            {visibleExercise.mediaType === "video_url" ? "Video externo" : "Sin imagen"}
+          </div>
+        )}
+      </div>
+      <CardHeader className="border-b p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="truncate">{visibleExercise.name}</CardTitle>
-            <CardDescription>
+            <CardTitle className="truncate text-base">{visibleExercise.name}</CardTitle>
+            <CardDescription className="mt-1">
               {muscleLabels[visibleExercise.primaryMuscle]} / {equipmentLabels[visibleExercise.equipment]}
             </CardDescription>
           </div>
@@ -224,11 +277,12 @@ function SelectedExerciseCard({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 p-4">
         {canEditExercise ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               className="sm:flex-1"
+              size="sm"
               type="button"
               variant="outline"
               onClick={() => setIsEditOpen(true)}
@@ -239,6 +293,7 @@ function SelectedExerciseCard({
             <Button
               className="sm:flex-1"
               disabled={isDeleting}
+              size="sm"
               type="button"
               variant="destructive"
               onClick={() => void handleDeactivate()}
@@ -252,34 +307,44 @@ function SelectedExerciseCard({
             </Button>
           </div>
         ) : (
-          <p className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">
+          <p className="rounded-md border bg-background p-3 text-sm text-muted-foreground">
             Los ejercicios globales solo se administran desde Admin SaaS.
           </p>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="muted">{muscleLabels[visibleExercise.primaryMuscle]}</Badge>
-          <Badge variant="outline">{equipmentLabels[visibleExercise.equipment]}</Badge>
-          {visibleExercise.mediaType === "video_url" ? (
-            <Badge variant="outline">Video</Badge>
-          ) : null}
+        <div className="grid grid-cols-2 gap-2">
+          <DetailMetric label="Musculo" value={muscleLabels[visibleExercise.primaryMuscle]} />
+          <DetailMetric label="Equipo" value={equipmentLabels[visibleExercise.equipment]} />
         </div>
-        <div className="rounded-lg border bg-background p-4">
-          <p className="text-sm font-semibold">Media</p>
-          <p className="mt-2 break-all text-sm text-muted-foreground">
-            {visibleExercise.mediaUrl || "Sin media registrada."}
+        <section className="border-t pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold">Media</p>
+            {visibleExercise.mediaType === "video_url" ? (
+              <Badge variant="outline">Video</Badge>
+            ) : null}
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {visibleExercise.mediaUrl
+              ? visibleExercise.mediaType === "video_url"
+                ? "Video registrado."
+                : "Imagen registrada."
+              : "Sin media registrada."}
           </p>
           {canEditExercise ? (
             <div className="mt-3 flex flex-col gap-2">
-              <input
-                accept="image/jpeg,image/png,image/webp"
-                className="text-sm"
-                disabled={isSavingMedia}
-                type="file"
-                onChange={(event) => {
-                  void handleImageChange(event.target.files?.[0]);
-                  event.currentTarget.value = "";
-                }}
-              />
+              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                <UploadIcon className="size-4" aria-hidden="true" />
+                Subir imagen
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={isSavingMedia}
+                  type="file"
+                  onChange={(event) => {
+                    void handleImageChange(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
               <Button
                 disabled={isSavingMedia || !visibleExercise.mediaUrl}
                 size="sm"
@@ -295,13 +360,13 @@ function SelectedExerciseCard({
               La media de ejercicios globales se administra desde Admin SaaS.
             </p>
           )}
-        </div>
-        <div className="rounded-lg border bg-background p-4">
+        </section>
+        <section className="border-t pt-4">
           <p className="text-sm font-semibold">Instrucciones</p>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
             {visibleExercise.instructions || "Sin instrucciones registradas."}
           </p>
-        </div>
+        </section>
       </CardContent>
       {isEditOpen ? (
         <ExerciseEditDialog
@@ -313,6 +378,15 @@ function SelectedExerciseCard({
         />
       ) : null}
     </Card>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
+    </div>
   );
 }
 

@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
-import { AssignPlanDialog, ClientDetail, ClientFormDialog, ClientList, CurrentPlanSheet, EndPlanDialog } from "@/components/clients/components";
+import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { apiRequest, clientSchema, emptyDefaults, formatDate, getErrorMessage, getInitialApiConfig, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
-import type { ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus, PlansResponse, TrainingPlan } from "@/lib/clients/types";
+import type { ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus } from "@/lib/clients/types";
 
 interface ClientsWorkspaceProps {
   mode?: "list" | "detail";
@@ -36,18 +36,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     Record<string, CurrentPlanAssignment | null>
   >({});
   const [assignmentLoadingId, setAssignmentLoadingId] = useState("");
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [isCurrentPlanOpen, setIsCurrentPlanOpen] = useState(false);
   const [isEndPlanOpen, setIsEndPlanOpen] = useState(false);
-  const [plans, setPlans] = useState<TrainingPlan[]>([]);
-  const [plansError, setPlansError] = useState("");
-  const [isPlansLoading, setIsPlansLoading] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [previewPlan, setPreviewPlan] = useState<TrainingPlan | null>(null);
-  const [previewError, setPreviewError] = useState("");
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [assignmentStartDate, setAssignmentStartDate] = useState("");
-  const [isAssigningPlan, setIsAssigningPlan] = useState(false);
   const [isEndingPlan, setIsEndingPlan] = useState(false);
 
   const selectedClient = allClients.find((client) => client.id === selectedId);
@@ -343,81 +332,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     }
   }
 
-  async function openAssignPlanDialog(client = selectedClient) {
-    if (!client) {
-      return;
-    }
-
-    setSelectedId(client.id);
-    setIsAssignDialogOpen(true);
-    setPlansError("");
-    setPreviewError("");
-    setSelectedPlanId("");
-    setPreviewPlan(null);
-    setAssignmentStartDate("");
-
-    if (!isApiReady) {
-      setPlansError("Configura la conexion al API para asignar planes reales.");
-      return;
-    }
-
-    setIsPlansLoading(true);
-    try {
-      const response = await apiRequest<PlansResponse>(
-        "/training-plans?page=1&limit=50&status=active",
-        { method: "GET" },
-        apiConfig,
-      );
-      setPlans(response.items);
-      const firstPlanId = response.items[0]?.id ?? "";
-      setSelectedPlanId(firstPlanId);
-      if (!firstPlanId) {
-        setPreviewPlan(null);
-      }
-    } catch (caughtError) {
-      setPlansError(getErrorMessage(caughtError));
-    } finally {
-      setIsPlansLoading(false);
-    }
-  }
-
-  async function assignPlanToSelectedClient() {
-    if (!selectedClient || !selectedPlanId) {
-      return;
-    }
-
-    setIsAssigningPlan(true);
-    setPlansError("");
-    try {
-      await apiRequest(
-        `/clients/${selectedClient.id}/assign-plan`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            trainingPlanId: selectedPlanId,
-            ...(assignmentStartDate ? { startDate: assignmentStartDate } : {}),
-          }),
-        },
-        apiConfig,
-      );
-      await loadCurrentPlanAssignment(selectedClient.id);
-      setIsAssignDialogOpen(false);
-      toast.success("Plan asignado");
-    } catch (caughtError) {
-      const message = getErrorMessage(caughtError);
-      setPlansError(
-        message.includes("ACTIVE_ASSIGNMENT_EXISTS")
-          ? "El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro."
-          : message,
-      );
-      if (message.includes("ACTIVE_ASSIGNMENT_EXISTS")) {
-        void loadCurrentPlanAssignment(selectedClient.id);
-      }
-    } finally {
-      setIsAssigningPlan(false);
-    }
-  }
-
   async function endCurrentPlanForSelectedClient() {
     if (!selectedClient) {
       return;
@@ -441,30 +355,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     }
   }
 
-  useEffect(() => {
-    if (!isAssignDialogOpen || !selectedPlanId || !isApiReady) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setIsPreviewLoading(true);
-      setPreviewError("");
-      void apiRequest<TrainingPlan>(
-        `/training-plans/${selectedPlanId}`,
-        { method: "GET" },
-        apiConfig,
-      )
-        .then(setPreviewPlan)
-        .catch((caughtError) => {
-          setPreviewPlan(null);
-          setPreviewError(getErrorMessage(caughtError));
-        })
-        .finally(() => setIsPreviewLoading(false));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [apiConfig, isApiReady, isAssignDialogOpen, selectedPlanId]);
-
   const sharedDialogs = (
     <>
       <ClientFormDialog
@@ -474,30 +364,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         mode={editingClient ? "edit" : "create"}
         onOpenChange={setIsFormOpen}
         onSubmit={submitClient}
-      />
-      <AssignPlanDialog
-        error={plansError}
-        isAssigning={isAssigningPlan}
-        isLoadingPlans={isPlansLoading}
-        isLoadingPreview={isPreviewLoading}
-        isOpen={isAssignDialogOpen}
-        plans={plans}
-        previewError={previewError}
-        previewPlan={previewPlan}
-        selectedPlanId={selectedPlanId}
-        startDate={assignmentStartDate}
-        onAssign={assignPlanToSelectedClient}
-        onOpenChange={setIsAssignDialogOpen}
-        onPlanChange={(planId) => {
-          setSelectedPlanId(planId);
-          setPreviewPlan(null);
-        }}
-        onStartDateChange={setAssignmentStartDate}
-      />
-      <CurrentPlanSheet
-        assignment={selectedAssignment}
-        isOpen={isCurrentPlanOpen}
-        onOpenChange={setIsCurrentPlanOpen}
       />
       <EndPlanDialog
         assignment={selectedAssignment}
@@ -536,8 +402,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             isPlanLoading={assignmentLoadingId === selectedClient.id}
             onEndPlan={() => setIsEndPlanOpen(true)}
             onEdit={openEditForm}
-            onOpenAssignPlan={openAssignPlanDialog}
-            onOpenCurrentPlan={() => setIsCurrentPlanOpen(true)}
             onStatusChange={updateStatus}
           />
         ) : (
@@ -588,11 +452,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           onEndPlan={(client) => {
             setSelectedId(client.id);
             setIsEndPlanOpen(true);
-          }}
-          onOpenAssignPlan={openAssignPlanDialog}
-          onOpenCurrentPlan={(client) => {
-            setSelectedId(client.id);
-            setIsCurrentPlanOpen(true);
           }}
           onQueryChange={setQuery}
           onSelectClient={setSelectedId}

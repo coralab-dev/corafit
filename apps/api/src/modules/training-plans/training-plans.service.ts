@@ -367,7 +367,7 @@ export class TrainingPlansService {
         ? (maxExercise?.orderIndex ?? -1) + 1
         : this.parseNonNegativeInt(body.orderIndex, 'orderIndex');
 
-    return this.prismaService.sessionExercise.create({
+    const createdExercise = await this.prismaService.sessionExercise.create({
       data: {
         trainingSessionId: sessionId,
         exerciseId: body.exerciseId,
@@ -378,6 +378,11 @@ export class TrainingPlansService {
         coachNote: this.parseOptionalString(body.coachNote, 'coachNote'),
       },
     });
+
+    return this.getSessionExerciseForOrganization(
+      createdExercise.id,
+      member.organizationId,
+    );
   }
 
   async updateSessionExercise(
@@ -399,10 +404,15 @@ export class TrainingPlansService {
       throw new BadRequestException('At least one field is required');
     }
 
-    return this.prismaService.sessionExercise.update({
+    await this.prismaService.sessionExercise.update({
       where: { id: sessionExerciseId },
       data,
     });
+
+    return this.getSessionExerciseForOrganization(
+      sessionExerciseId,
+      member.organizationId,
+    );
   }
 
   async deleteSessionExercise(
@@ -461,7 +471,10 @@ export class TrainingPlansService {
         });
       }
 
-      return duplicate;
+      return this.getSessionExerciseForOrganization(
+        duplicate.id,
+        member.organizationId,
+      );
     });
   }
 
@@ -553,6 +566,9 @@ export class TrainingPlansService {
         sessionExerciseId,
         alternativeExerciseId: body.alternativeExerciseId,
         note: this.parseOptionalString(body.note, 'note'),
+      },
+      include: {
+        alternativeExercise: true,
       },
     });
   }
@@ -665,82 +681,85 @@ export class TrainingPlansService {
       throw new NotFoundException('Training plan was not found');
     }
 
-    const newName = body.name?.trim() || `${original.name} (copia)`;
+    const newName = body?.name?.trim() || `${original.name} (copia)`;
 
-    return this.prismaService.$transaction(async (tx) => {
-      const plan = await tx.trainingPlan.create({
-        data: {
-          name: newName,
-          goal: original.goal,
-          level: original.level,
-          durationWeeks: original.durationWeeks,
-          generalNotes: original.generalNotes,
-          status: TrainingPlanStatus.draft,
-          planType: TrainingPlanType.template,
-          sourcePlanId: original.id,
-          organizationId: member.organizationId,
-          createdByMemberId: member.id,
-        },
-      });
-
-      for (const originalWeek of original.weeks) {
-        const week = await tx.trainingPlanWeek.create({
+    return this.prismaService.$transaction(
+      async (tx) => {
+        const plan = await tx.trainingPlan.create({
           data: {
-            trainingPlanId: plan.id,
-            weekNumber: originalWeek.weekNumber,
-            notes: originalWeek.notes,
+            name: newName,
+            goal: original.goal,
+            level: original.level,
+            durationWeeks: original.durationWeeks,
+            generalNotes: original.generalNotes,
+            status: TrainingPlanStatus.draft,
+            planType: TrainingPlanType.template,
+            sourcePlanId: original.id,
+            organizationId: member.organizationId,
+            createdByMemberId: member.id,
           },
         });
 
-        for (const originalDay of originalWeek.days) {
-          const day = await tx.trainingPlanDay.create({
+        for (const originalWeek of original.weeks) {
+          const week = await tx.trainingPlanWeek.create({
             data: {
-              trainingPlanWeekId: week.id,
-              dayOfWeek: originalDay.dayOfWeek,
-              dayOrder: originalDay.dayOrder,
-              dayType: originalDay.dayType,
+              trainingPlanId: plan.id,
+              weekNumber: originalWeek.weekNumber,
+              notes: originalWeek.notes,
             },
           });
 
-          if (originalDay.session) {
-            const session = await tx.trainingSession.create({
+          for (const originalDay of originalWeek.days) {
+            const day = await tx.trainingPlanDay.create({
               data: {
-                trainingPlanDayId: day.id,
-                name: originalDay.session.name,
-                description: originalDay.session.description,
-                coachNote: originalDay.session.coachNote,
+                trainingPlanWeekId: week.id,
+                dayOfWeek: originalDay.dayOfWeek,
+                dayOrder: originalDay.dayOrder,
+                dayType: originalDay.dayType,
               },
             });
 
-            for (const originalExercise of originalDay.session.exercises) {
-              const exercise = await tx.sessionExercise.create({
+            if (originalDay.session) {
+              const session = await tx.trainingSession.create({
                 data: {
-                  trainingSessionId: session.id,
-                  exerciseId: originalExercise.exerciseId,
-                  orderIndex: originalExercise.orderIndex,
-                  sets: originalExercise.sets,
-                  reps: originalExercise.reps,
-                  restSeconds: originalExercise.restSeconds,
-                  coachNote: originalExercise.coachNote,
+                  trainingPlanDayId: day.id,
+                  name: originalDay.session.name,
+                  description: originalDay.session.description,
+                  coachNote: originalDay.session.coachNote,
                 },
               });
 
-              for (const originalAlt of originalExercise.alternatives) {
-                await tx.sessionExerciseAlternative.create({
+              for (const originalExercise of originalDay.session.exercises) {
+                const exercise = await tx.sessionExercise.create({
                   data: {
-                    sessionExerciseId: exercise.id,
-                    alternativeExerciseId: originalAlt.alternativeExerciseId,
-                    note: originalAlt.note,
+                    trainingSessionId: session.id,
+                    exerciseId: originalExercise.exerciseId,
+                    orderIndex: originalExercise.orderIndex,
+                    sets: originalExercise.sets,
+                    reps: originalExercise.reps,
+                    restSeconds: originalExercise.restSeconds,
+                    coachNote: originalExercise.coachNote,
                   },
                 });
+
+                for (const originalAlt of originalExercise.alternatives) {
+                  await tx.sessionExerciseAlternative.create({
+                    data: {
+                      sessionExerciseId: exercise.id,
+                      alternativeExerciseId: originalAlt.alternativeExerciseId,
+                      note: originalAlt.note,
+                    },
+                  });
+                }
               }
             }
           }
         }
-      }
 
-      return plan;
-    });
+        return plan;
+      },
+      { timeout: 30000 },
+    );
   }
 
   async duplicateWeek(
@@ -855,7 +874,29 @@ export class TrainingPlansService {
         });
       }
 
-      return week;
+      return tx.trainingPlanWeek.findFirst({
+        where: { id: week.id },
+        include: {
+          days: {
+            include: {
+              session: {
+                include: {
+                  exercises: {
+                    include: {
+                      exercise: true,
+                      alternatives: {
+                        include: {
+                          alternativeExercise: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
     });
   }
 
@@ -960,7 +1001,58 @@ export class TrainingPlansService {
         }
       }
 
+      return tx.trainingPlanDay.findFirst({
+        where: { id: day.id },
+        include: {
+          session: {
+            include: {
+              exercises: {
+                include: {
+                  alternatives: true,
+                  exercise: true,
+                },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+          },
+        },
+      });
+    });
+  }
+
+  async updateDay(
+    dayId: string,
+    body: { dayOfWeek: string },
+    member: OrganizationMember | undefined,
+  ) {
+    if (!member) {
+      throw new ForbiddenException('Organization membership is required');
+    }
+
+    const targetDayOfWeek = this.parseDayOfWeek(body.dayOfWeek);
+    const day = await this.ensureDayVisible(dayId, member.organizationId);
+    this.ensurePlanIsDraft(day.week?.trainingPlan);
+
+    if (day.dayOfWeek === targetDayOfWeek) {
       return day;
+    }
+
+    const existingDay = await this.prismaService.trainingPlanDay.findFirst({
+      where: {
+        trainingPlanWeekId: day.trainingPlanWeekId,
+        dayOfWeek: targetDayOfWeek,
+      },
+    });
+
+    if (existingDay) {
+      throw new ConflictException(
+        'A day already exists for the target day of week',
+      );
+    }
+
+    return this.prismaService.trainingPlanDay.update({
+      where: { id: dayId },
+      data: { dayOfWeek: targetDayOfWeek },
     });
   }
 

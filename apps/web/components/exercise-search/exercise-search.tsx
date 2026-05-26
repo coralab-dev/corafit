@@ -5,6 +5,7 @@ import {
   DumbbellIcon,
   Loader2Icon,
   PlusIcon,
+  SlidersHorizontalIcon,
   SearchIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +40,8 @@ export interface ExerciseSearchProps {
 
 const muscleOptions = Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>;
 const equipmentOptions = Object.entries(equipmentLabels) as Array<[Equipment, string]>;
+const initialVisibleExercises = 8;
+const visibleExercisesStep = 8;
 
 export function ExerciseSearch({
   onSelect,
@@ -53,6 +56,7 @@ export function ExerciseSearch({
   const [type, setType] = useState<ExerciseType>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(initialVisibleExercises);
   const didHandleReloadToken = useRef(false);
 
   useEffect(() => {
@@ -74,6 +78,11 @@ export function ExerciseSearch({
   );
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
+  const visibleItems = useMemo(
+    () => items.slice(0, visibleCount),
+    [items, visibleCount],
+  );
+  const hasMoreVisibleItems = visibleItems.length < items.length;
 
   useEffect(() => {
     if (reloadToken === undefined) {
@@ -107,75 +116,99 @@ export function ExerciseSearch({
   }
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Ejercicios</CardTitle>
-            <CardDescription>
-              Busca ejercicios globales o personalizados para reutilizarlos.
+    <Card className="min-w-0 overflow-hidden rounded-lg border-border/80 shadow-none">
+      <CardHeader className="gap-3 border-b bg-card/80 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="text-base">Biblioteca</CardTitle>
+            <CardDescription className="mt-1">
+              {total} ejercicios disponibles
             </CardDescription>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button className="w-full sm:w-auto" size="sm" onClick={() => setIsCreateOpen(true)}>
             <PlusIcon data-icon="inline-start" />
             Nuevo ejercicio
           </Button>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="pl-10"
-                placeholder="Buscar"
+                className="h-9 bg-background pl-10"
+                placeholder="Buscar por nombre"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setVisibleCount(initialVisibleExercises);
+                }}
               />
             </div>
-            <select
-              aria-label="Filtrar por equipamiento"
-              className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 md:w-48"
-              value={equipment}
-              onChange={(event) => setEquipment(event.target.value as Equipment | "all")}
-            >
-              <option value="all">Todo equipo</option>
-              {equipmentOptions.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filtrar por tipo"
-              className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 md:w-44"
-              value={type}
-              onChange={(event) => setType(event.target.value as ExerciseType)}
-            >
-              <option value="all">Todos</option>
-              <option value="global">Global</option>
-              <option value="custom">Personalizado</option>
-            </select>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:w-[19rem]">
+              <select
+                aria-label="Filtrar por equipamiento"
+                className="h-9 rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                value={equipment}
+                onChange={(event) => {
+                  setEquipment(event.target.value as Equipment | "all");
+                  setVisibleCount(initialVisibleExercises);
+                }}
+              >
+                <option value="all">Todo equipo</option>
+                {equipmentOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Filtrar por tipo"
+                className="h-9 rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                value={type}
+                onChange={(event) => {
+                  setType(event.target.value as ExerciseType);
+                  setVisibleCount(initialVisibleExercises);
+                }}
+              >
+                <option value="all">Todos</option>
+                <option value="global">Global</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por musculo">
-            <FilterChip
-              active={primaryMuscle === "all"}
-              label="Todos"
-              onClick={() => setPrimaryMuscle("all")}
-            />
-            {muscleOptions.map(([value, label]) => (
+          <div className="flex items-center gap-2">
+            <SlidersHorizontalIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
+            <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por musculo">
               <FilterChip
-                key={value}
-                active={primaryMuscle === value}
-                label={label}
-                onClick={() => setPrimaryMuscle(value)}
+                active={primaryMuscle === "all"}
+                label="Todos"
+                onClick={() => {
+                  setPrimaryMuscle("all");
+                  setVisibleCount(initialVisibleExercises);
+                }}
               />
-            ))}
+              {muscleOptions.map(([value, label]) => (
+                <FilterChip
+                  key={value}
+                  active={primaryMuscle === value}
+                  label={label}
+                  onClick={() => {
+                    setPrimaryMuscle(value);
+                    setVisibleCount(initialVisibleExercises);
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>{total} resultados</span>
+      <CardContent className="flex flex-col gap-2 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>
+            {visibleItems.length && items.length > visibleItems.length
+              ? `Mostrando ${visibleItems.length} de ${total} resultados`
+              : `${total} resultados`}
+          </span>
           {isLoading ? (
             <span className="inline-flex items-center gap-2">
               <Loader2Icon aria-hidden="true" />
@@ -189,8 +222,8 @@ export function ExerciseSearch({
         {!error && isLoading && items.length === 0 ? (
           <ExerciseSkeletonList />
         ) : !error && items.length ? (
-          <div className="flex flex-col gap-2">
-            {items.map((exercise) => (
+          <div className="flex flex-col">
+            {visibleItems.map((exercise) => (
               <ExerciseSearchItem
                 key={exercise.id}
                 exercise={exercise}
@@ -199,6 +232,19 @@ export function ExerciseSearch({
                 selectionMode={selectionMode}
               />
             ))}
+            {hasMoreVisibleItems ? (
+              <Button
+                className="mt-2"
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setVisibleCount((current) => current + visibleExercisesStep)
+                }
+              >
+                Mostrar mas
+              </Button>
+            ) : null}
           </div>
         ) : !error ? (
           <EmptyState onCreate={() => setIsCreateOpen(true)} />
@@ -226,8 +272,10 @@ function FilterChip({
   return (
     <button
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
-        active ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
+        "shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
       role="listitem"
       type="button"
@@ -240,8 +288,8 @@ function FilterChip({
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border bg-background p-4 text-sm text-destructive">
-      <AlertCircleIcon aria-hidden="true" />
+    <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <p>{message}</p>
     </div>
   );
@@ -249,15 +297,15 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-lg border bg-background p-6 text-center">
-      <DumbbellIcon className="text-muted-foreground" aria-hidden="true" />
+    <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-md border border-dashed bg-background p-6 text-center">
+      <DumbbellIcon className="size-8 text-muted-foreground" aria-hidden="true" />
       <div>
         <p className="font-semibold">No hay ejercicios con esos filtros</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ajusta la busqueda o crea un ejercicio personalizado.
         </p>
       </div>
-      <Button variant="outline" onClick={onCreate}>
+      <Button size="sm" variant="outline" onClick={onCreate}>
         <PlusIcon data-icon="inline-start" />
         Nuevo ejercicio
       </Button>
@@ -267,11 +315,11 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function ExerciseSkeletonList() {
   return (
-    <div className="flex flex-col gap-2" aria-label="Cargando ejercicios">
+    <div className="flex flex-col" aria-label="Cargando ejercicios">
       {[0, 1, 2, 3].map((item) => (
-        <div key={item} className="flex items-center gap-3 rounded-lg border bg-background p-3">
-          <div className="size-16 rounded-md bg-muted" />
-          <div className="flex flex-1 flex-col gap-3">
+        <div key={item} className="flex items-center gap-3 border-b bg-background p-2.5 last:border-b-0">
+          <div className="size-11 rounded-md bg-muted" />
+          <div className="flex flex-1 flex-col gap-2">
             <div className="h-4 w-2/3 rounded bg-muted" />
             <div className="flex gap-2">
               <Badge variant="muted"> </Badge>

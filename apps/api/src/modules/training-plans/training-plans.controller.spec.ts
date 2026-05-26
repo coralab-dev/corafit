@@ -10,6 +10,7 @@ type ServiceMock = {
   duplicate: ReturnType<typeof vi.fn>;
   duplicateWeek: ReturnType<typeof vi.fn>;
   copyDay: ReturnType<typeof vi.fn>;
+  updateDay: ReturnType<typeof vi.fn>;
 };
 
 const mockMember = {
@@ -39,6 +40,7 @@ describe('TrainingPlansController', () => {
       duplicate: vi.fn(),
       duplicateWeek: vi.fn(),
       copyDay: vi.fn(),
+      updateDay: vi.fn(),
     };
     controller = new TrainingPlansController(service as unknown as TrainingPlansService);
   });
@@ -119,6 +121,7 @@ describe('TrainingPlanDaysController', () => {
       duplicate: vi.fn(),
       duplicateWeek: vi.fn(),
       copyDay: vi.fn(),
+      updateDay: vi.fn(),
     };
     controller = new TrainingPlanDaysController(service as unknown as TrainingPlansService);
   });
@@ -131,6 +134,18 @@ describe('TrainingPlanDaysController', () => {
     expect(service.copyDay).toHaveBeenCalledWith(
       'day-1',
       { dayOfWeek: 'wednesday' },
+      mockMember,
+    );
+  });
+
+  it('updateDay delegates to service with dayId, body and member', async () => {
+    service.updateDay.mockResolvedValue({ id: 'day-1' });
+
+    await controller.updateDay('day-1', { dayOfWeek: 'saturday' }, mockRequest);
+
+    expect(service.updateDay).toHaveBeenCalledWith(
+      'day-1',
+      { dayOfWeek: 'saturday' },
       mockMember,
     );
   });

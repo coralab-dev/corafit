@@ -28,6 +28,7 @@ type PrismaServiceMock = {
   trainingPlanDay: {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   trainingSession: {
     create: ReturnType<typeof vi.fn>;
@@ -74,6 +75,7 @@ function createMockPrisma(): PrismaServiceMock {
     trainingPlanDay: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      update: vi.fn(),
     },
     trainingSession: {
       create: vi.fn(),
@@ -387,7 +389,8 @@ describe('TrainingPlansService', () => {
     it('adds an exercise to a visible session with validated prescription fields', async () => {
       prisma.trainingSession.findFirst.mockResolvedValue({ id: 'session-1' });
       prisma.exercise.findFirst.mockResolvedValue({ id: 'ex-1' });
-      prisma.sessionExercise.findFirst.mockResolvedValue({ orderIndex: 2 });
+      prisma.sessionExercise.findFirst.mockResolvedValueOnce({ orderIndex: 2 });
+      prisma.sessionExercise.findFirst.mockResolvedValueOnce({ id: 'se-1' });
       prisma.sessionExercise.create.mockResolvedValue({ id: 'se-1' });
 
       await service.createSessionExercise(
@@ -427,6 +430,7 @@ describe('TrainingPlansService', () => {
         alternatives: [{ alternativeExerciseId: 'ex-2', note: 'si duele' }],
       });
       prisma.sessionExercise.findFirst.mockResolvedValueOnce({ orderIndex: 4 });
+      prisma.sessionExercise.findFirst.mockResolvedValueOnce({ id: 'se-copy' });
       prisma.sessionExercise.create.mockResolvedValue({ id: 'se-copy' });
       prisma.sessionExerciseAlternative.create.mockResolvedValue({ id: 'alt-copy' });
 
@@ -698,6 +702,10 @@ describe('TrainingPlansService', () => {
       });
       prisma.trainingPlan.create.mockResolvedValue({ id: 'copy-1' });
       prisma.trainingPlanWeek.create.mockResolvedValue({ id: 'week-copy-1' });
+      prisma.trainingPlanWeek.findFirst.mockResolvedValueOnce({
+        id: 'week-copy-1',
+        days: [],
+      });
       prisma.trainingPlanDay.create.mockResolvedValue({ id: 'day-copy-1' });
       prisma.trainingSession.create.mockResolvedValue({ id: 'session-copy-1' });
       prisma.sessionExercise.create.mockResolvedValue({ id: 'se-copy-1' });
@@ -755,6 +763,34 @@ describe('TrainingPlansService', () => {
       );
     });
 
+    it('uses the default copy name when the request body is missing', async () => {
+      prisma.systemSetting.findUnique.mockResolvedValue(null);
+      prisma.trainingPlan.findFirst.mockResolvedValue({
+        id: 'orig-1',
+        name: 'Original',
+        goal: null,
+        level: null,
+        durationWeeks: 1,
+        generalNotes: null,
+        weeks: [],
+      });
+      prisma.trainingPlan.create.mockResolvedValue({ id: 'copy-1' });
+
+      await service.duplicate(
+        'orig-1',
+        undefined as unknown as Parameters<typeof service.duplicate>[1],
+        mockMember,
+      );
+
+      expect(prisma.trainingPlan.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'Original (copia)',
+          }),
+        }),
+      );
+    });
+
     it('throws NotFound for plan in another org', async () => {
       prisma.systemSetting.findUnique.mockResolvedValue(null);
       prisma.trainingPlan.findFirst.mockResolvedValue(null);
@@ -797,6 +833,30 @@ describe('TrainingPlansService', () => {
       );
     });
 
+    it('uses an extended transaction timeout for large system templates', async () => {
+      prisma.systemSetting.findUnique.mockResolvedValue({
+        value: 'seed-org-1',
+      });
+      prisma.trainingPlan.findFirst.mockResolvedValue({
+        id: 'seed-plan-1',
+        name: 'Large Seed Plan',
+        goal: 'Fitness',
+        level: 'beginner',
+        durationWeeks: 4,
+        generalNotes: null,
+        organizationId: 'seed-org-1',
+        weeks: [],
+      });
+      prisma.trainingPlan.create.mockResolvedValue({ id: 'copy-1' });
+
+      await service.duplicate('seed-plan-1', {}, mockMember);
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ timeout: 30000 }),
+      );
+    });
+
     it('rejects duplicating a plan from an unrelated organization', async () => {
       prisma.systemSetting.findUnique.mockResolvedValue({
         value: 'seed-org-1',
@@ -811,12 +871,6 @@ describe('TrainingPlansService', () => {
 
   describe('duplicateWeek', () => {
     it('copies week with next weekNumber', async () => {
-      prisma.trainingPlanWeek.findFirst.mockResolvedValue({
-        id: 'week-1',
-        weekNumber: 1,
-        notes: null,
-        days: [],
-      });
       prisma.trainingPlanWeek.findFirst.mockResolvedValueOnce({
         id: 'week-1',
         weekNumber: 1,
@@ -827,6 +881,10 @@ describe('TrainingPlansService', () => {
         id: 'week-max',
         weekNumber: 3,
       });
+      prisma.trainingPlanWeek.findFirst.mockResolvedValueOnce({
+        id: 'week-copy-1',
+        days: [],
+      });
       prisma.trainingPlanWeek.create.mockResolvedValue({ id: 'week-copy-1' });
 
       const result = await service.duplicateWeek(
@@ -835,7 +893,7 @@ describe('TrainingPlansService', () => {
         mockMember,
       );
 
-      expect(result).toEqual({ id: 'week-copy-1' });
+      expect(result).toEqual({ id: 'week-copy-1', days: [] });
       expect(prisma.trainingPlanWeek.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -905,6 +963,11 @@ describe('TrainingPlansService', () => {
       });
       prisma.trainingPlanDay.findFirst.mockResolvedValueOnce(null);
       prisma.trainingPlanDay.create.mockResolvedValue({ id: 'day-copy-1' });
+      prisma.trainingPlanDay.findFirst.mockResolvedValueOnce({
+        id: 'day-copy-1',
+        dayOfWeek: DayOfWeek.wednesday,
+        session: null,
+      });
 
       const result = await service.copyDay(
         'day-1',
@@ -912,7 +975,11 @@ describe('TrainingPlansService', () => {
         mockMember,
       );
 
-      expect(result).toEqual({ id: 'day-copy-1' });
+      expect(result).toEqual({
+        id: 'day-copy-1',
+        dayOfWeek: DayOfWeek.wednesday,
+        session: null,
+      });
       expect(prisma.trainingPlanDay.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -954,6 +1021,66 @@ describe('TrainingPlansService', () => {
       await expect(
         service.copyDay('day-1', { dayOfWeek: 'wednesday' }, mockMember),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateDay', () => {
+    it('updates dayOfWeek when target day is available', async () => {
+      prisma.trainingPlanDay.findFirst.mockResolvedValueOnce({
+        id: 'day-1',
+        trainingPlanWeekId: 'week-1',
+        dayOfWeek: DayOfWeek.monday,
+        dayOrder: null,
+        dayType: TrainingDayType.training,
+        week: {
+          trainingPlan: {
+            status: TrainingPlanStatus.draft,
+          },
+        },
+        session: null,
+      });
+      prisma.trainingPlanDay.findFirst.mockResolvedValueOnce(null);
+      prisma.trainingPlanDay.update.mockResolvedValue({
+        id: 'day-1',
+        dayOfWeek: DayOfWeek.saturday,
+      });
+
+      const result = await service.updateDay(
+        'day-1',
+        { dayOfWeek: 'saturday' },
+        mockMember,
+      );
+
+      expect(result).toEqual({
+        id: 'day-1',
+        dayOfWeek: DayOfWeek.saturday,
+      });
+      expect(prisma.trainingPlanDay.update).toHaveBeenCalledWith({
+        where: { id: 'day-1' },
+        data: { dayOfWeek: DayOfWeek.saturday },
+      });
+    });
+
+    it('throws Conflict if target day already exists', async () => {
+      prisma.trainingPlanDay.findFirst.mockResolvedValueOnce({
+        id: 'day-1',
+        trainingPlanWeekId: 'week-1',
+        dayOfWeek: DayOfWeek.monday,
+        week: {
+          trainingPlan: {
+            status: TrainingPlanStatus.draft,
+          },
+        },
+        session: null,
+      });
+      prisma.trainingPlanDay.findFirst.mockResolvedValueOnce({
+        id: 'day-existing',
+      });
+
+      await expect(
+        service.updateDay('day-1', { dayOfWeek: 'saturday' }, mockMember),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.trainingPlanDay.update).not.toHaveBeenCalled();
     });
   });
 });

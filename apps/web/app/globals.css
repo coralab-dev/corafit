@@ -50,11 +50,10 @@
   --ring: #ff753a;
 }
 
-
 .dark {
-  --background: #0F1013;
+  --background: #0f1013;
   --foreground: #e6e7e8;
-  --card: #17181C;
+  --card: #17181c;
   --card-foreground: #e6e7e8;
   --popover: #111318;
   --popover-foreground: #e6e7e8;
@@ -90,4 +89,13 @@ body {
 
 ::selection {
   background: color-mix(in oklab, var(--primary) 45%, transparent);
+}
+
+.plan-tree-scroll {
+  scrollbar-width: none;
+}
+
+.plan-tree-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }

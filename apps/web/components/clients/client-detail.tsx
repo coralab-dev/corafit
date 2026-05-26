@@ -17,8 +17,6 @@ export function ClientDetail({
   isPlanLoading,
   onEndPlan,
   onEdit,
-  onOpenAssignPlan,
-  onOpenCurrentPlan,
   onStatusChange,
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
@@ -26,8 +24,6 @@ export function ClientDetail({
   isPlanLoading: boolean;
   onEndPlan: () => void;
   onEdit: (client: Client) => void;
-  onOpenAssignPlan: () => void;
-  onOpenCurrentPlan: () => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
 }) {
   const hasActivePlan = Boolean(assignment?.assignedPlan);
@@ -76,9 +72,11 @@ export function ClientDetail({
                 </Link>
               </Button>
             ) : (
-              <Button onClick={onOpenAssignPlan}>
-                <DumbbellIcon className="mr-2 size-4" />
-                Asignar plan
+              <Button asChild>
+                <Link href={`/clients/${client.id}/plan-assignment`}>
+                  <DumbbellIcon className="mr-2 size-4" />
+                  Asignar plan
+                </Link>
               </Button>
             )}
 
@@ -137,8 +135,6 @@ export function ClientDetail({
                 assignment={assignment}
                 isLoading={isPlanLoading}
                 onEndPlan={onEndPlan}
-                onOpenAssignPlan={onOpenAssignPlan}
-                onOpenCurrentPlan={onOpenCurrentPlan}
                 clientId={client.id}
               />
             </TabsContent>
@@ -176,15 +172,11 @@ export function CurrentPlanPanel({
   clientId,
   isLoading,
   onEndPlan,
-  onOpenAssignPlan,
-  onOpenCurrentPlan,
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
   clientId: string;
   isLoading: boolean;
   onEndPlan: () => void;
-  onOpenAssignPlan: () => void;
-  onOpenCurrentPlan: () => void;
 }) {
   if (isLoading) {
     return (
@@ -201,7 +193,7 @@ export function CurrentPlanPanel({
         actionLabel="Asignar plan"
         description="Selecciona un template y crea una copia editable para este cliente."
         title="Sin plan asignado"
-        onAction={onOpenAssignPlan}
+        actionHref={`/clients/${clientId}/plan-assignment`}
       />
     );
   }
@@ -233,9 +225,11 @@ export function CurrentPlanPanel({
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <Button className="w-full" variant="outline" onClick={onOpenCurrentPlan}>
-          <EyeIcon data-icon="inline-start" />
-          Ver plan actual
+        <Button asChild className="w-full" variant="outline">
+          <Link href={`/clients/${clientId}/plan-assignment/edit`}>
+            <EyeIcon data-icon="inline-start" />
+            Ver plan actual
+          </Link>
         </Button>
         <Button asChild className="w-full" variant="outline">
           <Link href={`/clients/${clientId}/plan-assignment/edit`}>

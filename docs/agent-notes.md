@@ -16,7 +16,10 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - `packages/shared` is for shared types/constants/validators and must not depend on Next.js or NestJS.
 
 ## Current task state
-- No active task recorded.
+- Optimized training plan editor mutations to avoid full `loadPlan()` refreshes after small edits.
+- Frontend hook now patches local plan state for week/day/session/exercise/alternative add/delete/reorder.
+- API now returns enriched session exercise payloads after create/update/duplicate and enriched alternatives after create.
+- Verification passed: `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter api lint`, and `pnpm --filter api test -- src/modules/training-plans/training-plans.service.spec.ts`.
 
 ## Last tooling setup
 - Added Codex guidance, compact notes, architecture map, testing notes, local AGENTS files, and safe ignore updates.

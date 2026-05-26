@@ -7,12 +7,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <ThemeProvider>
       <AuthProvider>
         {children}
         <Toaster />

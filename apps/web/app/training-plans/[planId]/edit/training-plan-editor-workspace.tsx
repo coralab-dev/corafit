@@ -5,19 +5,23 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  EditIcon,
+  ImageIcon,
   Loader2Icon,
   MoreVerticalIcon,
   PlusIcon,
   SaveIcon,
   Trash2Icon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExerciseSearch } from "@/components/exercise-search";
 import { PlanTree } from "@/components/training-plans/training-plan-tree";
@@ -27,10 +31,17 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,9 +50,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type SessionExercise,
+  type SessionExerciseAlternative,
   type TrainingPlan,
   type TrainingSession,
   useTrainingPlanEditor,
@@ -89,6 +100,7 @@ const statusLabels: Record<string, string> = {
 
 export function TrainingPlanEditorWorkspace() {
   const params = useParams<{ planId: string }>();
+  const router = useRouter();
   const planId = params.planId;
   const editor = useTrainingPlanEditor(planId);
   const [selectedSessionId, setSelectedSessionId] = useState("");
@@ -100,10 +112,18 @@ export function TrainingPlanEditorWorkspace() {
 
   const plan = editor.plan;
   const sessions = useMemo(() => getSessions(plan), [plan]);
-  const selectedSession =
-    sessions.find((session) => session.id === selectedSessionId) ?? sessions[0];
-  const isReadOnly = plan?.status !== "draft";
+  const selectedSession = useMemo(
+    () =>
+      sessions.find((session) => session.id === selectedSessionId) ??
+      sessions[0],
+    [selectedSessionId, sessions],
+  );
+  const isSystemTemplate = Boolean(plan?.isSystemTemplate);
+  const isReadOnly = isSystemTemplate || plan?.status !== "draft";
   const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
+  const handleSelectSession = useCallback((sessionId: string) => {
+    setSelectedSessionId(sessionId);
+  }, []);
 
   useEffect(() => {
     if (!plan) {
@@ -170,7 +190,6 @@ export function TrainingPlanEditorWorkspace() {
     setPlanSaveState("saving");
     try {
       await editor.updatePlan(planDraft);
-      await editor.loadPlan();
       setPlanSaveState("saved");
     } catch (caughtError) {
       setPlanSaveState("error");
@@ -194,11 +213,38 @@ export function TrainingPlanEditorWorkspace() {
         description: updatedSession.description,
         name: updatedSession.name,
       });
-      await editor.loadPlan();
       setSessionSaveState("saved");
     } catch (caughtError) {
       setSessionSaveState("error");
       toast.error(getErrorMessage(caughtError));
+    }
+  }
+
+  async function saveSessionInfo(
+    sessionId: string,
+    draft: DraftSession,
+  ): Promise<boolean> {
+    if (isReadOnly) {
+      return false;
+    }
+
+    setSessionSaveState("saving");
+    try {
+      const updatedSession = await editor.updateSession(sessionId, draft);
+      if (selectedSession?.id === sessionId) {
+        setSessionDraft({
+          coachNote: updatedSession.coachNote,
+          description: updatedSession.description,
+          name: updatedSession.name,
+        });
+      }
+      setSessionSaveState("saved");
+      toast.success("Sesion actualizada");
+      return true;
+    } catch (caughtError) {
+      setSessionSaveState("error");
+      toast.error(getErrorMessage(caughtError));
+      return false;
     }
   }
 
@@ -217,7 +263,6 @@ export function TrainingPlanEditorWorkspace() {
     setSessionSaveState("saving");
     try {
       await action();
-      await editor.loadPlan();
       setSessionSaveState("saved");
       toast.success(success);
     } catch (caughtError) {
@@ -226,13 +271,66 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
-  async function publishPlan() {
-    if (isReadOnly || publishState === "saving") {
+  async function mutateExercise(
+    action: () => Promise<unknown>,
+    success: string,
+  ) {
+    if (isReadOnly) {
+      return;
+    }
+
+    setSessionSaveState("saving");
+    try {
+      await action();
+      setSessionSaveState("saved");
+      toast.success(success);
+    } catch (caughtError) {
+      setSessionSaveState("error");
+      toast.error(getErrorMessage(caughtError));
+    }
+  }
+
+  async function deleteSelectedSession() {
+    if (!selectedSession || isReadOnly) {
+      return;
+    }
+
+    if (!window.confirm("Eliminar esta sesion y todos sus ejercicios?")) {
+      return;
+    }
+
+    setSessionSaveState("saving");
+    try {
+      await editor.deleteSession(selectedSession.id);
+      setSessionSaveState("saved");
+      setSelectedSessionId("");
+      toast.success("Sesion eliminada");
+    } catch (caughtError) {
+      setSessionSaveState("error");
+      toast.error(getErrorMessage(caughtError));
+    }
+  }
+
+  async function togglePlanPublication() {
+    if (
+      !plan ||
+      plan.isSystemTemplate ||
+      plan.status === "archived" ||
+      publishState === "saving"
+    ) {
       return;
     }
 
     setPublishState("saving");
     try {
+      if (plan.status === "active") {
+        await editor.updatePlanStatus("draft");
+        await editor.loadPlan();
+        setPublishState("saved");
+        toast.success("Plan despublicado");
+        return;
+      }
+
       if (planSaveState === "dirty" && planDraft) {
         setPlanSaveState("saving");
         await editor.updatePlan(planDraft);
@@ -247,6 +345,22 @@ export function TrainingPlanEditorWorkspace() {
       await editor.loadPlan();
       setPublishState("saved");
       toast.success("Plan publicado");
+    } catch (caughtError) {
+      setPublishState("error");
+      toast.error(getErrorMessage(caughtError));
+    }
+  }
+
+  async function duplicateForEditing() {
+    if (!plan || publishState === "saving") {
+      return;
+    }
+
+    setPublishState("saving");
+    try {
+      const copy = await editor.duplicatePlan();
+      toast.success("Copia creada para editar");
+      router.push(`/training-plans/${copy.id}/edit`);
     } catch (caughtError) {
       setPublishState("error");
       toast.error(getErrorMessage(caughtError));
@@ -280,167 +394,161 @@ export function TrainingPlanEditorWorkspace() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex w-full flex-col gap-4">
       <EditorHeader
         isReadOnly={isReadOnly}
+        isSystemTemplate={isSystemTemplate}
         plan={plan}
         saveState={saveState}
         publishState={publishState}
-        onPublish={() => void publishPlan()}
+        onDuplicateForEditing={() => void duplicateForEditing()}
+        onTogglePublication={() => void togglePlanPublication()}
         onSave={() => void saveAllDrafts()}
       />
 
-      <Tabs className="flex flex-col gap-5" defaultValue="structure">
-        <TabsList className="w-fit">
-          <TabsTrigger value="structure">Estructura</TabsTrigger>
-          <TabsTrigger value="details">Informacion general</TabsTrigger>
-        </TabsList>
+      <PlanDetails
+        draft={planDraft}
+        isReadOnly={isReadOnly}
+        saveState={planSaveState}
+        onChange={(draft) => {
+          setPlanDraft(draft);
+          setPlanSaveState("dirty");
+        }}
+        onSave={() => void savePlanDraft()}
+      />
 
-        <TabsContent className="m-0" value="structure">
-          <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <PlanTree
-              editor={editor}
-              plan={plan}
-              selectedSessionId={selectedSession?.id}
-              onSelectSession={setSelectedSessionId}
-            />
+      <div className="grid w-full gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <PlanTree
+          editor={editor}
+          isReadOnly={isReadOnly}
+          plan={plan}
+          selectedSessionId={selectedSession?.id}
+          onSaveSessionInfo={saveSessionInfo}
+          onSelectSession={handleSelectSession}
+        />
 
-            {selectedSession && sessionDraft ? (
-              <SessionEditor
-                draft={sessionDraft}
-                isReadOnly={isReadOnly}
-                session={selectedSession}
-                onAddExercise={(exercise) =>
-                  mutateStructure(
-                    () =>
-                      editor.addSessionExercise(selectedSession.id, {
-                        exerciseId: exercise.id,
-                        reps: "10-12",
-                        sets: 3,
-                      }),
-                    "Ejercicio agregado",
-                  )
-                }
-                onAddAlternative={(sessionExerciseId, exercise) =>
-                  mutateStructure(
-                    () =>
-                      editor.addAlternative(sessionExerciseId, {
-                        alternativeExerciseId: exercise.id,
-                      }),
-                    "Alternativa agregada",
-                  )
-                }
-                onChange={(draft) => {
-                  setSessionDraft(draft);
-                  setSessionSaveState("dirty");
-                }}
-                onDeleteExercise={(sessionExerciseId) =>
-                  mutateStructure(
-                    () => editor.deleteSessionExercise(sessionExerciseId),
-                    "Ejercicio eliminado",
-                  )
-                }
-                onDeleteAlternative={(alternativeId) =>
-                  mutateStructure(
-                    () => editor.deleteAlternative(alternativeId),
-                    "Alternativa eliminada",
-                  )
-                }
-                onDuplicateExercise={(sessionExerciseId) =>
-                  mutateStructure(
-                    () => editor.duplicateSessionExercise(sessionExerciseId),
-                    "Ejercicio duplicado",
-                  )
-                }
-                onMoveExercise={(sessionExercise, direction) => {
-                  const exercises = [...selectedSession.exercises].sort(
-                    (first, second) => first.orderIndex - second.orderIndex,
-                  );
-                  const index = exercises.findIndex(
-                    (item) => item.id === sessionExercise.id,
-                  );
-                  const swapIndex = direction === "up" ? index - 1 : index + 1;
-                  if (swapIndex < 0 || swapIndex >= exercises.length) {
-                    return;
-                  }
-                  const reordered = [...exercises];
-                  [reordered[index], reordered[swapIndex]] = [
-                    reordered[swapIndex],
-                    reordered[index],
-                  ];
-                  void mutateStructure(
-                    () =>
-                      editor.reorderSessionExercises(
-                        reordered.map((item, orderIndex) => ({
-                          orderIndex,
-                          sessionExerciseId: item.id,
-                        })),
-                      ),
-                    "Orden actualizado",
-                  );
-                }}
-                onSave={() => void saveSessionDraft()}
-                onUpdateExercise={(sessionExerciseId, body) =>
-                  mutateStructure(
-                    () => editor.updateSessionExercise(sessionExerciseId, body),
-                    "Ejercicio actualizado",
-                  )
-                }
-              />
-            ) : (
-              <Card className="min-h-72">
-                <CardHeader>
-                  <CardTitle>Sesion</CardTitle>
-                  <CardDescription>
-                    Selecciona una sesion para editarla.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent className="m-0" value="details">
-          <PlanDetails
-            draft={planDraft}
+        {selectedSession ? (
+          <SessionEditor
             isReadOnly={isReadOnly}
-            saveState={planSaveState}
-            onChange={(draft) => {
-              setPlanDraft(draft);
-              setPlanSaveState("dirty");
+            session={selectedSession}
+            onAddExercise={(exercise) =>
+              mutateStructure(
+                () =>
+                  editor.addSessionExercise(selectedSession.id, {
+                    exerciseId: exercise.id,
+                    reps: "10-12",
+                    sets: 3,
+                  }, exercise),
+                "Ejercicio agregado",
+              )
+            }
+            onAddAlternative={(sessionExerciseId, exercise) =>
+              mutateStructure(
+                () =>
+                  editor.addAlternative(sessionExerciseId, {
+                    alternativeExerciseId: exercise.id,
+                  }, exercise),
+                "Alternativa agregada",
+              )
+            }
+            onDeleteExercise={(sessionExerciseId) =>
+              mutateStructure(
+                () => editor.deleteSessionExercise(sessionExerciseId),
+                "Ejercicio eliminado",
+              )
+            }
+            onDeleteSession={() => void deleteSelectedSession()}
+            onDeleteAlternative={(alternativeId) =>
+              mutateStructure(
+                () => editor.deleteAlternative(alternativeId),
+                "Alternativa eliminada",
+              )
+            }
+            onDuplicateExercise={(sessionExerciseId) =>
+              mutateStructure(
+                () => editor.duplicateSessionExercise(sessionExerciseId),
+                "Ejercicio duplicado",
+              )
+            }
+            onMoveExercise={(sessionExercise, direction) => {
+              const exercises = [...selectedSession.exercises].sort(
+                (first, second) => first.orderIndex - second.orderIndex,
+              );
+              const index = exercises.findIndex(
+                (item) => item.id === sessionExercise.id,
+              );
+              const swapIndex = direction === "up" ? index - 1 : index + 1;
+              if (swapIndex < 0 || swapIndex >= exercises.length) {
+                return;
+              }
+              const reordered = [...exercises];
+              [reordered[index], reordered[swapIndex]] = [
+                reordered[swapIndex],
+                reordered[index],
+              ];
+              void mutateStructure(
+                () =>
+                  editor.reorderSessionExercises(
+                    reordered.map((item, orderIndex) => ({
+                      orderIndex,
+                      sessionExerciseId: item.id,
+                    })),
+                  ),
+                "Orden actualizado",
+              );
             }}
-            onSave={() => void savePlanDraft()}
+            onUpdateExercise={(sessionExerciseId, body) =>
+              mutateExercise(
+                () => editor.updateSessionExercise(sessionExerciseId, body),
+                "Ejercicio actualizado",
+              )
+            }
           />
-        </TabsContent>
-      </Tabs>
+        ) : (
+          <Card className="min-h-72 rounded-lg shadow-none">
+            <CardHeader>
+              <CardTitle>Sesion</CardTitle>
+              <CardDescription>Selecciona una sesion para editarla.</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
 
 function EditorHeader({
   isReadOnly,
-  onPublish,
+  isSystemTemplate,
+  onDuplicateForEditing,
   onSave,
+  onTogglePublication,
   plan,
   saveState,
   publishState,
 }: {
   isReadOnly: boolean;
-  onPublish: () => void;
+  isSystemTemplate: boolean;
+  onDuplicateForEditing: () => void;
   onSave: () => void;
+  onTogglePublication: () => void;
   plan: TrainingPlan;
   saveState: SaveState;
   publishState: SaveState;
 }) {
   const isSaving = saveState === "saving";
   const isPublishing = publishState === "saving";
+  const canTogglePublication =
+    plan.status === "draft" || plan.status === "active";
+  const publicationLabel =
+    plan.status === "active" ? "Despublicar" : "Publicar";
 
   return (
-    <header className="rounded-xl border bg-card px-4 py-5 shadow-sm md:px-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <header className="sticky top-4 z-10 rounded-lg border bg-card/95 px-3 py-3 shadow-none backdrop-blur md:px-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <nav className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Button asChild size="icon" variant="ghost">
+          <nav className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <Button asChild className="size-8" size="icon" variant="ghost">
               <Link aria-label="Volver a planes" href="/training-plans">
                 <ChevronLeftIcon />
               </Link>
@@ -451,15 +559,15 @@ function EditorHeader({
             <ChevronRightIcon className="size-4" />
             <span className="truncate">{plan.name}</span>
           </nav>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="truncate text-3xl font-semibold leading-tight">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-xl font-semibold leading-tight md:text-2xl">
               {plan.name}
             </h1>
             <Badge variant={plan.status === "draft" ? "secondary" : "outline"}>
               {statusLabels[plan.status] ?? plan.status}
             </Badge>
           </div>
-          <dl className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <dl className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <dt className="font-medium text-foreground">Objetivo:</dt>
               <dd>{plan.goal || "Sin objetivo"}</dd>
@@ -481,33 +589,63 @@ function EditorHeader({
           </dl>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <Button disabled type="button" variant="outline">
+          <Button disabled size="sm" type="button" variant="outline">
             Vista previa
             <Badge variant="secondary">Proximamente</Badge>
           </Button>
-          <Button
-            disabled={isReadOnly || isSaving}
-            type="button"
-            variant="outline"
-            onClick={onSave}
-          >
-            {isSaving ? (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <SaveIcon data-icon="inline-start" />
-            )}
-            Guardar
-          </Button>
-          <Button
-            disabled={isReadOnly || isPublishing}
-            type="button"
-            onClick={onPublish}
-          >
-            {isPublishing ? (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            ) : null}
-            Publicar
-          </Button>
+          {isSystemTemplate ? (
+            <Button
+              disabled={isPublishing}
+              size="sm"
+              type="button"
+              onClick={onDuplicateForEditing}
+            >
+              {isPublishing ? (
+                <Loader2Icon
+                  className="animate-spin"
+                  data-icon="inline-start"
+                />
+              ) : (
+                <CopyIcon data-icon="inline-start" />
+              )}
+              Copiar para editar
+            </Button>
+          ) : (
+            <>
+              <Button
+                disabled={isReadOnly || isSaving}
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={onSave}
+              >
+                {isSaving ? (
+                  <Loader2Icon
+                    className="animate-spin"
+                    data-icon="inline-start"
+                  />
+                ) : (
+                  <SaveIcon data-icon="inline-start" />
+                )}
+                Guardar
+              </Button>
+              <Button
+                disabled={!canTogglePublication || isPublishing}
+                size="sm"
+                type="button"
+                variant={plan.status === "active" ? "outline" : "default"}
+                onClick={onTogglePublication}
+              >
+                {isPublishing ? (
+                  <Loader2Icon
+                    className="animate-spin"
+                    data-icon="inline-start"
+                  />
+                ) : null}
+                {publicationLabel}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -528,113 +666,173 @@ function PlanDetails({
   onSave: () => void;
 }) {
   return (
-    <Card className="max-w-4xl">
-      <CardHeader>
-        <CardTitle>Informacion general</CardTitle>
-        <CardDescription>
-          El autosave guarda cambios cada 2 segundos.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-2">
-        <Field label="Nombre">
-          <Input
-            disabled={isReadOnly}
-            value={draft.name}
-            onChange={(event) =>
-              onChange({ ...draft, name: event.target.value })
-            }
-          />
-        </Field>
-        <Field label="Objetivo">
-          <Input
-            disabled={isReadOnly}
-            value={draft.goal ?? ""}
-            onChange={(event) =>
-              onChange({ ...draft, goal: event.target.value })
-            }
-          />
-        </Field>
-        <Field label="Nivel">
-          <select
-            className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            disabled={isReadOnly}
-            value={draft.level ?? ""}
-            onChange={(event) =>
-              onChange({ ...draft, level: event.target.value || null })
-            }
+    <details className="group w-full rounded-lg border bg-card shadow-none">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Informacion general</h2>
+          <p className="text-sm text-muted-foreground">
+            Nombre, objetivo, nivel y notas del plan.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {!isReadOnly ? <SaveStatus state={saveState} /> : null}
+          <span className="rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground group-open:hidden">
+            Editar informacion
+          </span>
+          <span className="hidden rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground group-open:inline-flex">
+            Ocultar
+          </span>
+        </div>
+      </summary>
+      <div className="flex flex-col gap-4 border-t px-4 py-4">
+        <section className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
+              Identidad
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Nombre">
+                <Input
+                  disabled={isReadOnly}
+                  value={draft.name}
+                  onChange={(event) =>
+                    onChange({ ...draft, name: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Objetivo">
+                <Input
+                  disabled={isReadOnly}
+                  value={draft.goal ?? ""}
+                  onChange={(event) =>
+                    onChange({ ...draft, goal: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 border-t pt-4 md:grid-cols-2">
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
+              Clasificacion
+            </p>
+            <Field label="Nivel">
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                disabled={isReadOnly}
+                value={draft.level ?? ""}
+                onChange={(event) =>
+                  onChange({ ...draft, level: event.target.value || null })
+                }
+              >
+                <option value="">Sin nivel</option>
+                <option value="beginner">{levelLabels.beginner}</option>
+                <option value="intermediate">{levelLabels.intermediate}</option>
+                <option value="advanced">{levelLabels.advanced}</option>
+              </select>
+            </Field>
+          </div>
+          <DurationSummary weeks={draft.durationWeeks} />
+        </section>
+
+        <section className="border-t pt-4">
+          <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
+            Notas internas
+          </p>
+          <Field label="Notas generales">
+            <textarea
+              className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              disabled={isReadOnly}
+              value={draft.generalNotes ?? ""}
+              onChange={(event) =>
+                onChange({ ...draft, generalNotes: event.target.value })
+              }
+            />
+          </Field>
+        </section>
+      </div>
+      {!isReadOnly ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            El autosave guarda cambios cada 2 segundos.
+          </p>
+          <Button
+            disabled={saveState === "saving"}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={onSave}
           >
-            <option value="">Sin nivel</option>
-            <option value="beginner">{levelLabels.beginner}</option>
-            <option value="intermediate">{levelLabels.intermediate}</option>
-            <option value="advanced">{levelLabels.advanced}</option>
-          </select>
-        </Field>
-        <Field label="Semanas">
-          <Input
-            disabled={isReadOnly}
-            min={1}
-            type="number"
-            value={draft.durationWeeks}
-            onChange={(event) =>
-              onChange({ ...draft, durationWeeks: Number(event.target.value) })
-            }
-          />
-        </Field>
-        <Field label="Notas generales">
-          <textarea
-            className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            disabled={isReadOnly}
-            value={draft.generalNotes ?? ""}
-            onChange={(event) =>
-              onChange({ ...draft, generalNotes: event.target.value })
-            }
-          />
-        </Field>
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {getSaveStateLabel(saveState)}
-        </p>
-        <Button
-          disabled={isReadOnly || saveState === "saving"}
-          type="button"
-          onClick={onSave}
-        >
-          {saveState === "saving" ? (
-            <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          ) : null}
-          <SaveIcon data-icon="inline-start" />
-          Guardar ahora
-        </Button>
-      </CardFooter>
-    </Card>
+            {saveState === "saving" ? (
+              <Loader2Icon className="animate-spin" data-icon="inline-start" />
+            ) : (
+              <SaveIcon data-icon="inline-start" />
+            )}
+            Guardar ahora
+          </Button>
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+function SaveStatus({ state }: { state: SaveState }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+      {state === "saving" ? (
+        <Loader2Icon className="animate-spin" />
+      ) : (
+        <SaveIcon />
+      )}
+      {getSaveStateLabel(state)}
+    </span>
+  );
+}
+
+function DurationSummary({ weeks }: { weeks: number }) {
+  return (
+    <div className="flex min-h-20 items-center justify-between gap-4 rounded-md border bg-background p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <CalendarDaysIcon />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Duracion calculada</p>
+          <p className="text-xs text-muted-foreground">
+            Se actualiza desde Estructura.
+          </p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-2xl font-semibold leading-none">{weeks}</p>
+        <p className="text-xs text-muted-foreground">semanas</p>
+      </div>
+    </div>
   );
 }
 
 function SessionEditor({
-  draft,
   isReadOnly,
   onAddExercise,
   onAddAlternative,
-  onChange,
   onDeleteAlternative,
   onDeleteExercise,
+  onDeleteSession,
   onDuplicateExercise,
   onMoveExercise,
-  onSave,
   onUpdateExercise,
   session,
 }: {
-  draft: DraftSession;
   isReadOnly: boolean;
   onAddExercise: (exercise: Exercise) => void;
   onAddAlternative: (sessionExerciseId: string, exercise: Exercise) => void;
-  onChange: (draft: DraftSession) => void;
   onDeleteAlternative: (alternativeId: string) => void;
   onDeleteExercise: (sessionExerciseId: string) => void;
+  onDeleteSession: () => void;
   onDuplicateExercise: (sessionExerciseId: string) => void;
   onMoveExercise: (exercise: SessionExercise, direction: "up" | "down") => void;
-  onSave: () => void;
   onUpdateExercise: (
     sessionExerciseId: string,
     body: Partial<
@@ -644,123 +842,85 @@ function SessionEditor({
   session: TrainingSession;
 }) {
   const [isAdding, setIsAdding] = useState(false);
+  const sortedExercises = useMemo(
+    () =>
+      [...session.exercises].sort(
+        (first, second) => first.orderIndex - second.orderIndex,
+      ),
+    [session.exercises],
+  );
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="gap-5">
+    <Card className="overflow-hidden rounded-lg shadow-none">
+      <CardHeader className="gap-3 border-b p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle>{session.name}</CardTitle>
+            <CardTitle className="text-lg">{session.name}</CardTitle>
             <CardDescription>
-              Ejercicios, cargas prescritas y notas del coach.
+              {session.description ||
+                "Ejercicios, cargas prescritas y notas del coach."}
             </CardDescription>
           </div>
-          <Button
-            disabled={isReadOnly}
-            type="button"
-            onClick={() => setIsAdding((value) => !value)}
-          >
-            <PlusIcon data-icon="inline-start" />
-            Agregar ejercicio
-          </Button>
+          {!isReadOnly ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={onDeleteSession}
+              >
+                <Trash2Icon data-icon="inline-start" />
+                Eliminar sesion
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                onClick={() => setIsAdding((value) => !value)}
+              >
+                <PlusIcon data-icon="inline-start" />
+                Agregar ejercicio
+              </Button>
+            </div>
+          ) : null}
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Nombre">
-            <Input
-              disabled={isReadOnly}
-              value={draft.name}
-              onChange={(event) =>
-                onChange({ ...draft, name: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Descripcion">
-            <Input
-              disabled={isReadOnly}
-              value={draft.description ?? ""}
-              onChange={(event) =>
-                onChange({ ...draft, description: event.target.value })
-              }
-            />
-          </Field>
-          <Field label="Nota del coach">
-            <Input
-              disabled={isReadOnly}
-              value={draft.coachNote ?? ""}
-              onChange={(event) =>
-                onChange({ ...draft, coachNote: event.target.value })
-              }
-            />
-          </Field>
-          <div className="flex items-end">
-            <Button
-              disabled={isReadOnly}
-              type="button"
-              variant="outline"
-              onClick={onSave}
-            >
-              <SaveIcon data-icon="inline-start" />
-              Guardar sesion
-            </Button>
-          </div>
-        </div>
-        <Field label="Nota de la sesion (opcional)">
-          <textarea
-            className="min-h-16 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            disabled={isReadOnly}
-            placeholder="Escribe una nota general para esta sesion..."
-            value={draft.coachNote ?? ""}
-            onChange={(event) =>
-              onChange({ ...draft, coachNote: event.target.value })
-            }
-          />
-        </Field>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        {isAdding && !isReadOnly ? (
-          <ExerciseSearch
-            selectionMode="explicit"
-            onSelect={(exercise) => {
-              onAddExercise(exercise);
-              setIsAdding(false);
-            }}
-          />
+        {session.coachNote ? (
+          <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            {session.coachNote}
+          </p>
         ) : null}
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Ejercicios</h2>
-            <Button
-              disabled={isReadOnly}
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => setIsAdding((value) => !value)}
-            >
-              <PlusIcon data-icon="inline-start" />
-              Agregar ejercicio
-            </Button>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 p-4">
+        {isAdding && !isReadOnly ? (
+          <div className="rounded-lg border bg-background p-2">
+            <ExerciseSearch
+              selectionMode="explicit"
+              onSelect={(exercise) => {
+                onAddExercise(exercise);
+                setIsAdding(false);
+              }}
+            />
           </div>
+        ) : null}
+        <section>
           <div className="overflow-hidden rounded-lg border">
-            {[...session.exercises]
-              .sort((first, second) => first.orderIndex - second.orderIndex)
-              .map((exercise, index, exercises) => (
-                <SessionExerciseRow
-                  key={exercise.id}
-                  exercise={exercise}
-                  isFirst={index === 0}
-                  isLast={index === exercises.length - 1}
-                  isReadOnly={isReadOnly}
-                  onDelete={() => onDeleteExercise(exercise.id)}
-                  onDeleteAlternative={onDeleteAlternative}
-                  onDuplicate={() => onDuplicateExercise(exercise.id)}
-                  onMoveDown={() => onMoveExercise(exercise, "down")}
-                  onMoveUp={() => onMoveExercise(exercise, "up")}
-                  onAddAlternative={(alternative) =>
-                    onAddAlternative(exercise.id, alternative)
-                  }
-                  onUpdate={(body) => onUpdateExercise(exercise.id, body)}
-                />
-              ))}
+            {sortedExercises.map((exercise, index) => (
+              <SessionExerciseRow
+                key={exercise.id}
+                exercise={exercise}
+                isFirst={index === 0}
+                isLast={index === sortedExercises.length - 1}
+                isReadOnly={isReadOnly}
+                onDelete={() => onDeleteExercise(exercise.id)}
+                onDeleteAlternative={onDeleteAlternative}
+                onDuplicate={() => onDuplicateExercise(exercise.id)}
+                onMoveDown={() => onMoveExercise(exercise, "down")}
+                onMoveUp={() => onMoveExercise(exercise, "up")}
+                onAddAlternative={(alternative) =>
+                  onAddAlternative(exercise.id, alternative)
+                }
+                onUpdate={(body) => onUpdateExercise(exercise.id, body)}
+              />
+            ))}
             {session.exercises.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Esta sesion todavia no tiene ejercicios.
@@ -773,19 +933,7 @@ function SessionEditor({
   );
 }
 
-function SessionExerciseRow({
-  exercise,
-  isFirst,
-  isLast,
-  isReadOnly,
-  onDelete,
-  onDeleteAlternative,
-  onDuplicate,
-  onMoveDown,
-  onMoveUp,
-  onAddAlternative,
-  onUpdate,
-}: {
+type SessionExerciseRowProps = {
   exercise: SessionExercise;
   isFirst: boolean;
   isLast: boolean;
@@ -801,7 +949,22 @@ function SessionExerciseRow({
       Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
     >,
   ) => void;
-}) {
+};
+
+const SessionExerciseRow = memo(function SessionExerciseRow({
+  exercise,
+  isFirst,
+  isLast,
+  isReadOnly,
+  onDelete,
+  onDeleteAlternative,
+  onDuplicate,
+  onMoveDown,
+  onMoveUp,
+  onAddAlternative,
+  onUpdate,
+}: SessionExerciseRowProps) {
+  const alternatives = exercise.alternatives ?? [];
   const [draft, setDraft] = useState({
     coachNote: exercise.coachNote ?? "",
     reps: exercise.reps,
@@ -809,6 +972,8 @@ function SessionExerciseRow({
     sets: exercise.sets ?? "",
   });
   const [isAddingAlternative, setIsAddingAlternative] = useState(false);
+  const [isAlternativesOpen, setIsAlternativesOpen] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -821,13 +986,13 @@ function SessionExerciseRow({
 
   return (
     <div className="border-b bg-background last:border-b-0">
-      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_88px_120px_96px_44px] lg:items-center">
+      <div className="grid gap-2 p-2.5 lg:grid-cols-[minmax(0,1fr)_76px_112px_88px_36px] lg:items-center">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
             {exercise.orderIndex + 1}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-semibold">
+            <p className="truncate text-sm font-semibold">
               {exercise.exercise?.name ?? `Ejercicio ${exercise.exerciseId}`}
             </p>
             <p className="truncate text-xs text-muted-foreground">
@@ -841,6 +1006,17 @@ function SessionExerciseRow({
                   exercise.exercise.equipment)
                 : "Sin equipo"}
             </p>
+            {exercise.coachNote ? (
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                Nota agregada
+              </p>
+            ) : null}
+            {alternatives.length ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {alternatives.length} alternativa
+                {alternatives.length === 1 ? "" : "s"}
+              </p>
+            ) : null}
           </div>
         </div>
         <CompactField label="Series">
@@ -915,6 +1091,22 @@ function SessionExerciseRow({
                 <CopyIcon data-icon="inline-start" />
                 Duplicar
               </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isReadOnly}
+                onSelect={() => setIsEditingNote(true)}
+              >
+                <EditIcon data-icon="inline-start" />
+                Editar nota
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setIsAlternativesOpen((value) => !value);
+                  setIsAddingAlternative(false);
+                }}
+              >
+                <PlusIcon data-icon="inline-start" />
+                Alternativas
+              </DropdownMenuItem>
               <DropdownMenuItem disabled={isReadOnly} onSelect={onDelete}>
                 <Trash2Icon data-icon="inline-start" />
                 Eliminar
@@ -923,53 +1115,71 @@ function SessionExerciseRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="px-3 pb-3">
-        <Field label="Nota">
-          <Input
-            disabled={isReadOnly}
-            value={draft.coachNote}
-            onChange={(event) =>
-              setDraft({ ...draft, coachNote: event.target.value })
-            }
-            onBlur={() => onUpdate({ coachNote: draft.coachNote })}
-          />
-        </Field>
-      </div>
-      {exercise.alternatives.length ? (
-        <div className="flex flex-wrap gap-2 border-t px-3 py-3">
-          {exercise.alternatives.map((alternative) => (
-            <span
-              key={alternative.id}
-              className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
+      <Dialog open={isEditingNote} onOpenChange={setIsEditingNote}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar nota del ejercicio</DialogTitle>
+            <DialogDescription>
+              Esta nota queda asociada solo a este ejercicio dentro de la sesion.
+            </DialogDescription>
+          </DialogHeader>
+          <Field label="Nota">
+            <textarea
+              className="min-h-28 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              disabled={isReadOnly}
+              value={draft.coachNote}
+              onChange={(event) =>
+                setDraft({ ...draft, coachNote: event.target.value })
+              }
+            />
+          </Field>
+          <DialogFooter>
+            <Button
+              disabled={isReadOnly}
+              type="button"
+              onClick={() => {
+                onUpdate({ coachNote: draft.coachNote });
+                setIsEditingNote(false);
+              }}
             >
-              Alt:{" "}
-              {alternative.alternativeExercise?.name ??
-                alternative.alternativeExerciseId}
-              <button
-                className="text-muted-foreground hover:text-destructive"
-                disabled={isReadOnly}
-                type="button"
-                onClick={() => onDeleteAlternative(alternative.id)}
-              >
-                Quitar
-              </button>
-            </span>
-          ))}
+              <SaveIcon data-icon="inline-start" />
+              Guardar nota
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {isAlternativesOpen ? (
+        <div className="grid gap-3 border-t bg-muted/20 px-3 py-2.5 lg:grid-cols-[minmax(0,1fr)_36px]">
+          <div className="flex min-w-0 flex-wrap gap-2">
+            {alternatives.length ? (
+              alternatives.map((alternative) => (
+                <AlternativeChip
+                  key={alternative.id}
+                  alternative={alternative}
+                  isReadOnly={isReadOnly}
+                  onDelete={() => onDeleteAlternative(alternative.id)}
+                />
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Sin alternativas
+              </span>
+            )}
+          </div>
+          <Button
+            aria-label="Agregar alternativa"
+            className="justify-self-start lg:justify-self-end"
+            disabled={isReadOnly || alternatives.length >= 3}
+            size="icon"
+            type="button"
+            variant="outline"
+            onClick={() => setIsAddingAlternative((value) => !value)}
+          >
+            <PlusIcon />
+          </Button>
         </div>
       ) : null}
-      <div className="border-t px-3 py-3">
-        <Button
-          disabled={isReadOnly || exercise.alternatives.length >= 3}
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => setIsAddingAlternative((value) => !value)}
-        >
-          <PlusIcon data-icon="inline-start" />
-          Alternativa
-        </Button>
-      </div>
-      {isAddingAlternative && !isReadOnly ? (
+      {isAlternativesOpen && isAddingAlternative && !isReadOnly ? (
         <div className="mt-3">
           <ExerciseSearch
             selectionMode="explicit"
@@ -981,6 +1191,65 @@ function SessionExerciseRow({
         </div>
       ) : null}
     </div>
+  );
+}, areSessionExerciseRowPropsEqual);
+
+function AlternativeChip({
+  alternative,
+  isReadOnly,
+  onDelete,
+}: {
+  alternative: SessionExerciseAlternative;
+  isReadOnly: boolean;
+  onDelete: () => void;
+}) {
+  const exercise = alternative.alternativeExercise;
+
+  return (
+    <span className="inline-flex max-w-full items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs">
+      <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted text-muted-foreground">
+        {exercise?.mediaUrl && exercise.mediaType === "image" ? (
+          <Image
+            alt=""
+            className="size-full object-cover"
+            height={32}
+            loading="lazy"
+            src={exercise.mediaUrl}
+            unoptimized
+            width={32}
+          />
+        ) : (
+          <ImageIcon className="size-4" aria-hidden="true" />
+        )}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-medium">
+          {exercise?.name ?? alternative.alternativeExerciseId}
+        </span>
+        <span className="block text-muted-foreground">Alternativa</span>
+      </span>
+      <button
+        aria-label="Quitar alternativa"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        disabled={isReadOnly}
+        type="button"
+        onClick={onDelete}
+      >
+        <Trash2Icon className="size-4" />
+      </button>
+    </span>
+  );
+}
+
+function areSessionExerciseRowPropsEqual(
+  previous: SessionExerciseRowProps,
+  next: SessionExerciseRowProps,
+) {
+  return (
+    previous.exercise === next.exercise &&
+    previous.isFirst === next.isFirst &&
+    previous.isLast === next.isLast &&
+    previous.isReadOnly === next.isReadOnly
   );
 }
 

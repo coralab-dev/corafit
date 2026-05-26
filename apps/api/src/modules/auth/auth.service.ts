@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -9,6 +10,7 @@ import {
   OrganizationMemberStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionPlanStatus,
   SubscriptionStatus,
   type Organization,
   type OrganizationMember,
@@ -30,6 +32,8 @@ export type RegisterProfileResult = {
   user: User;
 };
 
+export type AuthProfileResult = RegisterProfileResult;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -41,19 +45,68 @@ export class AuthService {
     return { module: 'auth', status: 'ready' };
   }
 
-  getMe(user: User | undefined) {
+  async getMe(authorizationHeader: string | undefined): Promise<AuthProfileResult> {
+    const jwt = this.extractBearerToken(authorizationHeader);
+    const supabaseUser = await this.supabaseAuthService.getUserFromJwt(jwt);
+    const user = await this.prismaService.user.findUnique({
+      where: { supabaseUserId: supabaseUser.id },
+    });
+
     if (!user) {
-      return null;
+      throw new NotFoundException({
+        error: 'PROFILE_NOT_FOUND',
+        message: 'Internal profile was not found',
+      });
     }
 
+    const member = await this.prismaService.organizationMember.findFirst({
+      where: {
+        userId: user.id,
+        status: OrganizationMemberStatus.active,
+      },
+      include: {
+        organization: {
+          include: {
+            subscription: {
+              include: {
+                subscriptionPlan: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const subscription = member?.organization.subscription;
+
+    if (!member || !subscription) {
+      throw new NotFoundException({
+        error: 'PROFILE_NOT_FOUND',
+        message: 'Internal profile was not found',
+      });
+    }
+
+    const { organization, ...memberData } = member;
+
     return {
-      id: user.id,
-      supabaseUserId: user.supabaseUserId,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      platformRole: user.platformRole,
-      status: user.status,
+      user,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        type: organization.type,
+        timezone: organization.timezone,
+        status: organization.status,
+        ownerUserId: organization.ownerUserId,
+        onboardingCompletedAt: organization.onboardingCompletedAt,
+        clientPortalPreviewSeenAt: organization.clientPortalPreviewSeenAt,
+        createdAt: organization.createdAt,
+        updatedAt: organization.updatedAt,
+      },
+      member: memberData,
+      subscription,
     };
   }
 
@@ -75,23 +128,35 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User profile already exists');
+      throw new ConflictException({
+        error: 'PROFILE_EXISTS',
+        message: 'User profile already exists',
+      });
     }
 
     return this.prismaService.$transaction(async (transaction) => {
-      const trialPlan = await transaction.subscriptionPlan.findUnique({
+      const trialPlan = await transaction.subscriptionPlan.upsert({
         where: { code: 'trial' },
+        create: {
+          code: 'trial',
+          name: 'Trial',
+          description: 'Plan de prueba inicial para coaches nuevos',
+          priceMonthly: 0,
+          clientLimit: 5,
+          memberLimit: 1,
+          status: SubscriptionPlanStatus.active,
+        },
+        update: {
+          status: SubscriptionPlanStatus.active,
+        },
       });
-
-      if (!trialPlan) {
-        throw new BadRequestException('Trial subscription plan is not configured');
-      }
 
       const user = await transaction.user.create({
         data: {
           supabaseUserId: supabaseUser.id,
           email,
           name,
+          phone: this.normalizeOptionalText(body.phone),
           status: UserStatus.active,
         },
       });
@@ -148,6 +213,15 @@ export class AuthService {
     }
 
     return trimmedName;
+  }
+
+  private normalizeOptionalText(value: unknown) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const trimmedValue = value.trim();
+    return trimmedValue || null;
   }
 
   private extractBearerToken(authorizationHeader: string | undefined): string {

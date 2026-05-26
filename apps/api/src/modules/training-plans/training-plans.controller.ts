@@ -33,6 +33,7 @@ import type {
   CreateDayDto,
   CreateSessionDto,
   UpdatePlanStatusDto,
+  UpdateDayDto,
 } from './dto/training-plan.dto';
 
 @Controller('training-plans')
@@ -288,6 +289,17 @@ export class TrainingPlanDaysController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.trainingPlansService.copyDay(dayId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch(':dayId')
+  updateDay(
+    @Param('dayId') dayId: string,
+    @Body() body: UpdateDayDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.trainingPlansService.updateDay(dayId, body, request.organizationMember);
   }
 
   @UseGuards(OrganizationGuard, RoleGuard)

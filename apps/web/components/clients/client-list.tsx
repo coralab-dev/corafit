@@ -19,8 +19,6 @@ export function ClientList({
   onCreateClient,
   onEditClient,
   onEndPlan,
-  onOpenAssignPlan,
-  onOpenCurrentPlan,
   onQueryChange,
   onSelectClient,
   onStatusFilterChange,
@@ -35,8 +33,6 @@ export function ClientList({
   onCreateClient: () => void;
   onEditClient: (client: Client) => void;
   onEndPlan: (client: Client) => void;
-  onOpenAssignPlan: (client: Client) => void;
-  onOpenCurrentPlan: (client: Client) => void;
   onQueryChange: (value: string) => void;
   onSelectClient: (clientId: string) => void;
   onStatusFilterChange: (value: OperationalStatus | "all") => void;
@@ -160,8 +156,10 @@ export function ClientList({
                             <DropdownMenuSeparator />
                             {hasPlan ? (
                               <>
-                                <DropdownMenuItem onSelect={() => onOpenCurrentPlan(client)}>
-                                  Ver plan actual
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                                    Ver plan actual
+                                  </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                   <Link href={`/clients/${client.id}/plan-assignment/edit`}>
@@ -173,8 +171,10 @@ export function ClientList({
                                 </DropdownMenuItem>
                               </>
                             ) : (
-                              <DropdownMenuItem onSelect={() => onOpenAssignPlan(client)}>
-                                Asignar plan
+                              <DropdownMenuItem asChild>
+                                <Link href={`/clients/${client.id}/plan-assignment`}>
+                                  Asignar plan
+                                </Link>
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />

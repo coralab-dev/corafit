@@ -1,14 +1,17 @@
 "use client";
 
 import { PlusIcon, UserRoundIcon } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function EmptyState({
+  actionHref,
   actionLabel,
   description,
   onAction,
   title,
 }: {
+  actionHref?: string;
   actionLabel?: string;
   description: string;
   onAction?: () => void;
@@ -21,6 +24,14 @@ export function EmptyState({
         <p className="font-semibold">{title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
+      {actionLabel && actionHref ? (
+        <Button asChild variant="outline">
+          <Link href={actionHref}>
+            <PlusIcon data-icon="inline-start" />
+            {actionLabel}
+          </Link>
+        </Button>
+      ) : null}
       {actionLabel && onAction ? (
         <Button variant="outline" onClick={onAction}>
           <PlusIcon data-icon="inline-start" />

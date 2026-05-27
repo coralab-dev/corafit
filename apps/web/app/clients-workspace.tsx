@@ -6,11 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { DownloadIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { PageHeader } from "@/components/layout/page-header";
+import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
+import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { apiRequest, clientSchema, emptyDefaults, formatDate, getErrorMessage, getInitialApiConfig, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
 import type { ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus } from "@/lib/clients/types";
@@ -25,6 +26,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const selectedFromQuery = selectedClientId ?? searchParams.get("selected");
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
   const [isLoading, setIsLoading] = useState(false);
@@ -377,25 +379,131 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   if (mode === "detail") {
     return (
-      <div className="flex flex-col gap-4">
-        <PageHeader
-          eyebrow="Clientes"
-          title={selectedClient?.name ?? "Ficha de cliente"}
-          description="Datos operativos, acceso y plan actual del cliente."
-          actions={
-            <Button asChild variant="outline">
-              <Link href="/clients">Volver a clientes</Link>
-            </Button>
+      <WorkspaceFrame
+        header={
+          <WorkspaceHeader
+            description={selectedClient?.mainGoal ?? "Datos operativos, acceso y plan actual del cliente."}
+            title={selectedClient?.name ?? "Ficha de cliente"}
+            actions={
+              <Button asChild className="shadow-none" variant="outline">
+                <Link href="/clients">Volver a clientes</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <WorkspaceSplit
+          main={
+            <div className="flex flex-col gap-5 bg-background p-6">
+              {error ? <ClientErrorCard error={error} /> : null}
+
+              {isLoading ? (
+                <ClientDetailLoadingCard />
+              ) : selectedClient ? (
+                <ClientDetail
+                  assignment={selectedAssignment}
+                  client={selectedClient}
+                  isPlanLoading={assignmentLoadingId === selectedClient.id}
+                  variant="page"
+                  onEndPlan={() => setIsEndPlanOpen(true)}
+                  onEdit={openEditForm}
+                  onStatusChange={updateStatus}
+                />
+              ) : (
+                <ClientNotFoundCard />
+              )}
+            </div>
+          }
+          side={
+            <div className="p-5">
+              {selectedClient ? (
+                <ClientQuickPanel
+                  assignment={selectedAssignment}
+                  client={selectedClient}
+                  onEdit={() => openEditForm(selectedClient)}
+                  onEndPlan={() => setIsEndPlanOpen(true)}
+                />
+              ) : null}
+            </div>
           }
         />
 
-        {error ? (
-          <ClientErrorCard error={error} />
-        ) : null}
+        {sharedDialogs}
+      </WorkspaceFrame>
+    );
+  }
 
-        {isLoading ? (
-          <ClientDetailLoadingCard />
-        ) : selectedClient ? (
+  return (
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          description="Gestiona planes, acceso y seguimiento desde una sola vista."
+          title="Clientes"
+          actions={
+            <>
+              <Button className="shadow-none" variant="outline" disabled>
+                <DownloadIcon className="size-4" />
+                Importar
+              </Button>
+              <Button className="shadow-none" onClick={openCreateForm}>
+                <PlusIcon className="size-4" />
+                Nuevo cliente
+              </Button>
+            </>
+          }
+        />
+      }
+    >
+      {/* MÃ©tricas estilo referencia */}
+      <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
+        <div className="min-w-0 flex-1 border-r">
+          <div className="border-b bg-background px-6 py-5">
+            <ClientMetrics
+              accessCount={accessCount}
+              activeCount={activeCount}
+              assignmentCount={Object.values(assignmentsByClient).filter(Boolean).length}
+              totalCount={allClients.length}
+            />
+          </div>
+
+          <ClientList
+            assignmentsByClient={assignmentsByClient}
+            clients={displayClients}
+            error={error}
+            isLoading={isLoading}
+            query={query}
+            selectedClientId={selectedClient?.id ?? ""}
+            statusFilter={statusFilter}
+            onCreateClient={openCreateForm}
+            onEditClient={(client) => {
+              setSelectedId(client.id);
+              openEditForm(client);
+            }}
+            onEndPlan={(client) => {
+              setSelectedId(client.id);
+              setIsEndPlanOpen(true);
+            }}
+            onOpenClient={(clientId) => {
+              setSelectedId(clientId);
+              setIsDetailSheetOpen(true);
+            }}
+            onQueryChange={setQuery}
+            onStatusFilterChange={setStatusFilter}
+          />
+        </div>
+
+        <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[420px] xl:resize-x xl:overflow-auto">
+          <ClientActivityPanel />
+        </div>
+      </div>
+
+      {isDetailSheetOpen && selectedClient ? (
+        <DetailDrawer
+          description="Ficha operativa, plan actual, acceso y notas del cliente seleccionado."
+          open={isDetailSheetOpen}
+          title="Detalle de cliente"
+          onOpenChange={setIsDetailSheetOpen}
+        >
           <ClientDetail
             assignment={selectedAssignment}
             client={selectedClient}
@@ -404,64 +512,51 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             onEdit={openEditForm}
             onStatusChange={updateStatus}
           />
-        ) : (
-          <ClientNotFoundCard />
-        )}
-
-        {sharedDialogs}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        eyebrow="Clientes"
-        title="Gestion de clientes"
-        description="Administra tus clientes, planes y accesos al portal."
-        actions={
-          <Button onClick={openCreateForm}>
-            <PlusIcon className="mr-2 size-4" />
-            Nuevo cliente
-          </Button>
-        }
-      />
-
-      {/* MÃ©tricas estilo referencia */}
-      <ClientMetrics
-        accessCount={accessCount}
-        activeCount={activeCount}
-        assignmentCount={Object.values(assignmentsByClient).filter(Boolean).length}
-        totalCount={allClients.length}
-      />
-
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <ClientList
-          assignmentsByClient={assignmentsByClient}
-          clients={displayClients}
-          error={error}
-          isLoading={isLoading}
-          query={query}
-          selectedClientId={selectedClient?.id ?? ""}
-          statusFilter={statusFilter}
-          onCreateClient={openCreateForm}
-          onEditClient={(client) => {
-            setSelectedId(client.id);
-            openEditForm(client);
-          }}
-          onEndPlan={(client) => {
-            setSelectedId(client.id);
-            setIsEndPlanOpen(true);
-          }}
-          onQueryChange={setQuery}
-          onSelectClient={setSelectedId}
-          onStatusFilterChange={setStatusFilter}
-        />
-
-        <ClientActivityPanel />
-      </div>
+        </DetailDrawer>
+      ) : null}
 
       {sharedDialogs}
-    </div>
+    </WorkspaceFrame>
+  );
+}
+
+function ClientQuickPanel({
+  assignment,
+  client,
+  onEdit,
+  onEndPlan,
+}: {
+  assignment: CurrentPlanAssignment | null | undefined;
+  client: Client;
+  onEdit: () => void;
+  onEndPlan: () => void;
+}) {
+  const hasPlan = Boolean(assignment?.assignedPlan);
+
+  return (
+    <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
+      <div className="flex flex-col gap-2 p-4">
+        <Button className="justify-start shadow-none" variant="outline" onClick={onEdit}>
+          Editar cliente
+        </Button>
+        {hasPlan ? (
+          <>
+            <Button asChild className="justify-start shadow-none" variant="outline">
+              <Link href={`/clients/${client.id}/plan-assignment/edit`}>Editar plan actual</Link>
+            </Button>
+            <Button className="justify-start shadow-none" variant="outline" onClick={onEndPlan}>
+              Finalizar plan actual
+            </Button>
+          </>
+        ) : (
+          <Button asChild className="justify-start shadow-none">
+            <Link href={`/clients/${client.id}/plan-assignment`}>Asignar plan</Link>
+          </Button>
+        )}
+        <Button asChild className="justify-start shadow-none" variant="outline">
+          <Link href={`/clients/${client.id}/access`}>Gestionar acceso</Link>
+        </Button>
+      </div>
+    </WorkspacePanel>
   );
 }

@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { WorkspaceFrame, WorkspaceHeader, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import {
   Card,
   CardContent,
@@ -77,41 +78,40 @@ export function ExercisesWorkspace() {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4">
-      <div className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Biblioteca
-          </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight">
-            Ejercicios
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Administra la base de movimientos que reutilizas en planes y sesiones.
-          </p>
-        </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-          <DumbbellIcon className="size-4" aria-hidden="true" />
-          {selectedExercise ? "Ejercicio seleccionado" : "Selecciona un ejercicio"}
-        </div>
-      </div>
-
-      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="min-w-0">
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          description="Administra la base de movimientos que reutilizas en planes y sesiones."
+          title="Ejercicios"
+          actions={
+            <div className="inline-flex w-fit items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+              <DumbbellIcon className="size-4" aria-hidden="true" />
+              {selectedExercise ? "Ejercicio seleccionado" : "Selecciona un ejercicio"}
+            </div>
+          }
+        />
+      }
+    >
+      <WorkspaceSplit
+        main={
+        <section className="min-w-0 bg-background p-5">
           <ExerciseSearch
             reloadToken={reloadToken}
             selectedId={selectedExercise?.id}
             onSelect={handleSelect}
           />
         </section>
-        <aside className="min-w-0 xl:sticky xl:top-8 xl:self-start">
+        }
+        side={
+        <aside className="min-w-0 p-5 xl:sticky xl:top-8 xl:self-start">
           <SelectedExerciseCard
             exercise={selectedExercise}
             onExerciseChange={handleExerciseChange}
           />
         </aside>
-      </div>
-    </div>
+        }
+      />
+    </WorkspaceFrame>
   );
 }
 

@@ -3,8 +3,6 @@
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   DumbbellIcon,
   InfoIcon,
   Loader2Icon,
@@ -19,6 +17,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import { cn } from "@/lib/utils";
 import {
   apiRequest,
@@ -201,18 +200,29 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
-      {error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          description={`${client?.name ?? "Cliente"} / ${selectedPlan?.name ?? "Sin plan seleccionado"}`}
+          title="Asignar plan"
+          actions={
+            <Button asChild className="shadow-none" variant="outline">
+              <Link href={`/clients/${clientId}`}>Volver a ficha</Link>
+            </Button>
+          }
+        />
+      }
+    >
+      <WorkspaceSplit
+        main={
+        <div className="flex min-w-0 flex-col gap-5 bg-background p-6">
+          {error ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="rounded-lg border bg-card p-5">
-            <AssignmentCardHeader client={client} clientId={clientId} plan={selectedPlan} />
-            <div className="my-5 border-t" />
+          <WorkspacePanel className="p-5">
             <SectionHeading
               description="Elige una plantilla de plan para asignar a tu cliente."
               index="1"
@@ -251,9 +261,9 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
                 title="Sin templates activos"
               />
             )}
-          </section>
+          </WorkspacePanel>
 
-          <section className="rounded-lg border bg-card p-5">
+          <WorkspacePanel className="p-5">
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px] md:items-center">
               <SectionHeading
                 description="Selecciona la fecha en la que comenzara el plan."
@@ -277,9 +287,9 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
                 />
               </div>
             </div>
-          </section>
+          </WorkspacePanel>
 
-          <section className="rounded-lg border bg-card p-5">
+          <WorkspacePanel className="p-5">
             <SectionHeading
               description="Asi se vera la estructura semanal del plan asignado."
               index="3"
@@ -299,77 +309,28 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
                 title="Sin vista previa"
               />
             )}
-          </section>
+          </WorkspacePanel>
 
-          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <div className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
             <InfoIcon className="mr-2 inline size-4 align-text-bottom" />
             Se creara una copia editable. El plan original no se modificara.
           </div>
         </div>
-
-        <AssignmentSummary
+        }
+        side={
+        <div className="p-5">
+          <AssignmentSummary
           client={client}
           isLoadingClient={isLoadingClient}
           isSubmitting={isAssigning}
           plan={selectedPlan}
           startDate={startDate}
           onAssign={assignPlan}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AssignmentCardHeader({
-  client,
-  clientId,
-  plan,
-}: {
-  client: Client | null;
-  clientId: string;
-  plan: TrainingPlan | null;
-}) {
-  return (
-    <header>
-      <nav className="mb-4 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-        <Button asChild size="icon" variant="ghost">
-          <Link aria-label="Volver a cliente" href={`/clients/${clientId}`}>
-            <ChevronLeftIcon />
-          </Link>
-        </Button>
-        <Link className="hover:text-foreground" href="/clients">
-          Clientes
-        </Link>
-        <ChevronRightIcon className="size-4 shrink-0" />
-        <Link className="min-w-0 truncate hover:text-foreground" href={`/clients/${clientId}`}>
-          {client?.name ?? "Cliente"}
-        </Link>
-        <ChevronRightIcon className="size-4 shrink-0" />
-        <span className="truncate text-foreground">Asignar plan</span>
-      </nav>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-semibold leading-tight">Asignar plan</h1>
-        <Badge variant="secondary">Nuevo plan</Badge>
-      </div>
-
-      <dl className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <dt className="font-medium text-foreground">Cliente:</dt>
-          <dd>{client?.name ?? "Cargando cliente"}</dd>
+          />
         </div>
-        <span aria-hidden="true">/</span>
-        <div className="flex items-center gap-1.5">
-          <dt className="font-medium text-foreground">Plan:</dt>
-          <dd>{plan?.name ?? "Sin seleccionar"}</dd>
-        </div>
-        <span aria-hidden="true">/</span>
-        <div className="flex items-center gap-1.5">
-          <dt className="font-medium text-foreground">Duracion:</dt>
-          <dd>{plan ? `${plan.durationWeeks} semanas` : "Sin definir"}</dd>
-        </div>
-      </dl>
-    </header>
+        }
+      />
+    </WorkspaceFrame>
   );
 }
 
@@ -408,7 +369,7 @@ function PlanOptionCard({
   return (
     <button
       className={cn(
-        "min-h-52 rounded-lg border bg-background p-4 text-left transition hover:border-primary/50",
+        "min-h-44 rounded-md border bg-background p-4 text-left transition hover:border-primary/50",
         isSelected && "border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]",
       )}
       type="button"
@@ -488,7 +449,7 @@ function WeeklyPreview({ plan }: { plan: TrainingPlan }) {
   }
 
   return (
-    <div className="mt-4 grid overflow-hidden rounded-lg border bg-background md:grid-cols-7">
+    <div className="mt-4 grid overflow-hidden rounded-md border bg-background md:grid-cols-7">
       {dayOrder.map((day) => (
         <PreviewDay key={day} day={daysByName.get(day)} dayOfWeek={day} />
       ))}
@@ -546,9 +507,7 @@ function AssignmentSummary({
   onAssign: () => void;
 }) {
   return (
-    <aside className="h-fit rounded-lg border bg-card p-5 xl:sticky xl:top-8">
-      <h2 className="text-base font-semibold">Resumen de asignacion</h2>
-
+    <WorkspacePanel className="h-fit p-5 xl:sticky xl:top-8" title="Resumen de asignacion">
       <div className="mt-6">
         <p className="mb-3 text-sm text-muted-foreground">Cliente</p>
         {isLoadingClient ? (
@@ -607,13 +566,13 @@ function AssignmentSummary({
           <Link href={client ? `/clients/${client.id}` : "/clients"}>Cancelar</Link>
         </Button>
       </div>
-    </aside>
+    </WorkspacePanel>
   );
 }
 
 function LoadingPanel({ label }: { label: string }) {
   return (
-    <div className="mt-4 flex min-h-32 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
+    <div className="mt-4 flex min-h-32 items-center justify-center rounded-md border bg-background text-sm text-muted-foreground">
       <Loader2Icon className="mr-2 size-4 animate-spin" />
       {label}
     </div>
@@ -631,7 +590,7 @@ function LoadingInline({ label }: { label: string }) {
 
 function EmptyPanel({ description, title }: { description: string; title: string }) {
   return (
-    <div className="mt-4 rounded-lg border bg-background p-6 text-center">
+    <div className="mt-4 rounded-md border bg-background p-6 text-center">
       <p className="font-semibold">{title}</p>
       <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </div>

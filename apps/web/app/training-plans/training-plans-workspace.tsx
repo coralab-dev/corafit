@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
 import {
   Dialog,
   DialogContent,
@@ -187,40 +188,43 @@ export function TrainingPlansWorkspace() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <section className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-none md:p-5">
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          description="Encuentra, compara y edita rutinas antes de asignarlas a tus clientes."
+          title="Planes de entrenamiento"
+          actions={
+            <>
+              {isLoading ? (
+                <span className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  Actualizando
+                </span>
+              ) : null}
+              <Button size="sm" type="button" variant="outline" onClick={openAssignDialog}>
+                <UserRoundIcon data-icon="inline-start" />
+                Asignar plan
+              </Button>
+              <Button size="sm" type="button" onClick={() => setIsCreateOpen(true)}>
+                <PlusIcon data-icon="inline-start" />
+                Nuevo plan
+              </Button>
+            </>
+          }
+        />
+      }
+    >
+      <section className="flex flex-col gap-3 border-b bg-background p-4 shadow-none md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold leading-tight">
-                Planes de entrenamiento
-              </h1>
               <Badge variant="muted">
                 {isLoading ? "Cargando" : `${visibleTotal} planes`}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Encuentra, compara y edita rutinas antes de asignarlas a tus
-              clientes.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {isLoading ? (
-              <span className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin" />
-                Actualizando
-              </span>
-            ) : null}
-            <Button size="sm" type="button" variant="outline" onClick={openAssignDialog}>
-              <UserRoundIcon data-icon="inline-start" />
-              Asignar plan
-            </Button>
-            <Button size="sm" type="button" onClick={() => setIsCreateOpen(true)}>
-              <PlusIcon data-icon="inline-start" />
-              Nuevo plan
-            </Button>
-          </div>
+          <div />
         </div>
 
         <div className="grid gap-2 xl:grid-cols-[1fr_auto_auto] xl:items-center">
@@ -272,7 +276,7 @@ export function TrainingPlansWorkspace() {
         </div>
       </section>
 
-      <section>
+      <section className="bg-background p-5">
         {error ? (
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
             {error}
@@ -280,7 +284,7 @@ export function TrainingPlansWorkspace() {
         ) : null}
 
         {!error && visibleItems.length ? (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="overflow-hidden rounded-md border bg-card">
             {visibleItems.map((plan) => (
               <Link
                 key={plan.id}
@@ -342,7 +346,7 @@ export function TrainingPlansWorkspace() {
             ))}
           </div>
         ) : !error && !isLoading ? (
-          <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-lg border bg-card p-8 text-center">
+          <div className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-md border bg-card p-8 text-center">
             <div className="flex size-11 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <DumbbellIcon />
             </div>
@@ -508,7 +512,7 @@ export function TrainingPlansWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </WorkspaceFrame>
   );
 }
 

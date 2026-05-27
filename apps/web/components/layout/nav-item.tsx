@@ -29,10 +29,10 @@ export function NavItem({ href, icon: Icon, label, disabled }: NavItemProps) {
     <Link
       href={href}
       className={cn(
-        "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors",
+        "relative flex items-center gap-3 rounded-md px-4 py-3 text-sm transition-colors",
         isActive
-          ? "bg-primary/10 font-medium text-primary after:absolute after:bottom-2 after:right-0 after:top-2 after:w-0.5 after:rounded-full after:bg-primary"
-          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+          ? "bg-white/10 font-semibold text-[#ff7a64] after:absolute after:bottom-0 after:right-0 after:top-0 after:w-0.5 after:rounded-full after:bg-[#ff7a64]"
+          : "text-white/68 hover:bg-white/8 hover:text-white",
       )}
     >
       <Icon className="size-4" />

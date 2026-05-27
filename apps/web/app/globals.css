@@ -29,25 +29,25 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: #f7f8f5;
-  --foreground: #101217;
+  --radius: 0.5rem;
+  --background: #fafafa;
+  --foreground: #181a1f;
   --card: #ffffff;
-  --card-foreground: #101217;
+  --card-foreground: #181a1f;
   --popover: #ffffff;
-  --popover-foreground: #101217;
-  --primary: #ff8534;
-  --primary-foreground: #0b0d0f;
-  --secondary: #ffffff;
-  --secondary-foreground: #101217;
-  --muted: #f3f3f3;
-  --muted-foreground: #6b7078;
-  --accent: #ff753a;
-  --accent-foreground: #0b0d0f;
+  --popover-foreground: #181a1f;
+  --primary: #df5b47;
+  --primary-foreground: #ffffff;
+  --secondary: #f0eeea;
+  --secondary-foreground: #181a1f;
+  --muted: #efede9;
+  --muted-foreground: #6f737c;
+  --accent: #f4e2dc;
+  --accent-foreground: #7d2e24;
   --destructive: #e5484d;
-  --border: #daddd5;
-  --input: #daddd5;
-  --ring: #ff753a;
+  --border: #dedbd4;
+  --input: #dedbd4;
+  --ring: #df5b47;
 }
 
 .dark {
@@ -98,4 +98,26 @@ body {
 .plan-tree-scroll::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+@keyframes sheet-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sheet-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(18px);
+  }
 }

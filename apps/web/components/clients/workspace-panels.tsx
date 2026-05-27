@@ -1,7 +1,9 @@
 "use client";
 
 import { ActivityIcon, ClockIcon, KeyRoundIcon, UserRoundIcon, UsersIcon } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { WorkspacePanel } from "@/components/layout/workspace-shell";
+import { MetricStrip } from "@/components/shared/metric-strip";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function ClientMetrics({
   accessCount,
@@ -15,78 +17,60 @@ export function ClientMetrics({
   totalCount: number;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Card className="bg-card/80">
-        <CardContent className="flex min-h-24 items-center gap-4 p-4">
-          <div className="flex size-10 items-center justify-center rounded-lg border bg-primary/10 text-primary">
-            <UsersIcon className="size-5" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Clientes totales</p>
-            <p className="text-2xl font-bold">{totalCount}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="bg-card/80">
-        <CardContent className="flex min-h-24 items-center gap-4 p-4">
-          <div className="flex size-10 items-center justify-center rounded-lg border bg-emerald-500/10 text-emerald-600">
-            <ActivityIcon className="size-5" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Clientes activos</p>
-            <p className="text-2xl font-bold">{activeCount}</p>
-            <p className="text-xs text-muted-foreground">
-              {totalCount > 0 ? `${Math.round((activeCount / totalCount) * 100)}% del total` : "-"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="bg-card/80">
-        <CardContent className="flex min-h-24 items-center gap-4 p-4">
-          <div className="flex size-10 items-center justify-center rounded-lg border bg-blue-500/10 text-blue-600">
-            <KeyRoundIcon className="size-5" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Accesos activos</p>
-            <p className="text-2xl font-bold">{accessCount}</p>
-            <p className="text-xs text-muted-foreground">
-              {totalCount > 0 ? `${Math.round((accessCount / totalCount) * 100)}% del total` : "-"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="bg-card/80">
-        <CardContent className="flex min-h-24 items-center gap-4 p-4">
-          <div className="flex size-10 items-center justify-center rounded-lg border bg-orange-500/10 text-orange-600">
-            <UsersIcon className="size-5" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Sin plan asignado</p>
-            <p className="text-2xl font-bold">{totalCount - assignmentCount}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <MetricStrip
+      items={[
+        {
+          helper: totalCount > 0 ? `${Math.round((activeCount / totalCount) * 100)}% del total` : "-",
+          icon: <UsersIcon className="size-4" />,
+          label: "Clientes activos",
+          value: activeCount,
+        },
+        {
+          helper: "Requieren seguimiento",
+          icon: <ClockIcon className="size-4" />,
+          label: "En pausa",
+          tone: "amber",
+          value: totalCount - activeCount,
+        },
+        {
+          helper: totalCount > 0 ? `${Math.round((accessCount / totalCount) * 100)}% del total` : "-",
+          icon: <KeyRoundIcon className="size-4" />,
+          label: "Accesos activos",
+          tone: "green",
+          value: accessCount,
+        },
+        {
+          helper: "Pendientes de asignar",
+          icon: <ActivityIcon className="size-4" />,
+          label: "Sin plan",
+          value: totalCount - assignmentCount,
+        },
+      ]}
+    />
   );
 }
 
 export function ClientActivityPanel() {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Actividad reciente</CardTitle>
-        <CardDescription>Historial de acciones del sistema.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex min-h-56 flex-col items-center justify-center gap-2 text-center">
-          <ClockIcon className="size-7 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">Proximamente</p>
-          <p className="max-w-52 text-xs text-muted-foreground/70">
-            El historial de actividad estara disponible proximamente.
-          </p>
+    <aside className="flex min-h-full flex-col p-5">
+      <WorkspacePanel
+        description="Historial operativo del workspace."
+        icon={<ClockIcon className="size-4" />}
+        title="Actividad reciente"
+      >
+        <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+          <div className="flex size-11 items-center justify-center rounded-full border bg-background text-muted-foreground">
+            <ActivityIcon className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Proximamente</p>
+            <p className="mt-1 max-w-56 text-xs leading-5 text-muted-foreground">
+              Aqui apareceran cambios de planes, accesos generados y notas del coach.
+            </p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </WorkspacePanel>
+    </aside>
   );
 }
 

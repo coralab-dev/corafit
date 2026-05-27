@@ -23,12 +23,12 @@ export function MobileNav({ className }: MobileNavProps) {
           <span className="sr-only">Abrir menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex w-64 flex-col gap-0 p-0">
+      <SheetContent side="left" className="flex w-64 flex-col gap-0 border-none bg-[#12161d] p-0 text-white">
         <SheetHeader className="sr-only">
           <SheetTitle>Navegacion principal</SheetTitle>
         </SheetHeader>
         <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex size-9 items-center justify-center rounded-md text-[#ef6a55]">
             <DumbbellIcon className="size-5" />
           </div>
           <span className="text-lg font-bold tracking-tight">CoraFit</span>
@@ -38,9 +38,9 @@ export function MobileNav({ className }: MobileNavProps) {
             <NavItem key={item.href} {...item} />
           ))}
         </nav>
-        <div className="border-t px-5 py-4">
+        <div className="border-t border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+            <div className="flex size-9 items-center justify-center rounded-full bg-[#ef6a55] text-sm font-semibold text-white">
               C
             </div>
             <p className="text-sm font-medium">Coach</p>

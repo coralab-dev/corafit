@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DumbbellIcon } from "lucide-react";
+import { ArrowRightIcon, DumbbellIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -25,7 +26,7 @@ const signupSchema = z.object({
   password: z.string().min(6, "Usa al menos 6 caracteres"),
   phone: z.string().trim().optional(),
   termsAccepted: z.boolean().refine((value) => value, {
-    message: "Acepta los terminos beta para continuar",
+    message: "Debes aceptar los Términos beta y el Aviso de privacidad para crear tu cuenta.",
   }),
 });
 
@@ -186,9 +187,9 @@ function LoginForm({
             </AuthTextField>
           )}
         />
-        <Button className="mt-2 w-full shadow-none" disabled={isSubmitting} type="submit">
-          {form.formState.isSubmitting ? "Entrando..." : "Iniciar sesion"}
-        </Button>
+        <AuthSubmitButton disabled={isSubmitting} loading={form.formState.isSubmitting}>
+          Iniciar sesion
+        </AuthSubmitButton>
         <Button
           className="w-full"
           disabled={isSubmitting}
@@ -289,9 +290,9 @@ function SignupForm({
           )}
         />
         <TermsField control={form.control} name="termsAccepted" />
-        <Button className="mt-2 w-full shadow-none" disabled={form.formState.isSubmitting} type="submit">
-          {form.formState.isSubmitting ? "Creando..." : "Crear cuenta"}
-        </Button>
+        <AuthSubmitButton disabled={form.formState.isSubmitting} loading={form.formState.isSubmitting}>
+          Crear cuenta
+        </AuthSubmitButton>
       </form>
     </Form>
   );
@@ -310,15 +311,25 @@ function TermsField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+          <label className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm">
             <input
               checked={field.value}
-              className="mt-1 size-4 accent-primary"
+              className="size-4 shrink-0 accent-primary"
               type="checkbox"
               onBlur={field.onBlur}
               onChange={(event) => field.onChange(event.target.checked)}
             />
-            <span>Acepto los terminos beta de CoraFit.</span>
+            <span className="leading-snug">
+              Acepto los{" "}
+              <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/terminos-beta">
+                Términos beta
+              </Link>{" "}
+              y el{" "}
+              <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/aviso-de-privacidad">
+                Aviso de privacidad
+              </Link>
+              .
+            </span>
           </label>
           <FormMessage />
         </FormItem>
@@ -344,6 +355,32 @@ function AuthTextField({
       </div>
       <FormMessage />
     </FormItem>
+  );
+}
+
+function AuthSubmitButton({
+  children,
+  disabled,
+  loading,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Button
+      className="group mt-4 h-12 w-full justify-between rounded-full border border-primary/55 bg-primary/[0.03] px-5 text-primary shadow-none transition-all hover:border-primary hover:bg-primary/[0.08] hover:text-primary active:scale-[0.99] disabled:opacity-60"
+      disabled={disabled}
+      type="submit"
+      variant="outline"
+    >
+      <span className="flex-1 text-center text-sm font-semibold">
+        {loading ? "Procesando..." : children}
+      </span>
+      <span className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:translate-x-0.5">
+        <ArrowRightIcon className="size-4" aria-hidden="true" />
+      </span>
+    </Button>
   );
 }
 

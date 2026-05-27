@@ -114,6 +114,7 @@ export class AuthService {
     body: RegisterProfileDto,
     authorizationHeader: string | undefined,
   ): Promise<RegisterProfileResult> {
+    const legalAcceptance = this.normalizeLegalAcceptance(body);
     const name = this.normalizeName(body.name);
     const jwt = this.extractBearerToken(authorizationHeader);
     const supabaseUser = await this.supabaseAuthService.getUserFromJwt(jwt);
@@ -158,6 +159,10 @@ export class AuthService {
           name,
           phone: this.normalizeOptionalText(body.phone),
           status: UserStatus.active,
+          acceptedTermsAt: legalAcceptance.acceptedAt,
+          acceptedTermsVersion: legalAcceptance.termsVersion,
+          acceptedPrivacyAt: legalAcceptance.acceptedAt,
+          acceptedPrivacyVersion: legalAcceptance.privacyVersion,
         },
       });
 
@@ -222,6 +227,33 @@ export class AuthService {
 
     const trimmedValue = value.trim();
     return trimmedValue || null;
+  }
+
+  private normalizeLegalAcceptance(body: RegisterProfileDto) {
+    if (body.termsAccepted !== true) {
+      throw new BadRequestException({
+        error: 'VALIDATION_ERROR',
+        message:
+          'Debes aceptar los Términos beta y el Aviso de privacidad para crear tu cuenta.',
+      });
+    }
+
+    return {
+      acceptedAt: new Date(),
+      termsVersion: this.normalizeLegalVersion(body.termsVersion, 'termsVersion'),
+      privacyVersion: this.normalizeLegalVersion(body.privacyVersion, 'privacyVersion'),
+    };
+  }
+
+  private normalizeLegalVersion(value: unknown, fieldName: string) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException({
+        error: 'VALIDATION_ERROR',
+        message: `${fieldName} is required`,
+      });
+    }
+
+    return value.trim();
   }
 
   private extractBearerToken(authorizationHeader: string | undefined): string {

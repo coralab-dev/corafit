@@ -32,6 +32,10 @@ export type UserMinAggregateOutputType = {
   email: string | null
   phone: string | null
   status: $Enums.UserStatus | null
+  acceptedTermsAt: Date | null
+  acceptedTermsVersion: string | null
+  acceptedPrivacyAt: Date | null
+  acceptedPrivacyVersion: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -44,6 +48,10 @@ export type UserMaxAggregateOutputType = {
   email: string | null
   phone: string | null
   status: $Enums.UserStatus | null
+  acceptedTermsAt: Date | null
+  acceptedTermsVersion: string | null
+  acceptedPrivacyAt: Date | null
+  acceptedPrivacyVersion: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -56,6 +64,10 @@ export type UserCountAggregateOutputType = {
   email: number
   phone: number
   status: number
+  acceptedTermsAt: number
+  acceptedTermsVersion: number
+  acceptedPrivacyAt: number
+  acceptedPrivacyVersion: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -70,6 +82,10 @@ export type UserMinAggregateInputType = {
   email?: true
   phone?: true
   status?: true
+  acceptedTermsAt?: true
+  acceptedTermsVersion?: true
+  acceptedPrivacyAt?: true
+  acceptedPrivacyVersion?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -82,6 +98,10 @@ export type UserMaxAggregateInputType = {
   email?: true
   phone?: true
   status?: true
+  acceptedTermsAt?: true
+  acceptedTermsVersion?: true
+  acceptedPrivacyAt?: true
+  acceptedPrivacyVersion?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -94,6 +114,10 @@ export type UserCountAggregateInputType = {
   email?: true
   phone?: true
   status?: true
+  acceptedTermsAt?: true
+  acceptedTermsVersion?: true
+  acceptedPrivacyAt?: true
+  acceptedPrivacyVersion?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -179,6 +203,10 @@ export type UserGroupByOutputType = {
   email: string
   phone: string | null
   status: $Enums.UserStatus
+  acceptedTermsAt: Date | null
+  acceptedTermsVersion: string | null
+  acceptedPrivacyAt: Date | null
+  acceptedPrivacyVersion: string | null
   createdAt: Date
   updatedAt: Date
   _count: UserCountAggregateOutputType | null
@@ -212,6 +240,10 @@ export type UserWhereInput = {
   email?: Prisma.StringFilter<"User"> | string
   phone?: Prisma.StringNullableFilter<"User"> | string | null
   status?: Prisma.EnumUserStatusFilter<"User"> | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  acceptedTermsVersion?: Prisma.StringNullableFilter<"User"> | string | null
+  acceptedPrivacyAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  acceptedPrivacyVersion?: Prisma.StringNullableFilter<"User"> | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   ownedOrganizations?: Prisma.OrganizationListRelationFilter
@@ -226,6 +258,10 @@ export type UserOrderByWithRelationInput = {
   email?: Prisma.SortOrder
   phone?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  acceptedTermsAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedTermsVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedPrivacyAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedPrivacyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   ownedOrganizations?: Prisma.OrganizationOrderByRelationAggregateInput
@@ -243,6 +279,10 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"User"> | string
   phone?: Prisma.StringNullableFilter<"User"> | string | null
   status?: Prisma.EnumUserStatusFilter<"User"> | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  acceptedTermsVersion?: Prisma.StringNullableFilter<"User"> | string | null
+  acceptedPrivacyAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  acceptedPrivacyVersion?: Prisma.StringNullableFilter<"User"> | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   ownedOrganizations?: Prisma.OrganizationListRelationFilter
@@ -257,6 +297,10 @@ export type UserOrderByWithAggregationInput = {
   email?: Prisma.SortOrder
   phone?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  acceptedTermsAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedTermsVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedPrivacyAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  acceptedPrivacyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -275,6 +319,10 @@ export type UserScalarWhereWithAggregatesInput = {
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
   phone?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   status?: Prisma.EnumUserStatusWithAggregatesFilter<"User"> | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  acceptedTermsVersion?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  acceptedPrivacyAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  acceptedPrivacyVersion?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -287,6 +335,10 @@ export type UserCreateInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedOrganizations?: Prisma.OrganizationCreateNestedManyWithoutOwnerInput
@@ -301,6 +353,10 @@ export type UserUncheckedCreateInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedOrganizations?: Prisma.OrganizationUncheckedCreateNestedManyWithoutOwnerInput
@@ -315,6 +371,10 @@ export type UserUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedOrganizations?: Prisma.OrganizationUpdateManyWithoutOwnerNestedInput
@@ -329,6 +389,10 @@ export type UserUncheckedUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedOrganizations?: Prisma.OrganizationUncheckedUpdateManyWithoutOwnerNestedInput
@@ -343,6 +407,10 @@ export type UserCreateManyInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -355,6 +423,10 @@ export type UserUpdateManyMutationInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -367,6 +439,10 @@ export type UserUncheckedUpdateManyInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -379,6 +455,10 @@ export type UserCountOrderByAggregateInput = {
   email?: Prisma.SortOrder
   phone?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  acceptedTermsAt?: Prisma.SortOrder
+  acceptedTermsVersion?: Prisma.SortOrder
+  acceptedPrivacyAt?: Prisma.SortOrder
+  acceptedPrivacyVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -391,6 +471,10 @@ export type UserMaxOrderByAggregateInput = {
   email?: Prisma.SortOrder
   phone?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  acceptedTermsAt?: Prisma.SortOrder
+  acceptedTermsVersion?: Prisma.SortOrder
+  acceptedPrivacyAt?: Prisma.SortOrder
+  acceptedPrivacyVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -403,6 +487,10 @@ export type UserMinOrderByAggregateInput = {
   email?: Prisma.SortOrder
   phone?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  acceptedTermsAt?: Prisma.SortOrder
+  acceptedTermsVersion?: Prisma.SortOrder
+  acceptedPrivacyAt?: Prisma.SortOrder
+  acceptedPrivacyVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -426,6 +514,10 @@ export type NullableStringFieldUpdateOperationsInput = {
 
 export type EnumUserStatusFieldUpdateOperationsInput = {
   set?: $Enums.UserStatus
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -468,6 +560,10 @@ export type UserCreateWithoutOwnedOrganizationsInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   organizationMembers?: Prisma.OrganizationMemberCreateNestedManyWithoutUserInput
@@ -481,6 +577,10 @@ export type UserUncheckedCreateWithoutOwnedOrganizationsInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   organizationMembers?: Prisma.OrganizationMemberUncheckedCreateNestedManyWithoutUserInput
@@ -510,6 +610,10 @@ export type UserUpdateWithoutOwnedOrganizationsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organizationMembers?: Prisma.OrganizationMemberUpdateManyWithoutUserNestedInput
@@ -523,6 +627,10 @@ export type UserUncheckedUpdateWithoutOwnedOrganizationsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organizationMembers?: Prisma.OrganizationMemberUncheckedUpdateManyWithoutUserNestedInput
@@ -536,6 +644,10 @@ export type UserCreateWithoutOrganizationMembersInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedOrganizations?: Prisma.OrganizationCreateNestedManyWithoutOwnerInput
@@ -549,6 +661,10 @@ export type UserUncheckedCreateWithoutOrganizationMembersInput = {
   email: string
   phone?: string | null
   status?: $Enums.UserStatus
+  acceptedTermsAt?: Date | string | null
+  acceptedTermsVersion?: string | null
+  acceptedPrivacyAt?: Date | string | null
+  acceptedPrivacyVersion?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedOrganizations?: Prisma.OrganizationUncheckedCreateNestedManyWithoutOwnerInput
@@ -578,6 +694,10 @@ export type UserUpdateWithoutOrganizationMembersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedOrganizations?: Prisma.OrganizationUpdateManyWithoutOwnerNestedInput
@@ -591,6 +711,10 @@ export type UserUncheckedUpdateWithoutOrganizationMembersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedOrganizations?: Prisma.OrganizationUncheckedUpdateManyWithoutOwnerNestedInput
@@ -644,6 +768,10 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   email?: boolean
   phone?: boolean
   status?: boolean
+  acceptedTermsAt?: boolean
+  acceptedTermsVersion?: boolean
+  acceptedPrivacyAt?: boolean
+  acceptedPrivacyVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   ownedOrganizations?: boolean | Prisma.User$ownedOrganizationsArgs<ExtArgs>
@@ -659,6 +787,10 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   phone?: boolean
   status?: boolean
+  acceptedTermsAt?: boolean
+  acceptedTermsVersion?: boolean
+  acceptedPrivacyAt?: boolean
+  acceptedPrivacyVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -671,6 +803,10 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   phone?: boolean
   status?: boolean
+  acceptedTermsAt?: boolean
+  acceptedTermsVersion?: boolean
+  acceptedPrivacyAt?: boolean
+  acceptedPrivacyVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -683,11 +819,15 @@ export type UserSelectScalar = {
   email?: boolean
   phone?: boolean
   status?: boolean
+  acceptedTermsAt?: boolean
+  acceptedTermsVersion?: boolean
+  acceptedPrivacyAt?: boolean
+  acceptedPrivacyVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "supabaseUserId" | "platformRole" | "name" | "email" | "phone" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "supabaseUserId" | "platformRole" | "name" | "email" | "phone" | "status" | "acceptedTermsAt" | "acceptedTermsVersion" | "acceptedPrivacyAt" | "acceptedPrivacyVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ownedOrganizations?: boolean | Prisma.User$ownedOrganizationsArgs<ExtArgs>
   organizationMembers?: boolean | Prisma.User$organizationMembersArgs<ExtArgs>
@@ -710,6 +850,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     email: string
     phone: string | null
     status: $Enums.UserStatus
+    acceptedTermsAt: Date | null
+    acceptedTermsVersion: string | null
+    acceptedPrivacyAt: Date | null
+    acceptedPrivacyVersion: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["user"]>
@@ -1144,6 +1288,10 @@ export interface UserFieldRefs {
   readonly email: Prisma.FieldRef<"User", 'String'>
   readonly phone: Prisma.FieldRef<"User", 'String'>
   readonly status: Prisma.FieldRef<"User", 'UserStatus'>
+  readonly acceptedTermsAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly acceptedTermsVersion: Prisma.FieldRef<"User", 'String'>
+  readonly acceptedPrivacyAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly acceptedPrivacyVersion: Prisma.FieldRef<"User", 'String'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
 }

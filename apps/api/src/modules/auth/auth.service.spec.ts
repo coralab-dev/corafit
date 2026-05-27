@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import {
   OrganizationMemberRole,
@@ -220,7 +220,13 @@ describe('AuthService', () => {
 
   it('creates a user, individual organization, and owner member atomically', async () => {
     const result = await service.registerProfile(
-      { name: ' Test Coach ', phone: ' 555-0100 ' },
+      {
+        name: ' Test Coach ',
+        phone: ' 555-0100 ',
+        termsAccepted: true,
+        termsVersion: '1.0',
+        privacyVersion: '1.0',
+      },
       'Bearer valid-token',
     );
 
@@ -246,10 +252,21 @@ describe('AuthService', () => {
     expect(upsertPlanInput.create.status).toBe(SubscriptionPlanStatus.active);
     expect(upsertPlanInput.update.status).toBe(SubscriptionPlanStatus.active);
     const createUserInput = transaction.user.create.mock.calls[0]?.[0] as {
-      data: { name: string; phone: string | null };
+      data: {
+        acceptedPrivacyAt: Date;
+        acceptedPrivacyVersion: string;
+        acceptedTermsAt: Date;
+        acceptedTermsVersion: string;
+        name: string;
+        phone: string | null;
+      };
     };
     expect(createUserInput.data.name).toBe('Test Coach');
     expect(createUserInput.data.phone).toBe('555-0100');
+    expect(createUserInput.data.acceptedTermsAt).toBeInstanceOf(Date);
+    expect(createUserInput.data.acceptedTermsVersion).toBe('1.0');
+    expect(createUserInput.data.acceptedPrivacyAt).toBeInstanceOf(Date);
+    expect(createUserInput.data.acceptedPrivacyVersion).toBe('1.0');
     expect(result.organization).toMatchObject({
       name: 'Test Coach',
       type: OrganizationType.individual,
@@ -273,11 +290,31 @@ describe('AuthService', () => {
     });
   });
 
+  it('rejects profile registration without legal acceptance', async () => {
+    await expect(
+      service.registerProfile(
+        { name: 'Test Coach', termsAccepted: false },
+        'Bearer valid-token',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(supabaseAuthService.getUserFromJwt).not.toHaveBeenCalled();
+    expect(prismaService.user.findUnique).not.toHaveBeenCalled();
+  });
+
   it('rejects Supabase users that already have a local profile', async () => {
     prismaService.user.findUnique.mockResolvedValue({ id: 'existing-user-id' });
 
     await expect(
-      service.registerProfile({ name: 'Test Coach' }, 'Bearer valid-token'),
+      service.registerProfile(
+        {
+          name: 'Test Coach',
+          termsAccepted: true,
+          termsVersion: '1.0',
+          privacyVersion: '1.0',
+        },
+        'Bearer valid-token',
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 

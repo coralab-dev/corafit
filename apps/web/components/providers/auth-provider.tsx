@@ -22,6 +22,9 @@ type SignupInput = {
   termsAccepted: boolean;
 };
 
+const legalTermsVersion = "1.0";
+const legalPrivacyVersion = "1.0";
+
 type LegacyAuthUser = {
   email?: string;
   id?: string;
@@ -33,7 +36,7 @@ type LegacyAuthUser = {
 };
 
 type AuthContextValue = {
-  completeProfile: (input: { name: string; phone?: string }) => Promise<AuthProfile>;
+  completeProfile: (input: { name: string; phone?: string; termsAccepted: boolean }) => Promise<AuthProfile>;
   isLoading: boolean;
   login: (input: { email: string; password: string }) => Promise<AuthProfile | null>;
   logout: () => Promise<void>;
@@ -229,6 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name,
             phone: phone || undefined,
             termsAccepted,
+            termsVersion: legalTermsVersion,
+            privacyVersion: legalPrivacyVersion,
           },
         },
       });
@@ -244,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return "confirm-email";
       }
 
-      await createProfile(data.session, { name, phone }, syncLegacyApiConfig);
+      await createProfile(data.session, { name, phone, termsAccepted }, syncLegacyApiConfig);
       await refreshProfile(data.session);
       return "profile-created";
     },
@@ -252,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const completeProfile = useCallback(
-    async (input: { name: string; phone?: string }) => {
+    async (input: { name: string; phone?: string; termsAccepted: boolean }) => {
       const activeSession = session ?? (await getSupabaseBrowserClient().auth.getSession()).data.session;
 
       if (!activeSession) {
@@ -359,6 +364,7 @@ function getPendingProfileInput(session: Session) {
   const metadata = session.user.user_metadata;
   const name = typeof metadata.name === "string" ? metadata.name.trim() : "";
   const phone = typeof metadata.phone === "string" ? metadata.phone.trim() : "";
+  const termsAccepted = metadata.termsAccepted === true;
 
   if (!name) {
     return null;
@@ -367,6 +373,7 @@ function getPendingProfileInput(session: Session) {
   return {
     name,
     phone: phone || undefined,
+    termsAccepted,
   };
 }
 
@@ -380,12 +387,16 @@ async function createProfileFromMetadata(
     return null;
   }
 
+  if (!input.termsAccepted) {
+    return null;
+  }
+
   return createProfile(session, input, syncLegacyApiConfig);
 }
 
 async function createProfile(
   session: Session,
-  input: { name: string; phone?: string },
+  input: { name: string; phone?: string; termsAccepted?: boolean },
   syncLegacyApiConfig: (session: Session | null, profile: AuthProfile | null) => void,
 ) {
   try {
@@ -396,6 +407,9 @@ async function createProfile(
         body: JSON.stringify({
           name: input.name,
           phone: input.phone || undefined,
+          termsAccepted: input.termsAccepted === true,
+          termsVersion: legalTermsVersion,
+          privacyVersion: legalPrivacyVersion,
         }),
       },
       { session },

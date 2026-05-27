@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DumbbellIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -17,7 +18,7 @@ const completeProfileSchema = z.object({
   name: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres").max(100, "El nombre es demasiado largo"),
   phone: z.string().trim().optional(),
   termsAccepted: z.boolean().refine((value) => value, {
-    message: "Acepta los terminos beta para continuar",
+    message: "Debes aceptar los Términos beta y el Aviso de privacidad para crear tu cuenta.",
   }),
 });
 
@@ -85,6 +86,7 @@ function CompleteProfileForm() {
       await completeProfile({
         name: values.name,
         phone: values.phone,
+        termsAccepted: values.termsAccepted,
       });
       router.replace("/");
     } catch (caughtError) {
@@ -127,15 +129,25 @@ function CompleteProfileForm() {
           name="termsAccepted"
           render={({ field }) => (
             <FormItem>
-              <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+              <label className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm">
                 <input
                   checked={field.value}
-                  className="mt-1 size-4 accent-primary"
+                  className="size-4 shrink-0 accent-primary"
                   type="checkbox"
                   onBlur={field.onBlur}
                   onChange={(event) => field.onChange(event.target.checked)}
                 />
-                <span>Acepto los terminos beta de CoraFit.</span>
+                <span className="leading-snug">
+                  Acepto los{" "}
+                  <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/terminos-beta">
+                    Términos beta
+                  </Link>{" "}
+                  y el{" "}
+                  <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/aviso-de-privacidad">
+                    Aviso de privacidad
+                  </Link>
+                  .
+                </span>
               </label>
               <FormMessage />
             </FormItem>

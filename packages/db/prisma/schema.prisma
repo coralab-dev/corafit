@@ -87,6 +87,10 @@ model User {
   email          String           @unique
   phone          String?
   status         UserStatus       @default(active)
+  acceptedTermsAt      DateTime? @map("accepted_terms_at")
+  acceptedTermsVersion String?   @map("accepted_terms_version")
+  acceptedPrivacyAt      DateTime? @map("accepted_privacy_at")
+  acceptedPrivacyVersion String?   @map("accepted_privacy_version")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 

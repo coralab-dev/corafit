@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ImageIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { ImageIcon, LinkIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import { useId, useState } from "react";
 import { type Control, useForm } from "react-hook-form";
@@ -10,9 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -108,46 +106,72 @@ export function ExerciseCreateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Nuevo ejercicio</DialogTitle>
-          <DialogDescription>
-            Crea un ejercicio personalizado sin requerir imagen.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden p-0 sm:max-w-xl">
+        <DialogTitle className="sr-only">Nuevo ejercicio</DialogTitle>
         <Form {...form}>
-          <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
-            <TextField control={form.control} label="Nombre" name="name" />
-            <SelectField
-              control={form.control}
-              label="Musculo principal"
-              name="primaryMuscle"
-              options={Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>}
-            />
-            <SelectField
-              control={form.control}
-              label="Equipamiento"
-              name="equipment"
-              options={Object.entries(equipmentLabels) as Array<[Equipment, string]>}
-            />
-            <TextAreaField
-              control={form.control}
-              label="Instrucciones"
-              name="instructions"
-            />
-            <ImagePicker
-              imageFile={imageFile}
-              previewUrl={previewUrl}
-              onImageFileChange={updateImageFile}
-            />
-            {!imageFile ? (
+          <form
+            className="flex max-h-[calc(100vh-2rem)] flex-col bg-background"
+            onSubmit={form.handleSubmit(submit)}
+          >
+            <header className="border-b bg-card px-5 py-4 pr-14">
+              <p className="text-xs font-medium uppercase text-primary">
+                Biblioteca
+              </p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight">
+                Nuevo ejercicio
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Crea un ejercicio personalizado para usarlo en tus planes.
+              </p>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <FormSection>
+                <TextField control={form.control} label="Nombre" name="name" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SelectField
+                    control={form.control}
+                    label="Musculo principal"
+                    name="primaryMuscle"
+                    options={Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>}
+                  />
+                  <SelectField
+                    control={form.control}
+                    label="Equipamiento"
+                    name="equipment"
+                    options={Object.entries(equipmentLabels) as Array<[Equipment, string]>}
+                  />
+                </div>
+                <TextAreaField
+                  control={form.control}
+                  label="Instrucciones"
+                  name="instructions"
+                />
+              </FormSection>
+
+              <FormSection compact>
+                <ImagePicker
+                  imageFile={imageFile}
+                  previewUrl={previewUrl}
+                  onImageFileChange={updateImageFile}
+                />
+                {!imageFile ? (
+                  <div className="rounded-md border bg-background p-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                      <LinkIcon className="size-4 text-muted-foreground" />
+                      Video externo
+                    </div>
               <TextField
                 control={form.control}
                 label="URL de video externo"
                 name="videoUrl"
               />
-            ) : null}
-            <DialogFooter>
+                  </div>
+                ) : null}
+              </FormSection>
+            </div>
+
+            <DialogFooter className="border-t bg-card px-5 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -157,7 +181,7 @@ export function ExerciseCreateDialog({
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
-                  <Loader2Icon data-icon="inline-start" />
+                  <Loader2Icon className="animate-spin" data-icon="inline-start" />
                 ) : (
                   <PlusIcon data-icon="inline-start" />
                 )}
@@ -168,6 +192,20 @@ export function ExerciseCreateDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FormSection({
+  children,
+  compact,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <section className={cn("border-b px-5 last:border-b-0", compact ? "py-3" : "py-4")}>
+      <div className="space-y-3">{children}</div>
+    </section>
   );
 }
 
@@ -184,10 +222,10 @@ function ImagePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium" htmlFor={inputId}>
+      <label className="text-xs font-medium uppercase text-muted-foreground" htmlFor={inputId}>
         Imagen principal
       </label>
-      <div className="flex items-center gap-3 rounded-lg border bg-background p-3">
+      <div className="flex items-center gap-3 rounded-md border bg-background p-3">
         <label
           className="flex size-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           htmlFor={inputId}
@@ -217,7 +255,7 @@ function ImagePicker({
             }
           />
           <label
-            className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border bg-background px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border bg-card px-3 text-sm font-semibold shadow-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
             htmlFor={inputId}
           >
             Seleccionar imagen
@@ -263,7 +301,11 @@ function TextField({
         <FormItem>
           <FormLabel>{label}</FormLabel>
           <FormControl>
-            <Input {...field} value={String(field.value ?? "")} />
+            <Input
+              {...field}
+              className="h-9 shadow-none"
+              value={String(field.value ?? "")}
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -291,7 +333,7 @@ function TextAreaField({
           <FormControl>
             <textarea
               className={cn(
-                "min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                "min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
               )}
               value={String(field.value ?? "")}
               onChange={field.onChange}
@@ -324,7 +366,7 @@ function SelectField({
           <FormLabel>{label}</FormLabel>
           <FormControl>
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              className="h-9 rounded-md border bg-background px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
               value={String(field.value)}
               onChange={field.onChange}
             >

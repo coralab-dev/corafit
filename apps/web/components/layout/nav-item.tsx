@@ -31,8 +31,8 @@ export function NavItem({ href, icon: Icon, label, disabled }: NavItemProps) {
       className={cn(
         "relative flex items-center gap-3 rounded-md px-4 py-3 text-sm transition-colors",
         isActive
-          ? "bg-white/10 font-semibold text-[#ff7a64] after:absolute after:bottom-0 after:right-0 after:top-0 after:w-0.5 after:rounded-full after:bg-[#ff7a64]"
-          : "text-white/68 hover:bg-white/8 hover:text-white",
+          ? "bg-sidebar-accent font-semibold text-sidebar-primary after:absolute after:bottom-0 after:right-0 after:top-0 after:w-0.5 after:rounded-full after:bg-sidebar-primary"
+          : "text-sidebar-foreground/68 hover:bg-sidebar-foreground/8 hover:text-sidebar-foreground",
       )}
     >
       <Icon className="size-4" />

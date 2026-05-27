@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRightIcon, DumbbellIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -9,9 +8,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PublicAuthGate } from "@/components/providers/auth-gates";
 import { useAuth } from "@/components/providers/auth-provider";
+import { AuthCard } from "@/components/shared/auth-card";
+import { AuthLayout } from "@/components/shared/auth-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -26,7 +26,7 @@ const signupSchema = z.object({
   password: z.string().min(6, "Usa al menos 6 caracteres"),
   phone: z.string().trim().optional(),
   termsAccepted: z.boolean().refine((value) => value, {
-    message: "Debes aceptar los Términos beta y el Aviso de privacidad para crear tu cuenta.",
+    message: "Debes aceptar los Terminos beta y el Aviso de privacidad para crear tu cuenta.",
   }),
 });
 
@@ -36,78 +36,58 @@ const resetSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 type SignupValues = z.infer<typeof signupSchema>;
-const authInputClassName =
-  "h-9 rounded-none border-0 bg-transparent px-0 pb-1 pt-0 text-base shadow-none focus-visible:ring-0 md:text-sm";
-const authTabClassName =
-  "rounded-none border-b-2 border-transparent bg-transparent px-2 py-3 shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
 
 export default function LoginPage() {
   return (
     <PublicAuthGate>
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-        <div className="w-full max-w-md">
-          <div className="mb-6 flex items-center justify-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <DumbbellIcon className="size-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-xl font-bold tracking-tight">CoraFit</p>
-              <p className="text-sm text-muted-foreground">Acceso para coaches</p>
-            </div>
-          </div>
-          <AuthCard />
-        </div>
-      </main>
+      <AuthLayout>
+        <AuthCard title="Registro / acceso" description="Entra a tu espacio de coach o crea una cuenta beta.">
+          <AuthCardContent />
+        </AuthCard>
+      </AuthLayout>
     </PublicAuthGate>
   );
 }
 
-function AuthCard() {
+function AuthCardContent() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   return (
-    <Card className="rounded-lg border-border/70 shadow-none">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg">Registro / acceso</CardTitle>
-        <CardDescription>
-          Entra a tu espacio de coach o crea una cuenta beta.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {message ? (
-          <p className="mb-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
-            {message}
-          </p>
-        ) : null}
-        {error ? (
-          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-        <Tabs defaultValue="login" onValueChange={() => {
+    <>
+      {message ? (
+        <p className="mb-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <Tabs
+        defaultValue="login"
+        onValueChange={() => {
           setMessage("");
           setError("");
-        }}>
-          <TabsList className="grid h-auto w-full grid-cols-2 rounded-none border-b bg-transparent p-0">
-            <TabsTrigger className={authTabClassName} value="login">Iniciar sesion</TabsTrigger>
-            <TabsTrigger className={authTabClassName} value="signup">Crear cuenta</TabsTrigger>
-          </TabsList>
-          <TabsContent value="login" className="mt-5">
-            <LoginForm
-              onError={setError}
-              onMessage={setMessage}
-            />
-          </TabsContent>
-          <TabsContent value="signup" className="mt-5">
-            <SignupForm
-              onError={setError}
-              onMessage={setMessage}
-            />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+        }}
+      >
+        <TabsList className="grid h-10 w-full grid-cols-2 rounded-lg bg-muted p-1">
+          <TabsTrigger className="rounded-md text-sm font-medium" value="login">
+            Iniciar sesion
+          </TabsTrigger>
+          <TabsTrigger className="rounded-md text-sm font-medium" value="signup">
+            Crear cuenta
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="login" className="mt-5">
+          <LoginForm onError={setError} onMessage={setMessage} />
+        </TabsContent>
+        <TabsContent value="signup" className="mt-5">
+          <SignupForm onError={setError} onMessage={setMessage} />
+        </TabsContent>
+      </Tabs>
+    </>
   );
 }
 
@@ -123,10 +103,7 @@ function LoginForm({
   const [isResetting, setIsResetting] = useState(false);
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
     mode: "onSubmit",
     reValidateMode: "onBlur",
   });
@@ -173,28 +150,36 @@ function LoginForm({
           control={form.control}
           name="email"
           render={({ field }) => (
-            <AuthTextField label="Email">
-              <Input className={authInputClassName} autoComplete="email" type="email" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input autoComplete="email" placeholder="coach@corafit.app" type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
         <FormField
           control={form.control}
           name="password"
           render={({ field }) => (
-            <AuthTextField label="Contrasena">
-              <Input className={authInputClassName} autoComplete="current-password" type="password" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Contrasena</FormLabel>
+              <FormControl>
+                <Input autoComplete="current-password" placeholder="********" type="password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
-        <AuthSubmitButton disabled={isSubmitting} loading={form.formState.isSubmitting}>
-          Iniciar sesion
-        </AuthSubmitButton>
+        <Button className="w-full" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Procesando..." : "Iniciar sesion"}
+        </Button>
         <Button
           className="w-full"
           disabled={isSubmitting}
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={onResetPassword}
         >
           Recuperar contrasena
@@ -215,13 +200,7 @@ function SignupForm({
   const { signup } = useAuth();
   const form = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      phone: "",
-      termsAccepted: false,
-    },
+    defaultValues: { name: "", email: "", password: "", phone: "", termsAccepted: false },
     mode: "onSubmit",
     reValidateMode: "onBlur",
   });
@@ -257,42 +236,58 @@ function SignupForm({
           control={form.control}
           name="name"
           render={({ field }) => (
-            <AuthTextField label="Nombre del coach">
-              <Input className={authInputClassName} autoComplete="name" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Nombre del coach</FormLabel>
+              <FormControl>
+                <Input autoComplete="name" placeholder="Juan Perez" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
-            <AuthTextField label="Email">
-              <Input className={authInputClassName} autoComplete="email" type="email" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input autoComplete="email" placeholder="coach@corafit.app" type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
         <FormField
           control={form.control}
           name="password"
           render={({ field }) => (
-            <AuthTextField label="Contrasena">
-              <Input className={authInputClassName} autoComplete="new-password" type="password" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Contrasena</FormLabel>
+              <FormControl>
+                <Input autoComplete="new-password" placeholder="Minimo 6 caracteres" type="password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
         <FormField
           control={form.control}
           name="phone"
           render={({ field }) => (
-            <AuthTextField label="Telefono opcional">
-              <Input className={authInputClassName} autoComplete="tel" {...field} />
-            </AuthTextField>
+            <FormItem>
+              <FormLabel>Telefono opcional</FormLabel>
+              <FormControl>
+                <Input autoComplete="tel" placeholder="+52 555 123 4567" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
         />
         <TermsField control={form.control} name="termsAccepted" />
-        <AuthSubmitButton disabled={form.formState.isSubmitting} loading={form.formState.isSubmitting}>
-          Crear cuenta
-        </AuthSubmitButton>
+        <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
+          {form.formState.isSubmitting ? "Creando..." : "Crear cuenta"}
+        </Button>
       </form>
     </Form>
   );
@@ -311,7 +306,7 @@ function TermsField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <label className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm">
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
             <input
               checked={field.value}
               className="size-4 shrink-0 accent-primary"
@@ -322,7 +317,7 @@ function TermsField({
             <span className="leading-snug">
               Acepto los{" "}
               <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/terminos-beta">
-                Términos beta
+                Terminos beta
               </Link>{" "}
               y el{" "}
               <Link className="font-semibold underline-offset-4 hover:underline" href="/legal/aviso-de-privacidad">
@@ -335,52 +330,6 @@ function TermsField({
         </FormItem>
       )}
     />
-  );
-}
-
-function AuthTextField({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <FormItem className="group gap-1">
-      <label className="text-sm font-semibold transition-colors group-focus-within:text-primary">
-        {label}
-      </label>
-      <div className="border-b border-border transition-colors group-focus-within:border-primary">
-        <FormControl>{children}</FormControl>
-      </div>
-      <FormMessage />
-    </FormItem>
-  );
-}
-
-function AuthSubmitButton({
-  children,
-  disabled,
-  loading,
-}: {
-  children: React.ReactNode;
-  disabled?: boolean;
-  loading?: boolean;
-}) {
-  return (
-    <Button
-      className="group mt-4 h-12 w-full justify-between rounded-full border border-primary/55 bg-primary/[0.03] px-5 text-primary shadow-none transition-all hover:border-primary hover:bg-primary/[0.08] hover:text-primary active:scale-[0.99] disabled:opacity-60"
-      disabled={disabled}
-      type="submit"
-      variant="outline"
-    >
-      <span className="flex-1 text-center text-sm font-semibold">
-        {loading ? "Procesando..." : children}
-      </span>
-      <span className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:translate-x-0.5">
-        <ArrowRightIcon className="size-4" aria-hidden="true" />
-      </span>
-    </Button>
   );
 }
 

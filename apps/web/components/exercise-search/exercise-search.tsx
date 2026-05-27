@@ -12,13 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -40,8 +33,7 @@ export interface ExerciseSearchProps {
 
 const muscleOptions = Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>;
 const equipmentOptions = Object.entries(equipmentLabels) as Array<[Equipment, string]>;
-const initialVisibleExercises = 8;
-const visibleExercisesStep = 8;
+const exercisePageSize = 8;
 
 export function ExerciseSearch({
   onSelect,
@@ -56,7 +48,7 @@ export function ExerciseSearch({
   const [type, setType] = useState<ExerciseType>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(initialVisibleExercises);
+  const [page, setPage] = useState(1);
   const didHandleReloadToken = useRef(false);
 
   useEffect(() => {
@@ -78,11 +70,16 @@ export function ExerciseSearch({
   );
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
+  const pageCount = Math.max(1, Math.ceil(items.length / exercisePageSize));
+  const safePage = Math.min(page, pageCount);
   const visibleItems = useMemo(
-    () => items.slice(0, visibleCount),
-    [items, visibleCount],
+    () =>
+      items.slice(
+        (safePage - 1) * exercisePageSize,
+        safePage * exercisePageSize,
+      ),
+    [items, safePage],
   );
-  const hasMoreVisibleItems = visibleItems.length < items.length;
 
   useEffect(() => {
     if (reloadToken === undefined) {
@@ -116,14 +113,14 @@ export function ExerciseSearch({
   }
 
   return (
-    <Card className="min-w-0 overflow-hidden rounded-lg border-border/80 shadow-none">
-      <CardHeader className="gap-3 border-b bg-card/80 p-3 sm:p-4">
+    <section className="min-w-0 overflow-hidden">
+      <div className="gap-3 border-b bg-card/80 p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <CardTitle className="text-base">Biblioteca</CardTitle>
-            <CardDescription className="mt-1">
+            <h3 className="text-base font-semibold">Biblioteca</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               {total} ejercicios disponibles
-            </CardDescription>
+            </p>
           </div>
           <Button className="w-full sm:w-auto" size="sm" onClick={() => setIsCreateOpen(true)}>
             <PlusIcon data-icon="inline-start" />
@@ -140,7 +137,7 @@ export function ExerciseSearch({
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
-                  setVisibleCount(initialVisibleExercises);
+                  setPage(1);
                 }}
               />
             </div>
@@ -151,7 +148,7 @@ export function ExerciseSearch({
                 value={equipment}
                 onChange={(event) => {
                   setEquipment(event.target.value as Equipment | "all");
-                  setVisibleCount(initialVisibleExercises);
+                  setPage(1);
                 }}
               >
                 <option value="all">Todo equipo</option>
@@ -167,7 +164,7 @@ export function ExerciseSearch({
                 value={type}
                 onChange={(event) => {
                   setType(event.target.value as ExerciseType);
-                  setVisibleCount(initialVisibleExercises);
+                  setPage(1);
                 }}
               >
                 <option value="all">Todos</option>
@@ -184,7 +181,7 @@ export function ExerciseSearch({
                 label="Todos"
                 onClick={() => {
                   setPrimaryMuscle("all");
-                  setVisibleCount(initialVisibleExercises);
+                  setPage(1);
                 }}
               />
               {muscleOptions.map(([value, label]) => (
@@ -194,19 +191,22 @@ export function ExerciseSearch({
                   label={label}
                   onClick={() => {
                     setPrimaryMuscle(value);
-                    setVisibleCount(initialVisibleExercises);
+                    setPage(1);
                   }}
                 />
               ))}
             </div>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 p-3 sm:p-4">
+      </div>
+      <div className="flex flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            {visibleItems.length && items.length > visibleItems.length
-              ? `Mostrando ${visibleItems.length} de ${total} resultados`
+            {items.length
+              ? `Mostrando ${(safePage - 1) * exercisePageSize + 1}-${Math.min(
+                  safePage * exercisePageSize,
+                  items.length,
+                )} de ${total} resultados`
               : `${total} resultados`}
           </span>
           {isLoading ? (
@@ -232,31 +232,75 @@ export function ExerciseSearch({
                 selectionMode={selectionMode}
               />
             ))}
-            {hasMoreVisibleItems ? (
-              <Button
-                className="mt-2"
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setVisibleCount((current) => current + visibleExercisesStep)
-                }
-              >
-                Mostrar mas
-              </Button>
+            {pageCount > 1 ? (
+              <ExercisePagination
+                page={safePage}
+                pageCount={pageCount}
+                onPageChange={setPage}
+              />
             ) : null}
           </div>
         ) : !error ? (
           <EmptyState onCreate={() => setIsCreateOpen(true)} />
         ) : null}
-      </CardContent>
+      </div>
       <ExerciseCreateDialog
         isLoading={isCreating}
         isOpen={isCreateOpen}
         onCreate={handleCreate}
         onOpenChange={setIsCreateOpen}
       />
-    </Card>
+    </section>
+  );
+}
+
+function ExercisePagination({
+  onPageChange,
+  page,
+  pageCount,
+}: {
+  onPageChange: (page: number) => void;
+  page: number;
+  pageCount: number;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+      <Button
+        disabled={page === 1}
+        size="sm"
+        type="button"
+        variant="outline"
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+      >
+        Anterior
+      </Button>
+      <div className="flex flex-wrap items-center gap-1">
+        {Array.from({ length: pageCount }, (_, index) => index + 1).map(
+          (pageNumber) => (
+            <Button
+              key={pageNumber}
+              aria-current={pageNumber === page ? "page" : undefined}
+              className="size-8"
+              size="icon"
+              type="button"
+              variant={pageNumber === page ? "default" : "outline"}
+              onClick={() => onPageChange(pageNumber)}
+            >
+              {pageNumber}
+            </Button>
+          ),
+        )}
+      </div>
+      <Button
+        disabled={page === pageCount}
+        size="sm"
+        type="button"
+        variant="outline"
+        onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+      >
+        Siguiente
+      </Button>
+    </div>
   );
 }
 

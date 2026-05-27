@@ -7,9 +7,9 @@ import {
   ArrowUpIcon,
   CalendarDaysIcon,
   ChevronLeftIcon,
-  ChevronRightIcon,
   CopyIcon,
   EditIcon,
+  DumbbellIcon,
   ImageIcon,
   Loader2Icon,
   MoreVerticalIcon,
@@ -24,16 +24,15 @@ import type React from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ExerciseSearch } from "@/components/exercise-search";
+import {
+  WorkspaceFrame,
+  WorkspaceHeader,
+  WorkspacePanel,
+} from "@/components/layout/workspace-shell";
+import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { MetricStrip } from "@/components/shared/metric-strip";
 import { PlanTree } from "@/components/training-plans/training-plan-tree";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -109,6 +108,7 @@ export function TrainingPlanEditorWorkspace() {
   const [publishState, setPublishState] = useState<SaveState>("idle");
   const [planDraft, setPlanDraft] = useState<DraftPlan | null>(null);
   const [sessionDraft, setSessionDraft] = useState<DraftSession | null>(null);
+  const [isPlanInfoOpen, setIsPlanInfoOpen] = useState(false);
 
   const plan = editor.plan;
   const sessions = useMemo(() => getSessions(plan), [plan]);
@@ -117,6 +117,14 @@ export function TrainingPlanEditorWorkspace() {
       sessions.find((session) => session.id === selectedSessionId) ??
       sessions[0],
     [selectedSessionId, sessions],
+  );
+  const totalExercises = useMemo(
+    () =>
+      sessions.reduce(
+        (total, session) => total + (session.exercises?.length ?? 0),
+        0,
+      ),
+    [sessions],
   );
   const isSystemTemplate = Boolean(plan?.isSystemTemplate);
   const isReadOnly = isSystemTemplate || plan?.status !== "draft";
@@ -367,6 +375,27 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
+  async function archivePlan() {
+    if (!plan || plan.isSystemTemplate || publishState === "saving") {
+      return;
+    }
+
+    if (!window.confirm("Eliminar este plan? Se archivara y dejara de aparecer en la lista principal.")) {
+      return;
+    }
+
+    setPublishState("saving");
+    try {
+      await editor.updatePlanStatus("archived");
+      setPublishState("saved");
+      toast.success("Plan eliminado");
+      router.push("/training-plans");
+    } catch (caughtError) {
+      setPublishState("error");
+      toast.error(getErrorMessage(caughtError));
+    }
+  }
+
   if (editor.isLoading && !plan) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
@@ -394,133 +423,189 @@ export function TrainingPlanEditorWorkspace() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <EditorHeader
-        isReadOnly={isReadOnly}
-        isSystemTemplate={isSystemTemplate}
-        plan={plan}
-        saveState={saveState}
-        publishState={publishState}
-        onDuplicateForEditing={() => void duplicateForEditing()}
-        onTogglePublication={() => void togglePlanPublication()}
-        onSave={() => void saveAllDrafts()}
-      />
-
-      <PlanDetails
-        draft={planDraft}
-        isReadOnly={isReadOnly}
-        saveState={planSaveState}
-        onChange={(draft) => {
-          setPlanDraft(draft);
-          setPlanSaveState("dirty");
-        }}
-        onSave={() => void savePlanDraft()}
-      />
-
-      <div className="grid w-full gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <PlanTree
-          editor={editor}
+    <WorkspaceFrame
+      header={
+        <EditorHeader
           isReadOnly={isReadOnly}
+          isSystemTemplate={isSystemTemplate}
           plan={plan}
-          selectedSessionId={selectedSession?.id}
-          onSaveSessionInfo={saveSessionInfo}
-          onSelectSession={handleSelectSession}
+          publishState={publishState}
+          saveState={saveState}
+          onArchivePlan={() => void archivePlan()}
+          onDuplicateForEditing={() => void duplicateForEditing()}
+          onEditInformation={() => setIsPlanInfoOpen(true)}
+          onSave={() => void saveAllDrafts()}
+          onTogglePublication={() => void togglePlanPublication()}
+        />
+      }
+    >
+      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
+        <MetricStrip
+          items={[
+            {
+              helper: plan.goal || "Sin objetivo",
+              icon: <DumbbellIcon className="size-4" />,
+              label: "Objetivo",
+              value: levelLabels[plan.level ?? ""] ?? "Sin nivel",
+            },
+            {
+              helper: `${sessions.length} sesiones configuradas`,
+              icon: <CalendarDaysIcon className="size-4" />,
+              label: "Duracion",
+              value: `${plan.durationWeeks} sem.`,
+            },
+            {
+              helper: "Dentro de la estructura",
+              icon: <DumbbellIcon className="size-4" />,
+              label: "Ejercicios",
+              tone: "green",
+              value: totalExercises,
+            },
+            {
+              helper: isReadOnly ? "Copia para editar" : "Editable",
+              icon: <SaveIcon className="size-4" />,
+              label: "Estado",
+              tone: plan.status === "active" ? "green" : "amber",
+              value: statusLabels[plan.status] ?? plan.status,
+            },
+          ]}
         />
 
-        {selectedSession ? (
-          <SessionEditor
+        <div className="grid w-full gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <PlanTree
+            editor={editor}
             isReadOnly={isReadOnly}
-            session={selectedSession}
-            onAddExercise={(exercise) =>
-              mutateStructure(
-                () =>
-                  editor.addSessionExercise(selectedSession.id, {
-                    exerciseId: exercise.id,
-                    reps: "10-12",
-                    sets: 3,
-                  }, exercise),
-                "Ejercicio agregado",
-              )
-            }
-            onAddAlternative={(sessionExerciseId, exercise) =>
-              mutateStructure(
-                () =>
-                  editor.addAlternative(sessionExerciseId, {
-                    alternativeExerciseId: exercise.id,
-                  }, exercise),
-                "Alternativa agregada",
-              )
-            }
-            onDeleteExercise={(sessionExerciseId) =>
-              mutateStructure(
-                () => editor.deleteSessionExercise(sessionExerciseId),
-                "Ejercicio eliminado",
-              )
-            }
-            onDeleteSession={() => void deleteSelectedSession()}
-            onDeleteAlternative={(alternativeId) =>
-              mutateStructure(
-                () => editor.deleteAlternative(alternativeId),
-                "Alternativa eliminada",
-              )
-            }
-            onDuplicateExercise={(sessionExerciseId) =>
-              mutateStructure(
-                () => editor.duplicateSessionExercise(sessionExerciseId),
-                "Ejercicio duplicado",
-              )
-            }
-            onMoveExercise={(sessionExercise, direction) => {
-              const exercises = [...selectedSession.exercises].sort(
-                (first, second) => first.orderIndex - second.orderIndex,
-              );
-              const index = exercises.findIndex(
-                (item) => item.id === sessionExercise.id,
-              );
-              const swapIndex = direction === "up" ? index - 1 : index + 1;
-              if (swapIndex < 0 || swapIndex >= exercises.length) {
-                return;
-              }
-              const reordered = [...exercises];
-              [reordered[index], reordered[swapIndex]] = [
-                reordered[swapIndex],
-                reordered[index],
-              ];
-              void mutateStructure(
-                () =>
-                  editor.reorderSessionExercises(
-                    reordered.map((item, orderIndex) => ({
-                      orderIndex,
-                      sessionExerciseId: item.id,
-                    })),
-                  ),
-                "Orden actualizado",
-              );
-            }}
-            onUpdateExercise={(sessionExerciseId, body) =>
-              mutateExercise(
-                () => editor.updateSessionExercise(sessionExerciseId, body),
-                "Ejercicio actualizado",
-              )
-            }
+            plan={plan}
+            selectedSessionId={selectedSession?.id}
+            onSaveSessionInfo={saveSessionInfo}
+            onSelectSession={handleSelectSession}
           />
-        ) : (
-          <Card className="min-h-72 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle>Sesion</CardTitle>
-              <CardDescription>Selecciona una sesion para editarla.</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
+
+          {selectedSession ? (
+            <SessionEditor
+              isReadOnly={isReadOnly}
+              session={selectedSession}
+              onAddExercise={(exercise) =>
+                mutateStructure(
+                  () =>
+                    editor.addSessionExercise(
+                      selectedSession.id,
+                      {
+                        exerciseId: exercise.id,
+                        reps: "10-12",
+                        sets: 3,
+                      },
+                      exercise,
+                    ),
+                  "Ejercicio agregado",
+                )
+              }
+              onAddAlternative={(sessionExerciseId, exercise) =>
+                mutateStructure(
+                  () =>
+                    editor.addAlternative(
+                      sessionExerciseId,
+                      {
+                        alternativeExerciseId: exercise.id,
+                      },
+                      exercise,
+                    ),
+                  "Alternativa agregada",
+                )
+              }
+              onDeleteExercise={(sessionExerciseId) =>
+                mutateStructure(
+                  () => editor.deleteSessionExercise(sessionExerciseId),
+                  "Ejercicio eliminado",
+                )
+              }
+              onDeleteSession={() => void deleteSelectedSession()}
+              onDeleteAlternative={(alternativeId) =>
+                mutateStructure(
+                  () => editor.deleteAlternative(alternativeId),
+                  "Alternativa eliminada",
+                )
+              }
+              onDuplicateExercise={(sessionExerciseId) =>
+                mutateStructure(
+                  () => editor.duplicateSessionExercise(sessionExerciseId),
+                  "Ejercicio duplicado",
+                )
+              }
+              onMoveExercise={(sessionExercise, direction) => {
+                const exercises = [...selectedSession.exercises].sort(
+                  (first, second) => first.orderIndex - second.orderIndex,
+                );
+                const index = exercises.findIndex(
+                  (item) => item.id === sessionExercise.id,
+                );
+                const swapIndex = direction === "up" ? index - 1 : index + 1;
+                if (swapIndex < 0 || swapIndex >= exercises.length) {
+                  return;
+                }
+                const reordered = [...exercises];
+                [reordered[index], reordered[swapIndex]] = [
+                  reordered[swapIndex],
+                  reordered[index],
+                ];
+                void mutateStructure(
+                  () =>
+                    editor.reorderSessionExercises(
+                      reordered.map((item, orderIndex) => ({
+                        orderIndex,
+                        sessionExerciseId: item.id,
+                      })),
+                    ),
+                  "Orden actualizado",
+                );
+              }}
+              onUpdateExercise={(sessionExerciseId, body) =>
+                mutateExercise(
+                  () => editor.updateSessionExercise(sessionExerciseId, body),
+                  "Ejercicio actualizado",
+                )
+              }
+            />
+          ) : (
+            <WorkspacePanel
+              className="min-h-72"
+              description="Selecciona una sesion desde la estructura para editarla."
+              title="Sesion"
+            >
+              <div className="p-4 text-sm text-muted-foreground">
+                No hay una sesion activa.
+              </div>
+            </WorkspacePanel>
+          )}
+        </div>
       </div>
-    </div>
+      <DetailDrawer
+        description="Nombre, objetivo, nivel y notas del plan."
+        open={isPlanInfoOpen}
+        title="Informacion general"
+        onOpenChange={setIsPlanInfoOpen}
+      >
+        <PlanDetails
+          draft={planDraft}
+          isReadOnly={isReadOnly}
+          saveState={planSaveState}
+          onChange={(draft) => {
+            setPlanDraft(draft);
+            setPlanSaveState("dirty");
+          }}
+          onSave={() => void savePlanDraft()}
+        />
+      </DetailDrawer>
+    </WorkspaceFrame>
   );
 }
 
 function EditorHeader({
   isReadOnly,
   isSystemTemplate,
+  onArchivePlan,
   onDuplicateForEditing,
+  onEditInformation,
   onSave,
   onTogglePublication,
   plan,
@@ -529,7 +614,9 @@ function EditorHeader({
 }: {
   isReadOnly: boolean;
   isSystemTemplate: boolean;
+  onArchivePlan: () => void;
   onDuplicateForEditing: () => void;
+  onEditInformation: () => void;
   onSave: () => void;
   onTogglePublication: () => void;
   plan: TrainingPlan;
@@ -542,113 +629,84 @@ function EditorHeader({
     plan.status === "draft" || plan.status === "active";
   const publicationLabel =
     plan.status === "active" ? "Despublicar" : "Publicar";
+  const primaryAction = isSystemTemplate ? (
+    <Button
+      disabled={isPublishing}
+      size="sm"
+      type="button"
+      onClick={onDuplicateForEditing}
+    >
+      {isPublishing ? (
+        <Loader2Icon className="animate-spin" data-icon="inline-start" />
+      ) : (
+        <CopyIcon data-icon="inline-start" />
+      )}
+      Copiar para editar
+    </Button>
+  ) : (
+    <Button
+      disabled={!canTogglePublication || isPublishing}
+      size="sm"
+      type="button"
+      variant={plan.status === "active" ? "outline" : "default"}
+      onClick={onTogglePublication}
+    >
+      {isPublishing ? (
+        <Loader2Icon className="animate-spin" data-icon="inline-start" />
+      ) : null}
+      {publicationLabel}
+    </Button>
+  );
 
   return (
-    <header className="sticky top-4 z-10 rounded-lg border bg-card/95 px-3 py-3 shadow-none backdrop-blur md:px-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <nav className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <Button asChild className="size-8" size="icon" variant="ghost">
-              <Link aria-label="Volver a planes" href="/training-plans">
-                <ChevronLeftIcon />
-              </Link>
-            </Button>
-            <Link className="hover:text-foreground" href="/training-plans">
+    <WorkspaceHeader
+      description={`${plan.goal || "Sin objetivo"} / ${
+        plan.level ? (levelLabels[plan.level] ?? plan.level) : "Sin nivel"
+      } / ${plan.durationWeeks} semanas`}
+      title={plan.name}
+      actions={
+        <>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/training-plans">
+              <ChevronLeftIcon data-icon="inline-start" />
               Planes
             </Link>
-            <ChevronRightIcon className="size-4" />
-            <span className="truncate">{plan.name}</span>
-          </nav>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold leading-tight md:text-2xl">
-              {plan.name}
-            </h1>
-            <Badge variant={plan.status === "draft" ? "secondary" : "outline"}>
-              {statusLabels[plan.status] ?? plan.status}
-            </Badge>
-          </div>
-          <dl className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <dt className="font-medium text-foreground">Objetivo:</dt>
-              <dd>{plan.goal || "Sin objetivo"}</dd>
-            </div>
-            <span aria-hidden="true">/</span>
-            <div className="flex items-center gap-1.5">
-              <dt className="font-medium text-foreground">Nivel:</dt>
-              <dd>
-                {plan.level
-                  ? (levelLabels[plan.level] ?? plan.level)
-                  : "Sin nivel"}
-              </dd>
-            </div>
-            <span aria-hidden="true">/</span>
-            <div className="flex items-center gap-1.5">
-              <dt className="font-medium text-foreground">Duracion:</dt>
-              <dd>{plan.durationWeeks} semanas</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <Button disabled size="sm" type="button" variant="outline">
-            Vista previa
-            <Badge variant="secondary">Proximamente</Badge>
           </Button>
-          {isSystemTemplate ? (
-            <Button
-              disabled={isPublishing}
-              size="sm"
-              type="button"
-              onClick={onDuplicateForEditing}
-            >
-              {isPublishing ? (
-                <Loader2Icon
-                  className="animate-spin"
-                  data-icon="inline-start"
-                />
-              ) : (
-                <CopyIcon data-icon="inline-start" />
-              )}
-              Copiar para editar
-            </Button>
-          ) : (
-            <>
-              <Button
-                disabled={isReadOnly || isSaving}
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={onSave}
-              >
-                {isSaving ? (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                ) : (
-                  <SaveIcon data-icon="inline-start" />
-                )}
-                Guardar
+          {primaryAction}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label="Mas acciones del plan" size="icon" type="button" variant="outline">
+                <MoreVerticalIcon />
               </Button>
-              <Button
-                disabled={!canTogglePublication || isPublishing}
-                size="sm"
-                type="button"
-                variant={plan.status === "active" ? "outline" : "default"}
-                onClick={onTogglePublication}
-              >
-                {isPublishing ? (
-                  <Loader2Icon
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={onEditInformation}>
+                  <EditIcon data-icon="inline-start" />
+                  Editar informacion
+                </DropdownMenuItem>
+                {!isSystemTemplate ? (
+                  <DropdownMenuItem disabled={isReadOnly || isSaving} onSelect={onSave}>
+                    {isSaving ? (
+                      <Loader2Icon className="animate-spin" data-icon="inline-start" />
+                    ) : (
+                      <SaveIcon data-icon="inline-start" />
+                    )}
+                    Guardar cambios
+                  </DropdownMenuItem>
                 ) : null}
-                {publicationLabel}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </header>
+                {!isSystemTemplate ? (
+                  <DropdownMenuItem disabled={isPublishing} onSelect={onArchivePlan}>
+                    <Trash2Icon data-icon="inline-start" />
+                    Eliminar plan
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      }
+    />
   );
 }
 
@@ -666,31 +724,25 @@ function PlanDetails({
   onSave: () => void;
 }) {
   return (
-    <details className="group w-full rounded-lg border bg-card shadow-none">
-      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <aside className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b bg-card px-5 py-5 pr-16">
         <div>
-          <h2 className="text-base font-semibold">Informacion general</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold">Informacion general</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
             Nombre, objetivo, nivel y notas del plan.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {!isReadOnly ? <SaveStatus state={saveState} /> : null}
-          <span className="rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground group-open:hidden">
-            Editar informacion
-          </span>
-          <span className="hidden rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground group-open:inline-flex">
-            Ocultar
-          </span>
         </div>
-      </summary>
-      <div className="flex flex-col gap-4 border-t px-4 py-4">
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-background px-5 py-5">
+        <section className="grid gap-4">
+          <div>
             <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
               Identidad
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <Field label="Nombre">
                 <Input
                   disabled={isReadOnly}
@@ -713,7 +765,7 @@ function PlanDetails({
           </div>
         </section>
 
-        <section className="grid gap-4 border-t pt-4 md:grid-cols-2">
+        <section className="grid gap-4 border-t pt-4">
           <div>
             <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
               Clasificacion
@@ -754,7 +806,7 @@ function PlanDetails({
         </section>
       </div>
       {!isReadOnly ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-card px-5 py-4">
           <p className="text-sm text-muted-foreground">
             El autosave guarda cambios cada 2 segundos.
           </p>
@@ -774,7 +826,7 @@ function PlanDetails({
           </Button>
         </div>
       ) : null}
-    </details>
+    </aside>
   );
 }
 
@@ -851,15 +903,15 @@ function SessionEditor({
   );
 
   return (
-    <Card className="overflow-hidden rounded-lg shadow-none">
-      <CardHeader className="gap-3 border-b p-4">
+    <WorkspacePanel className="overflow-hidden">
+      <div className="gap-3 border-b p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle className="text-lg">{session.name}</CardTitle>
-            <CardDescription>
+            <h2 className="text-lg font-semibold tracking-tight">{session.name}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
               {session.description ||
                 "Ejercicios, cargas prescritas y notas del coach."}
-            </CardDescription>
+            </p>
           </div>
           {!isReadOnly ? (
             <div className="flex flex-wrap gap-2">
@@ -888,10 +940,10 @@ function SessionEditor({
             {session.coachNote}
           </p>
         ) : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4 p-4">
+      </div>
+      <div className="flex flex-col gap-4 p-4">
         {isAdding && !isReadOnly ? (
-          <div className="rounded-lg border bg-background p-2">
+          <div className="border-b bg-background">
             <ExerciseSearch
               selectionMode="explicit"
               onSelect={(exercise) => {
@@ -902,7 +954,7 @@ function SessionEditor({
           </div>
         ) : null}
         <section>
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden rounded-md border">
             {sortedExercises.map((exercise, index) => (
               <SessionExerciseRow
                 key={exercise.id}
@@ -928,8 +980,8 @@ function SessionEditor({
             ) : null}
           </div>
         </section>
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 
@@ -985,8 +1037,8 @@ const SessionExerciseRow = memo(function SessionExerciseRow({
   }, [exercise]);
 
   return (
-    <div className="border-b bg-background last:border-b-0">
-      <div className="grid gap-2 p-2.5 lg:grid-cols-[minmax(0,1fr)_76px_112px_88px_36px] lg:items-center">
+    <div className="border-b bg-card last:border-b-0">
+      <div className="grid gap-2 p-3 transition-colors hover:bg-background lg:grid-cols-[minmax(0,1fr)_76px_112px_88px_36px] lg:items-center">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
             {exercise.orderIndex + 1}

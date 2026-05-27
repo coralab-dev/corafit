@@ -19,8 +19,12 @@ import { toast } from "sonner";
 import { ExerciseSearch } from "@/components/exercise-search";
 import { PlanTree } from "@/components/training-plans/assigned-plan-tree";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  WorkspaceFrame,
+  WorkspaceHeader,
+  WorkspacePanel,
+} from "@/components/layout/workspace-shell";
 import { useCurrentAssignmentEditor, type CurrentAssignmentEditor } from "@/hooks/use-current-assignment-editor";
 import type { Exercise } from "@/hooks/use-exercises";
 import { levelLabels } from "@/lib/clients/api";
@@ -136,41 +140,80 @@ export function AssignedPlanEditorWorkspace() {
     }
   }
 
+  const isSaving = planSaveState === "saving" || sessionSaveState === "saving";
+
   if (editor.isLoading && !plan) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2Icon className="size-4 animate-spin" />
-          Cargando plan asignado
-        </span>
-      </main>
+      <WorkspaceFrame
+        header={<WorkspaceHeader title="Editar plan asignado" />}
+      >
+        <div className="flex min-h-96 items-center justify-center">
+          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2Icon className="size-4 animate-spin" />
+            Cargando plan asignado
+          </span>
+        </div>
+      </WorkspaceFrame>
     );
   }
 
   if (editor.error || !editor.assignment?.assignedPlan || !plan || !planDraft) {
     return (
-      <main className="min-h-screen bg-background p-4 text-foreground">
-        <div className="mx-auto max-w-3xl rounded-lg border bg-card p-6">
-          <p className="text-sm font-semibold">Sin asignacion activa</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {editor.error || "Este cliente no tiene un plan activo para editar."}
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link href="/clients">Volver a clientes</Link>
-          </Button>
+      <WorkspaceFrame
+        header={<WorkspaceHeader title="Editar plan asignado" />}
+      >
+        <div className="p-6">
+          <div className="mx-auto max-w-3xl rounded-lg border bg-card p-6">
+            <p className="text-sm font-semibold">Sin asignacion activa</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {editor.error || "Este cliente no tiene un plan activo para editar."}
+            </p>
+            <Button asChild className="mt-4" variant="outline">
+              <Link href="/clients">Volver a clientes</Link>
+            </Button>
+          </div>
         </div>
-      </main>
+      </WorkspaceFrame>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-        <span className="font-semibold">Estos cambios solo aplican a este cliente.</span>{" "}
-        El template original no se modifica desde esta pantalla.
-      </div>
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          title={plan.name}
+          description="Edita la copia asignada a este cliente. El template original no se modifica."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={isSaving}
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void savePlanDraft();
+                  void saveSessionDraft();
+                }}
+              >
+                {isSaving ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="mr-2 size-4" />
+                )}
+                Guardar
+              </Button>
+            </div>
+          }
+        />
+      }
+    >
+      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
+        <div className="rounded-md border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+          <span className="font-semibold">Estos cambios solo aplican a este cliente.</span>{" "}
+          El template original no se modifica desde esta pantalla.
+        </div>
 
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           <PlanTree
             editor={editor}
             plan={plan}
@@ -201,16 +244,19 @@ export function AssignedPlanEditorWorkspace() {
                 onSave={() => void saveSessionDraft()}
               />
             ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sesion</CardTitle>
-                  <CardDescription>Selecciona una sesion o crea una desde el arbol.</CardDescription>
-                </CardHeader>
-              </Card>
+              <WorkspacePanel
+                description="Selecciona una sesion o crea una desde el arbol."
+                title="Sesion"
+              >
+                <div className="p-4 text-sm text-muted-foreground">
+                  No hay una sesion activa.
+                </div>
+              </WorkspacePanel>
             )}
           </div>
         </div>
       </div>
+    </WorkspaceFrame>
   );
 }
 
@@ -224,12 +270,12 @@ function PlanDetails({
   onSave: () => void;
 }) {
   return (
-    <Card className="h-fit">
-      <CardHeader>
-        <CardTitle>Datos del plan</CardTitle>
-        <CardDescription>Guarda cuando termines de ajustar la copia.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <WorkspacePanel
+      className="h-fit"
+      description="Guarda cuando termines de ajustar la copia."
+      title="Datos del plan"
+    >
+      <div className="flex flex-col gap-3 p-4">
         <Field label="Nombre">
           <Input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />
         </Field>
@@ -267,8 +313,8 @@ function PlanDetails({
           <SaveIcon data-icon="inline-start" />
           Guardar plan
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 
@@ -291,12 +337,14 @@ function SessionEditor({
   const exercises = [...(session.exercises ?? [])].sort((first, second) => first.orderIndex - second.orderIndex);
 
   return (
-    <Card>
-      <CardHeader className="gap-4">
+    <WorkspacePanel>
+      <div className="gap-4 border-b p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle>Sesion</CardTitle>
-            <CardDescription>Ejercicios, orden, cargas y notas del coach.</CardDescription>
+            <h2 className="text-sm font-semibold">Sesion</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ejercicios, orden, cargas y notas del coach.
+            </p>
           </div>
           <Button type="button" onClick={() => setIsAdding((value) => !value)}>
             <PlusIcon data-icon="inline-start" />
@@ -320,8 +368,8 @@ function SessionEditor({
             </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      </div>
+      <div className="flex flex-col gap-4 p-4">
         {isAdding ? (
           <ExerciseSearch
             selectionMode="explicit"
@@ -359,8 +407,8 @@ function SessionEditor({
             }}
           />
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 
@@ -398,7 +446,7 @@ function SessionExerciseRow({
   }, [exercise]);
 
   return (
-    <div className="rounded-lg border bg-background p-3">
+    <div className="rounded-md border bg-card p-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="truncate font-semibold">{exercise.exercise?.name ?? exercise.exerciseId ?? "Ejercicio"}</p>

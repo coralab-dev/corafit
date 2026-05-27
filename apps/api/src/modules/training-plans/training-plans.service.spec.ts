@@ -270,8 +270,11 @@ describe('TrainingPlansService', () => {
   });
 
   describe('createManual', () => {
-    it('creates empty plan with template/draft', async () => {
+    it('creates draft template and materializes duration weeks', async () => {
       prisma.trainingPlan.create.mockResolvedValue({ id: 'plan-1' });
+      prisma.trainingPlanWeek.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
 
       const result = await service.createManual(
         {
@@ -294,6 +297,13 @@ describe('TrainingPlansService', () => {
           organizationId: 'org-1',
           createdByMemberId: 'member-1',
         },
+      });
+      expect(prisma.trainingPlanWeek.create).toHaveBeenCalledTimes(4);
+      expect(prisma.trainingPlanWeek.create).toHaveBeenNthCalledWith(1, {
+        data: { trainingPlanId: 'plan-1', weekNumber: 1 },
+      });
+      expect(prisma.trainingPlanWeek.create).toHaveBeenNthCalledWith(4, {
+        data: { trainingPlanId: 'plan-1', weekNumber: 4 },
       });
     });
 

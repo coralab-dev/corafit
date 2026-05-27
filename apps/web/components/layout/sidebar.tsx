@@ -19,10 +19,10 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col bg-[#12161d] text-white lg:flex">
+    <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col bg-sidebar text-sidebar-foreground lg:flex">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pb-8 pt-7">
-        <div className="flex size-10 items-center justify-center rounded-md text-[#ef6a55]">
+        <div className="flex size-10 items-center justify-center rounded-md text-sidebar-primary">
           <DumbbellIcon className="size-5" />
         </div>
         <span className="text-xl font-bold tracking-tight">CoraFit</span>
@@ -38,16 +38,16 @@ export function Sidebar() {
       {/* Usuario */}
       <div className="px-4 pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-[#ef6a55] text-sm font-semibold text-white">
+          <div className="flex size-10 items-center justify-center rounded-full bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-white/55">Coach</p>
+            <p className="truncate text-xs text-sidebar-foreground/55">Coach</p>
           </div>
           <Button
             aria-label="Cerrar sesion"
-            className="size-8 text-white/60 hover:bg-white/10 hover:text-white"
+            className="size-8 text-sidebar-foreground/60 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground"
             size="icon"
             type="button"
             variant="ghost"

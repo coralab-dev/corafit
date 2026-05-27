@@ -16,14 +16,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -88,10 +82,10 @@ export function PlanTree({
   selectedSessionId?: string;
 }) {
   return (
-    <Card className="h-fit max-h-[calc(100vh-8rem)] overflow-hidden rounded-lg shadow-none">
-      <CardHeader className="gap-2 border-b p-3">
+    <WorkspacePanel className="h-fit max-h-[calc(100vh-9rem)] overflow-hidden xl:sticky xl:top-4">
+      <div className="gap-2 border-b p-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base">Estructura</CardTitle>
+          <h2 className="text-sm font-semibold">Estructura</h2>
           <span className="text-xs text-muted-foreground">
             {plan.weeks?.length ?? 0} semanas
           </span>
@@ -106,11 +100,11 @@ export function PlanTree({
             </p>
           </div>
         ) : null}
-      </CardHeader>
-      <CardContent className="plan-tree-scroll flex max-h-[calc(100vh-17rem)] flex-col gap-2 overflow-y-auto p-3 pr-4">
+      </div>
+      <div className="plan-tree-scroll flex max-h-[calc(100vh-18rem)] flex-col gap-2 overflow-y-auto p-3 pr-4">
         {plan.weeks?.map((week) => (
-          <details key={week.id} className="group rounded-md bg-card">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md py-1.5 text-sm font-semibold hover:bg-muted/50">
+          <details key={week.id} className="group rounded-md border bg-card">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-semibold hover:bg-background">
               <span className="flex min-w-0 items-center gap-2">
                 <ChevronRightIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
                 <span>Semana {week.weekNumber}</span>
@@ -165,7 +159,7 @@ export function PlanTree({
                 </DropdownMenu>
               ) : null}
             </summary>
-            <div className="flex flex-col border-l pl-2">
+            <div className="flex flex-col border-t bg-background/50 p-2">
               {week.days.map((day) => (
                 <DayNode
                   key={day.id}
@@ -187,9 +181,9 @@ export function PlanTree({
             </div>
           </details>
         ))}
-      </CardContent>
+      </div>
       {!isReadOnly ? (
-        <CardFooter className="border-t p-3">
+        <div className="border-t p-3">
           <Button
             className="w-full"
             size="sm"
@@ -197,7 +191,7 @@ export function PlanTree({
             variant="outline"
             onClick={() =>
               void editor
-                .createWeek({ weekNumber: (plan.weeks?.length ?? 0) + 1 })
+                .createWeek({})
                 .then(() => {
                   toast.success("Semana agregada");
                 })
@@ -206,9 +200,9 @@ export function PlanTree({
             <PlusIcon data-icon="inline-start" />
             Agregar semana
           </Button>
-        </CardFooter>
+        </div>
       ) : null}
-    </Card>
+    </WorkspacePanel>
   );
 }
 
@@ -328,10 +322,10 @@ function DayNode({
         <div className="flex items-center gap-2">
           <button
             className={cn(
-              "relative min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+              "relative min-w-0 flex-1 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
               isSelected
-                ? "border border-primary/50 bg-primary/5 pl-3.5 before:absolute before:left-0 before:top-1.5 before:h-[calc(100%-12px)] before:w-1 before:rounded-full before:bg-primary"
-                : "border border-transparent hover:bg-muted",
+                ? "border border-primary/40 bg-primary/5 pl-3.5 before:absolute before:left-0 before:top-2 before:h-[calc(100%-16px)] before:w-1 before:rounded-full before:bg-primary"
+                : "border border-transparent hover:bg-card",
             )}
             type="button"
             onClick={() => onSelectSession(day.session?.id ?? "")}
@@ -358,7 +352,7 @@ function DayNode({
         </div>
       ) : (
         <div className="flex items-center gap-2 py-0.5">
-          <span className="flex-1 rounded-md border border-dashed bg-background px-2.5 py-1.5 text-sm text-muted-foreground">
+          <span className="flex-1 rounded-md border border-dashed bg-card px-2.5 py-2 text-sm text-muted-foreground">
             <span className="block font-medium text-foreground">
               {dayLabels[day.dayOfWeek] ?? day.dayOfWeek}
             </span>

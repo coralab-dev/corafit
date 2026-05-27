@@ -3,6 +3,11 @@
 import { LaptopIcon, MoonIcon, SunIcon, type LucideIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { useAppTheme } from "@/components/providers/theme-provider";
+import {
+  WorkspaceFrame,
+  WorkspaceHeader,
+  WorkspacePanel,
+} from "@/components/layout/workspace-shell";
 import { cn } from "@/lib/utils";
 
 type ThemeOption = {
@@ -44,67 +49,95 @@ export function SettingsWorkspace() {
   const activeTheme = isMounted ? resolvedTheme : undefined;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-primary">Configuracion</p>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Preferencias de la app
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Ajusta la apariencia para que el panel sea comodo durante tu
-              flujo de trabajo.
-            </p>
-          </div>
-          <span className="w-fit rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          title="Configuracion"
+          description="Ajusta preferencias del workspace y del panel operativo."
+          actions={
+            <span className="w-fit rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
             Modo actual:{" "}
-            <span className="font-medium text-foreground">
-              {activeTheme ? (activeTheme === "dark" ? "Dark" : "Light") : "-"}
+              <span className="font-medium text-foreground">
+                {activeTheme ? (activeTheme === "dark" ? "Dark" : "Light") : "-"}
+              </span>
             </span>
-          </span>
-        </div>
-      </header>
+          }
+        />
+      }
+    >
+      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
+        <WorkspacePanel
+          description="Elige entre tema claro, oscuro o seguir el sistema."
+          title="Preferencias de la app"
+        >
+          <div className="grid gap-3 p-4 lg:grid-cols-3">
+            {themeOptions.map((option) => {
+              const Icon = option.icon;
+              const isSelected = selectedTheme === option.value;
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm md:p-6">
-        <div className="mb-5">
-          <h2 className="font-semibold">Apariencia</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Elige entre light, dark o seguir el sistema.
-          </p>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          {themeOptions.map((option) => {
-            const Icon = option.icon;
-            const isSelected = selectedTheme === option.value;
-
-            return (
-              <button
-                key={option.value}
-                className={cn(
-                  "flex min-h-36 flex-col items-start justify-between rounded-lg border bg-background p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
-                  isSelected
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "hover:border-primary/60 hover:bg-muted/30",
-                )}
-                type="button"
-                onClick={() => setTheme(option.value)}
-              >
-                <span className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <Icon className="size-5" />
-                </span>
-                <span>
-                  <span className="block font-semibold">{option.label}</span>
-                  <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                    {option.description}
+              return (
+                <button
+                  key={option.value}
+                  className={cn(
+                    "flex min-h-28 items-start gap-3 rounded-md border bg-card p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                    isSelected
+                      ? "border-primary/45 bg-primary/5 text-foreground"
+                      : "hover:border-primary/35 hover:bg-background",
+                  )}
+                  type="button"
+                  onClick={() => setTheme(option.value)}
+                >
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground",
+                      isSelected && "border-primary/30 text-primary",
+                    )}
+                  >
+                    <Icon className="size-4" />
                   </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </div>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2 font-semibold">
+                      {option.label}
+                      {isSelected ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          Activo
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </WorkspacePanel>
+
+        <WorkspacePanel
+          description="Mas preferencias del workspace se agregaran aqui conforme avance el producto."
+          title="Workspace"
+        >
+          <div className="grid gap-3 p-4 md:grid-cols-2">
+            <div className="rounded-md border bg-card px-4 py-3">
+              <p className="text-sm font-medium">Tema guardado</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {selectedTheme === "system"
+                  ? "Siguiendo el sistema"
+                  : selectedTheme === "dark"
+                    ? "Oscuro"
+                    : "Claro"}
+              </p>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3">
+              <p className="text-sm font-medium">Resolucion actual</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {activeTheme ? (activeTheme === "dark" ? "Dark" : "Light") : "-"}
+              </p>
+            </div>
+          </div>
+        </WorkspacePanel>
+      </div>
+    </WorkspaceFrame>
   );
 }

@@ -278,18 +278,24 @@ export class TrainingPlansService {
       throw new BadRequestException('durationWeeks must be between 1 and 52');
     }
 
-    return this.prismaService.trainingPlan.create({
-      data: {
-        name,
-        goal: this.parseOptionalString(body.goal, 'goal'),
-        level: this.parseTrainingLevel(body.level),
-        durationWeeks,
-        generalNotes: this.parseOptionalString(body.generalNotes, 'generalNotes'),
-        status: TrainingPlanStatus.draft,
-        planType: TrainingPlanType.template,
-        organizationId: member.organizationId,
-        createdByMemberId: member.id,
-      },
+    return this.prismaService.$transaction(async (tx) => {
+      const plan = await tx.trainingPlan.create({
+        data: {
+          name,
+          goal: this.parseOptionalString(body.goal, 'goal'),
+          level: this.parseTrainingLevel(body.level),
+          durationWeeks,
+          generalNotes: this.parseOptionalString(body.generalNotes, 'generalNotes'),
+          status: TrainingPlanStatus.draft,
+          planType: TrainingPlanType.template,
+          organizationId: member.organizationId,
+          createdByMemberId: member.id,
+        },
+      });
+
+      await this.syncPlanWeeks(tx, plan.id, durationWeeks);
+
+      return plan;
     });
   }
 

@@ -21,8 +21,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/layout/page-header";
+import {
+  WorkspaceFrame,
+  WorkspaceHeader,
+  WorkspacePanel,
+  WorkspaceSplit,
+} from "@/components/layout/workspace-shell";
 import {
   apiRequest,
   formatDate,
@@ -200,70 +204,99 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
     return `Hola ${client.name}, aqui tienes tu acceso a CoraFit. Entra desde este link: ${generatedAccess.link}. Tu PIN es: ${generatedAccess.pin}.`;
   }, [client, generatedAccess]);
 
+  const hasGeneratedCredentials = Boolean(generatedAccess);
+  const isActive = client?.access.status === "active";
+  const canCreate = client?.access.status === "none" || client?.access.status === "disabled";
+
   if (isLoading) {
-    return <ClientDetailLoadingCard />;
+    return (
+      <WorkspaceFrame
+        header={<WorkspaceHeader title="Generar acceso" description="Cargando datos del cliente..." />}
+      >
+        <div className="flex min-h-96 items-center justify-center">
+          <ClientDetailLoadingCard />
+        </div>
+      </WorkspaceFrame>
+    );
   }
 
   if (!client) {
     return (
-      <div className="flex flex-col gap-4">
-        <PageHeader
-          eyebrow="Clientes"
-          title="Generar acceso"
-          description="No se encontro el cliente solicitado."
-          actions={
-            <Button asChild variant="outline">
-              <Link href="/clients">Volver a clientes</Link>
-            </Button>
-          }
-        />
-        {error ? <ClientErrorCard error={error} /> : <ClientNotFoundCard />}
-      </div>
+      <WorkspaceFrame
+        header={
+          <WorkspaceHeader
+            title="Generar acceso"
+            description="No se encontro el cliente solicitado."
+            actions={
+              <Button asChild variant="outline">
+                <Link href="/clients">Volver a clientes</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <div className="p-6">
+          {error ? <ClientErrorCard error={error} /> : <ClientNotFoundCard />}
+        </div>
+      </WorkspaceFrame>
     );
   }
 
-  const hasGeneratedCredentials = Boolean(generatedAccess);
-  const isActive = client.access.status === "active";
-  const canCreate = client.access.status === "none" || client.access.status === "disabled";
-
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader
-        eyebrow="Clientes"
-        title="Generar acceso"
-      />
-
-      {error ? <ClientErrorCard error={error} /> : null}
-
-      <AccessClientSummary client={client} assignment={assignment} />
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <AccessGenerationCard
-            canCreate={canCreate}
-            isSubmitting={isSubmitting}
-            onGenerate={() => generateAccess(canCreate ? "create" : "regenerate")}
-          />
-
-          <GeneratedAccessCard
-            access={generatedAccess}
-            isActive={isActive}
-            message={whatsAppMessage}
-            onCopyLink={() => copyValue(generatedAccess?.link, "Link")}
-            onCopyPin={() => copyValue(generatedAccess?.pin, "PIN")}
-            onCopyMessage={() => copyValue(whatsAppMessage, "Mensaje")}
-          />
-        </div>
-
-        <AccessStatusCard
-          access={client.access}
-          hasGeneratedCredentials={hasGeneratedCredentials}
-          isSubmitting={isSubmitting}
-          onDisable={disableAccess}
-          onRegenerate={() => generateAccess("regenerate")}
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          title="Generar acceso"
+          description="Crea y gestiona el acceso al portal para este cliente."
+          actions={
+            <Button asChild variant="outline">
+              <Link href={`/clients/${client.id}`}>
+                <EyeIcon className="mr-2 size-4" />
+                Ver ficha
+              </Link>
+            </Button>
+          }
         />
-      </div>
-    </div>
+      }
+    >
+      {error ? (
+        <div className="mx-6 mt-5">
+          <ClientErrorCard error={error} />
+        </div>
+      ) : null}
+
+      <WorkspaceSplit
+        main={
+          <div className="flex flex-col gap-5 bg-background p-6">
+            <AccessClientSummary client={client} assignment={assignment} />
+            <AccessGenerationCard
+              canCreate={canCreate}
+              isSubmitting={isSubmitting}
+              onGenerate={() => generateAccess(canCreate ? "create" : "regenerate")}
+            />
+            <GeneratedAccessCard
+              access={generatedAccess}
+              isActive={isActive}
+              message={whatsAppMessage}
+              onCopyLink={() => copyValue(generatedAccess?.link, "Link")}
+              onCopyPin={() => copyValue(generatedAccess?.pin, "PIN")}
+              onCopyMessage={() => copyValue(whatsAppMessage, "Mensaje")}
+            />
+          </div>
+        }
+        side={
+          <div className="p-5">
+            <AccessStatusCard
+              access={client.access}
+              hasGeneratedCredentials={hasGeneratedCredentials}
+              isSubmitting={isSubmitting}
+              onDisable={disableAccess}
+              onRegenerate={() => generateAccess("regenerate")}
+            />
+          </div>
+        }
+      />
+    </WorkspaceFrame>
   );
 }
 
@@ -275,8 +308,8 @@ function AccessClientSummary({
   client: Client;
 }) {
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+    <WorkspacePanel className="overflow-hidden">
+      <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex size-16 shrink-0 items-center justify-center rounded-full border bg-muted text-lg font-semibold text-primary">
             {initials(client.name)}
@@ -301,13 +334,13 @@ function AccessClientSummary({
             Ver ficha del cliente
           </Link>
         </Button>
-      </CardContent>
+      </div>
       {assignment?.assignedPlan ? (
         <div className="border-t px-5 py-3 text-sm text-muted-foreground">
           Plan actual: <span className="font-medium text-foreground">{assignment.assignedPlan.name}</span>
         </div>
       ) : null}
-    </Card>
+    </WorkspacePanel>
   );
 }
 
@@ -321,12 +354,11 @@ function AccessGenerationCard({
   onGenerate: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Generar nuevo acceso</CardTitle>
-        <CardDescription>El cliente entrara con link privado y PIN.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <WorkspacePanel
+      description="El cliente entrara con link privado y PIN."
+      title="Generar nuevo acceso"
+    >
+      <div className="space-y-4 p-4">
         <div>
           <p className="mb-2 text-sm font-medium">Tipo de PIN</p>
           <div className="grid gap-3 md:grid-cols-2">
@@ -353,8 +385,8 @@ function AccessGenerationCard({
           )}
           {canCreate ? "Generar acceso" : "Regenerar link + PIN"}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 
@@ -374,21 +406,21 @@ function GeneratedAccessCard({
   onCopyPin: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <WorkspacePanel>
+      <div className="border-b px-4 py-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2Icon className={access ? "text-primary" : "text-muted-foreground"} />
           {access ? "Acceso generado" : "Credenciales no visibles"}
-        </CardTitle>
-        <CardDescription>
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
           {access
             ? "Copia estos datos ahora. No se volveran a mostrar completos."
             : isActive
               ? "El acceso esta activo, pero el link completo y PIN solo se muestran al generar o regenerar."
               : "Genera un acceso para mostrar link privado, PIN y mensaje sugerido."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </p>
+      </div>
+      <div className="space-y-4 p-4">
         <CopyRow label="Link privado" value={access?.link ?? ""} onCopy={onCopyLink} />
         <CopyRow label="PIN de acceso" value={access?.pin ?? ""} onCopy={onCopyPin} />
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px]">
@@ -411,8 +443,8 @@ function GeneratedAccessCard({
             <p>El link completo solo se muestra ahora. Si lo pierdes, deberas regenerarlo.</p>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 
@@ -456,14 +488,11 @@ function AccessStatusCard({
   const statusLabel = getAccessStatusLabel(access.status);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Estado del acceso</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <WorkspacePanel title="Estado del acceso">
+      <div className="space-y-4 p-4">
         <div className="rounded-md border border-primary/40 bg-primary/10 p-4">
           <div className="flex items-start gap-3">
-            <span className="mt-1 size-3 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />
+            <span className="mt-1 size-3 rounded-full bg-primary" />
             <div>
               <p className="font-semibold text-primary">{statusLabel}</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -522,8 +551,8 @@ function AccessStatusCard({
           <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
           <p>Al desactivar, el cliente ya no podra entrar hasta que generes un nuevo acceso.</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </WorkspacePanel>
   );
 }
 

@@ -22,6 +22,7 @@ import {
 import { SupabaseAuthService } from '../../common/auth/supabase-auth.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { RegisterProfileDto } from './dto/register-profile.dto';
+import type { UpdateProfileDto } from './dto/update-profile.dto';
 
 export type RegisterProfileResult = {
   member: OrganizationMember;
@@ -206,6 +207,61 @@ export class AuthService {
     });
   }
 
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<AuthProfileResult> {
+    const name = this.normalizeProfileName(dto.name);
+    const phone = this.normalizeOptionalText(dto.phone);
+
+    const updatedUser = await this.prismaService.user.update({
+      where: { id: userId },
+      data: { name, phone },
+    });
+
+    const member = await this.prismaService.organizationMember.findFirst({
+      where: { userId, status: OrganizationMemberStatus.active },
+      include: {
+        organization: {
+          include: {
+            subscription: {
+              include: {
+                subscriptionPlan: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const subscription = member?.organization.subscription;
+
+    if (!member || !subscription) {
+      throw new NotFoundException({
+        error: 'PROFILE_NOT_FOUND',
+        message: 'Internal profile was not found',
+      });
+    }
+
+    const { organization, ...memberData } = member;
+
+    return {
+      user: updatedUser,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        type: organization.type,
+        timezone: organization.timezone,
+        status: organization.status,
+        ownerUserId: organization.ownerUserId,
+        onboardingCompletedAt: organization.onboardingCompletedAt,
+        clientPortalPreviewSeenAt: organization.clientPortalPreviewSeenAt,
+        createdAt: organization.createdAt,
+        updatedAt: organization.updatedAt,
+      },
+      member: memberData,
+      subscription,
+    };
+  }
+
   private normalizeName(name: unknown) {
     if (typeof name !== 'string') {
       throw new BadRequestException('Name is required');
@@ -215,6 +271,22 @@ export class AuthService {
 
     if (!trimmedName) {
       throw new BadRequestException('Name is required');
+    }
+
+    return trimmedName;
+  }
+
+  private normalizeProfileName(name: unknown) {
+    if (typeof name !== 'string') {
+      throw new BadRequestException('Name is required');
+    }
+
+    const trimmedName = name.trim();
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      throw new BadRequestException(
+        'Name must be between 2 and 100 characters',
+      );
     }
 
     return trimmedName;

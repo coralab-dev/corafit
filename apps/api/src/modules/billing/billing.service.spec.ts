@@ -11,6 +11,9 @@ import type { PrismaService } from '../../common/prisma/prisma.service';
 import { BillingService } from './billing.service';
 
 type PrismaServiceMock = {
+  client: {
+    count: ReturnType<typeof vi.fn>;
+  };
   organizationSubscription: {
     findUnique: ReturnType<typeof vi.fn>;
   };
@@ -37,6 +40,9 @@ describe('BillingService', () => {
 
   beforeEach(() => {
     prismaService = {
+      client: {
+        count: vi.fn().mockResolvedValue(3),
+      },
       organizationSubscription: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'subscription-id',
@@ -81,6 +87,7 @@ describe('BillingService', () => {
     expect(result).toMatchObject({
       organizationId: 'organization-id',
       status: SubscriptionStatus.trial,
+      usedClients: 3,
       plan: {
         code: 'trial',
         clientLimit: 5,

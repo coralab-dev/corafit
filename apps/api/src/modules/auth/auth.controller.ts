@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../../common/auth/authenticated-request';
 import { Public } from '../../common/auth/public.decorator';
 import { AuthService, type RegisterProfileResult } from './auth.service';
 import type { RegisterProfileDto } from './dto/register-profile.dto';
+import type { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -27,5 +28,13 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
   ): Promise<RegisterProfileResult> {
     return this.authService.registerProfile(body, request.headers.authorization);
+  }
+
+  @Patch('me')
+  updateProfile(
+    @Body() body: UpdateProfileDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.authService.updateProfile(request.user!.id, body);
   }
 }

@@ -20,11 +20,15 @@ type SupabaseAuthServiceMock = {
 };
 
 type PrismaServiceMock = {
+  client: {
+    count: ReturnType<typeof vi.fn>;
+  };
   organizationMember: {
     findFirst: ReturnType<typeof vi.fn>;
   };
   user: {
     findUnique: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   $transaction: ReturnType<typeof vi.fn>;
 };
@@ -155,6 +159,9 @@ describe('AuthService', () => {
       },
     };
     prismaService = {
+      client: {
+        count: vi.fn().mockResolvedValue(0),
+      },
       organizationMember: {
         findFirst: vi.fn().mockResolvedValue({
           id: 'member-id',
@@ -206,6 +213,21 @@ describe('AuthService', () => {
       },
       user: {
         findUnique: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue({
+          id: 'user-id',
+          supabaseUserId: 'supabase-user-id',
+          email: 'coach@corafit.test',
+          name: 'Updated Coach',
+          phone: '555-0200',
+          platformRole: UserPlatformRole.user,
+          status: UserStatus.active,
+          acceptedTermsAt: new Date('2026-01-01T00:00:00.000Z'),
+          acceptedTermsVersion: '1.0',
+          acceptedPrivacyAt: new Date('2026-01-01T00:00:00.000Z'),
+          acceptedPrivacyVersion: '1.0',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-15T00:00:00.000Z'),
+        }),
       },
       $transaction: vi.fn(
         (callback: (transaction: TransactionMock) => Promise<unknown>) =>
@@ -379,5 +401,77 @@ describe('AuthService', () => {
     await expect(
       service.getMe('Bearer valid-token'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe('updateProfile', () => {
+    it('updates name and phone for an authenticated user', async () => {
+      const result = await service.updateProfile('user-id', {
+        name: ' Updated Coach ',
+        phone: ' 555-0200 ',
+      });
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-id' },
+        data: { name: 'Updated Coach', phone: '555-0200' },
+      });
+      expect(result).toMatchObject({
+        user: {
+          email: 'coach@corafit.test',
+          name: 'Updated Coach',
+          phone: '555-0200',
+          status: UserStatus.active,
+          supabaseUserId: 'supabase-user-id',
+        },
+        organization: { id: 'organization-id' },
+        member: { id: 'member-id' },
+        subscription: { id: 'subscription-id' },
+      });
+    });
+
+    it('normalizes trim on name and phone', async () => {
+      await service.updateProfile('user-id', {
+        name: '  Coach Name  ',
+        phone: '  555-0100  ',
+      });
+
+      expect(prismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { name: 'Coach Name', phone: '555-0100' },
+        }),
+      );
+    });
+
+    it('converts empty phone to null', async () => {
+      await service.updateProfile('user-id', {
+        name: 'Coach Name',
+        phone: '   ',
+      });
+
+      expect(prismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { name: 'Coach Name', phone: null },
+        }),
+      );
+    });
+
+    it('rejects name that is too short', async () => {
+      await expect(
+        service.updateProfile('user-id', { name: 'A' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects empty name', async () => {
+      await expect(
+        service.updateProfile('user-id', { name: '' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws PROFILE_NOT_FOUND when user has no membership', async () => {
+      prismaService.organizationMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateProfile('user-id', { name: 'Coach Name' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });

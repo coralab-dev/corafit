@@ -27,6 +27,10 @@ export class BillingService {
       throw new NotFoundException('Organization subscription was not found');
     }
 
+    const usedClients = await this.prismaService.client.count({
+      where: { organizationId: organizationMember.organizationId },
+    });
+
     return {
       id: subscription.id,
       organizationId: subscription.organizationId,
@@ -34,6 +38,7 @@ export class BillingService {
       startedAt: subscription.startedAt,
       renewsAt: subscription.renewsAt,
       cancelledAt: subscription.cancelledAt,
+      usedClients,
       plan: {
         id: subscription.subscriptionPlan.id,
         code: subscription.subscriptionPlan.code,

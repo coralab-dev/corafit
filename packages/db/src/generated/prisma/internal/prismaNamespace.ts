@@ -401,7 +401,8 @@ export const ModelName = {
   TrainingSession: 'TrainingSession',
   SessionExercise: 'SessionExercise',
   SessionExerciseAlternative: 'SessionExerciseAlternative',
-  ClientTrainingPlanAssignment: 'ClientTrainingPlanAssignment'
+  ClientTrainingPlanAssignment: 'ClientTrainingPlanAssignment',
+  ClientSessionLog: 'ClientSessionLog'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -417,7 +418,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment" | "clientSessionLog"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1753,6 +1754,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ClientSessionLog: {
+      payload: Prisma.$ClientSessionLogPayload<ExtArgs>
+      fields: Prisma.ClientSessionLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClientSessionLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClientSessionLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        findFirst: {
+          args: Prisma.ClientSessionLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClientSessionLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        findMany: {
+          args: Prisma.ClientSessionLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>[]
+        }
+        create: {
+          args: Prisma.ClientSessionLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        createMany: {
+          args: Prisma.ClientSessionLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClientSessionLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>[]
+        }
+        delete: {
+          args: Prisma.ClientSessionLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        update: {
+          args: Prisma.ClientSessionLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClientSessionLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClientSessionLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClientSessionLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClientSessionLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClientSessionLogPayload>
+        }
+        aggregate: {
+          args: Prisma.ClientSessionLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClientSessionLog>
+        }
+        groupBy: {
+          args: Prisma.ClientSessionLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientSessionLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClientSessionLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClientSessionLogCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2071,6 +2146,23 @@ export const ClientTrainingPlanAssignmentScalarFieldEnum = {
 } as const
 
 export type ClientTrainingPlanAssignmentScalarFieldEnum = (typeof ClientTrainingPlanAssignmentScalarFieldEnum)[keyof typeof ClientTrainingPlanAssignmentScalarFieldEnum]
+
+
+export const ClientSessionLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  assignmentId: 'assignmentId',
+  trainingSessionId: 'trainingSessionId',
+  scheduledDate: 'scheduledDate',
+  status: 'status',
+  snapshotData: 'snapshotData',
+  openedAt: 'openedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientSessionLogScalarFieldEnum = (typeof ClientSessionLogScalarFieldEnum)[keyof typeof ClientSessionLogScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2497,6 +2589,20 @@ export type EnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel> = 
 export type ListEnumClientTrainingPlanAssignmentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientTrainingPlanAssignmentStatus[]'>
     
 
+
+/**
+ * Reference to a field of type 'ClientSessionStatus'
+ */
+export type EnumClientSessionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientSessionStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ClientSessionStatus[]'
+ */
+export type ListEnumClientSessionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ClientSessionStatus[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -2625,6 +2731,7 @@ export type GlobalOmitConfig = {
   sessionExercise?: Prisma.SessionExerciseOmit
   sessionExerciseAlternative?: Prisma.SessionExerciseAlternativeOmit
   clientTrainingPlanAssignment?: Prisma.ClientTrainingPlanAssignmentOmit
+  clientSessionLog?: Prisma.ClientSessionLogOmit
 }
 
 /* Types for Logging */

@@ -129,3 +129,8 @@ export type SessionExerciseAlternative = Prisma.SessionExerciseAlternativeModel
  * 
  */
 export type ClientTrainingPlanAssignment = Prisma.ClientTrainingPlanAssignmentModel
+/**
+ * Model ClientSessionLog
+ * 
+ */
+export type ClientSessionLog = Prisma.ClientSessionLogModel

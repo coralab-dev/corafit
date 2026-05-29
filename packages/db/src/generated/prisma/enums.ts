@@ -205,3 +205,13 @@ export const ClientTrainingPlanAssignmentStatus = {
 } as const
 
 export type ClientTrainingPlanAssignmentStatus = (typeof ClientTrainingPlanAssignmentStatus)[keyof typeof ClientTrainingPlanAssignmentStatus]
+
+
+export const ClientSessionStatus = {
+  opened: 'opened',
+  in_progress: 'in_progress',
+  completed: 'completed',
+  partially_completed: 'partially_completed'
+} as const
+
+export type ClientSessionStatus = (typeof ClientSessionStatus)[keyof typeof ClientSessionStatus]

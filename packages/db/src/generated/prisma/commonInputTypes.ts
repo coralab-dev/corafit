@@ -688,6 +688,23 @@ export type EnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$PrismaMo
   _max?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
 }
 
+export type EnumClientSessionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientSessionStatus | Prisma.EnumClientSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel> | $Enums.ClientSessionStatus
+}
+
+export type EnumClientSessionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientSessionStatus | Prisma.EnumClientSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientSessionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ClientSessionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1308,6 +1325,23 @@ export type NestedEnumClientTrainingPlanAssignmentStatusWithAggregatesFilter<$Pr
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumClientTrainingPlanAssignmentStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumClientSessionStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientSessionStatus | Prisma.EnumClientSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel> | $Enums.ClientSessionStatus
+}
+
+export type NestedEnumClientSessionStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ClientSessionStatus | Prisma.EnumClientSessionStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ClientSessionStatus[] | Prisma.ListEnumClientSessionStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumClientSessionStatusWithAggregatesFilter<$PrismaModel> | $Enums.ClientSessionStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumClientSessionStatusFilter<$PrismaModel>
 }
 
 

@@ -226,6 +226,7 @@ export type ClientTrainingPlanAssignmentWhereInput = {
   sourcePlan?: Prisma.XOR<Prisma.TrainingPlanScalarRelationFilter, Prisma.TrainingPlanWhereInput>
   assignedPlan?: Prisma.XOR<Prisma.TrainingPlanScalarRelationFilter, Prisma.TrainingPlanWhereInput>
   assignedBy?: Prisma.XOR<Prisma.OrganizationMemberScalarRelationFilter, Prisma.OrganizationMemberWhereInput>
+  sessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }
 
 export type ClientTrainingPlanAssignmentOrderByWithRelationInput = {
@@ -243,6 +244,7 @@ export type ClientTrainingPlanAssignmentOrderByWithRelationInput = {
   sourcePlan?: Prisma.TrainingPlanOrderByWithRelationInput
   assignedPlan?: Prisma.TrainingPlanOrderByWithRelationInput
   assignedBy?: Prisma.OrganizationMemberOrderByWithRelationInput
+  sessionLogs?: Prisma.ClientSessionLogOrderByRelationAggregateInput
 }
 
 export type ClientTrainingPlanAssignmentWhereUniqueInput = Prisma.AtLeast<{
@@ -263,6 +265,7 @@ export type ClientTrainingPlanAssignmentWhereUniqueInput = Prisma.AtLeast<{
   sourcePlan?: Prisma.XOR<Prisma.TrainingPlanScalarRelationFilter, Prisma.TrainingPlanWhereInput>
   assignedPlan?: Prisma.XOR<Prisma.TrainingPlanScalarRelationFilter, Prisma.TrainingPlanWhereInput>
   assignedBy?: Prisma.XOR<Prisma.OrganizationMemberScalarRelationFilter, Prisma.OrganizationMemberWhereInput>
+  sessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }, "id">
 
 export type ClientTrainingPlanAssignmentOrderByWithAggregationInput = {
@@ -308,6 +311,7 @@ export type ClientTrainingPlanAssignmentCreateInput = {
   sourcePlan: Prisma.TrainingPlanCreateNestedOneWithoutSourceAssignmentsInput
   assignedPlan: Prisma.TrainingPlanCreateNestedOneWithoutAssignedAssignmentsInput
   assignedBy: Prisma.OrganizationMemberCreateNestedOneWithoutCreatedPlanAssignmentsInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedCreateInput = {
@@ -321,6 +325,7 @@ export type ClientTrainingPlanAssignmentUncheckedCreateInput = {
   status?: $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUpdateInput = {
@@ -334,6 +339,7 @@ export type ClientTrainingPlanAssignmentUpdateInput = {
   sourcePlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutSourceAssignmentsNestedInput
   assignedPlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutAssignedAssignmentsNestedInput
   assignedBy?: Prisma.OrganizationMemberUpdateOneRequiredWithoutCreatedPlanAssignmentsNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateInput = {
@@ -347,6 +353,7 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateInput = {
   status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentCreateManyInput = {
@@ -431,6 +438,11 @@ export type ClientTrainingPlanAssignmentMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type ClientTrainingPlanAssignmentScalarRelationFilter = {
+  is?: Prisma.ClientTrainingPlanAssignmentWhereInput
+  isNot?: Prisma.ClientTrainingPlanAssignmentWhereInput
 }
 
 export type ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput = {
@@ -605,6 +617,20 @@ export type EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput = {
   set?: $Enums.ClientTrainingPlanAssignmentStatus
 }
 
+export type ClientTrainingPlanAssignmentCreateNestedOneWithoutSessionLogsInput = {
+  create?: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentCreateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedCreateWithoutSessionLogsInput>
+  connectOrCreate?: Prisma.ClientTrainingPlanAssignmentCreateOrConnectWithoutSessionLogsInput
+  connect?: Prisma.ClientTrainingPlanAssignmentWhereUniqueInput
+}
+
+export type ClientTrainingPlanAssignmentUpdateOneRequiredWithoutSessionLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentCreateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedCreateWithoutSessionLogsInput>
+  connectOrCreate?: Prisma.ClientTrainingPlanAssignmentCreateOrConnectWithoutSessionLogsInput
+  upsert?: Prisma.ClientTrainingPlanAssignmentUpsertWithoutSessionLogsInput
+  connect?: Prisma.ClientTrainingPlanAssignmentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientTrainingPlanAssignmentUpdateToOneWithWhereWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUpdateWithoutSessionLogsInput>, Prisma.ClientTrainingPlanAssignmentUncheckedUpdateWithoutSessionLogsInput>
+}
+
 export type ClientTrainingPlanAssignmentCreateWithoutAssignedByInput = {
   id?: string
   startDate: Date | string
@@ -615,6 +641,7 @@ export type ClientTrainingPlanAssignmentCreateWithoutAssignedByInput = {
   client: Prisma.ClientCreateNestedOneWithoutPlanAssignmentsInput
   sourcePlan: Prisma.TrainingPlanCreateNestedOneWithoutSourceAssignmentsInput
   assignedPlan: Prisma.TrainingPlanCreateNestedOneWithoutAssignedAssignmentsInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedCreateWithoutAssignedByInput = {
@@ -627,6 +654,7 @@ export type ClientTrainingPlanAssignmentUncheckedCreateWithoutAssignedByInput = 
   status?: $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentCreateOrConnectWithoutAssignedByInput = {
@@ -681,6 +709,7 @@ export type ClientTrainingPlanAssignmentCreateWithoutClientInput = {
   sourcePlan: Prisma.TrainingPlanCreateNestedOneWithoutSourceAssignmentsInput
   assignedPlan: Prisma.TrainingPlanCreateNestedOneWithoutAssignedAssignmentsInput
   assignedBy: Prisma.OrganizationMemberCreateNestedOneWithoutCreatedPlanAssignmentsInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedCreateWithoutClientInput = {
@@ -693,6 +722,7 @@ export type ClientTrainingPlanAssignmentUncheckedCreateWithoutClientInput = {
   status?: $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentCreateOrConnectWithoutClientInput = {
@@ -731,6 +761,7 @@ export type ClientTrainingPlanAssignmentCreateWithoutSourcePlanInput = {
   client: Prisma.ClientCreateNestedOneWithoutPlanAssignmentsInput
   assignedPlan: Prisma.TrainingPlanCreateNestedOneWithoutAssignedAssignmentsInput
   assignedBy: Prisma.OrganizationMemberCreateNestedOneWithoutCreatedPlanAssignmentsInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedCreateWithoutSourcePlanInput = {
@@ -743,6 +774,7 @@ export type ClientTrainingPlanAssignmentUncheckedCreateWithoutSourcePlanInput = 
   status?: $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentCreateOrConnectWithoutSourcePlanInput = {
@@ -765,6 +797,7 @@ export type ClientTrainingPlanAssignmentCreateWithoutAssignedPlanInput = {
   client: Prisma.ClientCreateNestedOneWithoutPlanAssignmentsInput
   sourcePlan: Prisma.TrainingPlanCreateNestedOneWithoutSourceAssignmentsInput
   assignedBy: Prisma.OrganizationMemberCreateNestedOneWithoutCreatedPlanAssignmentsInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedCreateWithoutAssignedPlanInput = {
@@ -777,6 +810,7 @@ export type ClientTrainingPlanAssignmentUncheckedCreateWithoutAssignedPlanInput 
   status?: $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutAssignmentInput
 }
 
 export type ClientTrainingPlanAssignmentCreateOrConnectWithoutAssignedPlanInput = {
@@ -821,6 +855,74 @@ export type ClientTrainingPlanAssignmentUpdateManyWithWhereWithoutAssignedPlanIn
   data: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentUpdateManyMutationInput, Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedPlanInput>
 }
 
+export type ClientTrainingPlanAssignmentCreateWithoutSessionLogsInput = {
+  id?: string
+  startDate: Date | string
+  endedAt?: Date | string | null
+  status?: $Enums.ClientTrainingPlanAssignmentStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  client: Prisma.ClientCreateNestedOneWithoutPlanAssignmentsInput
+  sourcePlan: Prisma.TrainingPlanCreateNestedOneWithoutSourceAssignmentsInput
+  assignedPlan: Prisma.TrainingPlanCreateNestedOneWithoutAssignedAssignmentsInput
+  assignedBy: Prisma.OrganizationMemberCreateNestedOneWithoutCreatedPlanAssignmentsInput
+}
+
+export type ClientTrainingPlanAssignmentUncheckedCreateWithoutSessionLogsInput = {
+  id?: string
+  clientId: string
+  sourceTrainingPlanId: string
+  assignedPlanId: string
+  assignedByMemberId: string
+  startDate: Date | string
+  endedAt?: Date | string | null
+  status?: $Enums.ClientTrainingPlanAssignmentStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ClientTrainingPlanAssignmentCreateOrConnectWithoutSessionLogsInput = {
+  where: Prisma.ClientTrainingPlanAssignmentWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentCreateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedCreateWithoutSessionLogsInput>
+}
+
+export type ClientTrainingPlanAssignmentUpsertWithoutSessionLogsInput = {
+  update: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentUpdateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedUpdateWithoutSessionLogsInput>
+  create: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentCreateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedCreateWithoutSessionLogsInput>
+  where?: Prisma.ClientTrainingPlanAssignmentWhereInput
+}
+
+export type ClientTrainingPlanAssignmentUpdateToOneWithWhereWithoutSessionLogsInput = {
+  where?: Prisma.ClientTrainingPlanAssignmentWhereInput
+  data: Prisma.XOR<Prisma.ClientTrainingPlanAssignmentUpdateWithoutSessionLogsInput, Prisma.ClientTrainingPlanAssignmentUncheckedUpdateWithoutSessionLogsInput>
+}
+
+export type ClientTrainingPlanAssignmentUpdateWithoutSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  client?: Prisma.ClientUpdateOneRequiredWithoutPlanAssignmentsNestedInput
+  sourcePlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutSourceAssignmentsNestedInput
+  assignedPlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutAssignedAssignmentsNestedInput
+  assignedBy?: Prisma.OrganizationMemberUpdateOneRequiredWithoutCreatedPlanAssignmentsNestedInput
+}
+
+export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceTrainingPlanId?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedPlanId?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedByMemberId?: Prisma.StringFieldUpdateOperationsInput | string
+  startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type ClientTrainingPlanAssignmentCreateManyAssignedByInput = {
   id?: string
   clientId: string
@@ -843,6 +945,7 @@ export type ClientTrainingPlanAssignmentUpdateWithoutAssignedByInput = {
   client?: Prisma.ClientUpdateOneRequiredWithoutPlanAssignmentsNestedInput
   sourcePlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutSourceAssignmentsNestedInput
   assignedPlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutAssignedAssignmentsNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutAssignedByInput = {
@@ -855,6 +958,7 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutAssignedByInput = 
   status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByInput = {
@@ -891,6 +995,7 @@ export type ClientTrainingPlanAssignmentUpdateWithoutClientInput = {
   sourcePlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutSourceAssignmentsNestedInput
   assignedPlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutAssignedAssignmentsNestedInput
   assignedBy?: Prisma.OrganizationMemberUpdateOneRequiredWithoutCreatedPlanAssignmentsNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutClientInput = {
@@ -903,6 +1008,7 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutClientInput = {
   status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientInput = {
@@ -951,6 +1057,7 @@ export type ClientTrainingPlanAssignmentUpdateWithoutSourcePlanInput = {
   client?: Prisma.ClientUpdateOneRequiredWithoutPlanAssignmentsNestedInput
   assignedPlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutAssignedAssignmentsNestedInput
   assignedBy?: Prisma.OrganizationMemberUpdateOneRequiredWithoutCreatedPlanAssignmentsNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutSourcePlanInput = {
@@ -963,6 +1070,7 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutSourcePlanInput = 
   status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutSourcePlanInput = {
@@ -987,6 +1095,7 @@ export type ClientTrainingPlanAssignmentUpdateWithoutAssignedPlanInput = {
   client?: Prisma.ClientUpdateOneRequiredWithoutPlanAssignmentsNestedInput
   sourcePlan?: Prisma.TrainingPlanUpdateOneRequiredWithoutSourceAssignmentsNestedInput
   assignedBy?: Prisma.OrganizationMemberUpdateOneRequiredWithoutCreatedPlanAssignmentsNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutAssignedPlanInput = {
@@ -999,6 +1108,7 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateWithoutAssignedPlanInput 
   status?: Prisma.EnumClientTrainingPlanAssignmentStatusFieldUpdateOperationsInput | $Enums.ClientTrainingPlanAssignmentStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutAssignmentNestedInput
 }
 
 export type ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedPlanInput = {
@@ -1013,6 +1123,35 @@ export type ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedPlanIn
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+
+/**
+ * Count Type ClientTrainingPlanAssignmentCountOutputType
+ */
+
+export type ClientTrainingPlanAssignmentCountOutputType = {
+  sessionLogs: number
+}
+
+export type ClientTrainingPlanAssignmentCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  sessionLogs?: boolean | ClientTrainingPlanAssignmentCountOutputTypeCountSessionLogsArgs
+}
+
+/**
+ * ClientTrainingPlanAssignmentCountOutputType without action
+ */
+export type ClientTrainingPlanAssignmentCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientTrainingPlanAssignmentCountOutputType
+   */
+  select?: Prisma.ClientTrainingPlanAssignmentCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ClientTrainingPlanAssignmentCountOutputType without action
+ */
+export type ClientTrainingPlanAssignmentCountOutputTypeCountSessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientSessionLogWhereInput
+}
 
 
 export type ClientTrainingPlanAssignmentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1030,6 +1169,8 @@ export type ClientTrainingPlanAssignmentSelect<ExtArgs extends runtime.Types.Ext
   sourcePlan?: boolean | Prisma.TrainingPlanDefaultArgs<ExtArgs>
   assignedPlan?: boolean | Prisma.TrainingPlanDefaultArgs<ExtArgs>
   assignedBy?: boolean | Prisma.OrganizationMemberDefaultArgs<ExtArgs>
+  sessionLogs?: boolean | Prisma.ClientTrainingPlanAssignment$sessionLogsArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientTrainingPlanAssignmentCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["clientTrainingPlanAssignment"]>
 
 export type ClientTrainingPlanAssignmentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1085,6 +1226,8 @@ export type ClientTrainingPlanAssignmentInclude<ExtArgs extends runtime.Types.Ex
   sourcePlan?: boolean | Prisma.TrainingPlanDefaultArgs<ExtArgs>
   assignedPlan?: boolean | Prisma.TrainingPlanDefaultArgs<ExtArgs>
   assignedBy?: boolean | Prisma.OrganizationMemberDefaultArgs<ExtArgs>
+  sessionLogs?: boolean | Prisma.ClientTrainingPlanAssignment$sessionLogsArgs<ExtArgs>
+  _count?: boolean | Prisma.ClientTrainingPlanAssignmentCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientTrainingPlanAssignmentIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
@@ -1106,6 +1249,7 @@ export type $ClientTrainingPlanAssignmentPayload<ExtArgs extends runtime.Types.E
     sourcePlan: Prisma.$TrainingPlanPayload<ExtArgs>
     assignedPlan: Prisma.$TrainingPlanPayload<ExtArgs>
     assignedBy: Prisma.$OrganizationMemberPayload<ExtArgs>
+    sessionLogs: Prisma.$ClientSessionLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1516,6 +1660,7 @@ export interface Prisma__ClientTrainingPlanAssignmentClient<T, Null = never, Ext
   sourcePlan<T extends Prisma.TrainingPlanDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TrainingPlanDefaultArgs<ExtArgs>>): Prisma.Prisma__TrainingPlanClient<runtime.Types.Result.GetResult<Prisma.$TrainingPlanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   assignedPlan<T extends Prisma.TrainingPlanDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TrainingPlanDefaultArgs<ExtArgs>>): Prisma.Prisma__TrainingPlanClient<runtime.Types.Result.GetResult<Prisma.$TrainingPlanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   assignedBy<T extends Prisma.OrganizationMemberDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMemberDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationMemberClient<runtime.Types.Result.GetResult<Prisma.$OrganizationMemberPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  sessionLogs<T extends Prisma.ClientTrainingPlanAssignment$sessionLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ClientTrainingPlanAssignment$sessionLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientSessionLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1953,6 +2098,30 @@ export type ClientTrainingPlanAssignmentDeleteManyArgs<ExtArgs extends runtime.T
    * Limit how many ClientTrainingPlanAssignments to delete.
    */
   limit?: number
+}
+
+/**
+ * ClientTrainingPlanAssignment.sessionLogs
+ */
+export type ClientTrainingPlanAssignment$sessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientSessionLog
+   */
+  select?: Prisma.ClientSessionLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClientSessionLog
+   */
+  omit?: Prisma.ClientSessionLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientSessionLogInclude<ExtArgs> | null
+  where?: Prisma.ClientSessionLogWhereInput
+  orderBy?: Prisma.ClientSessionLogOrderByWithRelationInput | Prisma.ClientSessionLogOrderByWithRelationInput[]
+  cursor?: Prisma.ClientSessionLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientSessionLogScalarFieldEnum | Prisma.ClientSessionLogScalarFieldEnum[]
 }
 
 /**

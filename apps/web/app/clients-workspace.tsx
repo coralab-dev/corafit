@@ -532,7 +532,7 @@ function ClientQuickPanel({
   onEndPlan: () => void;
 }) {
   const hasPlan = Boolean(assignment?.assignedPlan);
-
+ /* hola */
   return (
     <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
       <div className="flex flex-col gap-2 p-4">

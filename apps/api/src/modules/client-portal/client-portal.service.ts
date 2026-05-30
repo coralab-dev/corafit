@@ -116,6 +116,44 @@ export type ClientPortalCalendarResult = {
   };
 };
 
+type ClientPortalCalendarDay = NonNullable<ClientPortalCalendarResult['calendar']>['days'][number];
+
+export type ClientPortalHomeResult = {
+  state: Exclude<CalendarState, 'outside_plan'>;
+  timezone: string;
+  client: ClientPortalCalendarResult['client'];
+  currentPlan: null | {
+    assignmentId: string;
+    status: string;
+    startDate: Date;
+    endedAt: Date | null;
+    id: string;
+    name: string;
+    durationWeeks: number;
+  };
+  week: null | {
+    weekNumber: number;
+    weekStartDate: string;
+    weekEndDate: string;
+    summary: {
+      totalTrainingSessions: number;
+      completedSessions: number;
+      pendingSessions: number;
+      openedSessions: number;
+      restDays: number;
+    };
+  };
+  todaySession: ClientPortalCalendarDay | null;
+  nextPendingSession: ClientPortalCalendarDay | null;
+  latestSession: ClientPortalCalendarDay | null;
+  calendarLink: {
+    href: string;
+    query: {
+      date: string;
+    };
+  };
+};
+
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -310,6 +348,48 @@ export class ClientPortalService {
           };
         }),
       },
+    };
+  }
+
+  async getHome(
+    access: ClientAccess & { client: Client },
+    token: string,
+  ): Promise<ClientPortalHomeResult> {
+    const calendarResult = await this.getCalendar(access);
+    const calendarDate = calendarResult.calendar?.today
+      ?? this.toLocalDateKey(this.getCurrentDate(), calendarResult.timezone);
+
+    if (!calendarResult.calendar) {
+      return {
+        state: this.toHomeState(calendarResult.state),
+        timezone: calendarResult.timezone,
+        client: calendarResult.client,
+        currentPlan: this.toHomePlan(calendarResult.assignment),
+        week: null,
+        todaySession: null,
+        nextPendingSession: null,
+        latestSession: null,
+        calendarLink: this.toCalendarLink(token, calendarDate),
+      };
+    }
+
+    const days = calendarResult.calendar.days;
+
+    return {
+      state: this.toHomeState(calendarResult.state),
+      timezone: calendarResult.timezone,
+      client: calendarResult.client,
+      currentPlan: this.toHomePlan(calendarResult.assignment),
+      week: {
+        weekNumber: calendarResult.calendar.weekNumber,
+        weekStartDate: calendarResult.calendar.weekStartDate,
+        weekEndDate: calendarResult.calendar.weekEndDate,
+        summary: this.summarizeCalendarWeek(days),
+      },
+      todaySession: days.find((day) => day.date === calendarResult.calendar?.today) ?? null,
+      nextPendingSession: this.findNextPendingSession(days, calendarResult.calendar.today),
+      latestSession: this.findLatestSession(days),
+      calendarLink: this.toCalendarLink(token, calendarDate),
     };
   }
 
@@ -596,6 +676,100 @@ export class ClientPortalService {
         name: assignment.assignedPlan.name,
         durationWeeks: assignment.assignedPlan.durationWeeks,
       },
+    };
+  }
+
+  private toHomeState(state: CalendarState): ClientPortalHomeResult['state'] {
+    return state === 'outside_plan' ? 'plan_finished' : state;
+  }
+
+  private toHomePlan(assignment: ClientPortalCalendarResult['assignment']) {
+    if (!assignment) {
+      return null;
+    }
+
+    return {
+      assignmentId: assignment.id,
+      status: assignment.status,
+      startDate: assignment.startDate,
+      endedAt: assignment.endedAt,
+      id: assignment.assignedPlan.id,
+      name: assignment.assignedPlan.name,
+      durationWeeks: assignment.assignedPlan.durationWeeks,
+    };
+  }
+
+  private summarizeCalendarWeek(days: ClientPortalCalendarDay[]) {
+    return days.reduce(
+      (summary, day) => {
+        if (day.session) {
+          summary.totalTrainingSessions += 1;
+        }
+
+        if (day.dayType === TrainingDayType.rest) {
+          summary.restDays += 1;
+        }
+
+        if (
+          day.status === ClientSessionStatus.completed ||
+          day.status === ClientSessionStatus.partially_completed
+        ) {
+          summary.completedSessions += 1;
+        }
+
+        if (day.status === 'pending' || day.status === 'overdue') {
+          summary.pendingSessions += 1;
+        }
+
+        if (
+          day.status === ClientSessionStatus.opened ||
+          day.status === ClientSessionStatus.in_progress
+        ) {
+          summary.openedSessions += 1;
+        }
+
+        return summary;
+      },
+      {
+        totalTrainingSessions: 0,
+        completedSessions: 0,
+        pendingSessions: 0,
+        openedSessions: 0,
+        restDays: 0,
+      },
+    );
+  }
+
+  private findNextPendingSession(days: ClientPortalCalendarDay[], today: string) {
+    const openableOrUpcoming = days.find(
+      (day) =>
+        day.session &&
+        day.date >= today &&
+        (day.status === 'pending' || day.status === 'overdue'),
+    );
+
+    return openableOrUpcoming ?? days.find(
+      (day) => day.session && (day.status === 'pending' || day.status === 'overdue'),
+    ) ?? null;
+  }
+
+  private findLatestSession(days: ClientPortalCalendarDay[]) {
+    return [...days].reverse().find(
+      (day) =>
+        day.log &&
+        (
+          day.log.status === ClientSessionStatus.opened ||
+          day.log.status === ClientSessionStatus.in_progress ||
+          day.log.status === ClientSessionStatus.completed ||
+          day.log.status === ClientSessionStatus.partially_completed
+        ),
+    ) ?? null;
+  }
+
+  private toCalendarLink(token: string, date: string) {
+    return {
+      href: `/client-portal/${encodeURIComponent(token)}/calendar`,
+      query: { date },
     };
   }
 

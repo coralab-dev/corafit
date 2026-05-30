@@ -47,6 +47,15 @@ export class ClientPortalController {
   }
 
   @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/home')
+  getHome(
+    @Param('token') token: string,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.clientPortalService.getHome(request.clientPortalAccess!, token);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
   @Get(':token/calendar')
   getCalendar(
     @Query() query: ClientPortalCalendarQuery,

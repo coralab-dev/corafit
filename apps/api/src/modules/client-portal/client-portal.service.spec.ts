@@ -552,6 +552,160 @@ describe('ClientPortalService', () => {
     expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
   });
 
+  it('returns a controlled home state when the client has no plan', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-29T18:00:00.000Z'));
+
+    try {
+      const result = await service.getHome(createAccess(), 'plain-token');
+
+      expect(result).toMatchObject({
+        state: 'no_plan',
+        client: { id: 'client-id', name: 'Client One' },
+        currentPlan: null,
+        week: null,
+        todaySession: null,
+        nextPendingSession: null,
+        latestSession: null,
+        calendarLink: {
+          href: '/client-portal/plain-token/calendar',
+          query: { date: '2026-05-29' },
+        },
+      });
+      expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns the current plan and week summary for an active home', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    try {
+      const result = await service.getHome(createAccess(), 'plain-token');
+
+      expect(result).toMatchObject({
+        state: 'active',
+        currentPlan: {
+          assignmentId: 'assignment-id',
+          status: ClientTrainingPlanAssignmentStatus.active,
+          id: 'assigned-plan-id',
+          name: 'Assigned Plan',
+          durationWeeks: 4,
+        },
+        week: {
+          weekNumber: 1,
+          weekStartDate: '2026-05-18',
+          weekEndDate: '2026-05-24',
+          summary: {
+            totalTrainingSessions: 3,
+            completedSessions: 0,
+            pendingSessions: 3,
+            openedSessions: 0,
+            restDays: 4,
+          },
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns today pending session when today has no log yet', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    try {
+      const result = await service.getHome(createAccess(), 'plain-token');
+
+      expect(result.todaySession).toMatchObject({
+        date: '2026-05-20',
+        status: 'pending',
+        canOpen: true,
+        session: {
+          id: 'session-wednesday',
+          name: 'wednesday session',
+        },
+        log: null,
+      });
+      expect(result.nextPendingSession).toMatchObject({
+        date: '2026-05-20',
+        status: 'pending',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reflects today opened session and latest session on home', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createSessionLog({
+        id: 'today-log-id',
+        trainingSessionId: 'session-wednesday',
+        scheduledDate: new Date(Date.UTC(2026, 4, 20)),
+        status: ClientSessionStatus.opened,
+        openedAt: new Date('2026-05-20T15:00:00.000Z'),
+        completedAt: null,
+      }),
+    ]);
+
+    try {
+      const result = await service.getHome(createAccess(), 'plain-token');
+
+      expect(result.todaySession).toMatchObject({
+        date: '2026-05-20',
+        status: ClientSessionStatus.opened,
+        log: {
+          id: 'today-log-id',
+          status: ClientSessionStatus.opened,
+        },
+      });
+      expect(result.latestSession).toMatchObject({
+        date: '2026-05-20',
+        status: ClientSessionStatus.opened,
+        log: {
+          id: 'today-log-id',
+        },
+      });
+      expect(result.week?.summary.openedSessions).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns a controlled home state when the plan has finished', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        createAssignment({
+          status: ClientTrainingPlanAssignmentStatus.finished,
+          endedAt: new Date('2026-05-25T00:00:00.000Z'),
+        }),
+      );
+
+    const result = await service.getHome(createAccess(), 'plain-token');
+
+    expect(result).toMatchObject({
+      state: 'plan_finished',
+      currentPlan: {
+        assignmentId: 'assignment-id',
+        status: ClientTrainingPlanAssignmentStatus.finished,
+        id: 'assigned-plan-id',
+        name: 'Assigned Plan',
+      },
+      week: null,
+      todaySession: null,
+      nextPendingSession: null,
+      latestSession: null,
+    });
+  });
+
   it('rejects invalid reference dates', async () => {
     await expect(
       service.getCalendar(createAccess(), { date: '2026-5-20' }),

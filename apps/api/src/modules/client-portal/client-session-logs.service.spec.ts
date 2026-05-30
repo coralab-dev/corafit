@@ -263,6 +263,29 @@ describe('ClientSessionLogsService', () => {
     expect(snapshotService.buildSnapshotForSession).not.toHaveBeenCalled();
   });
 
+  it('open returns an existing log when concurrent creation hits the unique constraint', async () => {
+    const existingLog = createLog({ status: ClientSessionStatus.opened });
+    prismaService.clientSessionLog.create.mockRejectedValueOnce({ code: 'P2002' });
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingLog);
+
+    const result = await service.openSession(createAccess(), {
+      trainingSessionId: 'session-1',
+      scheduledDate: '2026-05-20',
+    });
+
+    expect(result.id).toBe('log-id');
+    expect(prismaService.clientSessionLog.findFirst).toHaveBeenLastCalledWith({
+      where: {
+        clientId: 'client-id',
+        assignmentId: 'assignment-id',
+        trainingSessionId: 'session-1',
+        scheduledDate: new Date(Date.UTC(2026, 4, 20)),
+      },
+    });
+  });
+
   it('does not allow opening a future session', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
@@ -408,7 +431,7 @@ describe('ClientSessionLogsService', () => {
     );
   });
 
-  it('completion-card returns summary and assignment streak', async () => {
+  it('completion-card returns summary and assignment streak at the scheduled session', async () => {
     prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
       createLog({
         status: ClientSessionStatus.completed,
@@ -422,6 +445,11 @@ describe('ClientSessionLogsService', () => {
       }),
     );
     prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({
+        id: 'future-open-log',
+        status: ClientSessionStatus.opened,
+        scheduledDate: new Date(Date.UTC(2026, 4, 22)),
+      }),
       createLog({
         id: 'previous-log',
         status: ClientSessionStatus.completed,
@@ -441,6 +469,16 @@ describe('ClientSessionLogsService', () => {
 
     const result = await service.getCompletionCard(createAccess(), 'log-id');
 
+    expect(prismaService.clientSessionLog.findMany).toHaveBeenCalledWith({
+      where: {
+        clientId: 'client-id',
+        assignmentId: 'assignment-id',
+        scheduledDate: {
+          lte: new Date(Date.UTC(2026, 4, 20)),
+        },
+      },
+      orderBy: { scheduledDate: 'desc' },
+    });
     expect(result).toEqual({
       sessionName: 'Lower Body',
       scheduledDate: '2026-05-20',

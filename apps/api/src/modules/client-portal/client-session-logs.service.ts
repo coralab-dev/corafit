@@ -115,18 +115,39 @@ export class ClientSessionLogsService {
     }
 
     const snapshot = await this.snapshotService.buildSnapshotForSession(trainingSessionId);
-    const createdLog = await this.prismaService.clientSessionLog.create({
-      data: {
-        clientId: access.clientId,
-        assignmentId: assignment.id,
-        trainingSessionId,
-        scheduledDate,
-        status: ClientSessionStatus.opened,
-        snapshotData: snapshot,
-      },
-    });
+    try {
+      const createdLog = await this.prismaService.clientSessionLog.create({
+        data: {
+          clientId: access.clientId,
+          assignmentId: assignment.id,
+          trainingSessionId,
+          scheduledDate,
+          status: ClientSessionStatus.opened,
+          snapshotData: snapshot,
+        },
+      });
 
-    return this.serializeLog(createdLog);
+      return this.serializeLog(createdLog);
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const concurrentLog = await this.prismaService.clientSessionLog.findFirst({
+        where: {
+          clientId: access.clientId,
+          assignmentId: assignment.id,
+          trainingSessionId,
+          scheduledDate,
+        },
+      });
+
+      if (!concurrentLog) {
+        throw error;
+      }
+
+      return this.serializeLog(concurrentLog);
+    }
   }
 
   async getSessionLog(
@@ -245,6 +266,9 @@ export class ClientSessionLogsService {
       where: {
         clientId: access.clientId,
         assignmentId: log.assignmentId,
+        scheduledDate: {
+          lte: log.scheduledDate,
+        },
       },
       orderBy: { scheduledDate: 'desc' },
     });
@@ -256,7 +280,7 @@ export class ClientSessionLogsService {
       completedExercises,
       totalExercises,
       completionPercentage,
-      streak: this.calculateCompletedStreak(completedLogs),
+      streak: this.calculateCompletedStreak(completedLogs, log.scheduledDate),
     };
   }
 
@@ -393,8 +417,10 @@ export class ClientSessionLogsService {
     };
   }
 
-  private calculateCompletedStreak(logs: ClientSessionLog[]) {
-    const orderedLogs = [...logs].sort(
+  private calculateCompletedStreak(logs: ClientSessionLog[], anchorDate: Date) {
+    const orderedLogs = logs
+      .filter((log) => log.scheduledDate <= anchorDate)
+      .sort(
       (a, b) => b.scheduledDate.getTime() - a.scheduledDate.getTime(),
     );
     let streak = 0;
@@ -413,6 +439,15 @@ export class ClientSessionLogsService {
     return (
       status === ClientSessionStatus.completed ||
       status === ClientSessionStatus.partially_completed
+    );
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002'
     );
   }
 

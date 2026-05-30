@@ -192,9 +192,8 @@ export class ClientPortalService {
     }
 
     const timezone = client.organization?.timezone || DEFAULT_TIMEZONE;
-    const localToday = this.toLocalDateKey(new Date(), timezone);
-    const effectiveReferenceDate = referenceDate || localToday;
-    const today = effectiveReferenceDate;
+    const today = this.toLocalDateKey(this.getCurrentDate(), timezone);
+    const effectiveReferenceDate = referenceDate || today;
     const activeAssignment = await this.findCalendarAssignment(
       access.clientId,
       ClientTrainingPlanAssignmentStatus.active,
@@ -484,6 +483,10 @@ export class ClientPortalService {
     }
 
     return value;
+  }
+
+  private getCurrentDate() {
+    return new Date();
   }
 
   private toLocalDateKey(date: Date, timezone: string) {

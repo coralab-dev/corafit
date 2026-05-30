@@ -353,29 +353,35 @@ describe('ClientPortalService', () => {
   });
 
   it('calculates the current plan week from the assignment start date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
     prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
 
-    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    try {
+      const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
 
-    expect(result.state).toBe('active');
-    expect(result.calendar).toMatchObject({
-      referenceDate: '2026-05-20',
-      today: '2026-05-20',
-      weekNumber: 1,
-      weekStartDate: '2026-05-18',
-      weekEndDate: '2026-05-24',
-    });
-    expect(result.calendar?.days).toHaveLength(7);
-    expect(prismaService.clientSessionLog.findMany).toHaveBeenCalledWith({
-      where: {
-        clientId: 'client-id',
-        assignmentId: 'assignment-id',
-        scheduledDate: {
-          gte: new Date(Date.UTC(2026, 4, 18)),
-          lte: new Date(Date.UTC(2026, 4, 24)),
+      expect(result.state).toBe('active');
+      expect(result.calendar).toMatchObject({
+        referenceDate: '2026-05-20',
+        today: '2026-05-20',
+        weekNumber: 1,
+        weekStartDate: '2026-05-18',
+        weekEndDate: '2026-05-24',
+      });
+      expect(result.calendar?.days).toHaveLength(7);
+      expect(prismaService.clientSessionLog.findMany).toHaveBeenCalledWith({
+        where: {
+          clientId: 'client-id',
+          assignmentId: 'assignment-id',
+          scheduledDate: {
+            gte: new Date(Date.UTC(2026, 4, 18)),
+            lte: new Date(Date.UTC(2026, 4, 24)),
+          },
         },
-      },
-    });
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('marks days without a session as no_session', async () => {
@@ -394,36 +400,104 @@ describe('ClientPortalService', () => {
   });
 
   it('marks today sessions without logs as pending and openable', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
     prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
 
-    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
-    const wednesday = result.calendar?.days.find(
-      (day) => day.dayOfWeek === DayOfWeek.wednesday,
-    );
+    try {
+      const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+      const wednesday = result.calendar?.days.find(
+        (day) => day.dayOfWeek === DayOfWeek.wednesday,
+      );
 
-    expect(wednesday).toMatchObject({
-      date: '2026-05-20',
-      status: 'pending',
-      canOpen: true,
-      session: {
-        id: 'session-wednesday',
-        name: 'wednesday session',
-      },
-      log: null,
-    });
+      expect(wednesday).toMatchObject({
+        date: '2026-05-20',
+        status: 'pending',
+        canOpen: true,
+        session: {
+          id: 'session-wednesday',
+          name: 'wednesday session',
+        },
+        log: null,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('marks future sessions without logs as pending but not openable', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
     prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
 
-    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
-    const friday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.friday);
+    try {
+      const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+      const friday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.friday);
 
-    expect(friday).toMatchObject({
-      date: '2026-05-22',
-      status: 'pending',
-      canOpen: false,
-    });
+      expect(friday).toMatchObject({
+        date: '2026-05-22',
+        status: 'pending',
+        canOpen: false,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses query date only as reference date while comparing statuses against real today', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(
+      createAssignment({
+        assignedPlan: {
+          id: 'assigned-plan-id',
+          name: 'Assigned Plan',
+          durationWeeks: 4,
+          weeks: [
+            {
+              id: 'week-2',
+              trainingPlanId: 'assigned-plan-id',
+              weekNumber: 2,
+              notes: null,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              days: [
+                createPlanDay(DayOfWeek.monday, 1, createSession(DayOfWeek.monday)),
+                createPlanDay(DayOfWeek.wednesday, 3, createSession(DayOfWeek.wednesday)),
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    try {
+      const result = await service.getCalendar(createAccess(), { date: '2026-05-27' });
+      const monday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.monday);
+      const wednesday = result.calendar?.days.find(
+        (day) => day.dayOfWeek === DayOfWeek.wednesday,
+      );
+
+      expect(result.calendar).toMatchObject({
+        referenceDate: '2026-05-27',
+        today: '2026-05-20',
+        weekNumber: 2,
+        weekStartDate: '2026-05-25',
+        weekEndDate: '2026-05-31',
+      });
+      expect(monday).toMatchObject({
+        date: '2026-05-25',
+        status: 'pending',
+        canOpen: false,
+      });
+      expect(wednesday).toMatchObject({
+        date: '2026-05-27',
+        status: 'pending',
+        canOpen: false,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('marks past sessions without logs as overdue and openable', async () => {

@@ -6,12 +6,21 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import * as argon2 from 'argon2';
-import { ClientAccessStatus } from 'db';
+import {
+  ClientAccessStatus,
+  ClientSessionStatus,
+  ClientTrainingPlanAssignmentStatus,
+  DayOfWeek,
+  TrainingDayType,
+} from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ClientPortalService } from './client-portal.service';
 
 type PrismaServiceMock = {
+  client: {
+    findUnique: ReturnType<typeof vi.fn>;
+  };
   clientAccess: {
     findUnique: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -19,6 +28,12 @@ type PrismaServiceMock = {
   clientPortalSession: {
     create: ReturnType<typeof vi.fn>;
     updateMany: ReturnType<typeof vi.fn>;
+  };
+  clientSessionLog: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  clientTrainingPlanAssignment: {
+    findFirst: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -43,6 +58,120 @@ function createAccess(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function createClient(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'client-id',
+    organizationId: 'org-id',
+    assignedCoachMemberId: null,
+    name: 'Client One',
+    phone: null,
+    age: null,
+    sex: null,
+    clientType: 'online',
+    mainGoal: 'Strength',
+    heightCm: 170,
+    initialWeightKg: 70,
+    trainingLevel: null,
+    injuriesNotes: null,
+    generalNotes: null,
+    canRegisterWeight: false,
+    operationalStatus: 'active',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    organization: {
+      id: 'org-id',
+      name: 'Org',
+      timezone: 'America/Mexico_City',
+    },
+    ...overrides,
+  };
+}
+
+function createSession(dayOfWeek: DayOfWeek, overrides: Record<string, unknown> = {}) {
+  return {
+    id: `session-${dayOfWeek}`,
+    trainingPlanDayId: `day-${dayOfWeek}`,
+    name: `${dayOfWeek} session`,
+    description: null,
+    coachNote: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function createPlanDay(
+  dayOfWeek: DayOfWeek,
+  dayOrder: number,
+  session: ReturnType<typeof createSession> | null,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    id: `day-${dayOfWeek}`,
+    trainingPlanWeekId: 'week-1',
+    dayOfWeek,
+    dayOrder,
+    dayType: session ? TrainingDayType.training : TrainingDayType.rest,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    session,
+    ...overrides,
+  };
+}
+
+function createAssignment(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'assignment-id',
+    clientId: 'client-id',
+    sourceTrainingPlanId: 'template-plan-id',
+    assignedPlanId: 'assigned-plan-id',
+    assignedByMemberId: 'member-id',
+    startDate: new Date('2026-05-18T06:00:00.000Z'),
+    endedAt: null,
+    status: ClientTrainingPlanAssignmentStatus.active,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    assignedPlan: {
+      id: 'assigned-plan-id',
+      name: 'Assigned Plan',
+      durationWeeks: 4,
+      weeks: [
+        {
+          id: 'week-1',
+          trainingPlanId: 'assigned-plan-id',
+          weekNumber: 1,
+          notes: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          days: [
+            createPlanDay(DayOfWeek.monday, 1, createSession(DayOfWeek.monday)),
+            createPlanDay(DayOfWeek.wednesday, 3, createSession(DayOfWeek.wednesday)),
+            createPlanDay(DayOfWeek.friday, 5, createSession(DayOfWeek.friday)),
+          ],
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+function createSessionLog(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'log-id',
+    clientId: 'client-id',
+    assignmentId: 'assignment-id',
+    trainingSessionId: 'session-monday',
+    scheduledDate: new Date(Date.UTC(2026, 4, 18)),
+    status: ClientSessionStatus.completed,
+    snapshotData: null,
+    openedAt: new Date('2026-05-18T15:00:00.000Z'),
+    completedAt: new Date('2026-05-18T16:00:00.000Z'),
+    createdAt: new Date('2026-05-18T15:00:00.000Z'),
+    updatedAt: new Date('2026-05-18T16:00:00.000Z'),
+    ...overrides,
+  };
+}
+
 describe('ClientPortalService', () => {
   let prismaService: PrismaServiceMock;
   let service: ClientPortalService;
@@ -56,6 +185,9 @@ describe('ClientPortalService', () => {
       parallelism: 1,
     });
     prismaService = {
+      client: {
+        findUnique: vi.fn().mockResolvedValue(createClient()),
+      },
       clientAccess: {
         findUnique: vi.fn().mockResolvedValue(createAccess()),
         update: vi.fn().mockResolvedValue(createAccess({ failedAttempts: 1 })),
@@ -70,6 +202,12 @@ describe('ClientPortalService', () => {
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      clientSessionLog: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      clientTrainingPlanAssignment: {
+        findFirst: vi.fn().mockResolvedValue(null),
       },
     };
     service = new ClientPortalService(prismaService as unknown as PrismaService);
@@ -203,5 +341,148 @@ describe('ClientPortalService', () => {
     await service.logout(undefined);
 
     expect(prismaService.clientPortalSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('returns no_plan when the client has no assignments', async () => {
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+
+    expect(result.state).toBe('no_plan');
+    expect(result.assignment).toBeNull();
+    expect(result.calendar).toBeNull();
+    expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
+  });
+
+  it('calculates the current plan week from the assignment start date', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+
+    expect(result.state).toBe('active');
+    expect(result.calendar).toMatchObject({
+      referenceDate: '2026-05-20',
+      today: '2026-05-20',
+      weekNumber: 1,
+      weekStartDate: '2026-05-18',
+      weekEndDate: '2026-05-24',
+    });
+    expect(result.calendar?.days).toHaveLength(7);
+    expect(prismaService.clientSessionLog.findMany).toHaveBeenCalledWith({
+      where: {
+        clientId: 'client-id',
+        assignmentId: 'assignment-id',
+        scheduledDate: {
+          gte: new Date(Date.UTC(2026, 4, 18)),
+          lte: new Date(Date.UTC(2026, 4, 24)),
+        },
+      },
+    });
+  });
+
+  it('marks days without a session as no_session', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    const tuesday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.tuesday);
+
+    expect(tuesday).toMatchObject({
+      date: '2026-05-19',
+      status: 'no_session',
+      canOpen: false,
+      session: null,
+      log: null,
+    });
+  });
+
+  it('marks today sessions without logs as pending and openable', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    const wednesday = result.calendar?.days.find(
+      (day) => day.dayOfWeek === DayOfWeek.wednesday,
+    );
+
+    expect(wednesday).toMatchObject({
+      date: '2026-05-20',
+      status: 'pending',
+      canOpen: true,
+      session: {
+        id: 'session-wednesday',
+        name: 'wednesday session',
+      },
+      log: null,
+    });
+  });
+
+  it('marks future sessions without logs as pending but not openable', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    const friday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.friday);
+
+    expect(friday).toMatchObject({
+      date: '2026-05-22',
+      status: 'pending',
+      canOpen: false,
+    });
+  });
+
+  it('marks past sessions without logs as overdue and openable', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    const monday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.monday);
+
+    expect(monday).toMatchObject({
+      date: '2026-05-18',
+      status: 'overdue',
+      canOpen: true,
+    });
+  });
+
+  it('uses completed logs and prevents reopening completed sessions', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([createSessionLog()]);
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-20' });
+    const monday = result.calendar?.days.find((day) => day.dayOfWeek === DayOfWeek.monday);
+
+    expect(monday).toMatchObject({
+      date: '2026-05-18',
+      status: ClientSessionStatus.completed,
+      canOpen: false,
+      log: {
+        id: 'log-id',
+        status: ClientSessionStatus.completed,
+      },
+    });
+  });
+
+  it('returns plan_finished when there is no active assignment but a finished one exists', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        createAssignment({
+          status: ClientTrainingPlanAssignmentStatus.finished,
+          endedAt: new Date('2026-05-25T00:00:00.000Z'),
+        }),
+      );
+
+    const result = await service.getCalendar(createAccess(), { date: '2026-05-29' });
+
+    expect(result.state).toBe('plan_finished');
+    expect(result.calendar).toBeNull();
+    expect(result.assignment).toMatchObject({
+      id: 'assignment-id',
+      status: ClientTrainingPlanAssignmentStatus.finished,
+    });
+    expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid reference dates', async () => {
+    await expect(
+      service.getCalendar(createAccess(), { date: '2026-5-20' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaService.client.findUnique).not.toHaveBeenCalled();
   });
 });

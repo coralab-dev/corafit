@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { Public } from '../../common/auth/public.decorator';
@@ -7,6 +7,7 @@ import { ClientPortalAuthGuard } from './client-portal-auth.guard';
 import type { ClientPortalRequest } from './client-portal-request';
 import { ClientPortalService } from './client-portal.service';
 import type { VerifyPinDto } from './dto/verify-pin.dto';
+import type { ClientPortalCalendarQuery } from './client-portal.service';
 
 const SESSION_COOKIE_NAME = 'corafit_client_session';
 const SESSION_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
@@ -37,6 +38,15 @@ export class ClientPortalController {
       clientId: request.clientPortalAccess?.clientId,
       expiresAt: request.clientPortalSession?.expiresAt,
     };
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/calendar')
+  getCalendar(
+    @Query() query: ClientPortalCalendarQuery,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.clientPortalService.getCalendar(request.clientPortalAccess!, query);
   }
 
   @Post(':token/verify-pin')

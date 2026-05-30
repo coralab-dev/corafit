@@ -83,6 +83,16 @@ export type ClientSessionSnapshotV1 = {
       };
     }>;
   }>;
+  progress?: ClientSessionSnapshotProgress;
+};
+
+export type ClientSessionSnapshotProgress = {
+  completedExerciseIds: string[];
+  usedAlternatives: Array<{
+    sessionExerciseId: string;
+    alternativeId: string;
+    alternativeExerciseId: string;
+  }>;
 };
 
 @Injectable()
@@ -130,7 +140,8 @@ export class ClientSessionSnapshotService {
       this.isString(value.capturedAt) &&
       this.isSessionSnapshot(value.session) &&
       Array.isArray(value.exercises) &&
-      value.exercises.every((exercise) => this.isSessionExerciseSnapshot(exercise))
+      value.exercises.every((exercise) => this.isSessionExerciseSnapshot(exercise)) &&
+      (value.progress === undefined || this.isProgressSnapshot(value.progress))
     );
   }
 
@@ -227,6 +238,31 @@ export class ClientSessionSnapshotService {
       this.isString(value.alternativeExerciseId) &&
       this.isNullableString(value.note) &&
       this.isExerciseSnapshot(value.exercise)
+    );
+  }
+
+  private isProgressSnapshot(value: unknown) {
+    if (!this.isRecord(value)) {
+      return false;
+    }
+
+    return (
+      Array.isArray(value.completedExerciseIds) &&
+      value.completedExerciseIds.every((exerciseId) => this.isString(exerciseId)) &&
+      Array.isArray(value.usedAlternatives) &&
+      value.usedAlternatives.every((alternative) => this.isUsedAlternativeSnapshot(alternative))
+    );
+  }
+
+  private isUsedAlternativeSnapshot(value: unknown) {
+    if (!this.isRecord(value)) {
+      return false;
+    }
+
+    return (
+      this.isString(value.sessionExerciseId) &&
+      this.isString(value.alternativeId) &&
+      this.isString(value.alternativeExerciseId)
     );
   }
 

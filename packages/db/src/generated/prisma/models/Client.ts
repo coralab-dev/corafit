@@ -334,6 +334,7 @@ export type ClientWhereInput = {
   followUpNotes?: Prisma.FollowUpNoteListRelationFilter
   assignedPlans?: Prisma.TrainingPlanListRelationFilter
   planAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
+  sessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }
 
 export type ClientOrderByWithRelationInput = {
@@ -361,6 +362,7 @@ export type ClientOrderByWithRelationInput = {
   followUpNotes?: Prisma.FollowUpNoteOrderByRelationAggregateInput
   assignedPlans?: Prisma.TrainingPlanOrderByRelationAggregateInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentOrderByRelationAggregateInput
+  sessionLogs?: Prisma.ClientSessionLogOrderByRelationAggregateInput
 }
 
 export type ClientWhereUniqueInput = Prisma.AtLeast<{
@@ -391,6 +393,7 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   followUpNotes?: Prisma.FollowUpNoteListRelationFilter
   assignedPlans?: Prisma.TrainingPlanListRelationFilter
   planAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
+  sessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }, "id">
 
 export type ClientOrderByWithAggregationInput = {
@@ -466,6 +469,7 @@ export type ClientCreateInput = {
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateInput = {
@@ -491,6 +495,7 @@ export type ClientUncheckedCreateInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientUpdateInput = {
@@ -516,6 +521,7 @@ export type ClientUpdateInput = {
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateInput = {
@@ -541,6 +547,7 @@ export type ClientUncheckedUpdateInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateManyInput = {
@@ -869,6 +876,20 @@ export type ClientUpdateOneRequiredWithoutPlanAssignmentsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutPlanAssignmentsInput, Prisma.ClientUpdateWithoutPlanAssignmentsInput>, Prisma.ClientUncheckedUpdateWithoutPlanAssignmentsInput>
 }
 
+export type ClientCreateNestedOneWithoutSessionLogsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutSessionLogsInput, Prisma.ClientUncheckedCreateWithoutSessionLogsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutSessionLogsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutSessionLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutSessionLogsInput, Prisma.ClientUncheckedCreateWithoutSessionLogsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutSessionLogsInput
+  upsert?: Prisma.ClientUpsertWithoutSessionLogsInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutSessionLogsInput, Prisma.ClientUpdateWithoutSessionLogsInput>, Prisma.ClientUncheckedUpdateWithoutSessionLogsInput>
+}
+
 export type ClientCreateWithoutOrganizationInput = {
   id?: string
   name: string
@@ -891,6 +912,7 @@ export type ClientCreateWithoutOrganizationInput = {
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutOrganizationInput = {
@@ -915,6 +937,7 @@ export type ClientUncheckedCreateWithoutOrganizationInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutOrganizationInput = {
@@ -989,6 +1012,7 @@ export type ClientCreateWithoutAssignedCoachInput = {
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutAssignedCoachInput = {
@@ -1013,6 +1037,7 @@ export type ClientUncheckedCreateWithoutAssignedCoachInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutAssignedCoachInput = {
@@ -1063,6 +1088,7 @@ export type ClientCreateWithoutAccessInput = {
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutAccessInput = {
@@ -1087,6 +1113,7 @@ export type ClientUncheckedCreateWithoutAccessInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutAccessInput = {
@@ -1127,6 +1154,7 @@ export type ClientUpdateWithoutAccessInput = {
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutAccessInput = {
@@ -1151,6 +1179,7 @@ export type ClientUncheckedUpdateWithoutAccessInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutFollowUpNotesInput = {
@@ -1175,6 +1204,7 @@ export type ClientCreateWithoutFollowUpNotesInput = {
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutFollowUpNotesInput = {
@@ -1199,6 +1229,7 @@ export type ClientUncheckedCreateWithoutFollowUpNotesInput = {
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutFollowUpNotesInput = {
@@ -1239,6 +1270,7 @@ export type ClientUpdateWithoutFollowUpNotesInput = {
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutFollowUpNotesInput = {
@@ -1263,6 +1295,7 @@ export type ClientUncheckedUpdateWithoutFollowUpNotesInput = {
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutAssignedPlansInput = {
@@ -1287,6 +1320,7 @@ export type ClientCreateWithoutAssignedPlansInput = {
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutAssignedPlansInput = {
@@ -1311,6 +1345,7 @@ export type ClientUncheckedCreateWithoutAssignedPlansInput = {
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutAssignedPlansInput = {
@@ -1351,6 +1386,7 @@ export type ClientUpdateWithoutAssignedPlansInput = {
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutAssignedPlansInput = {
@@ -1375,6 +1411,7 @@ export type ClientUncheckedUpdateWithoutAssignedPlansInput = {
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateWithoutPlanAssignmentsInput = {
@@ -1399,6 +1436,7 @@ export type ClientCreateWithoutPlanAssignmentsInput = {
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
 
 export type ClientUncheckedCreateWithoutPlanAssignmentsInput = {
@@ -1423,6 +1461,7 @@ export type ClientUncheckedCreateWithoutPlanAssignmentsInput = {
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
 
 export type ClientCreateOrConnectWithoutPlanAssignmentsInput = {
@@ -1463,6 +1502,7 @@ export type ClientUpdateWithoutPlanAssignmentsInput = {
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutPlanAssignmentsInput = {
@@ -1487,6 +1527,123 @@ export type ClientUncheckedUpdateWithoutPlanAssignmentsInput = {
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutSessionLogsInput = {
+  id?: string
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
+  access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutSessionLogsInput = {
+  id?: string
+  organizationId: string
+  assignedCoachMemberId?: string | null
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutSessionLogsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutSessionLogsInput, Prisma.ClientUncheckedCreateWithoutSessionLogsInput>
+}
+
+export type ClientUpsertWithoutSessionLogsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutSessionLogsInput, Prisma.ClientUncheckedUpdateWithoutSessionLogsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutSessionLogsInput, Prisma.ClientUncheckedCreateWithoutSessionLogsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutSessionLogsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutSessionLogsInput, Prisma.ClientUncheckedUpdateWithoutSessionLogsInput>
+}
+
+export type ClientUpdateWithoutSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
+  access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedCoachMemberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientCreateManyOrganizationInput = {
@@ -1531,6 +1688,7 @@ export type ClientUpdateWithoutOrganizationInput = {
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutOrganizationInput = {
@@ -1555,6 +1713,7 @@ export type ClientUncheckedUpdateWithoutOrganizationInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutOrganizationInput = {
@@ -1619,6 +1778,7 @@ export type ClientUpdateWithoutAssignedCoachInput = {
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateWithoutAssignedCoachInput = {
@@ -1643,6 +1803,7 @@ export type ClientUncheckedUpdateWithoutAssignedCoachInput = {
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
 
 export type ClientUncheckedUpdateManyWithoutAssignedCoachInput = {
@@ -1674,12 +1835,14 @@ export type ClientCountOutputType = {
   followUpNotes: number
   assignedPlans: number
   planAssignments: number
+  sessionLogs: number
 }
 
 export type ClientCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   followUpNotes?: boolean | ClientCountOutputTypeCountFollowUpNotesArgs
   assignedPlans?: boolean | ClientCountOutputTypeCountAssignedPlansArgs
   planAssignments?: boolean | ClientCountOutputTypeCountPlanAssignmentsArgs
+  sessionLogs?: boolean | ClientCountOutputTypeCountSessionLogsArgs
 }
 
 /**
@@ -1713,6 +1876,13 @@ export type ClientCountOutputTypeCountPlanAssignmentsArgs<ExtArgs extends runtim
   where?: Prisma.ClientTrainingPlanAssignmentWhereInput
 }
 
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountSessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientSessionLogWhereInput
+}
+
 
 export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1739,6 +1909,7 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   followUpNotes?: boolean | Prisma.Client$followUpNotesArgs<ExtArgs>
   assignedPlans?: boolean | Prisma.Client$assignedPlansArgs<ExtArgs>
   planAssignments?: boolean | Prisma.Client$planAssignmentsArgs<ExtArgs>
+  sessionLogs?: boolean | Prisma.Client$sessionLogsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["client"]>
 
@@ -1817,6 +1988,7 @@ export type ClientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   followUpNotes?: boolean | Prisma.Client$followUpNotesArgs<ExtArgs>
   assignedPlans?: boolean | Prisma.Client$assignedPlansArgs<ExtArgs>
   planAssignments?: boolean | Prisma.Client$planAssignmentsArgs<ExtArgs>
+  sessionLogs?: boolean | Prisma.Client$sessionLogsArgs<ExtArgs>
   _count?: boolean | Prisma.ClientCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ClientIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1837,6 +2009,7 @@ export type $ClientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     followUpNotes: Prisma.$FollowUpNotePayload<ExtArgs>[]
     assignedPlans: Prisma.$TrainingPlanPayload<ExtArgs>[]
     planAssignments: Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>[]
+    sessionLogs: Prisma.$ClientSessionLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2257,6 +2430,7 @@ export interface Prisma__ClientClient<T, Null = never, ExtArgs extends runtime.T
   followUpNotes<T extends Prisma.Client$followUpNotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$followUpNotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   assignedPlans<T extends Prisma.Client$assignedPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$assignedPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TrainingPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   planAssignments<T extends Prisma.Client$planAssignmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$planAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sessionLogs<T extends Prisma.Client$sessionLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$sessionLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientSessionLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2812,6 +2986,30 @@ export type Client$planAssignmentsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.ClientTrainingPlanAssignmentScalarFieldEnum | Prisma.ClientTrainingPlanAssignmentScalarFieldEnum[]
+}
+
+/**
+ * Client.sessionLogs
+ */
+export type Client$sessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientSessionLog
+   */
+  select?: Prisma.ClientSessionLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClientSessionLog
+   */
+  omit?: Prisma.ClientSessionLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientSessionLogInclude<ExtArgs> | null
+  where?: Prisma.ClientSessionLogWhereInput
+  orderBy?: Prisma.ClientSessionLogOrderByWithRelationInput | Prisma.ClientSessionLogOrderByWithRelationInput[]
+  cursor?: Prisma.ClientSessionLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientSessionLogScalarFieldEnum | Prisma.ClientSessionLogScalarFieldEnum[]
 }
 
 /**

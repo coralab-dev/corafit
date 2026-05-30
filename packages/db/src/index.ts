@@ -2,6 +2,7 @@ export { PrismaClient } from './generated/prisma/client';
 export {
   ClientAccessStatus,
   ClientOperationalStatus,
+  ClientSessionStatus,
   ClientTrainingPlanAssignmentStatus,
   ClientType,
   DayOfWeek,
@@ -26,6 +27,7 @@ export type {
   Client,
   ClientAccess,
   ClientPortalSession,
+  ClientSessionLog,
   ClientTrainingPlanAssignment,
   Exercise,
   FollowUpNote,

@@ -200,6 +200,7 @@ export type TrainingSessionWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"TrainingSession"> | Date | string
   day?: Prisma.XOR<Prisma.TrainingPlanDayScalarRelationFilter, Prisma.TrainingPlanDayWhereInput>
   exercises?: Prisma.SessionExerciseListRelationFilter
+  clientSessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }
 
 export type TrainingSessionOrderByWithRelationInput = {
@@ -212,6 +213,7 @@ export type TrainingSessionOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   day?: Prisma.TrainingPlanDayOrderByWithRelationInput
   exercises?: Prisma.SessionExerciseOrderByRelationAggregateInput
+  clientSessionLogs?: Prisma.ClientSessionLogOrderByRelationAggregateInput
 }
 
 export type TrainingSessionWhereUniqueInput = Prisma.AtLeast<{
@@ -227,6 +229,7 @@ export type TrainingSessionWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"TrainingSession"> | Date | string
   day?: Prisma.XOR<Prisma.TrainingPlanDayScalarRelationFilter, Prisma.TrainingPlanDayWhereInput>
   exercises?: Prisma.SessionExerciseListRelationFilter
+  clientSessionLogs?: Prisma.ClientSessionLogListRelationFilter
 }, "id" | "trainingPlanDayId">
 
 export type TrainingSessionOrderByWithAggregationInput = {
@@ -264,6 +267,7 @@ export type TrainingSessionCreateInput = {
   updatedAt?: Date | string
   day: Prisma.TrainingPlanDayCreateNestedOneWithoutSessionInput
   exercises?: Prisma.SessionExerciseCreateNestedManyWithoutSessionInput
+  clientSessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionUncheckedCreateInput = {
@@ -275,6 +279,7 @@ export type TrainingSessionUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   exercises?: Prisma.SessionExerciseUncheckedCreateNestedManyWithoutSessionInput
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionUpdateInput = {
@@ -286,6 +291,7 @@ export type TrainingSessionUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   day?: Prisma.TrainingPlanDayUpdateOneRequiredWithoutSessionNestedInput
   exercises?: Prisma.SessionExerciseUpdateManyWithoutSessionNestedInput
+  clientSessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutTrainingSessionNestedInput
 }
 
 export type TrainingSessionUncheckedUpdateInput = {
@@ -297,6 +303,7 @@ export type TrainingSessionUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exercises?: Prisma.SessionExerciseUncheckedUpdateManyWithoutSessionNestedInput
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutTrainingSessionNestedInput
 }
 
 export type TrainingSessionCreateManyInput = {
@@ -414,6 +421,20 @@ export type TrainingSessionUpdateOneRequiredWithoutExercisesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TrainingSessionUpdateToOneWithWhereWithoutExercisesInput, Prisma.TrainingSessionUpdateWithoutExercisesInput>, Prisma.TrainingSessionUncheckedUpdateWithoutExercisesInput>
 }
 
+export type TrainingSessionCreateNestedOneWithoutClientSessionLogsInput = {
+  create?: Prisma.XOR<Prisma.TrainingSessionCreateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedCreateWithoutClientSessionLogsInput>
+  connectOrCreate?: Prisma.TrainingSessionCreateOrConnectWithoutClientSessionLogsInput
+  connect?: Prisma.TrainingSessionWhereUniqueInput
+}
+
+export type TrainingSessionUpdateOneRequiredWithoutClientSessionLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.TrainingSessionCreateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedCreateWithoutClientSessionLogsInput>
+  connectOrCreate?: Prisma.TrainingSessionCreateOrConnectWithoutClientSessionLogsInput
+  upsert?: Prisma.TrainingSessionUpsertWithoutClientSessionLogsInput
+  connect?: Prisma.TrainingSessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TrainingSessionUpdateToOneWithWhereWithoutClientSessionLogsInput, Prisma.TrainingSessionUpdateWithoutClientSessionLogsInput>, Prisma.TrainingSessionUncheckedUpdateWithoutClientSessionLogsInput>
+}
+
 export type TrainingSessionCreateWithoutDayInput = {
   id?: string
   name: string
@@ -422,6 +443,7 @@ export type TrainingSessionCreateWithoutDayInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   exercises?: Prisma.SessionExerciseCreateNestedManyWithoutSessionInput
+  clientSessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionUncheckedCreateWithoutDayInput = {
@@ -432,6 +454,7 @@ export type TrainingSessionUncheckedCreateWithoutDayInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   exercises?: Prisma.SessionExerciseUncheckedCreateNestedManyWithoutSessionInput
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionCreateOrConnectWithoutDayInput = {
@@ -458,6 +481,7 @@ export type TrainingSessionUpdateWithoutDayInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exercises?: Prisma.SessionExerciseUpdateManyWithoutSessionNestedInput
+  clientSessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutTrainingSessionNestedInput
 }
 
 export type TrainingSessionUncheckedUpdateWithoutDayInput = {
@@ -468,6 +492,7 @@ export type TrainingSessionUncheckedUpdateWithoutDayInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exercises?: Prisma.SessionExerciseUncheckedUpdateManyWithoutSessionNestedInput
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutTrainingSessionNestedInput
 }
 
 export type TrainingSessionCreateWithoutExercisesInput = {
@@ -478,6 +503,7 @@ export type TrainingSessionCreateWithoutExercisesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   day: Prisma.TrainingPlanDayCreateNestedOneWithoutSessionInput
+  clientSessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionUncheckedCreateWithoutExercisesInput = {
@@ -488,6 +514,7 @@ export type TrainingSessionUncheckedCreateWithoutExercisesInput = {
   coachNote?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutTrainingSessionInput
 }
 
 export type TrainingSessionCreateOrConnectWithoutExercisesInput = {
@@ -514,6 +541,7 @@ export type TrainingSessionUpdateWithoutExercisesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   day?: Prisma.TrainingPlanDayUpdateOneRequiredWithoutSessionNestedInput
+  clientSessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutTrainingSessionNestedInput
 }
 
 export type TrainingSessionUncheckedUpdateWithoutExercisesInput = {
@@ -524,6 +552,67 @@ export type TrainingSessionUncheckedUpdateWithoutExercisesInput = {
   coachNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientSessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutTrainingSessionNestedInput
+}
+
+export type TrainingSessionCreateWithoutClientSessionLogsInput = {
+  id?: string
+  name: string
+  description?: string | null
+  coachNote?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  day: Prisma.TrainingPlanDayCreateNestedOneWithoutSessionInput
+  exercises?: Prisma.SessionExerciseCreateNestedManyWithoutSessionInput
+}
+
+export type TrainingSessionUncheckedCreateWithoutClientSessionLogsInput = {
+  id?: string
+  trainingPlanDayId: string
+  name: string
+  description?: string | null
+  coachNote?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  exercises?: Prisma.SessionExerciseUncheckedCreateNestedManyWithoutSessionInput
+}
+
+export type TrainingSessionCreateOrConnectWithoutClientSessionLogsInput = {
+  where: Prisma.TrainingSessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.TrainingSessionCreateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedCreateWithoutClientSessionLogsInput>
+}
+
+export type TrainingSessionUpsertWithoutClientSessionLogsInput = {
+  update: Prisma.XOR<Prisma.TrainingSessionUpdateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedUpdateWithoutClientSessionLogsInput>
+  create: Prisma.XOR<Prisma.TrainingSessionCreateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedCreateWithoutClientSessionLogsInput>
+  where?: Prisma.TrainingSessionWhereInput
+}
+
+export type TrainingSessionUpdateToOneWithWhereWithoutClientSessionLogsInput = {
+  where?: Prisma.TrainingSessionWhereInput
+  data: Prisma.XOR<Prisma.TrainingSessionUpdateWithoutClientSessionLogsInput, Prisma.TrainingSessionUncheckedUpdateWithoutClientSessionLogsInput>
+}
+
+export type TrainingSessionUpdateWithoutClientSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coachNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  day?: Prisma.TrainingPlanDayUpdateOneRequiredWithoutSessionNestedInput
+  exercises?: Prisma.SessionExerciseUpdateManyWithoutSessionNestedInput
+}
+
+export type TrainingSessionUncheckedUpdateWithoutClientSessionLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  trainingPlanDayId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coachNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exercises?: Prisma.SessionExerciseUncheckedUpdateManyWithoutSessionNestedInput
 }
 
 
@@ -533,10 +622,12 @@ export type TrainingSessionUncheckedUpdateWithoutExercisesInput = {
 
 export type TrainingSessionCountOutputType = {
   exercises: number
+  clientSessionLogs: number
 }
 
 export type TrainingSessionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   exercises?: boolean | TrainingSessionCountOutputTypeCountExercisesArgs
+  clientSessionLogs?: boolean | TrainingSessionCountOutputTypeCountClientSessionLogsArgs
 }
 
 /**
@@ -556,6 +647,13 @@ export type TrainingSessionCountOutputTypeCountExercisesArgs<ExtArgs extends run
   where?: Prisma.SessionExerciseWhereInput
 }
 
+/**
+ * TrainingSessionCountOutputType without action
+ */
+export type TrainingSessionCountOutputTypeCountClientSessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClientSessionLogWhereInput
+}
+
 
 export type TrainingSessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -567,6 +665,7 @@ export type TrainingSessionSelect<ExtArgs extends runtime.Types.Extensions.Inter
   updatedAt?: boolean
   day?: boolean | Prisma.TrainingPlanDayDefaultArgs<ExtArgs>
   exercises?: boolean | Prisma.TrainingSession$exercisesArgs<ExtArgs>
+  clientSessionLogs?: boolean | Prisma.TrainingSession$clientSessionLogsArgs<ExtArgs>
   _count?: boolean | Prisma.TrainingSessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["trainingSession"]>
 
@@ -606,6 +705,7 @@ export type TrainingSessionOmit<ExtArgs extends runtime.Types.Extensions.Interna
 export type TrainingSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   day?: boolean | Prisma.TrainingPlanDayDefaultArgs<ExtArgs>
   exercises?: boolean | Prisma.TrainingSession$exercisesArgs<ExtArgs>
+  clientSessionLogs?: boolean | Prisma.TrainingSession$clientSessionLogsArgs<ExtArgs>
   _count?: boolean | Prisma.TrainingSessionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TrainingSessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -620,6 +720,7 @@ export type $TrainingSessionPayload<ExtArgs extends runtime.Types.Extensions.Int
   objects: {
     day: Prisma.$TrainingPlanDayPayload<ExtArgs>
     exercises: Prisma.$SessionExercisePayload<ExtArgs>[]
+    clientSessionLogs: Prisma.$ClientSessionLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1025,6 +1126,7 @@ export interface Prisma__TrainingSessionClient<T, Null = never, ExtArgs extends 
   readonly [Symbol.toStringTag]: "PrismaPromise"
   day<T extends Prisma.TrainingPlanDayDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TrainingPlanDayDefaultArgs<ExtArgs>>): Prisma.Prisma__TrainingPlanDayClient<runtime.Types.Result.GetResult<Prisma.$TrainingPlanDayPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   exercises<T extends Prisma.TrainingSession$exercisesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TrainingSession$exercisesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionExercisePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  clientSessionLogs<T extends Prisma.TrainingSession$clientSessionLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TrainingSession$clientSessionLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientSessionLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1483,6 +1585,30 @@ export type TrainingSession$exercisesArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.SessionExerciseScalarFieldEnum | Prisma.SessionExerciseScalarFieldEnum[]
+}
+
+/**
+ * TrainingSession.clientSessionLogs
+ */
+export type TrainingSession$clientSessionLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClientSessionLog
+   */
+  select?: Prisma.ClientSessionLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClientSessionLog
+   */
+  omit?: Prisma.ClientSessionLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClientSessionLogInclude<ExtArgs> | null
+  where?: Prisma.ClientSessionLogWhereInput
+  orderBy?: Prisma.ClientSessionLogOrderByWithRelationInput | Prisma.ClientSessionLogOrderByWithRelationInput[]
+  cursor?: Prisma.ClientSessionLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClientSessionLogScalarFieldEnum | Prisma.ClientSessionLogScalarFieldEnum[]
 }
 
 /**

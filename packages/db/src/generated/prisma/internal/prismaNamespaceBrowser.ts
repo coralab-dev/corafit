@@ -68,7 +68,8 @@ export const ModelName = {
   TrainingSession: 'TrainingSession',
   SessionExercise: 'SessionExercise',
   SessionExerciseAlternative: 'SessionExerciseAlternative',
-  ClientTrainingPlanAssignment: 'ClientTrainingPlanAssignment'
+  ClientTrainingPlanAssignment: 'ClientTrainingPlanAssignment',
+  ClientSessionLog: 'ClientSessionLog'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -366,6 +367,23 @@ export const ClientTrainingPlanAssignmentScalarFieldEnum = {
 } as const
 
 export type ClientTrainingPlanAssignmentScalarFieldEnum = (typeof ClientTrainingPlanAssignmentScalarFieldEnum)[keyof typeof ClientTrainingPlanAssignmentScalarFieldEnum]
+
+
+export const ClientSessionLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  assignmentId: 'assignmentId',
+  trainingSessionId: 'trainingSessionId',
+  scheduledDate: 'scheduledDate',
+  status: 'status',
+  snapshotData: 'snapshotData',
+  openedAt: 'openedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClientSessionLogScalarFieldEnum = (typeof ClientSessionLogScalarFieldEnum)[keyof typeof ClientSessionLogScalarFieldEnum]
 
 
 export const SortOrder = {

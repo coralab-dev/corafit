@@ -169,6 +169,7 @@ model Client {
   followUpNotes  FollowUpNote[]
   assignedPlans  TrainingPlan[]                     @relation("AssignedClient")
   planAssignments ClientTrainingPlanAssignment[]
+  sessionLogs    ClientSessionLog[]
 
   @@map("clients")
 }
@@ -330,6 +331,13 @@ enum ClientTrainingPlanAssignmentStatus {
   removed
 }
 
+enum ClientSessionStatus {
+  opened
+  in_progress
+  completed
+  partially_completed
+}
+
 model Exercise {
   id              String        @id @default(uuid())
   organizationId  String?       @map("organization_id")
@@ -426,8 +434,9 @@ model TrainingSession {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  day       TrainingPlanDay   @relation(fields: [trainingPlanDayId], references: [id], onDelete: Restrict)
-  exercises SessionExercise[]
+  day               TrainingPlanDay    @relation(fields: [trainingPlanDayId], references: [id], onDelete: Restrict)
+  exercises         SessionExercise[]
+  clientSessionLogs ClientSessionLog[]
 
   @@map("training_sessions")
 }
@@ -483,6 +492,32 @@ model ClientTrainingPlanAssignment {
   sourcePlan   TrainingPlan       @relation("AssignmentSource", fields: [sourceTrainingPlanId], references: [id], onDelete: Restrict)
   assignedPlan TrainingPlan       @relation("AssignmentCopy", fields: [assignedPlanId], references: [id], onDelete: Restrict)
   assignedBy   OrganizationMember @relation(fields: [assignedByMemberId], references: [id], onDelete: Restrict)
+  sessionLogs  ClientSessionLog[]
 
   @@map("client_training_plan_assignments")
+}
+
+model ClientSessionLog {
+  id                String              @id @default(uuid())
+  clientId          String              @map("client_id")
+  assignmentId      String              @map("assignment_id")
+  trainingSessionId String              @map("training_session_id")
+  scheduledDate     DateTime            @map("scheduled_date")
+  status            ClientSessionStatus @default(opened)
+  snapshotData      Json?               @map("snapshot_data")
+  openedAt          DateTime            @default(now()) @map("opened_at")
+  completedAt       DateTime?           @map("completed_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  client          Client                       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  assignment      ClientTrainingPlanAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  trainingSession TrainingSession              @relation(fields: [trainingSessionId], references: [id], onDelete: Restrict)
+
+  @@unique([clientId, assignmentId, trainingSessionId, scheduledDate])
+  @@index([clientId, scheduledDate])
+  @@index([assignmentId])
+  @@index([trainingSessionId])
+  @@index([status])
+  @@map("client_session_logs")
 }

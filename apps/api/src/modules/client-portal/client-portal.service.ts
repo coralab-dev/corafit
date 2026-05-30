@@ -160,16 +160,6 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RETRY_AFTER_SECONDS = LOCKOUT_MS / 1000;
 const DEFAULT_TIMEZONE = 'America/Mexico_City';
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const WEEK_DAYS: DayOfWeek[] = [
-  DayOfWeek.monday,
-  DayOfWeek.tuesday,
-  DayOfWeek.wednesday,
-  DayOfWeek.thursday,
-  DayOfWeek.friday,
-  DayOfWeek.saturday,
-  DayOfWeek.sunday,
-];
-
 @Injectable()
 export class ClientPortalService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -252,7 +242,7 @@ export class ClientPortalService {
       };
     }
 
-    const assignmentStartDate = this.toLocalDateKey(activeAssignment.startDate, timezone);
+    const assignmentStartDate = this.toDateKeyFromUtcDate(activeAssignment.startDate);
     const daysSinceStart = this.daysBetweenDateKeys(assignmentStartDate, effectiveReferenceDate);
 
     if (daysSinceStart < 0) {
@@ -312,8 +302,9 @@ export class ClientPortalService {
         weekNumber,
         weekStartDate,
         weekEndDate,
-        days: WEEK_DAYS.map((dayOfWeek, index) => {
+        days: Array.from({ length: 7 }, (_, index) => {
           const date = this.addDaysToDateKey(weekStartDate, index);
+          const dayOfWeek = this.getDayOfWeekFromDateKey(date);
           const planDay = planDaysByDayOfWeek.get(dayOfWeek);
           const session = planDay?.session || null;
           const log = session
@@ -619,6 +610,21 @@ export class ClientPortalService {
     const day = date.getUTCDate().toString().padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private getDayOfWeekFromDateKey(dateKey: string): DayOfWeek {
+    const day = this.toScheduledDate(dateKey).getUTCDay();
+    const map: Record<number, DayOfWeek> = {
+      0: DayOfWeek.sunday,
+      1: DayOfWeek.monday,
+      2: DayOfWeek.tuesday,
+      3: DayOfWeek.wednesday,
+      4: DayOfWeek.thursday,
+      5: DayOfWeek.friday,
+      6: DayOfWeek.saturday,
+    };
+
+    return map[day];
   }
 
   private getLogKey(trainingSessionId: string, dateKey: string) {

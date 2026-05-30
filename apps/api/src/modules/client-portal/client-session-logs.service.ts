@@ -94,7 +94,7 @@ export class ClientSessionLogsService {
     }
 
     const assignment = await this.getActiveAssignment(access.clientId);
-    const scheduledSession = this.findScheduledSession(assignment, scheduledDateKey, timezone);
+    const scheduledSession = this.findScheduledSession(assignment, scheduledDateKey);
 
     if (!scheduledSession || scheduledSession.id !== trainingSessionId) {
       throw new BadRequestException('Training session is not scheduled for this date');
@@ -355,9 +355,8 @@ export class ClientSessionLogsService {
   private findScheduledSession(
     assignment: AssignmentWithPlan,
     scheduledDateKey: string,
-    timezone: string,
   ) {
-    const assignmentStartDate = this.toLocalDateKey(assignment.startDate, timezone);
+    const assignmentStartDate = this.toDateKeyFromUtcDate(assignment.startDate);
     const daysSinceStart = this.daysBetweenDateKeys(assignmentStartDate, scheduledDateKey);
 
     if (daysSinceStart < 0) {

@@ -444,6 +444,64 @@ describe('ClientPortalService', () => {
     }
   });
 
+  it('keeps calendar dates aligned when the assignment starts mid-week', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-30T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(
+      createAssignment({
+        startDate: new Date('2026-05-29T00:00:00.000Z'),
+        assignedPlan: {
+          id: 'assigned-plan-id',
+          name: 'Assigned Plan',
+          durationWeeks: 4,
+          weeks: [
+            {
+              id: 'week-1',
+              trainingPlanId: 'assigned-plan-id',
+              weekNumber: 1,
+              notes: null,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              days: [
+                createPlanDay(DayOfWeek.friday, 5, createSession(DayOfWeek.friday)),
+                createPlanDay(DayOfWeek.saturday, 6, createSession(DayOfWeek.saturday)),
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    try {
+      const result = await service.getCalendar(createAccess(), { date: '2026-05-30' });
+
+      expect(result.calendar).toMatchObject({
+        weekNumber: 1,
+        weekStartDate: '2026-05-29',
+        weekEndDate: '2026-06-04',
+      });
+      expect(result.calendar?.days.slice(0, 3)).toMatchObject([
+        {
+          date: '2026-05-29',
+          dayOfWeek: DayOfWeek.friday,
+          session: { id: 'session-friday' },
+        },
+        {
+          date: '2026-05-30',
+          dayOfWeek: DayOfWeek.saturday,
+          session: { id: 'session-saturday' },
+        },
+        {
+          date: '2026-05-31',
+          dayOfWeek: DayOfWeek.sunday,
+          session: null,
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('uses query date only as reference date while comparing statuses against real today', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));

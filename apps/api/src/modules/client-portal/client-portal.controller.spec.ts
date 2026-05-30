@@ -11,14 +11,16 @@ import type { ClientPortalService } from './client-portal.service';
 import type { ClientSessionLogsService } from './client-session-logs.service';
 
 describe('ClientPortalController', () => {
-  function createController() {
+  function createController(nodeEnv = 'test') {
     const getHome = vi.fn().mockResolvedValue({ state: 'no_plan' });
+    const verifyPin = vi.fn();
     const clientPortalService = {
       getHome,
+      verifyPin,
     } as unknown as ClientPortalService;
     const clientSessionLogsService = {} as unknown as ClientSessionLogsService;
     const configService = {
-      get: vi.fn().mockReturnValue('test'),
+      get: vi.fn().mockReturnValue(nodeEnv),
     } as unknown as ConfigService<AppConfig, true>;
 
     return {
@@ -29,6 +31,8 @@ describe('ClientPortalController', () => {
       ),
       clientPortalService,
       getHome,
+      verifyPin,
+      configService,
     };
   }
 
@@ -62,5 +66,49 @@ describe('ClientPortalController', () => {
 
     await expect(controller.getHome('route-token', request)).resolves.toEqual({ state: 'no_plan' });
     expect(getHome).toHaveBeenCalledWith(access, 'route-token');
+  });
+
+  it('sets a cross-site secure session cookie in production after valid PIN', async () => {
+    const { controller, verifyPin } = createController('production');
+    verifyPin.mockResolvedValue({
+      success: true,
+      remainingAttempts: 5,
+      locked: false,
+      sessionToken: 'session-token',
+    });
+    const setHeader = vi.fn();
+
+    await controller.verifyPin(
+      'route-token',
+      { pin: '123456' },
+      { setHeader } as never,
+    );
+
+    expect(verifyPin).toHaveBeenCalledWith('route-token', { pin: '123456' });
+    const cookie = setHeader.mock.calls[0]?.[1] as string;
+    expect(cookie).toContain('Secure;');
+    expect(cookie).toContain('SameSite=None;');
+  });
+
+  it('sets a lax session cookie outside production', async () => {
+    const { controller, verifyPin } = createController('development');
+    verifyPin.mockResolvedValue({
+      success: true,
+      remainingAttempts: 5,
+      locked: false,
+      sessionToken: 'session-token',
+    });
+    const setHeader = vi.fn();
+
+    await controller.verifyPin(
+      'route-token',
+      { pin: '123456' },
+      { setHeader } as never,
+    );
+
+    expect(setHeader).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.stringContaining('SameSite=Lax;'),
+    );
   });
 });

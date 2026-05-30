@@ -168,16 +168,15 @@ export class ClientPortalController {
   }
 
   private serializeSessionCookie(value: string, maxAge: number) {
-    const secureAttribute =
-      this.configService.get('NODE_ENV', { infer: true }) === 'production'
-        ? 'Secure; '
-        : '';
+    const isProduction = this.configService.get('NODE_ENV', { infer: true }) === 'production';
+    const secureAttribute = isProduction ? 'Secure; ' : '';
+    const sameSiteAttribute = isProduction ? 'SameSite=None; ' : 'SameSite=Lax; ';
 
     return (
       `${SESSION_COOKIE_NAME}=${encodeURIComponent(value)}; ` +
       `HttpOnly; ` +
       secureAttribute +
-      `SameSite=Strict; ` +
+      sameSiteAttribute +
       `Path=/; ` +
       `Max-Age=${maxAge}`
     );

@@ -1,6 +1,8 @@
 "use client";
 
-import { apiBaseUrl, CoraFitApiError, type CoraFitApiErrorPayload } from "@/lib/api/authenticated-request";
+import { CoraFitApiError, type CoraFitApiErrorPayload } from "@/lib/api/authenticated-request";
+
+const clientPortalApiBaseUrl = "/client-portal-api";
 
 export type ClientPortalStatus =
   | "no_session"
@@ -182,7 +184,7 @@ export type CompletionCard = {
 };
 
 export async function clientPortalRequest<T>(path: string, init: RequestInit = {}) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(`${clientPortalApiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
     credentials: "include",

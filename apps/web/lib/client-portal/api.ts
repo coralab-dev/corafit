@@ -163,6 +163,14 @@ export type ClientSessionLog = {
   snapshotData: ClientSessionSnapshot;
 };
 
+export type ClientSessionPreview = {
+  trainingSessionId: string;
+  scheduledDate: string;
+  status: "preview";
+  canOpen: false;
+  snapshotData: ClientSessionSnapshot;
+};
+
 export type CompletionCard = {
   sessionName: string;
   scheduledDate: string;

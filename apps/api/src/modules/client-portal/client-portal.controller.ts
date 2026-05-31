@@ -11,6 +11,7 @@ import type { ClientPortalCalendarQuery } from './client-portal.service';
 import {
   ClientSessionLogsService,
   type OpenClientSessionLogDto,
+  type PreviewClientSessionDto,
   type UseClientSessionAlternativeDto,
 } from './client-session-logs.service';
 
@@ -71,6 +72,15 @@ export class ClientPortalController {
     @Req() request: ClientPortalRequest,
   ): Promise<unknown> {
     return this.clientSessionLogsService.openSession(request.clientPortalAccess!, body);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/session-logs/preview')
+  previewSessionLog(
+    @Query() query: PreviewClientSessionDto,
+    @Req() request: ClientPortalRequest,
+  ): Promise<unknown> {
+    return this.clientSessionLogsService.previewSession(request.clientPortalAccess!, query);
   }
 
   @UseGuards(ClientPortalAuthGuard)

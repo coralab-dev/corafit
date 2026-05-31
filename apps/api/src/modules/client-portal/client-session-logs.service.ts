@@ -41,6 +41,8 @@ export type UseClientSessionAlternativeDto = {
   sessionExerciseId: string;
 };
 
+export type PreviewClientSessionDto = OpenClientSessionLogDto;
+
 type AssignmentWithPlan = ClientTrainingPlanAssignment & {
   assignedPlan: Pick<TrainingPlan, 'id' | 'durationWeeks' | 'name'> & {
     weeks: Array<Pick<TrainingPlanWeek, 'weekNumber'> & {
@@ -67,6 +69,14 @@ export type ClientSessionCompletionCard = {
   totalExercises: number;
   completionPercentage: number;
   streak: number;
+};
+
+export type ClientSessionPreview = {
+  trainingSessionId: string;
+  scheduledDate: string;
+  status: 'preview';
+  canOpen: false;
+  snapshotData: ClientSessionSnapshotV1;
 };
 
 const DEFAULT_TIMEZONE = 'America/Mexico_City';
@@ -157,6 +167,28 @@ export class ClientSessionLogsService {
     const log = await this.getClientLog(access.clientId, logId);
 
     return this.serializeLog(log);
+  }
+
+  async previewSession(
+    access: ClientAccess & { client: Client },
+    body: PreviewClientSessionDto,
+  ): Promise<ClientSessionPreview> {
+    const trainingSessionId = this.parseRequiredString(body.trainingSessionId, 'trainingSessionId');
+    const scheduledDateKey = this.parseDateKeyInput(body.scheduledDate, 'scheduledDate');
+    const assignment = await this.getActiveAssignment(access.clientId);
+    const scheduledSession = this.findScheduledSession(assignment, scheduledDateKey);
+
+    if (!scheduledSession || scheduledSession.id !== trainingSessionId) {
+      throw new BadRequestException('Training session is not scheduled for this date');
+    }
+
+    return {
+      trainingSessionId,
+      scheduledDate: scheduledDateKey,
+      status: 'preview',
+      canOpen: false,
+      snapshotData: await this.snapshotService.buildSnapshotForSession(trainingSessionId),
+    };
   }
 
   async completeExercise(

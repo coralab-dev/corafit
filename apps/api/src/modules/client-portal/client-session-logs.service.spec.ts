@@ -303,6 +303,32 @@ describe('ClientSessionLogsService', () => {
     }
   });
 
+  it('previews a scheduled session without creating a log', async () => {
+    const result = await service.previewSession(createAccess(), {
+      trainingSessionId: 'session-1',
+      scheduledDate: '2026-05-20',
+    });
+
+    expect(snapshotService.buildSnapshotForSession).toHaveBeenCalledWith('session-1');
+    expect(prismaService.clientSessionLog.create).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      trainingSessionId: 'session-1',
+      scheduledDate: '2026-05-20',
+      snapshotData: { session: { name: 'Lower Body' } },
+    });
+  });
+
+  it('preview rejects sessions not scheduled for that date', async () => {
+    await expect(
+      service.previewSession(createAccess(), {
+        trainingSessionId: 'other-session',
+        scheduledDate: '2026-05-20',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(snapshotService.buildSnapshotForSession).not.toHaveBeenCalled();
+  });
+
   it('does not allow accessing a log from another client', async () => {
     prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(null);
 

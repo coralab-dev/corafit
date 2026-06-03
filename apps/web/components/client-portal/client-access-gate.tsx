@@ -79,7 +79,7 @@ export function ClientPortalAccessGate({ token }: { token: string }) {
   if (state.type === "invalid") {
     return (
       <ClientPortalShell token={token}>
-        <AccessState title="Este link no esta disponible" description="Pide a tu coach que te comparta un acceso vigente." />
+        <AccessState title="Este acceso ya no esta disponible" description="Pide a tu coach que te comparta un nuevo link." />
       </ClientPortalShell>
     );
   }
@@ -133,10 +133,10 @@ function isExpectedMissingSession(caught: unknown) {
 }
 
 function formatLockedDescription(lockedUntil?: string | null) {
-  if (!lockedUntil) return "Intenta nuevamente mas tarde.";
+  if (!lockedUntil) return "Por seguridad, intenta nuevamente mas tarde.";
 
   const date = new Date(lockedUntil);
-  if (Number.isNaN(date.getTime())) return "Intenta nuevamente mas tarde.";
+  if (Number.isNaN(date.getTime())) return "Por seguridad, intenta nuevamente mas tarde.";
 
   return `Intenta nuevamente despues de ${date.toLocaleString("es-MX", {
     dateStyle: "medium",

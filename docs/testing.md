@@ -20,6 +20,22 @@ Use the narrowest command that proves the change.
 - Build: `pnpm --filter web build`
 - For visual/UI changes, use browser verification after typecheck/lint when a local server is available.
 
+### Client portal manual QA
+- [ ] Acceso con PIN correcto.
+- [ ] PIN incorrecto.
+- [ ] Sesion vigente redirige a home.
+- [ ] Home con plan.
+- [ ] Home sin plan.
+- [ ] Calendario mobile.
+- [ ] Calendario desktop.
+- [ ] Preview sesion futura.
+- [ ] Abrir sesion.
+- [ ] Completar ejercicio.
+- [ ] Usar alternativa.
+- [ ] Finalizar parcial.
+- [ ] Finalizar completa.
+- [ ] Ver completion card.
+
 ## DB
 - No `test` script is currently defined.
 - Typecheck: `pnpm --filter db typecheck`

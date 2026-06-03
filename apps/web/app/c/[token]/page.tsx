@@ -1,4 +1,4 @@
-import { PinAccessScreen } from "@/components/client-portal/client-portal";
+import { ClientPortalAccessGate } from "@/components/client-portal/client-access-gate";
 
 export default async function ClientPortalAccessPage({
   params,
@@ -7,5 +7,5 @@ export default async function ClientPortalAccessPage({
 }) {
   const { token } = await params;
 
-  return <PinAccessScreen token={token} />;
+  return <ClientPortalAccessGate token={token} />;
 }

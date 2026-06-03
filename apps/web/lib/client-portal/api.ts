@@ -183,6 +183,21 @@ export type CompletionCard = {
   streak: number;
 };
 
+export type ClientPortalTokenStatus = {
+  valid: boolean;
+  requiresPin: boolean;
+  clientName?: string;
+  locked?: boolean;
+  lockedUntil?: string | null;
+  remainingAttempts?: number;
+};
+
+export type ClientPortalSessionStatus = {
+  authenticated: boolean;
+  clientId?: string;
+  expiresAt?: string;
+};
+
 export async function clientPortalRequest<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(`${clientPortalApiBaseUrl}${path}`, {
     ...init,
@@ -200,6 +215,14 @@ export async function clientPortalRequest<T>(path: string, init: RequestInit = {
 
   const text = await response.text();
   return text ? (JSON.parse(text) as T) : (undefined as T);
+}
+
+export function getClientPortalTokenStatus(token: string) {
+  return clientPortalRequest<ClientPortalTokenStatus>(`/client-portal/${encodeURIComponent(token)}`);
+}
+
+export function getClientPortalSession(token: string) {
+  return clientPortalRequest<ClientPortalSessionStatus>(`/client-portal/${encodeURIComponent(token)}/session`);
 }
 
 export function verifyPin(token: string, pin: string) {

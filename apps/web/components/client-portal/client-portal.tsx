@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -53,19 +53,29 @@ const statusLabels: Record<ClientPortalStatus, string> = {
   partially_completed: "Parcial",
 };
 
+const clientPortalNavItems = [
+  { key: "home", label: "Inicio", href: (token: string) => `/c/${encodeURIComponent(token)}/home`, icon: Home },
+  { key: "calendar", label: "Calendario", href: (token: string) => `/c/${encodeURIComponent(token)}/calendar`, icon: Calendar },
+  { key: "progress", label: "Progreso", href: (token: string) => `/c/${encodeURIComponent(token)}/progress`, icon: TrendingUp },
+  { key: "profile", label: "Perfil", href: (token: string) => `/c/${encodeURIComponent(token)}/profile`, icon: User },
+] as const;
+
+type ClientPortalNavKey = (typeof clientPortalNavItems)[number]["key"];
+
 export function ClientPortalShell({
   token,
   active,
   children,
 }: {
   token: string;
-  active?: "home" | "calendar" | "progress" | "profile";
+  active?: ClientPortalNavKey;
   children: ReactNode;
 }) {
   return (
     <main className="min-h-dvh bg-[#f8f7f5] text-[#121722]">
-      <div className="mx-auto min-h-dvh w-full max-w-[480px] bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-[430px]">
-        <div className="min-h-dvh pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</div>
+      <div className="mx-auto min-h-dvh w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none">
+        {active ? <ClientPortalDesktopNav token={token} active={active} /> : null}
+        <div className="min-h-dvh pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10 lg:pl-64">{children}</div>
         {active ? <ClientPortalBottomNav token={token} active={active} /> : null}
       </div>
     </main>
@@ -74,6 +84,7 @@ export function ClientPortalShell({
 
 export function PinAccessScreen({ token }: { token: string }) {
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [pin, setPin] = useState("");
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -106,10 +117,17 @@ export function PinAccessScreen({ token }: { token: string }) {
     [router, token],
   );
 
-  function press(value: string) {
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  function handlePinChange(value: string) {
     if (state === "loading") return;
-    const nextPin = `${pin}${value}`.slice(0, digits);
+
+    const nextPin = value.replace(/\D/g, "").slice(0, digits);
     setPin(nextPin);
+    setError(null);
+
     if (nextPin.length === digits) {
       void submitPin(nextPin);
     }
@@ -117,7 +135,7 @@ export function PinAccessScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="flex min-h-screen flex-col px-8 py-12">
+      <section className="flex min-h-screen flex-col px-8 py-12 md:px-10 lg:px-12">
         <div className="mb-12">
           <BrandMark />
           <h1 className="mt-10 text-3xl font-bold">CoraFit</h1>
@@ -125,9 +143,32 @@ export function PinAccessScreen({ token }: { token: string }) {
             Ingresa tu PIN para acceder a tu portal
           </p>
         </div>
-        <div className="grid grid-cols-5 gap-2">
+        <input
+          aria-label="PIN de acceso"
+          autoComplete="one-time-code"
+          className="sr-only"
+          disabled={state === "loading"}
+          enterKeyHint="done"
+          inputMode="numeric"
+          maxLength={digits}
+          onChange={(event) => handlePinChange(event.target.value)}
+          pattern="[0-9]*"
+          ref={inputRef}
+          value={pin}
+        />
+        <button
+          aria-label="Ingresar PIN"
+          className="grid w-full grid-cols-6 gap-2"
+          onClick={() => inputRef.current?.focus()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            inputRef.current?.focus();
+          }}
+          tabIndex={-1}
+          type="button"
+        >
           {Array.from({ length: digits }).map((_, index) => (
-            <div
+            <span
               className={cn(
                 "flex h-12 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-lg font-bold shadow-sm",
                 pin[index] && "border-[#df5b47] bg-[#fff3f0]",
@@ -135,9 +176,9 @@ export function PinAccessScreen({ token }: { token: string }) {
               key={index}
             >
               {pin[index] ? "•" : ""}
-            </div>
+            </span>
           ))}
-        </div>
+        </button>
         <div className="mt-6 min-h-8 text-center text-sm font-semibold text-[#df5b47]">
           {state === "loading" ? (
             <span className="inline-flex items-center gap-2">
@@ -150,23 +191,17 @@ export function PinAccessScreen({ token }: { token: string }) {
         <button className="mt-4 text-sm font-bold text-[#3b5f9f]" type="button">
           ¿Olvidaste tu PIN?
         </button>
-        <div className="mt-auto grid grid-cols-3 gap-4">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"].map((key) =>
-            key === "" ? (
-              <div key="empty" />
-            ) : (
-              <button
-                className="flex h-14 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-2xl font-bold shadow-sm active:scale-[0.98]"
-                disabled={state === "loading"}
-                key={key}
-                onClick={() => (key === "back" ? setPin((current) => current.slice(0, -1)) : press(key))}
-                type="button"
-              >
-                {key === "back" ? "⌫" : key}
-              </button>
-            ),
-          )}
-        </div>
+        <button
+          className="mt-auto text-sm font-bold text-[#667080] disabled:opacity-50"
+          disabled={state === "loading" || !pin}
+          onClick={() => {
+            setPin("");
+            inputRef.current?.focus();
+          }}
+          type="button"
+        >
+          Borrar PIN
+        </button>
         <p className="mt-10 text-center text-sm leading-6 text-[#8b929d]">
           Tu coach te compartio un link privado y un PIN.
         </p>
@@ -239,7 +274,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token} active="home">
-      <section className="px-6 pt-9">
+      <section className="px-6 pt-9 md:px-8 lg:px-10">
         <header className="flex items-center justify-between">
           <BrandMark compact />
           <button className="rounded-full p-2 text-[#111827]" type="button" aria-label="Notificaciones">
@@ -315,7 +350,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token} active="calendar">
-      <section className="px-6 pt-8">
+      <section className="px-6 pt-8 md:px-8 lg:px-10">
         <TopBar title="Calendario" backHref={`/c/${encodeURIComponent(token)}/home`} />
         {loading ? <ScreenState title="Cargando calendario" compact /> : null}
         {error ? <InlineError message={error} /> : null}
@@ -429,7 +464,7 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-8">
+      <section className="px-5 pt-8 md:px-8 lg:px-10">
         <TopBar title={log.snapshotData.session.name} backHref={`/c/${encodeURIComponent(token)}/home`} />
         {error ? <InlineError message={error} /> : null}
         <div className="mt-6 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
@@ -529,7 +564,7 @@ export function SessionPreviewScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-8">
+      <section className="px-5 pt-8 md:px-8 lg:px-10">
         <TopBar title={preview.snapshotData.session.name} backHref={`/c/${encodeURIComponent(token)}/calendar`} />
         {error ? <InlineError message={error} /> : null}
         <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31]">
@@ -585,7 +620,7 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
 
   return (
     <ClientPortalShell token={token}>
-      <section className="flex min-h-screen flex-col px-6 py-10">
+      <section className="flex min-h-screen flex-col px-6 py-10 md:px-8 lg:px-10">
         <BrandMark />
         {error ? <InlineError message={error} /> : null}
         {data ? (
@@ -621,7 +656,7 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
 export function PlaceholderScreen({ token, active, title }: { token: string; active: "progress" | "profile"; title: string }) {
   return (
     <ClientPortalShell token={token} active={active}>
-      <section className="px-6 pt-10">
+      <section className="px-6 pt-10 md:px-8 lg:px-10">
         <TopBar title={title} backHref={`/c/${encodeURIComponent(token)}/home`} />
         <div className="mt-10 rounded-[24px] border border-[#ece7e3] bg-white p-6 shadow-sm">
           <p className="text-sm font-bold text-[#df5b47]">Proximamente</p>
@@ -635,18 +670,42 @@ export function PlaceholderScreen({ token, active, title }: { token: string; act
   );
 }
 
-function ClientPortalBottomNav({ token, active }: { token: string; active: "home" | "calendar" | "progress" | "profile" }) {
-  const items = [
-    { key: "home", label: "Inicio", href: `/c/${encodeURIComponent(token)}/home`, icon: Home },
-    { key: "calendar", label: "Calendario", href: `/c/${encodeURIComponent(token)}/calendar`, icon: Calendar },
-    { key: "progress", label: "Progreso", href: `/c/${encodeURIComponent(token)}/progress`, icon: TrendingUp },
-    { key: "profile", label: "Perfil", href: `/c/${encodeURIComponent(token)}/profile`, icon: User },
-  ] as const;
-
+function ClientPortalDesktopNav({ token, active }: { token: string; active: ClientPortalNavKey }) {
   return (
-    <nav className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 border-t border-[#ece7e3] bg-white/95 px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur md:max-w-[430px]">
+    <aside className="hidden lg:fixed lg:bottom-0 lg:left-0 lg:top-0 lg:block lg:w-64 lg:border-r lg:border-[#ece7e3] lg:bg-[#fdfdfc] lg:px-6 lg:py-10">
+      <BrandMark compact />
+      <nav className="mt-12 space-y-2">
+        {clientPortalNavItems.map((item) => {
+          const Icon = item.icon;
+          const selected = active === item.key;
+          return (
+            <Link
+              className={cn(
+                "flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-bold text-[#667080]",
+                selected && "bg-[#fff1ee] text-[#df4d3e]",
+              )}
+              href={item.href(token)}
+              key={item.key}
+            >
+              <Icon className="size-6" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="absolute bottom-10 left-6 right-6 rounded-xl border border-[#ece7e3] bg-white p-4 text-sm shadow-sm">
+        <p className="font-bold">Acceso seguro</p>
+        <p className="mt-2 leading-6 text-[#667080]">Tu informacion esta protegida.</p>
+      </div>
+    </aside>
+  );
+}
+
+function ClientPortalBottomNav({ token, active }: { token: string; active: ClientPortalNavKey }) {
+  return (
+    <nav className="fixed bottom-0 left-1/2 z-20 w-full -translate-x-1/2 border-t border-[#ece7e3] bg-white/95 px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
       <div className="grid grid-cols-4">
-        {items.map((item) => {
+        {clientPortalNavItems.map((item) => {
           const Icon = item.icon;
           const selected = active === item.key;
           return (
@@ -655,7 +714,7 @@ function ClientPortalBottomNav({ token, active }: { token: string; active: "home
                 "flex flex-col items-center gap-1 text-xs font-semibold text-[#6d7581]",
                 selected && "text-[#df4d3e]",
               )}
-              href={item.href}
+              href={item.href(token)}
               key={item.key}
             >
               <Icon className="size-6" />

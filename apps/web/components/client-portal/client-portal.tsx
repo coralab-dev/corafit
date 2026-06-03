@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   Check,
@@ -532,7 +533,7 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
     }
   }
 
-  async function finalize() {
+  async function finalize({ rethrow = false }: { rethrow?: boolean } = {}) {
     setFinalizing(true);
     try {
       await clientPortalRequest<ClientSessionLog>(
@@ -542,6 +543,7 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
       router.push(`/c/${encodeURIComponent(token)}/session/${encodeURIComponent(sessionLogId)}/completed`);
     } catch (caught) {
       setError(errorMessage(caught, "Completa al menos un ejercicio antes de finalizar."));
+      if (rethrow) throw caught;
     } finally {
       setFinalizing(false);
     }
@@ -607,7 +609,8 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
               ))}
             </div>
             <button
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ece7e3] bg-white text-sm font-bold"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ece7e3] bg-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={pendingCount === 0}
               onClick={() => setShowPendingOnly((current) => !current)}
               type="button"
             >
@@ -649,7 +652,7 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
         cancelLabel="Seguir entrenando"
         confirmLabel="Finalizar de todos modos"
         isLoading={finalizing}
-        onConfirm={finalize}
+        onConfirm={() => finalize({ rethrow: true })}
       />
     </ClientPortalShell>
   );
@@ -960,9 +963,12 @@ function CalendarWeekCell({ day, selected, onSelect }: { day: ClientPortalDay; s
 
 function CalendarLegend() {
   return (
-    <div className="mt-5 flex items-center gap-5 text-sm font-medium text-[#667080]">
+    <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-[#667080]">
       <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full bg-[#49ad64] text-white"><Check className="size-3" /></span>Completada</span>
       <span className="flex items-center gap-2"><span className="size-4 rounded-full border-2 border-[#f18a2b]" />Pendiente</span>
+      <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full bg-[#df4d3e] text-white"><AlertTriangle className="size-3" /></span>Atrasada</span>
+      <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full bg-[#df4d3e] text-white"><ChevronRight className="size-3" /></span>En curso</span>
+      <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full bg-[#d8a21b] text-white"><Check className="size-3" /></span>Parcial</span>
       <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full border border-[#d8d1ca] bg-white text-[#667080]"><RotateCcw className="size-3" /></span>Descanso</span>
     </div>
   );
@@ -972,7 +978,7 @@ function SelectedSessionCard({ day, loading, onOpen }: { day: ClientPortalDay; l
   const tone = calendarDayTone(day);
 
   return (
-    <article className="mt-5 grid grid-cols-[1fr_auto] gap-8 rounded-xl border border-[#ece7e3] bg-white p-6 shadow-sm">
+    <article className="mt-5 grid gap-6 rounded-xl border border-[#ece7e3] bg-white p-6 shadow-sm xl:grid-cols-[1fr_auto] xl:gap-8">
       <div className="flex min-w-0 gap-5">
         <div className={cn("flex size-20 shrink-0 items-center justify-center rounded-2xl border", calendarCellToneClasses[tone])}>
           <Calendar className={cn("size-9", calendarLabelToneClasses[tone])} />
@@ -984,7 +990,7 @@ function SelectedSessionCard({ day, loading, onOpen }: { day: ClientPortalDay; l
         </div>
       </div>
       {day.session ? (
-        <div className="flex min-w-64 items-center border-l border-[#ece7e3] pl-8">
+        <div className="flex min-w-0 items-center border-t border-[#ece7e3] pt-6 xl:min-w-64 xl:border-l xl:border-t-0 xl:pl-8 xl:pt-0">
           <button className={cn("flex h-14 w-full items-center justify-center gap-3 rounded-xl px-5 text-base font-bold", calendarButtonToneClasses[tone])} disabled={loading} onClick={onOpen} type="button">
             {loading ? <Loader2 className="size-5 animate-spin" /> : calendarDayActionLabel(day)}
             {!loading ? <ChevronRight className="size-5" /> : null}
@@ -1417,6 +1423,7 @@ function calendarDayShortLabel(day: ClientPortalDay) {
 function CalendarStatusIcon({ day }: { day: ClientPortalDay }) {
   if (isFinalized(day.status)) return <Check className="size-5" />;
   if (!day.session) return <RotateCcw className="size-5" />;
+  if (day.status === "overdue") return <AlertTriangle className="size-5" />;
   if (day.status === "opened" || day.status === "in_progress") return <ChevronRight className="size-5" />;
   return null;
 }

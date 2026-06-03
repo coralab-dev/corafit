@@ -21,6 +21,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   clientPortalRequest,
   verifyPin,
@@ -53,6 +54,63 @@ const statusLabels: Record<ClientPortalStatus, string> = {
   partially_completed: "Parcial",
 };
 
+const shortDayLabels: Record<string, string> = {
+  monday: "Lun",
+  tuesday: "Mar",
+  wednesday: "Mie",
+  thursday: "Jue",
+  friday: "Vie",
+  saturday: "Sab",
+  sunday: "Dom",
+};
+
+type CalendarDayTone = "rest" | "pending" | "overdue" | "active" | "completed" | "partially_completed";
+
+const calendarCellToneClasses: Record<CalendarDayTone, string> = {
+  rest: "border-[#e6e0db] bg-[#f5f2ef]",
+  pending: "border-[#ece7e3] bg-white",
+  overdue: "border-[#f1c7bd] bg-[#fff6f3]",
+  active: "border-[#f4d5cb] bg-[#fff8f5]",
+  completed: "border-[#cce7d2] bg-[#f6fbf7]",
+  partially_completed: "border-[#f1dfb7] bg-[#fffbf0]",
+};
+
+const calendarBadgeToneClasses: Record<CalendarDayTone, string> = {
+  rest: "bg-[#e9e4df] text-[#667080]",
+  pending: "bg-[#eef1f4] text-[#667080]",
+  overdue: "bg-[#ffe4dc] text-[#b63d31]",
+  active: "bg-[#fff0ed] text-[#df4d3e]",
+  completed: "bg-[#e4f6e8] text-[#2e8749]",
+  partially_completed: "bg-[#fff1c9] text-[#9a6a12]",
+};
+
+const calendarIconToneClasses: Record<CalendarDayTone, string> = {
+  rest: "border-[#d8d1ca] text-[#8b929d]",
+  pending: "border-[#c9cdd3] text-[#667080]",
+  overdue: "border-[#df4d3e] bg-[#df4d3e] text-white",
+  active: "border-[#df4d3e] bg-[#df4d3e] text-white",
+  completed: "border-[#49ad64] bg-[#49ad64] text-white",
+  partially_completed: "border-[#d8a21b] bg-[#d8a21b] text-white",
+};
+
+const calendarButtonToneClasses: Record<CalendarDayTone, string> = {
+  rest: "border border-[#e4dfda] bg-[#f4f1ef] text-[#8b929d]",
+  pending: "bg-[#121722] text-white shadow-[0_10px_24px_rgba(18,23,34,0.16)]",
+  overdue: "bg-[#df4d3e] text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)]",
+  active: "bg-[#df4d3e] text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)]",
+  completed: "bg-[#121722] text-white shadow-[0_10px_24px_rgba(18,23,34,0.16)]",
+  partially_completed: "bg-[#121722] text-white shadow-[0_10px_24px_rgba(18,23,34,0.16)]",
+};
+
+const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
+  rest: "text-[#667080]",
+  pending: "text-[#f18a2b]",
+  overdue: "text-[#df4d3e]",
+  active: "text-[#df4d3e]",
+  completed: "text-[#2e8749]",
+  partially_completed: "text-[#9a6a12]",
+};
+
 const clientPortalNavItems = [
   { key: "home", label: "Inicio", href: (token: string) => `/c/${encodeURIComponent(token)}/home`, icon: Home },
   { key: "calendar", label: "Calendario", href: (token: string) => `/c/${encodeURIComponent(token)}/calendar`, icon: Calendar },
@@ -75,7 +133,9 @@ export function ClientPortalShell({
     <main className="min-h-dvh bg-[#f8f7f5] text-[#121722]">
       <div className="mx-auto min-h-dvh w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none">
         {active ? <ClientPortalDesktopNav token={token} active={active} /> : null}
-        <div className="min-h-dvh pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10 lg:pl-64">{children}</div>
+        <div className={cn("min-h-dvh pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10", active && "lg:pl-64")}>
+          {children}
+        </div>
         {active ? <ClientPortalBottomNav token={token} active={active} /> : null}
       </div>
     </main>
@@ -308,6 +368,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const load = useCallback(() => {
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
@@ -348,22 +409,33 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
     }
   }
 
+  const days = data?.calendar?.days ?? [];
+  const defaultSelectedDay = days.find((day) => day.date === data?.calendar?.today) ?? days.find((day) => day.session) ?? days[0];
+  const selectedDay = days.find((day) => day.date === selectedDate) ?? defaultSelectedDay;
+  const upcomingDays = selectedDay ? days.filter((day) => day.date > selectedDay.date) : [];
+
   return (
     <ClientPortalShell token={token} active="calendar">
       <section className="px-6 pt-8 md:px-8 lg:px-10">
-        <TopBar title="Calendario" backHref={`/c/${encodeURIComponent(token)}/home`} />
+        <div className="lg:hidden">
+          <TopBar title="Calendario" backHref={`/c/${encodeURIComponent(token)}/home`} />
+        </div>
+        <header className="hidden lg:block">
+          <h1 className="text-4xl font-bold tracking-normal text-[#09111f]">Calendario</h1>
+          <p className="mt-3 text-base font-medium text-[#667080]">Revisa tus sesiones programadas y tu avance de la semana.</p>
+        </header>
         {loading ? <ScreenState title="Cargando calendario" compact /> : null}
         {error ? <InlineError message={error} /> : null}
         {data?.calendar ? (
           <>
-            <div className="mt-5 flex items-center gap-3">
+            <div className="mt-5 flex items-center gap-3 lg:mt-8 lg:max-w-3xl">
               <WeekButton direction="prev" date={data.calendar.weekStartDate} token={token} />
               <div className="flex-1 rounded-xl border border-[#ece7e3] bg-white py-3 text-center text-sm font-bold shadow-sm">
                 {formatDate(data.calendar.weekStartDate)} - {formatDate(data.calendar.weekEndDate)}
               </div>
               <WeekButton direction="next" date={data.calendar.weekEndDate} token={token} />
             </div>
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 space-y-3 lg:hidden">
               {data.calendar.days.map((day) => (
                 <CalendarDayCard
                   day={day}
@@ -373,6 +445,23 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                 />
               ))}
             </div>
+            <div className="mt-5 hidden grid-cols-7 gap-3 lg:grid">
+              {data.calendar.days.map((day) => (
+                <CalendarWeekCell
+                  day={day}
+                  selected={day.date === selectedDay?.date}
+                  key={day.date}
+                  onSelect={() => setSelectedDate(day.date)}
+                />
+              ))}
+            </div>
+            {selectedDay ? (
+              <div className="hidden lg:block">
+                <CalendarLegend />
+                <SelectedSessionCard day={selectedDay} loading={openingDate === selectedDay.date} onOpen={() => void open(selectedDay)} />
+                <UpcomingDays days={upcomingDays} />
+              </div>
+            ) : null}
           </>
         ) : !loading ? (
           <EmptyCard title={calendarStateTitle(data?.state)} />
@@ -389,6 +478,8 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [confirmPartialOpen, setConfirmPartialOpen] = useState(false);
 
   const load = useCallback(() => {
     clientPortalRequest<ClientSessionLog>(
@@ -400,6 +491,11 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
   }, [sessionLogId, token]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!log || !isFinalized(log.status)) return;
+    router.replace(`/c/${encodeURIComponent(token)}/session/${encodeURIComponent(sessionLogId)}/completed`);
+  }, [log, router, sessionLogId, token]);
 
   async function complete(sessionExerciseId: string) {
     if (isFinalized(log?.status)) return;
@@ -451,53 +547,83 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
     }
   }
 
+  function requestFinalize(completedCount: number, totalExercises: number) {
+    if (completedCount === 0) {
+      setError("Completa al menos un ejercicio antes de finalizar.");
+      return;
+    }
+    if (completedCount < totalExercises) {
+      setConfirmPartialOpen(true);
+      return;
+    }
+    void finalize();
+  }
+
   if (loading) return <ClientPortalShell token={token}><ScreenState title="Cargando sesion" /></ClientPortalShell>;
   if (!log) return <ClientPortalShell token={token}><ScreenState title="Sesion no disponible" description={error ?? undefined} /></ClientPortalShell>;
 
   const completed = log.snapshotData.progress?.completedExerciseIds ?? [];
   const total = log.snapshotData.exercises.length;
   const progressLabel = `${completed.length} / ${total}`;
+  const pendingCount = Math.max(total - completed.length, 0);
+  const visibleExercises = showPendingOnly
+    ? log.snapshotData.exercises.filter((exercise) => !completed.includes(exercise.sessionExerciseId))
+    : log.snapshotData.exercises;
 
-  if (isFinalized(log.status)) {
-    router.replace(`/c/${encodeURIComponent(token)}/session/${encodeURIComponent(sessionLogId)}/completed`);
-  }
+  if (isFinalized(log.status)) return <ClientPortalShell token={token}><ScreenState title="Abriendo tu logro" /></ClientPortalShell>;
 
   return (
     <ClientPortalShell token={token}>
       <section className="px-5 pt-8 md:px-8 lg:px-10">
         <TopBar title={log.snapshotData.session.name} backHref={`/c/${encodeURIComponent(token)}/home`} />
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between text-sm font-bold">
-            <span>Progreso de la sesion</span>
-            <span>{progressLabel}</span>
+        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+          <div className="min-w-0">
+            <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm lg:hidden">
+              <div className="flex items-center justify-between text-sm font-bold">
+                <span>Progreso de la sesion</span>
+                <span>{progressLabel}</span>
+              </div>
+              <div className="mt-4 h-2 rounded-full bg-[#f0eeee]">
+                <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${total ? (completed.length / total) * 100 : 0}%` }} />
+              </div>
+            </div>
+            <div className="mt-4 space-y-3 lg:mt-0">
+              {visibleExercises.map((exercise) => (
+                <ExerciseCard
+                  completed={completed.includes(exercise.sessionExerciseId)}
+                  exercise={exercise}
+                  index={log.snapshotData.exercises.findIndex((item) => item.sessionExerciseId === exercise.sessionExerciseId)}
+                  key={exercise.sessionExerciseId}
+                  loading={busyId === exercise.sessionExerciseId}
+                  onComplete={() => void complete(exercise.sessionExerciseId)}
+                  onUseAlternative={(alternativeId) => void applyAlternative(exercise.sessionExerciseId, alternativeId)}
+                  selectedAlternativeId={
+                    log.snapshotData.progress?.usedAlternatives.find(
+                      (alternative) => alternative.sessionExerciseId === exercise.sessionExerciseId,
+                    )?.alternativeId ?? null
+                  }
+                />
+              ))}
+            </div>
+            <button
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ece7e3] bg-white text-sm font-bold"
+              onClick={() => setShowPendingOnly((current) => !current)}
+              type="button"
+            >
+              {showPendingOnly ? "Ver todos los ejercicios" : "Ver solo pendientes"} ({pendingCount}) <ChevronDown className={cn("size-4 transition", showPendingOnly && "rotate-180")} />
+            </button>
           </div>
-          <div className="mt-4 h-2 rounded-full bg-[#f0eeee]">
-            <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${total ? (completed.length / total) * 100 : 0}%` }} />
-          </div>
+          <SessionProgressPanel
+            completedCount={completed.length}
+            finalizing={finalizing}
+            onFinalize={() => requestFinalize(completed.length, total)}
+            onSave={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
+            pendingCount={pendingCount}
+            total={total}
+          />
         </div>
-        <div className="mt-4 space-y-3">
-          {log.snapshotData.exercises.map((exercise, index) => (
-            <ExerciseCard
-              completed={completed.includes(exercise.sessionExerciseId)}
-              exercise={exercise}
-              index={index}
-              key={exercise.sessionExerciseId}
-              loading={busyId === exercise.sessionExerciseId}
-              onComplete={() => void complete(exercise.sessionExerciseId)}
-              onUseAlternative={(alternativeId) => void applyAlternative(exercise.sessionExerciseId, alternativeId)}
-              selectedAlternativeId={
-                log.snapshotData.progress?.usedAlternatives.find(
-                  (alternative) => alternative.sessionExerciseId === exercise.sessionExerciseId,
-                )?.alternativeId ?? null
-              }
-            />
-          ))}
-        </div>
-        <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ece7e3] bg-white text-sm font-bold" type="button">
-          Ver ejercicios restantes ({Math.max(total - completed.length, 0)}) <ChevronDown className="size-4" />
-        </button>
-        <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur">
+        <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
           <button
             className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[#df5b47] text-sm font-bold text-[#df5b47]"
             onClick={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
@@ -508,13 +634,23 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
           <button
             className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
             disabled={finalizing}
-            onClick={() => void finalize()}
+            onClick={() => requestFinalize(completed.length, total)}
             type="button"
           >
             {finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} Finalizar sesion
           </button>
         </div>
       </section>
+      <ConfirmDialog
+        open={confirmPartialOpen}
+        onOpenChange={setConfirmPartialOpen}
+        title="¿Finalizar sesión incompleta?"
+        description={`Te faltan ${pendingCount} ejercicios. Si finalizas ahora, la sesión quedará registrada como parcial.`}
+        cancelLabel="Seguir entrenando"
+        confirmLabel="Finalizar de todos modos"
+        isLoading={finalizing}
+        onConfirm={finalize}
+      />
     </ClientPortalShell>
   );
 }
@@ -777,7 +913,7 @@ function MiniWeek({ days }: { days: ClientPortalDay[] }) {
 }
 
 function CalendarDayCard({ day, loading, onOpen }: { day: ClientPortalDay; loading: boolean; onOpen: () => void }) {
-  const active = day.status === "completed" || day.status === "partially_completed";
+  const tone = calendarDayTone(day);
   return (
     <div className="rounded-xl border border-[#ece7e3] bg-white shadow-sm">
       <button
@@ -789,13 +925,154 @@ function CalendarDayCard({ day, loading, onOpen }: { day: ClientPortalDay; loadi
         <div>
           <p className="text-sm font-medium text-[#8b929d]">{longDay(day.dayOfWeek)} {day.date.slice(-2)}</p>
           <h3 className="mt-2 text-base font-bold">{day.session?.name ?? "Descanso"}</h3>
-          <p className="mt-1 text-xs font-semibold text-[#667080]">{statusLabels[day.status]}</p>
+          <CalendarStatusBadge day={day} className="mt-2" />
         </div>
-        <div className={cn("flex size-8 items-center justify-center rounded-full border border-[#c9cdd3]", active && "border-[#49ad64] bg-[#49ad64] text-white")}>
-          {loading ? <Loader2 className="size-4 animate-spin" /> : active ? <Check className="size-5" /> : day.session ? <ChevronRight className="size-5 text-[#667080]" /> : null}
+        <div className={cn("flex size-8 items-center justify-center rounded-full border", calendarIconToneClasses[tone])}>
+          {loading ? <Loader2 className="size-4 animate-spin" /> : isFinalized(day.status) ? <Check className="size-5" /> : day.session ? <ChevronRight className="size-5" /> : null}
         </div>
       </button>
     </div>
+  );
+}
+
+function CalendarWeekCell({ day, selected, onSelect }: { day: ClientPortalDay; selected: boolean; onSelect: () => void }) {
+  const tone = calendarDayTone(day);
+
+  return (
+    <button
+      className={cn(
+        "flex min-h-40 flex-col items-center rounded-xl border p-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+        calendarCellToneClasses[tone],
+        selected && "border-[#df4d3e] bg-[#fff8f6] shadow-[0_12px_28px_rgba(223,77,62,0.14)]",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <p className={cn("text-sm font-bold text-[#667080]", selected && "text-[#df4d3e]")}>{shortDay(day.dayOfWeek)}</p>
+      <p className={cn("mt-2 text-3xl font-bold text-[#09111f]", selected && "text-[#df4d3e]")}>{day.date.slice(-2)}</p>
+      <div className={cn("mt-4 flex size-9 items-center justify-center rounded-full border", calendarIconToneClasses[tone])}>
+        <CalendarStatusIcon day={day} />
+      </div>
+      <span className={cn("mt-3 max-w-full truncate text-xs font-bold", calendarLabelToneClasses[tone])}>{calendarDayShortLabel(day)}</span>
+    </button>
+  );
+}
+
+function CalendarLegend() {
+  return (
+    <div className="mt-5 flex items-center gap-5 text-sm font-medium text-[#667080]">
+      <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full bg-[#49ad64] text-white"><Check className="size-3" /></span>Completada</span>
+      <span className="flex items-center gap-2"><span className="size-4 rounded-full border-2 border-[#f18a2b]" />Pendiente</span>
+      <span className="flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded-full border border-[#d8d1ca] bg-white text-[#667080]"><RotateCcw className="size-3" /></span>Descanso</span>
+    </div>
+  );
+}
+
+function SelectedSessionCard({ day, loading, onOpen }: { day: ClientPortalDay; loading: boolean; onOpen: () => void }) {
+  const tone = calendarDayTone(day);
+
+  return (
+    <article className="mt-5 grid grid-cols-[1fr_auto] gap-8 rounded-xl border border-[#ece7e3] bg-white p-6 shadow-sm">
+      <div className="flex min-w-0 gap-5">
+        <div className={cn("flex size-20 shrink-0 items-center justify-center rounded-2xl border", calendarCellToneClasses[tone])}>
+          <Calendar className={cn("size-9", calendarLabelToneClasses[tone])} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#667080]">{formatFullDate(day.date, day.dayOfWeek)}</p>
+          <h2 className="mt-2 truncate text-2xl font-bold text-[#09111f]">{day.session?.name ?? "Descanso"}</h2>
+          <CalendarStatusBadge day={day} className="mt-3" />
+        </div>
+      </div>
+      {day.session ? (
+        <div className="flex min-w-64 items-center border-l border-[#ece7e3] pl-8">
+          <button className={cn("flex h-14 w-full items-center justify-center gap-3 rounded-xl px-5 text-base font-bold", calendarButtonToneClasses[tone])} disabled={loading} onClick={onOpen} type="button">
+            {loading ? <Loader2 className="size-5 animate-spin" /> : calendarDayActionLabel(day)}
+            {!loading ? <ChevronRight className="size-5" /> : null}
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function UpcomingDays({ days }: { days: ClientPortalDay[] }) {
+  if (!days.length) return null;
+
+  return (
+    <section className="mt-7">
+      <h2 className="text-xl font-bold text-[#09111f]">Proximos dias</h2>
+      <div className="mt-3 overflow-hidden rounded-xl border border-[#ece7e3] bg-white shadow-sm">
+        {days.map((day) => (
+          <div className="grid grid-cols-[4rem_1fr_auto] items-center gap-4 border-b border-[#ece7e3] px-4 py-4 last:border-b-0" key={day.date}>
+            <div className="rounded-xl bg-[#f4f1ef] px-3 py-2 text-center">
+              <p className="text-xs font-bold text-[#667080]">{shortDay(day.dayOfWeek)}</p>
+              <p className="text-lg font-bold text-[#09111f]">{day.date.slice(-2)}</p>
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-bold text-[#09111f]">{day.session?.name ?? "Descanso"}</h3>
+              <p className="mt-1 text-sm font-medium text-[#667080]">{day.session ? "Proxima sesion programada." : "Dia de recuperacion."}</p>
+            </div>
+            <CalendarStatusBadge day={day} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SessionProgressPanel({
+  completedCount,
+  finalizing,
+  onFinalize,
+  onSave,
+  pendingCount,
+  total,
+}: {
+  completedCount: number;
+  finalizing: boolean;
+  onFinalize: () => void;
+  onSave: () => void;
+  pendingCount: number;
+  total: number;
+}) {
+  const progress = total ? (completedCount / total) * 100 : 0;
+
+  return (
+    <aside className="hidden lg:sticky lg:top-8 lg:block">
+      <div className="rounded-xl border border-[#ece7e3] bg-white p-5 shadow-sm">
+        <p className="text-sm font-bold text-[#667080]">Progreso actual</p>
+        <div className="mt-3 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-3xl font-bold text-[#09111f]">{completedCount}/{total}</p>
+            <p className="mt-1 text-sm font-medium text-[#667080]">ejercicios completados</p>
+          </div>
+          <span className="rounded-full bg-[#fff0ed] px-3 py-1 text-xs font-bold text-[#df4d3e]">{Math.round(progress)}%</span>
+        </div>
+        <div className="mt-5 h-2 rounded-full bg-[#f0eeee]">
+          <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="mt-4 text-sm font-medium text-[#667080]">
+          {pendingCount > 0 ? `${pendingCount} ejercicios pendientes.` : "Todos los ejercicios estan listos para finalizar."}
+        </p>
+        <div className="mt-6 space-y-3">
+          <button
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#df5b47] text-sm font-bold text-[#df5b47]"
+            onClick={onSave}
+            type="button"
+          >
+            <Home className="size-4" /> Guardar y salir
+          </button>
+          <button
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
+            disabled={finalizing}
+            onClick={onFinalize}
+            type="button"
+          >
+            {finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} Finalizar sesion
+          </button>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -1086,9 +1363,19 @@ function longDay(day: string) {
   return labels[day] ?? day;
 }
 
+function shortDay(day: string) {
+  return shortDayLabels[day] ?? day.slice(0, 3);
+}
+
 function formatDate(date: string) {
   const parsed = new Date(`${date}T00:00:00`);
   return parsed.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function formatFullDate(date: string, dayOfWeek: string) {
+  const parsed = new Date(`${date}T00:00:00`);
+  const formatted = parsed.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+  return `${longDay(dayOfWeek)} ${formatted}`;
 }
 
 function addDays(date: string, days: number) {
@@ -1099,6 +1386,48 @@ function addDays(date: string, days: number) {
 
 function isFinalized(status?: ClientPortalStatus) {
   return status === "completed" || status === "partially_completed";
+}
+
+function calendarDayTone(day: ClientPortalDay): CalendarDayTone {
+  if (!day.session || day.status === "no_session") return "rest";
+  if (day.status === "overdue") return "overdue";
+  if (day.status === "completed") return "completed";
+  if (day.status === "partially_completed") return "partially_completed";
+  if (day.status === "opened" || day.status === "in_progress") return "active";
+  return "pending";
+}
+
+function calendarDayActionLabel(day: ClientPortalDay) {
+  if (!day.session) return "Descanso";
+  if (day.log) return isFinalized(day.log.status) ? "Ver sesion" : "Continuar";
+  if (day.status === "overdue") return "Abrir atrasada";
+  if (!day.canOpen) return "Vista previa";
+  return "Iniciar";
+}
+
+function calendarDayShortLabel(day: ClientPortalDay) {
+  if (!day.session) return "Descanso";
+  if (day.status === "overdue") return "Atrasada";
+  if (day.status === "completed") return "Completada";
+  if (day.status === "partially_completed") return "Parcial";
+  if (day.status === "opened" || day.status === "in_progress") return "En curso";
+  return day.canOpen ? "Pendiente" : "Proxima";
+}
+
+function CalendarStatusIcon({ day }: { day: ClientPortalDay }) {
+  if (isFinalized(day.status)) return <Check className="size-5" />;
+  if (!day.session) return <RotateCcw className="size-5" />;
+  if (day.status === "opened" || day.status === "in_progress") return <ChevronRight className="size-5" />;
+  return null;
+}
+
+function CalendarStatusBadge({ day, className }: { day: ClientPortalDay; className?: string }) {
+  const tone = calendarDayTone(day);
+  return (
+    <span className={cn("inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-bold", calendarBadgeToneClasses[tone], className)}>
+      {statusLabels[day.status]}
+    </span>
+  );
 }
 
 function sessionHeroStatus(day: ClientPortalDay) {

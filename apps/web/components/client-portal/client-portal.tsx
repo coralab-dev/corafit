@@ -764,6 +764,7 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
   const [data, setData] = useState<CompletionCard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareFallback, setShareFallback] = useState<string | null>(null);
+  const [saveFallback, setSaveFallback] = useState<string | null>(null);
 
   useEffect(() => {
     clientPortalRequest<CompletionCard>(
@@ -790,7 +791,6 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
     const shareData = {
       title: "CoraFit - Sesion completada",
       text: buildShareText(data),
-      url: window.location.href,
     };
 
     setShareFallback(null);
@@ -806,7 +806,7 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
 
     if (navigator.clipboard?.writeText) {
       try {
-        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+        await navigator.clipboard.writeText(shareData.text);
         setShareFallback("Copiamos tu logro para que lo compartas donde prefieras.");
         return;
       } catch {
@@ -819,6 +819,8 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
 
   async function saveCompletionImage() {
     if (!data) return;
+
+    setSaveFallback(null);
 
     const svg = buildCompletionCardSvg(data);
     const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
@@ -846,6 +848,8 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
       link.href = pngUrl;
       link.download = `corafit-sesion-${data.scheduledDate}.png`;
       link.click();
+    } catch {
+      setSaveFallback("No pudimos guardar la imagen automaticamente. Intenta compartir el resumen o vuelve a intentarlo.");
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -883,6 +887,12 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
               <div className="mt-3 rounded-xl border border-[#ece7e3] bg-white p-4 text-sm leading-6 text-[#667080]" role="status">
                 <p>{shareFallback}</p>
                 <p className="mt-2 whitespace-pre-line font-medium text-[#09111f]">{buildShareText(data)}</p>
+              </div>
+            ) : null}
+
+            {saveFallback ? (
+              <div className="mt-3 rounded-xl border border-[#f2c8c0] bg-[#fff4f1] p-4 text-sm font-semibold leading-6 text-[#9f3529]" role="status">
+                {saveFallback}
               </div>
             ) : null}
           </div>
@@ -1562,7 +1572,7 @@ function formatCompletionDateParts(date: string) {
 }
 
 function buildCompletionCardSvg(data: CompletionCard) {
-  const sessionName = escapeSvgText(data.sessionName);
+  const sessionName = escapeSvgText(truncateText(data.sessionName, 34));
   const dateParts = formatCompletionDateParts(data.scheduledDate);
   const dateDayMonth = escapeSvgText(dateParts.dayMonth);
   const percentage = escapeSvgText(String(data.completionPercentage));
@@ -1625,6 +1635,11 @@ function escapeSvgText(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function formatFullDate(date: string, dayOfWeek: string) {

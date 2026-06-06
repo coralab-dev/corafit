@@ -248,6 +248,8 @@ model WeightLog {
   recordedByMember OrganizationMember? @relation("WeightLogRecordedBy", fields: [recordedByMemberId], references: [id])
 
   @@index([clientId, recordedAt])
+  @@index([clientId, deletedAt, recordedAt])
+  @@index([recordedByMemberId])
   @@map("weight_logs")
 }
 
@@ -272,6 +274,8 @@ model BodyMeasurementLog {
   recordedByMember OrganizationMember @relation("BodyMeasurementRecordedBy", fields: [recordedByMemberId], references: [id])
 
   @@index([clientId, recordedAt])
+  @@index([clientId, deletedAt, recordedAt])
+  @@index([recordedByMemberId])
   @@map("body_measurement_logs")
 }
 

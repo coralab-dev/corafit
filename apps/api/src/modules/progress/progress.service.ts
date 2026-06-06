@@ -74,7 +74,7 @@ export class ProgressService {
         deletedAt: null,
         ...this.buildRecordedAtFilter(query),
       },
-      orderBy: { recordedAt: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: this.parseLimit(query.limit),
     });
   }
@@ -105,10 +105,12 @@ export class ProgressService {
   ) {
     await this.getAuthorizedClient(clientId, member);
     await this.getWeightLogForClient(clientId, weightLogId);
+    const data = this.parseWeightLog(body, false);
+    this.rejectEmptyPatch(data);
 
     return this.prismaService.weightLog.update({
       where: { id: weightLogId },
-      data: this.parseWeightLog(body, false),
+      data,
     });
   }
 
@@ -139,7 +141,7 @@ export class ProgressService {
         deletedAt: null,
         ...this.buildRecordedAtFilter(query),
       },
-      orderBy: { recordedAt: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: this.parseLimit(query.limit),
     });
   }
@@ -170,10 +172,12 @@ export class ProgressService {
   ) {
     await this.getAuthorizedClient(clientId, member);
     await this.getBodyMeasurementForClient(clientId, measurementId);
+    const data = this.parseBodyMeasurement(body, false);
+    this.rejectEmptyPatch(data);
 
     return this.prismaService.bodyMeasurementLog.update({
       where: { id: measurementId },
-      data: this.parseBodyMeasurement(body, false),
+      data,
     });
   }
 
@@ -201,7 +205,7 @@ export class ProgressService {
         deletedAt: null,
         ...this.buildRecordedAtFilter(query),
       },
-      orderBy: { recordedAt: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: this.parseLimit(query.limit),
     });
   }
@@ -261,7 +265,7 @@ export class ProgressService {
         visibleToClient: true,
         ...this.buildRecordedAtFilter(query),
       },
-      orderBy: { recordedAt: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       take: this.parseLimit(query.limit),
     });
   }
@@ -367,6 +371,12 @@ export class ProgressService {
       ...(body.recordedAt !== undefined ? { recordedAt: this.parseDate(body.recordedAt) } : {}),
       ...(note !== undefined ? { note } : {}),
     };
+  }
+
+  private rejectEmptyPatch(data: Record<string, unknown>) {
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('Patch body must include at least one editable field');
+    }
   }
 
   private buildRecordedAtFilter(query: ProgressListQuery) {

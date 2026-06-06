@@ -42,7 +42,19 @@ CREATE TABLE "body_measurement_logs" (
 CREATE INDEX "weight_logs_client_id_recorded_at_idx" ON "weight_logs"("client_id", "recorded_at");
 
 -- CreateIndex
+CREATE INDEX "weight_logs_client_id_deleted_at_recorded_at_idx" ON "weight_logs"("client_id", "deleted_at", "recorded_at");
+
+-- CreateIndex
+CREATE INDEX "weight_logs_recorded_by_member_id_idx" ON "weight_logs"("recorded_by_member_id");
+
+-- CreateIndex
 CREATE INDEX "body_measurement_logs_client_id_recorded_at_idx" ON "body_measurement_logs"("client_id", "recorded_at");
+
+-- CreateIndex
+CREATE INDEX "body_measurement_logs_client_id_deleted_at_recorded_at_idx" ON "body_measurement_logs"("client_id", "deleted_at", "recorded_at");
+
+-- CreateIndex
+CREATE INDEX "body_measurement_logs_recorded_by_member_id_idx" ON "body_measurement_logs"("recorded_by_member_id");
 
 -- AddForeignKey
 ALTER TABLE "weight_logs" ADD CONSTRAINT "weight_logs_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

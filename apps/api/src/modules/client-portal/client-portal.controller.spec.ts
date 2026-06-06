@@ -9,6 +9,7 @@ import { ClientPortalController } from './client-portal.controller';
 import type { ClientPortalRequest } from './client-portal-request';
 import type { ClientPortalService } from './client-portal.service';
 import type { ClientSessionLogsService } from './client-session-logs.service';
+import type { ProgressService } from '../progress/progress.service';
 
 describe('ClientPortalController', () => {
   function createController(nodeEnv = 'test') {
@@ -19,6 +20,7 @@ describe('ClientPortalController', () => {
       verifyPin,
     } as unknown as ClientPortalService;
     const clientSessionLogsService = {} as unknown as ClientSessionLogsService;
+    const progressService = {} as unknown as ProgressService;
     const configService = {
       get: vi.fn().mockReturnValue(nodeEnv),
     } as unknown as ConfigService<AppConfig, true>;
@@ -27,6 +29,7 @@ describe('ClientPortalController', () => {
       controller: new ClientPortalController(
         clientPortalService,
         clientSessionLogsService,
+        progressService,
         configService,
       ),
       clientPortalService,

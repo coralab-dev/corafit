@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   ClientOperationalStatus,
   ClientType,
@@ -25,7 +25,9 @@ type PrismaServiceMock = {
   };
   bodyMeasurementLog: {
     create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -105,7 +107,13 @@ describe('ProgressService', () => {
       },
       bodyMeasurementLog: {
         create: vi.fn().mockResolvedValue({ id: 'measurement-id' }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'measurement-id',
+          clientId: 'client-id',
+          deletedAt: null,
+        }),
         findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn().mockResolvedValue({ id: 'measurement-id' }),
       },
     };
     service = new ProgressService(prismaService as unknown as PrismaService);
@@ -119,7 +127,7 @@ describe('ProgressService', () => {
     expect(prismaService.weightLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ clientId: 'client-id', deletedAt: null }),
-        orderBy: { recordedAt: 'desc' },
+        orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
       }),
     );
   });
@@ -177,6 +185,12 @@ describe('ProgressService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('rejects empty weight patch', async () => {
+    await expect(
+      service.updateWeightLog('client-id', 'weight-log-id', {}, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('only returns visible body measurements to client portal', async () => {
     await service.listClientBodyMeasurements(createAccess(createClient()), {});
 
@@ -189,6 +203,18 @@ describe('ProgressService', () => {
         }),
       }),
     );
+  });
+
+  it('rejects empty body measurement patch', async () => {
+    await expect(
+      service.updateBodyMeasurement('client-id', 'measurement-id', {}, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects body measurement create without measurements', async () => {
+    await expect(
+      service.createBodyMeasurement('client-id', { note: 'Only note' }, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('soft deletes weight and excludes deleted records from lists', async () => {

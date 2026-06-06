@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   ClientOperationalStatus,
   ClientType,
+  FollowUpNoteVisibility,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   ProgressPhotoType,
@@ -57,6 +58,12 @@ type PrismaServiceMock = {
     findFirst: ReturnType<typeof vi.fn>;
   };
   progressPhoto: {
+    create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  followUpNote: {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
@@ -199,6 +206,41 @@ describe('ProgressService', () => {
           },
         ]),
         update: vi.fn().mockResolvedValue({ id: 'photo-id' }),
+      },
+      followUpNote: {
+        create: vi.fn().mockResolvedValue({
+          id: 'note-id',
+          clientId: 'client-id',
+          createdByMemberId: 'member-id',
+          text: 'Check soreness',
+          visibility: FollowUpNoteVisibility.private,
+          deletedAt: null,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+        }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'note-id',
+          clientId: 'client-id',
+          createdByMemberId: 'other-member-id',
+          text: 'Other coach note',
+          visibility: FollowUpNoteVisibility.private,
+          deletedAt: null,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+        }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'note-id',
+            clientId: 'client-id',
+            createdByMemberId: 'member-id',
+            text: 'Visible note',
+            visibility: FollowUpNoteVisibility.visible_to_client,
+            deletedAt: null,
+            createdAt: new Date('2026-06-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+          },
+        ]),
+        update: vi.fn().mockResolvedValue({ id: 'note-id' }),
       },
       weightLog: {
         create: vi.fn().mockResolvedValue({ id: 'weight-log-id' }),
@@ -463,6 +505,118 @@ describe('ProgressService', () => {
         createFile({ mimetype: 'application/pdf' }),
         createMember(),
       ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('allows owner to list client follow-up notes', async () => {
+    const owner = createMember({ id: 'owner-id', role: OrganizationMemberRole.owner });
+
+    await service.listNotes('client-id', { limit: '75' }, owner);
+
+    expect(prismaService.followUpNote.findMany).toHaveBeenCalledWith({
+      where: {
+        clientId: 'client-id',
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 75,
+    });
+  });
+
+  it('allows assigned coach to create a follow-up note', async () => {
+    await service.createNote(
+      'client-id',
+      { text: '  Check soreness  ', visibility: 'visible_to_client' },
+      createMember(),
+    );
+
+    expect(prismaService.followUpNote.create).toHaveBeenCalledWith({
+      data: {
+        clientId: 'client-id',
+        createdByMemberId: 'member-id',
+        text: 'Check soreness',
+        visibility: FollowUpNoteVisibility.visible_to_client,
+      },
+    });
+  });
+
+  it('forbids unassigned coach from follow-up notes', async () => {
+    const coach = createMember({ id: 'other-member-id', role: OrganizationMemberRole.coach });
+
+    await expect(service.listNotes('client-id', {}, coach)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('only returns visible follow-up notes to client portal', async () => {
+    await service.listClientNotes(createAccess(createClient()), {});
+
+    expect(prismaService.followUpNote.findMany).toHaveBeenCalledWith({
+      where: {
+        clientId: 'client-id',
+        deletedAt: null,
+        visibility: FollowUpNoteVisibility.visible_to_client,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  });
+
+  it('forbids coach from editing another coach follow-up note', async () => {
+    await expect(
+      service.updateNote('client-id', 'note-id', { text: 'Update' }, createMember()),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows owner to edit another coach follow-up note', async () => {
+    const owner = createMember({ id: 'owner-id', role: OrganizationMemberRole.owner });
+
+    await service.updateNote('client-id', 'note-id', { text: ' Owner note ' }, owner);
+
+    expect(prismaService.followUpNote.update).toHaveBeenCalledWith({
+      where: { id: 'note-id' },
+      data: { text: 'Owner note' },
+    });
+  });
+
+  it('soft deletes follow-up notes', async () => {
+    prismaService.followUpNote.findFirst.mockResolvedValue({
+      id: 'note-id',
+      clientId: 'client-id',
+      createdByMemberId: 'member-id',
+      deletedAt: null,
+    });
+
+    await service.deleteNote('client-id', 'note-id', createMember());
+
+    expect(prismaService.followUpNote.update).toHaveBeenCalledWith({
+      where: { id: 'note-id' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('rejects follow-up note create without text', async () => {
+    await expect(
+      service.createNote('client-id', { visibility: 'private' }, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects empty follow-up note patch', async () => {
+    prismaService.followUpNote.findFirst.mockResolvedValue({
+      id: 'note-id',
+      clientId: 'client-id',
+      createdByMemberId: 'member-id',
+      deletedAt: null,
+    });
+
+    await expect(
+      service.updateNote('client-id', 'note-id', {}, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects invalid follow-up note visibility', async () => {
+    await expect(
+      service.createNote('client-id', { text: 'Note', visibility: 'public' }, createMember()),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

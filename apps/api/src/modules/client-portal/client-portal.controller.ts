@@ -173,6 +173,15 @@ export class ClientPortalController {
   }
 
   @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/progress/notes')
+  listProgressNotes(
+    @Query() query: Pick<ProgressListQuery, 'limit'>,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.listClientNotes(request.clientPortalAccess!, query);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
   @Post(':token/session-logs/open')
   openSessionLog(
     @Body() body: OpenClientSessionLogDto,

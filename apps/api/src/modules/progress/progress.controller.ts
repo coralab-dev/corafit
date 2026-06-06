@@ -21,6 +21,7 @@ import { Roles } from '../../common/auth/roles.decorator';
 import {
   ProgressService,
   type BodyMeasurementDto,
+  type FollowUpNoteDto,
   type ProgressListQuery,
   type ProgressPhotoDto,
   type WeightLogDto,
@@ -176,5 +177,50 @@ export class ProgressController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.progressService.deletePhoto(clientId, photoId, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Get('clients/:clientId/notes')
+  listNotes(
+    @Param('clientId') clientId: string,
+    @Query() query: Pick<ProgressListQuery, 'limit'>,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.listNotes(clientId, query, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post('clients/:clientId/notes')
+  createNote(
+    @Param('clientId') clientId: string,
+    @Body() body: FollowUpNoteDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.createNote(clientId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Patch('clients/:clientId/notes/:noteId')
+  updateNote(
+    @Param('clientId') clientId: string,
+    @Param('noteId') noteId: string,
+    @Body() body: FollowUpNoteDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.updateNote(clientId, noteId, body, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete('clients/:clientId/notes/:noteId')
+  deleteNote(
+    @Param('clientId') clientId: string,
+    @Param('noteId') noteId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.deleteNote(clientId, noteId, request.organizationMember);
   }
 }

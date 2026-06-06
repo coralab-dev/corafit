@@ -9,6 +9,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import {
+  FollowUpNoteVisibility,
   OrganizationMemberRole,
   ProgressPhotoType,
   ProgressRecordActor,
@@ -47,6 +48,11 @@ export type BodyMeasurementDto = {
 export type ProgressPhotoDto = {
   photoType?: string;
   recordedAt?: string;
+};
+
+export type FollowUpNoteDto = {
+  text?: string | null;
+  visibility?: string;
 };
 
 type SupabaseDatabase = {
@@ -308,6 +314,76 @@ export class ProgressService {
     return deleted;
   }
 
+  async listNotes(
+    clientId: string,
+    query: Pick<ProgressListQuery, 'limit'>,
+    member: OrganizationMember | undefined,
+  ) {
+    await this.getAuthorizedClient(clientId, member);
+
+    return this.prismaService.followUpNote.findMany({
+      where: {
+        clientId,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: this.parseLimit(query.limit),
+    });
+  }
+
+  async createNote(
+    clientId: string,
+    body: FollowUpNoteDto,
+    member: OrganizationMember | undefined,
+  ) {
+    await this.getAuthorizedClient(clientId, member);
+    const activeMember = this.requireMember(member);
+    const data = this.parseFollowUpNoteCreate(body);
+
+    return this.prismaService.followUpNote.create({
+      data: {
+        clientId,
+        createdByMemberId: activeMember.id,
+        ...data,
+      },
+    });
+  }
+
+  async updateNote(
+    clientId: string,
+    noteId: string,
+    body: FollowUpNoteDto,
+    member: OrganizationMember | undefined,
+  ) {
+    const activeMember = this.requireMember(member);
+    await this.getAuthorizedClient(clientId, activeMember);
+    const note = await this.getNoteForClient(clientId, noteId);
+    this.assertCanModifyNote(note.createdByMemberId, activeMember);
+    const data = this.parseFollowUpNotePatch(body);
+    this.rejectEmptyPatch(data);
+
+    return this.prismaService.followUpNote.update({
+      where: { id: noteId },
+      data,
+    });
+  }
+
+  async deleteNote(
+    clientId: string,
+    noteId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    const activeMember = this.requireMember(member);
+    await this.getAuthorizedClient(clientId, activeMember);
+    const note = await this.getNoteForClient(clientId, noteId);
+    this.assertCanModifyNote(note.createdByMemberId, activeMember);
+
+    return this.prismaService.followUpNote.update({
+      where: { id: noteId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   async listClientWeightLogs(
     access: ClientPortalAccessWithClient,
     query: ProgressListQuery,
@@ -439,6 +515,21 @@ export class ProgressService {
     return deleted;
   }
 
+  async listClientNotes(
+    access: ClientPortalAccessWithClient,
+    query: Pick<ProgressListQuery, 'limit'>,
+  ) {
+    return this.prismaService.followUpNote.findMany({
+      where: {
+        clientId: access.clientId,
+        deletedAt: null,
+        visibility: FollowUpNoteVisibility.visible_to_client,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: this.parseLimit(query.limit),
+    });
+  }
+
   private async getAuthorizedClient(
     clientId: string,
     member: OrganizationMember | undefined,
@@ -510,6 +601,21 @@ export class ProgressService {
     return photo;
   }
 
+  private async getNoteForClient(clientId: string, noteId: string) {
+    const note = await this.prismaService.followUpNote.findFirst({
+      where: {
+        id: noteId,
+        clientId,
+        deletedAt: null,
+      },
+    });
+    if (!note) {
+      throw new NotFoundException('Follow-up note not found');
+    }
+
+    return note;
+  }
+
   private parseWeightLog(body: WeightLogDto): ParsedWeightLogCreate;
   private parseWeightLog(body: WeightLogDto, requireWeight: false): ParsedWeightLogUpdate;
   private parseWeightLog(
@@ -564,6 +670,59 @@ export class ProgressService {
     }
 
     return value as ProgressPhotoType;
+  }
+
+  private parseFollowUpNoteCreate(body: FollowUpNoteDto) {
+    const text = this.parseFollowUpText(body.text, true);
+
+    return {
+      text,
+      visibility: this.parseFollowUpVisibility(body.visibility),
+    };
+  }
+
+  private parseFollowUpNotePatch(body: FollowUpNoteDto) {
+    return {
+      ...(body.text !== undefined ? { text: this.parseFollowUpText(body.text, true) } : {}),
+      ...(body.visibility !== undefined
+        ? { visibility: this.parseFollowUpVisibility(body.visibility) }
+        : {}),
+    };
+  }
+
+  private parseFollowUpText(value: string | null | undefined, required: true) {
+    if (value === undefined || value === null) {
+      throw new BadRequestException('text is required');
+    }
+    const text = value.trim();
+    if (text.length === 0) {
+      throw new BadRequestException('text is required');
+    }
+    if (text.length > 2000) {
+      throw new BadRequestException('text must be at most 2000 characters');
+    }
+
+    return text;
+  }
+
+  private parseFollowUpVisibility(value: string | undefined) {
+    if (value === undefined || value === '') {
+      return FollowUpNoteVisibility.private;
+    }
+    if (!Object.values(FollowUpNoteVisibility).includes(value as FollowUpNoteVisibility)) {
+      throw new BadRequestException('visibility must be private or visible_to_client');
+    }
+
+    return value as FollowUpNoteVisibility;
+  }
+
+  private assertCanModifyNote(createdByMemberId: string, member: OrganizationMember) {
+    if (
+      member.role === OrganizationMemberRole.coach &&
+      createdByMemberId !== member.id
+    ) {
+      throw new ForbiddenException('Coach can only modify own notes');
+    }
   }
 
   private async uploadPhoto(storagePath: string, file: Express.Multer.File | undefined) {

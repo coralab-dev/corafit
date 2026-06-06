@@ -185,6 +185,12 @@ describe('ProgressService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('rejects empty client portal weight patch', async () => {
+    await expect(
+      service.updateClientWeightLog(createAccess(createClient()), 'weight-log-id', {}),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('rejects empty weight patch', async () => {
     await expect(
       service.updateWeightLog('client-id', 'weight-log-id', {}, createMember()),
@@ -214,6 +220,12 @@ describe('ProgressService', () => {
   it('rejects body measurement create without measurements', async () => {
     await expect(
       service.createBodyMeasurement('client-id', { note: 'Only note' }, createMember()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects body measurement create with only null measurements', async () => {
+    await expect(
+      service.createBodyMeasurement('client-id', { waistCm: null, hipCm: null }, createMember()),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

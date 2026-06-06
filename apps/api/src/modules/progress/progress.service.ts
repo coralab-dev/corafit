@@ -235,10 +235,12 @@ export class ProgressService {
     if (weightLog.recordedByType !== ProgressRecordActor.client) {
       throw new ForbiddenException('Client can only update own weight logs');
     }
+    const data = this.parseWeightLog(body, false);
+    this.rejectEmptyPatch(data);
 
     return this.prismaService.weightLog.update({
       where: { id: weightLogId },
-      data: this.parseWeightLog(body, false),
+      data,
     });
   }
 
@@ -351,7 +353,7 @@ export class ProgressService {
         .filter((entry): entry is [MeasurementField, number | null] => entry[1] !== undefined),
     );
 
-    if (requireMeasurement && Object.keys(measurements).length === 0) {
+    if (requireMeasurement && !Object.values(measurements).some((value) => value !== null)) {
       throw new BadRequestException('At least one body measurement is required');
     }
 

@@ -393,6 +393,7 @@ export const ModelName = {
   FollowUpNote: 'FollowUpNote',
   WeightLog: 'WeightLog',
   BodyMeasurementLog: 'BodyMeasurementLog',
+  ProgressPhoto: 'ProgressPhoto',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting',
@@ -420,7 +421,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "weightLog" | "bodyMeasurementLog" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment" | "clientSessionLog"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "weightLog" | "bodyMeasurementLog" | "progressPhoto" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment" | "clientSessionLog"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1087,6 +1088,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.BodyMeasurementLogCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.BodyMeasurementLogCountAggregateOutputType> | number
+        }
+      }
+    }
+    ProgressPhoto: {
+      payload: Prisma.$ProgressPhotoPayload<ExtArgs>
+      fields: Prisma.ProgressPhotoFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProgressPhotoFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProgressPhotoFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        findFirst: {
+          args: Prisma.ProgressPhotoFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProgressPhotoFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        findMany: {
+          args: Prisma.ProgressPhotoFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>[]
+        }
+        create: {
+          args: Prisma.ProgressPhotoCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        createMany: {
+          args: Prisma.ProgressPhotoCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProgressPhotoCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>[]
+        }
+        delete: {
+          args: Prisma.ProgressPhotoDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        update: {
+          args: Prisma.ProgressPhotoUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        deleteMany: {
+          args: Prisma.ProgressPhotoDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProgressPhotoUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProgressPhotoUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>[]
+        }
+        upsert: {
+          args: Prisma.ProgressPhotoUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProgressPhotoPayload>
+        }
+        aggregate: {
+          args: Prisma.ProgressPhotoAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProgressPhoto>
+        }
+        groupBy: {
+          args: Prisma.ProgressPhotoGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProgressPhotoGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProgressPhotoCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProgressPhotoCountAggregateOutputType> | number
         }
       }
     }
@@ -2168,6 +2243,22 @@ export const BodyMeasurementLogScalarFieldEnum = {
 export type BodyMeasurementLogScalarFieldEnum = (typeof BodyMeasurementLogScalarFieldEnum)[keyof typeof BodyMeasurementLogScalarFieldEnum]
 
 
+export const ProgressPhotoScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  uploadedByType: 'uploadedByType',
+  uploadedByMemberId: 'uploadedByMemberId',
+  storagePath: 'storagePath',
+  photoType: 'photoType',
+  recordedAt: 'recordedAt',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProgressPhotoScalarFieldEnum = (typeof ProgressPhotoScalarFieldEnum)[keyof typeof ProgressPhotoScalarFieldEnum]
+
+
 export const SubscriptionPlanScalarFieldEnum = {
   id: 'id',
   code: 'code',
@@ -2624,6 +2715,20 @@ export type ListEnumProgressRecordActorFieldRefInput<$PrismaModel> = FieldRefInp
 
 
 /**
+ * Reference to a field of type 'ProgressPhotoType'
+ */
+export type EnumProgressPhotoTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProgressPhotoType'>
+    
+
+
+/**
+ * Reference to a field of type 'ProgressPhotoType[]'
+ */
+export type ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProgressPhotoType[]'>
+    
+
+
+/**
  * Reference to a field of type 'Json'
  */
 export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
@@ -2923,6 +3028,7 @@ export type GlobalOmitConfig = {
   followUpNote?: Prisma.FollowUpNoteOmit
   weightLog?: Prisma.WeightLogOmit
   bodyMeasurementLog?: Prisma.BodyMeasurementLogOmit
+  progressPhoto?: Prisma.ProgressPhotoOmit
   subscriptionPlan?: Prisma.SubscriptionPlanOmit
   organizationSubscription?: Prisma.OrganizationSubscriptionOmit
   systemSetting?: Prisma.SystemSettingOmit

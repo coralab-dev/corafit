@@ -9,8 +9,11 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { Public } from '../../common/auth/public.decorator';
@@ -29,6 +32,7 @@ import {
 import {
   ProgressService,
   type ProgressListQuery,
+  type ProgressPhotoDto,
   type WeightLogDto,
 } from '../progress/progress.service';
 
@@ -137,6 +141,35 @@ export class ClientPortalController {
       request.clientPortalAccess!,
       query,
     );
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/progress/photos')
+  listProgressPhotos(
+    @Query() query: ProgressListQuery,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.listClientPhotos(request.clientPortalAccess!, query);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Post(':token/progress/photos')
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  createProgressPhoto(
+    @Body() body: ProgressPhotoDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.createClientPhoto(request.clientPortalAccess!, body, file);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Delete(':token/progress/photos/:photoId')
+  deleteProgressPhoto(
+    @Param('photoId') photoId: string,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.deleteClientPhoto(request.clientPortalAccess!, photoId);
   }
 
   @UseGuards(ClientPortalAuthGuard)

@@ -443,6 +443,23 @@ export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedFloatNullableFilter<$PrismaModel>
 }
 
+export type EnumProgressPhotoTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProgressPhotoType | Prisma.EnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel> | $Enums.ProgressPhotoType
+}
+
+export type EnumProgressPhotoTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProgressPhotoType | Prisma.EnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProgressPhotoTypeWithAggregatesFilter<$PrismaModel> | $Enums.ProgressPhotoType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel>
+}
+
 export type JsonNullableFilter<$PrismaModel = never> =
 | Prisma.PatchUndefined<
     Prisma.Either<Required<JsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>,
@@ -1167,6 +1184,23 @@ export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedFloatNullableFilter<$PrismaModel>
   _min?: Prisma.NestedFloatNullableFilter<$PrismaModel>
   _max?: Prisma.NestedFloatNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumProgressPhotoTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProgressPhotoType | Prisma.EnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel> | $Enums.ProgressPhotoType
+}
+
+export type NestedEnumProgressPhotoTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProgressPhotoType | Prisma.EnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProgressPhotoType[] | Prisma.ListEnumProgressPhotoTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProgressPhotoTypeWithAggregatesFilter<$PrismaModel> | $Enums.ProgressPhotoType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProgressPhotoTypeFilter<$PrismaModel>
 }
 
 export type NestedEnumSubscriptionPlanStatusFilter<$PrismaModel = never> = {

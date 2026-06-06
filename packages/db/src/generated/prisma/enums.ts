@@ -125,6 +125,16 @@ export const ProgressRecordActor = {
 export type ProgressRecordActor = (typeof ProgressRecordActor)[keyof typeof ProgressRecordActor]
 
 
+export const ProgressPhotoType = {
+  front: 'front',
+  side: 'side',
+  back: 'back',
+  other: 'other'
+} as const
+
+export type ProgressPhotoType = (typeof ProgressPhotoType)[keyof typeof ProgressPhotoType]
+
+
 export const ExerciseStatus = {
   active: 'active',
   inactive: 'inactive',

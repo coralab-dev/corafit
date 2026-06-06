@@ -8,8 +8,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { OrganizationMemberRole } from 'db';
 import type { AuthenticatedRequest } from '../../common/auth/authenticated-request';
 import { OrganizationGuard } from '../../common/auth/organization.guard';
@@ -19,6 +22,7 @@ import {
   ProgressService,
   type BodyMeasurementDto,
   type ProgressListQuery,
+  type ProgressPhotoDto,
   type WeightLogDto,
 } from './progress.service';
 
@@ -137,5 +141,40 @@ export class ProgressController {
       measurementId,
       request.organizationMember,
     );
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Get('clients/:clientId/photos')
+  listPhotos(
+    @Param('clientId') clientId: string,
+    @Query() query: ProgressListQuery,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.listPhotos(clientId, query, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Post('clients/:clientId/photos')
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  createPhoto(
+    @Param('clientId') clientId: string,
+    @Body() body: ProgressPhotoDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.createPhoto(clientId, body, file, request.organizationMember);
+  }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Delete('clients/:clientId/photos/:photoId')
+  deletePhoto(
+    @Param('clientId') clientId: string,
+    @Param('photoId') photoId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.progressService.deletePhoto(clientId, photoId, request.organizationMember);
   }
 }

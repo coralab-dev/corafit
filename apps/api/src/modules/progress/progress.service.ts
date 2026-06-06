@@ -4,13 +4,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import {
   OrganizationMemberRole,
+  ProgressPhotoType,
   ProgressRecordActor,
   type Client,
   type ClientAccess,
   type OrganizationMember,
+  type ProgressPhoto,
 } from 'db';
+import type { AppConfig } from '../../config/env.schema';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type ProgressListQuery = {
@@ -37,6 +44,21 @@ export type BodyMeasurementDto = {
   waistCm?: number | string | null;
 };
 
+export type ProgressPhotoDto = {
+  photoType?: string;
+  recordedAt?: string;
+};
+
+type SupabaseDatabase = {
+  public: {
+    Tables: Record<string, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+
 type ClientPortalAccessWithClient = ClientAccess & { client: Client };
 type DateRange = { gte?: Date; lte?: Date };
 type MeasurementField = 'armCm' | 'chestCm' | 'gluteCm' | 'hipCm' | 'legCm' | 'waistCm';
@@ -52,10 +74,32 @@ const measurementFields: MeasurementField[] = [
   'legCm',
   'waistCm',
 ];
+const progressPhotosBucketName = 'progress-photos';
+const signedUrlExpiresInSeconds = 60 * 60;
+const allowedPhotoMimeTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const maxPhotoUploadBytes = 8 * 1024 * 1024;
+const maxPhotoSidePx = 1600;
 
 @Injectable()
 export class ProgressService {
-  constructor(private readonly prismaService: PrismaService) {}
+  private readonly supabase: SupabaseClient<SupabaseDatabase>;
+  private progressPhotosBucketReady = false;
+
+  constructor(
+    configService: ConfigService<AppConfig, true>,
+    private readonly prismaService: PrismaService,
+  ) {
+    this.supabase = createClient<SupabaseDatabase>(
+      configService.get('SUPABASE_URL', { infer: true }),
+      configService.get('SUPABASE_SERVICE_KEY', { infer: true }),
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      },
+    );
+  }
 
   getStatus() {
     return { module: 'progress', status: 'ready' };
@@ -195,6 +239,75 @@ export class ProgressService {
     });
   }
 
+  async listPhotos(
+    clientId: string,
+    query: ProgressListQuery,
+    member: OrganizationMember | undefined,
+  ) {
+    await this.getAuthorizedClient(clientId, member);
+    const photos = await this.prismaService.progressPhoto.findMany({
+      where: {
+        clientId,
+        deletedAt: null,
+        ...this.buildRecordedAtFilter(query),
+      },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
+      take: this.parseLimit(query.limit),
+    });
+
+    return this.attachSignedUrls(photos);
+  }
+
+  async createPhoto(
+    clientId: string,
+    body: ProgressPhotoDto,
+    file: Express.Multer.File | undefined,
+    member: OrganizationMember | undefined,
+  ) {
+    const client = await this.getAuthorizedClient(clientId, member);
+    const activeMember = this.requireMember(member);
+    const data = this.parsePhoto(body);
+    const storagePath = this.buildPhotoStoragePath(client.organizationId, clientId);
+    await this.uploadPhoto(storagePath, file);
+
+    const photo = await this.prismaService.progressPhoto.create({
+      data: {
+        clientId,
+        uploadedByType: ProgressRecordActor.coach,
+        uploadedByMemberId: activeMember.id,
+        storagePath,
+        ...data,
+      },
+    });
+
+    return this.attachSignedUrl(photo);
+  }
+
+  async deletePhoto(
+    clientId: string,
+    photoId: string,
+    member: OrganizationMember | undefined,
+  ) {
+    const activeMember = this.requireMember(member);
+    await this.getAuthorizedClient(clientId, activeMember);
+    const photo = await this.getPhotoForClient(clientId, photoId);
+
+    if (
+      activeMember.role === OrganizationMemberRole.coach &&
+      photo.uploadedByMemberId !== activeMember.id
+    ) {
+      throw new ForbiddenException('Coach can only delete own photos');
+    }
+
+    const deleted = await this.prismaService.progressPhoto.update({
+      where: { id: photoId },
+      data: { deletedAt: new Date() },
+    });
+    await this.tryRemovePhoto(photo.storagePath);
+
+    return deleted;
+  }
+
   async listClientWeightLogs(
     access: ClientPortalAccessWithClient,
     query: ProgressListQuery,
@@ -272,6 +385,60 @@ export class ProgressService {
     });
   }
 
+  async listClientPhotos(
+    access: ClientPortalAccessWithClient,
+    query: ProgressListQuery,
+  ) {
+    const photos = await this.prismaService.progressPhoto.findMany({
+      where: {
+        clientId: access.clientId,
+        deletedAt: null,
+        ...this.buildRecordedAtFilter(query),
+      },
+      orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
+      take: this.parseLimit(query.limit),
+    });
+
+    return this.attachSignedUrls(photos);
+  }
+
+  async createClientPhoto(
+    access: ClientPortalAccessWithClient,
+    body: ProgressPhotoDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    const data = this.parsePhoto(body);
+    const storagePath = this.buildPhotoStoragePath(access.client.organizationId, access.clientId);
+    await this.uploadPhoto(storagePath, file);
+
+    const photo = await this.prismaService.progressPhoto.create({
+      data: {
+        clientId: access.clientId,
+        uploadedByType: ProgressRecordActor.client,
+        uploadedByMemberId: null,
+        storagePath,
+        ...data,
+      },
+    });
+
+    return this.attachSignedUrl(photo);
+  }
+
+  async deleteClientPhoto(access: ClientPortalAccessWithClient, photoId: string) {
+    const photo = await this.getPhotoForClient(access.clientId, photoId);
+    if (photo.uploadedByType !== ProgressRecordActor.client) {
+      throw new ForbiddenException('Client can only delete own photos');
+    }
+
+    const deleted = await this.prismaService.progressPhoto.update({
+      where: { id: photoId },
+      data: { deletedAt: new Date() },
+    });
+    await this.tryRemovePhoto(photo.storagePath);
+
+    return deleted;
+  }
+
   private async getAuthorizedClient(
     clientId: string,
     member: OrganizationMember | undefined,
@@ -328,6 +495,21 @@ export class ProgressService {
     return measurement;
   }
 
+  private async getPhotoForClient(clientId: string, photoId: string) {
+    const photo = await this.prismaService.progressPhoto.findFirst({
+      where: {
+        id: photoId,
+        clientId,
+        deletedAt: null,
+      },
+    });
+    if (!photo) {
+      throw new NotFoundException('Progress photo not found');
+    }
+
+    return photo;
+  }
+
   private parseWeightLog(body: WeightLogDto): ParsedWeightLogCreate;
   private parseWeightLog(body: WeightLogDto, requireWeight: false): ParsedWeightLogUpdate;
   private parseWeightLog(
@@ -364,6 +546,126 @@ export class ProgressService {
         : {}),
       ...this.parseCommonFields(body),
     };
+  }
+
+  private parsePhoto(body: ProgressPhotoDto) {
+    return {
+      photoType: this.parsePhotoType(body.photoType),
+      ...(body.recordedAt !== undefined ? { recordedAt: this.parseDate(body.recordedAt) } : {}),
+    };
+  }
+
+  private parsePhotoType(value: string | undefined) {
+    if (value === undefined || value === '') {
+      return ProgressPhotoType.other;
+    }
+    if (!Object.values(ProgressPhotoType).includes(value as ProgressPhotoType)) {
+      throw new BadRequestException('photoType must be front, side, back, or other');
+    }
+
+    return value as ProgressPhotoType;
+  }
+
+  private async uploadPhoto(storagePath: string, file: Express.Multer.File | undefined) {
+    if (!file) {
+      throw new BadRequestException('Photo file is required');
+    }
+
+    this.validatePhoto(file);
+    await this.ensureProgressPhotosBucket();
+
+    const optimizedPhoto = await sharp(file.buffer)
+      .rotate()
+      .resize({
+        width: maxPhotoSidePx,
+        height: maxPhotoSidePx,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 84 })
+      .toBuffer();
+
+    const { error } = await this.supabase.storage
+      .from(progressPhotosBucketName)
+      .upload(storagePath, optimizedPhoto, {
+        cacheControl: '3600',
+        contentType: 'image/webp',
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BadRequestException(`Photo upload failed: ${error.message}`);
+    }
+  }
+
+  private validatePhoto(file: Express.Multer.File) {
+    if (!allowedPhotoMimeTypes.includes(file.mimetype as (typeof allowedPhotoMimeTypes)[number])) {
+      throw new BadRequestException('Photo must be JPG, PNG, or WebP');
+    }
+
+    if (file.size > maxPhotoUploadBytes) {
+      throw new BadRequestException('Photo must be 8 MB or smaller');
+    }
+  }
+
+  private async ensureProgressPhotosBucket() {
+    if (this.progressPhotosBucketReady) {
+      return;
+    }
+
+    const { data } = await this.supabase.storage.getBucket(progressPhotosBucketName);
+
+    if (!data) {
+      const { error } = await this.supabase.storage.createBucket(progressPhotosBucketName, {
+        allowedMimeTypes: ['image/webp'],
+        fileSizeLimit: maxPhotoUploadBytes,
+        public: false,
+      });
+
+      if (error) {
+        throw new BadRequestException(`Could not create storage bucket: ${error.message}`);
+      }
+    } else if (data.public) {
+      const { error } = await this.supabase.storage.updateBucket(progressPhotosBucketName, {
+        allowedMimeTypes: ['image/webp'],
+        fileSizeLimit: maxPhotoUploadBytes,
+        public: false,
+      });
+
+      if (error) {
+        throw new BadRequestException(`Could not update storage bucket: ${error.message}`);
+      }
+    }
+
+    this.progressPhotosBucketReady = true;
+  }
+
+  private buildPhotoStoragePath(organizationId: string, clientId: string) {
+    return `${progressPhotosBucketName}/${organizationId}/${clientId}/${randomUUID()}.webp`;
+  }
+
+  private async attachSignedUrls(photos: ProgressPhoto[]) {
+    return Promise.all(photos.map((photo) => this.attachSignedUrl(photo)));
+  }
+
+  private async attachSignedUrl<T extends ProgressPhoto>(photo: T) {
+    const { data, error } = await this.supabase.storage
+      .from(progressPhotosBucketName)
+      .createSignedUrl(photo.storagePath, signedUrlExpiresInSeconds);
+
+    if (error || !data?.signedUrl) {
+      throw new BadRequestException('Could not create signed photo URL');
+    }
+
+    return { ...photo, signedUrl: data.signedUrl };
+  }
+
+  private async tryRemovePhoto(storagePath: string) {
+    try {
+      await this.supabase.storage.from(progressPhotosBucketName).remove([storagePath]);
+    } catch {
+      return;
+    }
   }
 
   private parseCommonFields(body: { note?: string | null; recordedAt?: string }) {

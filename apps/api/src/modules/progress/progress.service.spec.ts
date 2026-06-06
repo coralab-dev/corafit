@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ClientOperationalStatus,
   ClientType,
   OrganizationMemberRole,
   OrganizationMemberStatus,
+  ProgressPhotoType,
+  ProgressRecordActor,
   type Client,
   type ClientAccess,
   type OrganizationMember,
@@ -13,9 +16,51 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ProgressService } from './progress.service';
 
+const uploadMock = vi.fn();
+const removeMock = vi.fn();
+const createSignedUrlMock = vi.fn();
+const getBucketMock = vi.fn();
+const createBucketMock = vi.fn();
+const updateBucketMock = vi.fn();
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    storage: {
+      createBucket: createBucketMock,
+      from: vi.fn(() => ({
+        createSignedUrl: createSignedUrlMock,
+        remove: removeMock,
+        upload: uploadMock,
+      })),
+      getBucket: getBucketMock,
+      updateBucket: updateBucketMock,
+    },
+  })),
+}));
+
+vi.mock('sharp', () => ({
+  default: vi.fn(() => ({
+    resize: vi.fn().mockReturnThis(),
+    rotate: vi.fn().mockReturnThis(),
+    toBuffer: vi.fn().mockResolvedValue(Buffer.from('optimized-photo')),
+    webp: vi.fn().mockReturnThis(),
+  })),
+}));
+
+vi.mock('node:crypto', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:crypto')>()),
+  randomUUID: vi.fn(() => 'photo-id'),
+}));
+
 type PrismaServiceMock = {
   client: {
     findFirst: ReturnType<typeof vi.fn>;
+  };
+  progressPhoto: {
+    create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   weightLog: {
     create: ReturnType<typeof vi.fn>;
@@ -30,6 +75,19 @@ type PrismaServiceMock = {
     update: ReturnType<typeof vi.fn>;
   };
 };
+
+function createConfigService() {
+  return {
+    get: vi.fn((key: string) => {
+      const values: Record<string, string> = {
+        SUPABASE_SERVICE_KEY: 'sb_secret_test',
+        SUPABASE_URL: 'https://project.supabase.co',
+      };
+
+      return values[key];
+    }),
+  } as unknown as ConfigService;
+}
 
 function createMember(overrides: Partial<OrganizationMember> = {}): OrganizationMember {
   return {
@@ -89,9 +147,58 @@ describe('ProgressService', () => {
   let service: ProgressService;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    uploadMock.mockResolvedValue({ error: null });
+    removeMock.mockResolvedValue({ error: null });
+    createSignedUrlMock.mockResolvedValue({
+      data: { signedUrl: 'https://signed.example/photo.webp' },
+      error: null,
+    });
+    getBucketMock.mockResolvedValue({ data: { public: false } });
     prismaService = {
       client: {
         findFirst: vi.fn().mockResolvedValue(createClient()),
+      },
+      progressPhoto: {
+        create: vi.fn().mockResolvedValue({
+          id: 'photo-id',
+          clientId: 'client-id',
+          uploadedByType: ProgressRecordActor.coach,
+          uploadedByMemberId: 'member-id',
+          storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+          photoType: ProgressPhotoType.front,
+          recordedAt: new Date('2026-06-01T00:00:00.000Z'),
+          deletedAt: null,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+        }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'photo-id',
+          clientId: 'client-id',
+          uploadedByType: ProgressRecordActor.client,
+          uploadedByMemberId: null,
+          storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+          photoType: ProgressPhotoType.front,
+          recordedAt: new Date('2026-06-01T00:00:00.000Z'),
+          deletedAt: null,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+        }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'photo-id',
+            clientId: 'client-id',
+            uploadedByType: ProgressRecordActor.client,
+            uploadedByMemberId: null,
+            storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+            photoType: ProgressPhotoType.front,
+            recordedAt: new Date('2026-06-01T00:00:00.000Z'),
+            deletedAt: null,
+            createdAt: new Date('2026-06-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+          },
+        ]),
+        update: vi.fn().mockResolvedValue({ id: 'photo-id' }),
       },
       weightLog: {
         create: vi.fn().mockResolvedValue({ id: 'weight-log-id' }),
@@ -116,7 +223,10 @@ describe('ProgressService', () => {
         update: vi.fn().mockResolvedValue({ id: 'measurement-id' }),
       },
     };
-    service = new ProgressService(prismaService as unknown as PrismaService);
+    service = new ProgressService(
+      createConfigService(),
+      prismaService as unknown as PrismaService,
+    );
   });
 
   it('allows owner to list client weight logs in their organization', async () => {
@@ -245,4 +355,124 @@ describe('ProgressService', () => {
       }),
     );
   });
+
+  it('allows owner to list client photos with signed URLs', async () => {
+    const owner = createMember({ role: OrganizationMemberRole.owner, id: 'owner-id' });
+
+    const result = await service.listPhotos('client-id', {}, owner);
+
+    expect(prismaService.progressPhoto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ clientId: 'client-id', deletedAt: null }),
+        orderBy: [{ recordedAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+    );
+    expect(createSignedUrlMock).toHaveBeenCalledWith(
+      'progress-photos/organization-id/client-id/photo-id.webp',
+      3600,
+    );
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        signedUrl: 'https://signed.example/photo.webp',
+        storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+      }),
+    );
+  });
+
+  it('allows assigned coach to list and upload photos using storagePath only', async () => {
+    const coach = createMember({ id: 'member-id', role: OrganizationMemberRole.coach });
+    const file = createFile();
+
+    await service.listPhotos('client-id', {}, coach);
+    await service.createPhoto('client-id', { photoType: 'front' }, file, coach);
+
+    expect(prismaService.progressPhoto.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        clientId: 'client-id',
+        uploadedByType: ProgressRecordActor.coach,
+        uploadedByMemberId: 'member-id',
+        storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+        photoType: ProgressPhotoType.front,
+      }),
+    });
+    expect(prismaService.progressPhoto.create.mock.calls[0][0].data).not.toHaveProperty('url');
+    expect(uploadMock).toHaveBeenCalledWith(
+      'progress-photos/organization-id/client-id/photo-id.webp',
+      Buffer.from('optimized-photo'),
+      expect.objectContaining({ contentType: 'image/webp' }),
+    );
+  });
+
+  it('forbids unassigned coach from listing photos', async () => {
+    const coach = createMember({ id: 'other-member-id', role: OrganizationMemberRole.coach });
+
+    await expect(service.listPhotos('client-id', {}, coach)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('allows client to list own photos', async () => {
+    await service.listClientPhotos(createAccess(createClient()), {});
+
+    expect(prismaService.progressPhoto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ clientId: 'client-id', deletedAt: null }),
+      }),
+    );
+  });
+
+  it('forbids client from deleting coach uploaded photos', async () => {
+    prismaService.progressPhoto.findFirst.mockResolvedValue({
+      id: 'photo-id',
+      clientId: 'client-id',
+      uploadedByType: ProgressRecordActor.coach,
+      uploadedByMemberId: 'member-id',
+      storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+      deletedAt: null,
+    });
+
+    await expect(
+      service.deleteClientPhoto(createAccess(createClient()), 'photo-id'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('forbids coach from deleting client uploaded photos', async () => {
+    const coach = createMember({ id: 'member-id', role: OrganizationMemberRole.coach });
+
+    await expect(service.deletePhoto('client-id', 'photo-id', coach)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('allows owner to delete any organization photo', async () => {
+    const owner = createMember({ id: 'owner-id', role: OrganizationMemberRole.owner });
+
+    await service.deletePhoto('client-id', 'photo-id', owner);
+
+    expect(prismaService.progressPhoto.update).toHaveBeenCalledWith({
+      where: { id: 'photo-id' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('rejects invalid upload mime', async () => {
+    await expect(
+      service.createPhoto(
+        'client-id',
+        {},
+        createFile({ mimetype: 'application/pdf' }),
+        createMember(),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });
+
+function createFile(overrides: Partial<Express.Multer.File> = {}) {
+  return {
+    buffer: Buffer.from('raw-photo'),
+    mimetype: 'image/jpeg',
+    originalname: 'photo.jpg',
+    size: 1024,
+    ...overrides,
+  } as Express.Multer.File;
+}

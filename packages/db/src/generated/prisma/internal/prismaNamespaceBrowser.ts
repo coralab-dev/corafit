@@ -60,6 +60,7 @@ export const ModelName = {
   FollowUpNote: 'FollowUpNote',
   WeightLog: 'WeightLog',
   BodyMeasurementLog: 'BodyMeasurementLog',
+  ProgressPhoto: 'ProgressPhoto',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting',
@@ -239,6 +240,22 @@ export const BodyMeasurementLogScalarFieldEnum = {
 } as const
 
 export type BodyMeasurementLogScalarFieldEnum = (typeof BodyMeasurementLogScalarFieldEnum)[keyof typeof BodyMeasurementLogScalarFieldEnum]
+
+
+export const ProgressPhotoScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  uploadedByType: 'uploadedByType',
+  uploadedByMemberId: 'uploadedByMemberId',
+  storagePath: 'storagePath',
+  photoType: 'photoType',
+  recordedAt: 'recordedAt',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProgressPhotoScalarFieldEnum = (typeof ProgressPhotoScalarFieldEnum)[keyof typeof ProgressPhotoScalarFieldEnum]
 
 
 export const SubscriptionPlanScalarFieldEnum = {

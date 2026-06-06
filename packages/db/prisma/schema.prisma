@@ -84,6 +84,13 @@ enum ProgressRecordActor {
   client
 }
 
+enum ProgressPhotoType {
+  front
+  side
+  back
+  other
+}
+
 model User {
   id             String           @id @default(uuid())
   supabaseUserId String           @unique @map("supabase_user_id")
@@ -143,6 +150,7 @@ model OrganizationMember {
   createdFollowUpNotes    FollowUpNote[]
   recordedWeightLogs      WeightLog[]         @relation("WeightLogRecordedBy")
   recordedBodyMeasurements BodyMeasurementLog[] @relation("BodyMeasurementRecordedBy")
+  uploadedProgressPhotos  ProgressPhoto[]     @relation("ProgressPhotoUploadedBy")
   createdTrainingPlans    TrainingPlan[]
   createdPlanAssignments  ClientTrainingPlanAssignment[]
 
@@ -176,6 +184,7 @@ model Client {
   followUpNotes  FollowUpNote[]
   weightLogs     WeightLog[]
   bodyMeasurements BodyMeasurementLog[]
+  progressPhotos ProgressPhoto[]
   assignedPlans  TrainingPlan[]                     @relation("AssignedClient")
   planAssignments ClientTrainingPlanAssignment[]
   sessionLogs    ClientSessionLog[]
@@ -277,6 +286,27 @@ model BodyMeasurementLog {
   @@index([clientId, deletedAt, recordedAt])
   @@index([recordedByMemberId])
   @@map("body_measurement_logs")
+}
+
+model ProgressPhoto {
+  id                 String              @id @default(uuid())
+  clientId           String              @map("client_id")
+  uploadedByType     ProgressRecordActor @map("uploaded_by_type")
+  uploadedByMemberId String?             @map("uploaded_by_member_id")
+  storagePath        String              @map("storage_path")
+  photoType          ProgressPhotoType   @default(other) @map("photo_type")
+  recordedAt         DateTime            @default(now()) @map("recorded_at")
+  deletedAt          DateTime?           @map("deleted_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  client           Client              @relation(fields: [clientId], references: [id])
+  uploadedByMember OrganizationMember? @relation("ProgressPhotoUploadedBy", fields: [uploadedByMemberId], references: [id])
+
+  @@index([clientId, recordedAt])
+  @@index([clientId, deletedAt, recordedAt])
+  @@index([uploadedByMemberId])
+  @@map("progress_photos")
 }
 
 model SubscriptionPlan {

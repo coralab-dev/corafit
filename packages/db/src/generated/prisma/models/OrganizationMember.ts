@@ -204,6 +204,7 @@ export type OrganizationMemberWhereInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteListRelationFilter
   recordedWeightLogs?: Prisma.WeightLogListRelationFilter
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogListRelationFilter
+  uploadedProgressPhotos?: Prisma.ProgressPhotoListRelationFilter
   createdTrainingPlans?: Prisma.TrainingPlanListRelationFilter
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
 }
@@ -222,6 +223,7 @@ export type OrganizationMemberOrderByWithRelationInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteOrderByRelationAggregateInput
   recordedWeightLogs?: Prisma.WeightLogOrderByRelationAggregateInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogOrderByRelationAggregateInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoOrderByRelationAggregateInput
   createdTrainingPlans?: Prisma.TrainingPlanOrderByRelationAggregateInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentOrderByRelationAggregateInput
 }
@@ -244,6 +246,7 @@ export type OrganizationMemberWhereUniqueInput = Prisma.AtLeast<{
   createdFollowUpNotes?: Prisma.FollowUpNoteListRelationFilter
   recordedWeightLogs?: Prisma.WeightLogListRelationFilter
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogListRelationFilter
+  uploadedProgressPhotos?: Prisma.ProgressPhotoListRelationFilter
   createdTrainingPlans?: Prisma.TrainingPlanListRelationFilter
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
 }, "id" | "organizationId_userId">
@@ -286,6 +289,7 @@ export type OrganizationMemberCreateInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -302,6 +306,7 @@ export type OrganizationMemberUncheckedCreateInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -318,6 +323,7 @@ export type OrganizationMemberUpdateInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -334,6 +340,7 @@ export type OrganizationMemberUncheckedUpdateInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -573,6 +580,22 @@ export type OrganizationMemberUpdateOneRequiredWithoutRecordedBodyMeasurementsNe
   update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationMemberUpdateToOneWithWhereWithoutRecordedBodyMeasurementsInput, Prisma.OrganizationMemberUpdateWithoutRecordedBodyMeasurementsInput>, Prisma.OrganizationMemberUncheckedUpdateWithoutRecordedBodyMeasurementsInput>
 }
 
+export type OrganizationMemberCreateNestedOneWithoutUploadedProgressPhotosInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedCreateWithoutUploadedProgressPhotosInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutUploadedProgressPhotosInput
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+}
+
+export type OrganizationMemberUpdateOneWithoutUploadedProgressPhotosNestedInput = {
+  create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedCreateWithoutUploadedProgressPhotosInput>
+  connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutUploadedProgressPhotosInput
+  upsert?: Prisma.OrganizationMemberUpsertWithoutUploadedProgressPhotosInput
+  disconnect?: Prisma.OrganizationMemberWhereInput | boolean
+  delete?: Prisma.OrganizationMemberWhereInput | boolean
+  connect?: Prisma.OrganizationMemberWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.OrganizationMemberUpdateToOneWithWhereWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUpdateWithoutUploadedProgressPhotosInput>, Prisma.OrganizationMemberUncheckedUpdateWithoutUploadedProgressPhotosInput>
+}
+
 export type OrganizationMemberCreateNestedOneWithoutCreatedTrainingPlansInput = {
   create?: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutCreatedTrainingPlansInput, Prisma.OrganizationMemberUncheckedCreateWithoutCreatedTrainingPlansInput>
   connectOrCreate?: Prisma.OrganizationMemberCreateOrConnectWithoutCreatedTrainingPlansInput
@@ -612,6 +635,7 @@ export type OrganizationMemberCreateWithoutUserInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -627,6 +651,7 @@ export type OrganizationMemberUncheckedCreateWithoutUserInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -681,6 +706,7 @@ export type OrganizationMemberCreateWithoutOrganizationInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -696,6 +722,7 @@ export type OrganizationMemberUncheckedCreateWithoutOrganizationInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -737,6 +764,7 @@ export type OrganizationMemberCreateWithoutAssignedClientsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -752,6 +780,7 @@ export type OrganizationMemberUncheckedCreateWithoutAssignedClientsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -783,6 +812,7 @@ export type OrganizationMemberUpdateWithoutAssignedClientsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -798,6 +828,7 @@ export type OrganizationMemberUncheckedUpdateWithoutAssignedClientsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -813,6 +844,7 @@ export type OrganizationMemberCreateWithoutCreatedFollowUpNotesInput = {
   assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -828,6 +860,7 @@ export type OrganizationMemberUncheckedCreateWithoutCreatedFollowUpNotesInput = 
   assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -859,6 +892,7 @@ export type OrganizationMemberUpdateWithoutCreatedFollowUpNotesInput = {
   assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -874,6 +908,7 @@ export type OrganizationMemberUncheckedUpdateWithoutCreatedFollowUpNotesInput = 
   assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -889,6 +924,7 @@ export type OrganizationMemberCreateWithoutRecordedWeightLogsInput = {
   assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -904,6 +940,7 @@ export type OrganizationMemberUncheckedCreateWithoutRecordedWeightLogsInput = {
   assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -935,6 +972,7 @@ export type OrganizationMemberUpdateWithoutRecordedWeightLogsInput = {
   assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -950,6 +988,7 @@ export type OrganizationMemberUncheckedUpdateWithoutRecordedWeightLogsInput = {
   assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -965,6 +1004,7 @@ export type OrganizationMemberCreateWithoutRecordedBodyMeasurementsInput = {
   assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
@@ -980,6 +1020,7 @@ export type OrganizationMemberUncheckedCreateWithoutRecordedBodyMeasurementsInpu
   assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
@@ -1011,6 +1052,7 @@ export type OrganizationMemberUpdateWithoutRecordedBodyMeasurementsInput = {
   assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -1026,6 +1068,87 @@ export type OrganizationMemberUncheckedUpdateWithoutRecordedBodyMeasurementsInpu
   assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
+  createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
+  createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
+}
+
+export type OrganizationMemberCreateWithoutUploadedProgressPhotosInput = {
+  id?: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutMembersInput
+  user: Prisma.UserCreateNestedOneWithoutOrganizationMembersInput
+  assignedClients?: Prisma.ClientCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
+  recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
+  recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
+  createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
+}
+
+export type OrganizationMemberUncheckedCreateWithoutUploadedProgressPhotosInput = {
+  id?: string
+  organizationId: string
+  userId: string
+  role: $Enums.OrganizationMemberRole
+  status?: $Enums.OrganizationMemberStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  assignedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedCoachInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
+  recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
+  createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
+}
+
+export type OrganizationMemberCreateOrConnectWithoutUploadedProgressPhotosInput = {
+  where: Prisma.OrganizationMemberWhereUniqueInput
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedCreateWithoutUploadedProgressPhotosInput>
+}
+
+export type OrganizationMemberUpsertWithoutUploadedProgressPhotosInput = {
+  update: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedUpdateWithoutUploadedProgressPhotosInput>
+  create: Prisma.XOR<Prisma.OrganizationMemberCreateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedCreateWithoutUploadedProgressPhotosInput>
+  where?: Prisma.OrganizationMemberWhereInput
+}
+
+export type OrganizationMemberUpdateToOneWithWhereWithoutUploadedProgressPhotosInput = {
+  where?: Prisma.OrganizationMemberWhereInput
+  data: Prisma.XOR<Prisma.OrganizationMemberUpdateWithoutUploadedProgressPhotosInput, Prisma.OrganizationMemberUncheckedUpdateWithoutUploadedProgressPhotosInput>
+}
+
+export type OrganizationMemberUpdateWithoutUploadedProgressPhotosInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutMembersNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutOrganizationMembersNestedInput
+  assignedClients?: Prisma.ClientUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
+  recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
+  recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
+  createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
+}
+
+export type OrganizationMemberUncheckedUpdateWithoutUploadedProgressPhotosInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumOrganizationMemberRoleFieldUpdateOperationsInput | $Enums.OrganizationMemberRole
+  status?: Prisma.EnumOrganizationMemberStatusFieldUpdateOperationsInput | $Enums.OrganizationMemberStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  assignedClients?: Prisma.ClientUncheckedUpdateManyWithoutAssignedCoachNestedInput
+  createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
+  recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -1042,6 +1165,7 @@ export type OrganizationMemberCreateWithoutCreatedTrainingPlansInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutAssignedByInput
 }
 
@@ -1057,6 +1181,7 @@ export type OrganizationMemberUncheckedCreateWithoutCreatedTrainingPlansInput = 
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutAssignedByInput
 }
 
@@ -1088,6 +1213,7 @@ export type OrganizationMemberUpdateWithoutCreatedTrainingPlansInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
 
@@ -1103,6 +1229,7 @@ export type OrganizationMemberUncheckedUpdateWithoutCreatedTrainingPlansInput = 
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
 
@@ -1118,6 +1245,7 @@ export type OrganizationMemberCreateWithoutCreatedPlanAssignmentsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1133,6 +1261,7 @@ export type OrganizationMemberUncheckedCreateWithoutCreatedPlanAssignmentsInput 
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutCreatedByInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutRecordedByMemberInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedCreateNestedManyWithoutUploadedByMemberInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1164,6 +1293,7 @@ export type OrganizationMemberUpdateWithoutCreatedPlanAssignmentsInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1179,6 +1309,7 @@ export type OrganizationMemberUncheckedUpdateWithoutCreatedPlanAssignmentsInput 
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1202,6 +1333,7 @@ export type OrganizationMemberUpdateWithoutUserInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -1217,6 +1349,7 @@ export type OrganizationMemberUncheckedUpdateWithoutUserInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -1250,6 +1383,7 @@ export type OrganizationMemberUpdateWithoutOrganizationInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutAssignedByNestedInput
 }
@@ -1265,6 +1399,7 @@ export type OrganizationMemberUncheckedUpdateWithoutOrganizationInput = {
   createdFollowUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutCreatedByNestedInput
   recordedWeightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
   recordedBodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutRecordedByMemberNestedInput
+  uploadedProgressPhotos?: Prisma.ProgressPhotoUncheckedUpdateManyWithoutUploadedByMemberNestedInput
   createdTrainingPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutCreatedByNestedInput
   createdPlanAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutAssignedByNestedInput
 }
@@ -1288,6 +1423,7 @@ export type OrganizationMemberCountOutputType = {
   createdFollowUpNotes: number
   recordedWeightLogs: number
   recordedBodyMeasurements: number
+  uploadedProgressPhotos: number
   createdTrainingPlans: number
   createdPlanAssignments: number
 }
@@ -1297,6 +1433,7 @@ export type OrganizationMemberCountOutputTypeSelect<ExtArgs extends runtime.Type
   createdFollowUpNotes?: boolean | OrganizationMemberCountOutputTypeCountCreatedFollowUpNotesArgs
   recordedWeightLogs?: boolean | OrganizationMemberCountOutputTypeCountRecordedWeightLogsArgs
   recordedBodyMeasurements?: boolean | OrganizationMemberCountOutputTypeCountRecordedBodyMeasurementsArgs
+  uploadedProgressPhotos?: boolean | OrganizationMemberCountOutputTypeCountUploadedProgressPhotosArgs
   createdTrainingPlans?: boolean | OrganizationMemberCountOutputTypeCountCreatedTrainingPlansArgs
   createdPlanAssignments?: boolean | OrganizationMemberCountOutputTypeCountCreatedPlanAssignmentsArgs
 }
@@ -1342,6 +1479,13 @@ export type OrganizationMemberCountOutputTypeCountRecordedBodyMeasurementsArgs<E
 /**
  * OrganizationMemberCountOutputType without action
  */
+export type OrganizationMemberCountOutputTypeCountUploadedProgressPhotosArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ProgressPhotoWhereInput
+}
+
+/**
+ * OrganizationMemberCountOutputType without action
+ */
 export type OrganizationMemberCountOutputTypeCountCreatedTrainingPlansArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.TrainingPlanWhereInput
 }
@@ -1368,6 +1512,7 @@ export type OrganizationMemberSelect<ExtArgs extends runtime.Types.Extensions.In
   createdFollowUpNotes?: boolean | Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>
   recordedWeightLogs?: boolean | Prisma.OrganizationMember$recordedWeightLogsArgs<ExtArgs>
   recordedBodyMeasurements?: boolean | Prisma.OrganizationMember$recordedBodyMeasurementsArgs<ExtArgs>
+  uploadedProgressPhotos?: boolean | Prisma.OrganizationMember$uploadedProgressPhotosArgs<ExtArgs>
   createdTrainingPlans?: boolean | Prisma.OrganizationMember$createdTrainingPlansArgs<ExtArgs>
   createdPlanAssignments?: boolean | Prisma.OrganizationMember$createdPlanAssignmentsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationMemberCountOutputTypeDefaultArgs<ExtArgs>
@@ -1415,6 +1560,7 @@ export type OrganizationMemberInclude<ExtArgs extends runtime.Types.Extensions.I
   createdFollowUpNotes?: boolean | Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>
   recordedWeightLogs?: boolean | Prisma.OrganizationMember$recordedWeightLogsArgs<ExtArgs>
   recordedBodyMeasurements?: boolean | Prisma.OrganizationMember$recordedBodyMeasurementsArgs<ExtArgs>
+  uploadedProgressPhotos?: boolean | Prisma.OrganizationMember$uploadedProgressPhotosArgs<ExtArgs>
   createdTrainingPlans?: boolean | Prisma.OrganizationMember$createdTrainingPlansArgs<ExtArgs>
   createdPlanAssignments?: boolean | Prisma.OrganizationMember$createdPlanAssignmentsArgs<ExtArgs>
   _count?: boolean | Prisma.OrganizationMemberCountOutputTypeDefaultArgs<ExtArgs>
@@ -1437,6 +1583,7 @@ export type $OrganizationMemberPayload<ExtArgs extends runtime.Types.Extensions.
     createdFollowUpNotes: Prisma.$FollowUpNotePayload<ExtArgs>[]
     recordedWeightLogs: Prisma.$WeightLogPayload<ExtArgs>[]
     recordedBodyMeasurements: Prisma.$BodyMeasurementLogPayload<ExtArgs>[]
+    uploadedProgressPhotos: Prisma.$ProgressPhotoPayload<ExtArgs>[]
     createdTrainingPlans: Prisma.$TrainingPlanPayload<ExtArgs>[]
     createdPlanAssignments: Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>[]
   }
@@ -1848,6 +1995,7 @@ export interface Prisma__OrganizationMemberClient<T, Null = never, ExtArgs exten
   createdFollowUpNotes<T extends Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$createdFollowUpNotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recordedWeightLogs<T extends Prisma.OrganizationMember$recordedWeightLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$recordedWeightLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WeightLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recordedBodyMeasurements<T extends Prisma.OrganizationMember$recordedBodyMeasurementsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$recordedBodyMeasurementsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BodyMeasurementLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  uploadedProgressPhotos<T extends Prisma.OrganizationMember$uploadedProgressPhotosArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$uploadedProgressPhotosArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProgressPhotoPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   createdTrainingPlans<T extends Prisma.OrganizationMember$createdTrainingPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$createdTrainingPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TrainingPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   createdPlanAssignments<T extends Prisma.OrganizationMember$createdPlanAssignmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationMember$createdPlanAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -2380,6 +2528,30 @@ export type OrganizationMember$recordedBodyMeasurementsArgs<ExtArgs extends runt
   take?: number
   skip?: number
   distinct?: Prisma.BodyMeasurementLogScalarFieldEnum | Prisma.BodyMeasurementLogScalarFieldEnum[]
+}
+
+/**
+ * OrganizationMember.uploadedProgressPhotos
+ */
+export type OrganizationMember$uploadedProgressPhotosArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ProgressPhoto
+   */
+  select?: Prisma.ProgressPhotoSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ProgressPhoto
+   */
+  omit?: Prisma.ProgressPhotoOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProgressPhotoInclude<ExtArgs> | null
+  where?: Prisma.ProgressPhotoWhereInput
+  orderBy?: Prisma.ProgressPhotoOrderByWithRelationInput | Prisma.ProgressPhotoOrderByWithRelationInput[]
+  cursor?: Prisma.ProgressPhotoWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ProgressPhotoScalarFieldEnum | Prisma.ProgressPhotoScalarFieldEnum[]
 }
 
 /**

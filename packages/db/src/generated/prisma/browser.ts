@@ -63,6 +63,11 @@ export type WeightLog = Prisma.WeightLogModel
  */
 export type BodyMeasurementLog = Prisma.BodyMeasurementLogModel
 /**
+ * Model ProgressPhoto
+ * 
+ */
+export type ProgressPhoto = Prisma.ProgressPhotoModel
+/**
  * Model SubscriptionPlan
  * 
  */

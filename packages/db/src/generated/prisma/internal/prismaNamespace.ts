@@ -391,6 +391,8 @@ export const ModelName = {
   ClientAccess: 'ClientAccess',
   ClientPortalSession: 'ClientPortalSession',
   FollowUpNote: 'FollowUpNote',
+  WeightLog: 'WeightLog',
+  BodyMeasurementLog: 'BodyMeasurementLog',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting',
@@ -418,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment" | "clientSessionLog"
+    modelProps: "user" | "organization" | "organizationMember" | "client" | "clientAccess" | "clientPortalSession" | "followUpNote" | "weightLog" | "bodyMeasurementLog" | "subscriptionPlan" | "organizationSubscription" | "systemSetting" | "exercise" | "trainingPlan" | "trainingPlanWeek" | "trainingPlanDay" | "trainingSession" | "sessionExercise" | "sessionExerciseAlternative" | "clientTrainingPlanAssignment" | "clientSessionLog"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -937,6 +939,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.FollowUpNoteCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.FollowUpNoteCountAggregateOutputType> | number
+        }
+      }
+    }
+    WeightLog: {
+      payload: Prisma.$WeightLogPayload<ExtArgs>
+      fields: Prisma.WeightLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WeightLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WeightLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        findFirst: {
+          args: Prisma.WeightLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WeightLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        findMany: {
+          args: Prisma.WeightLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>[]
+        }
+        create: {
+          args: Prisma.WeightLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        createMany: {
+          args: Prisma.WeightLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WeightLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>[]
+        }
+        delete: {
+          args: Prisma.WeightLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        update: {
+          args: Prisma.WeightLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.WeightLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WeightLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WeightLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.WeightLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WeightLogPayload>
+        }
+        aggregate: {
+          args: Prisma.WeightLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWeightLog>
+        }
+        groupBy: {
+          args: Prisma.WeightLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WeightLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WeightLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WeightLogCountAggregateOutputType> | number
+        }
+      }
+    }
+    BodyMeasurementLog: {
+      payload: Prisma.$BodyMeasurementLogPayload<ExtArgs>
+      fields: Prisma.BodyMeasurementLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BodyMeasurementLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BodyMeasurementLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        findFirst: {
+          args: Prisma.BodyMeasurementLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BodyMeasurementLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        findMany: {
+          args: Prisma.BodyMeasurementLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>[]
+        }
+        create: {
+          args: Prisma.BodyMeasurementLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        createMany: {
+          args: Prisma.BodyMeasurementLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BodyMeasurementLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>[]
+        }
+        delete: {
+          args: Prisma.BodyMeasurementLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        update: {
+          args: Prisma.BodyMeasurementLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.BodyMeasurementLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BodyMeasurementLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BodyMeasurementLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.BodyMeasurementLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BodyMeasurementLogPayload>
+        }
+        aggregate: {
+          args: Prisma.BodyMeasurementLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBodyMeasurementLog>
+        }
+        groupBy: {
+          args: Prisma.BodyMeasurementLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BodyMeasurementLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BodyMeasurementLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BodyMeasurementLogCountAggregateOutputType> | number
         }
       }
     }
@@ -1981,6 +2131,43 @@ export const FollowUpNoteScalarFieldEnum = {
 export type FollowUpNoteScalarFieldEnum = (typeof FollowUpNoteScalarFieldEnum)[keyof typeof FollowUpNoteScalarFieldEnum]
 
 
+export const WeightLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  recordedByType: 'recordedByType',
+  recordedByMemberId: 'recordedByMemberId',
+  weightKg: 'weightKg',
+  recordedAt: 'recordedAt',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WeightLogScalarFieldEnum = (typeof WeightLogScalarFieldEnum)[keyof typeof WeightLogScalarFieldEnum]
+
+
+export const BodyMeasurementLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  recordedByMemberId: 'recordedByMemberId',
+  waistCm: 'waistCm',
+  hipCm: 'hipCm',
+  chestCm: 'chestCm',
+  armCm: 'armCm',
+  legCm: 'legCm',
+  gluteCm: 'gluteCm',
+  visibleToClient: 'visibleToClient',
+  recordedAt: 'recordedAt',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BodyMeasurementLogScalarFieldEnum = (typeof BodyMeasurementLogScalarFieldEnum)[keyof typeof BodyMeasurementLogScalarFieldEnum]
+
+
 export const SubscriptionPlanScalarFieldEnum = {
   id: 'id',
   code: 'code',
@@ -2423,6 +2610,20 @@ export type ListEnumFollowUpNoteVisibilityFieldRefInput<$PrismaModel> = FieldRef
 
 
 /**
+ * Reference to a field of type 'ProgressRecordActor'
+ */
+export type EnumProgressRecordActorFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProgressRecordActor'>
+    
+
+
+/**
+ * Reference to a field of type 'ProgressRecordActor[]'
+ */
+export type ListEnumProgressRecordActorFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProgressRecordActor[]'>
+    
+
+
+/**
  * Reference to a field of type 'Json'
  */
 export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
@@ -2720,6 +2921,8 @@ export type GlobalOmitConfig = {
   clientAccess?: Prisma.ClientAccessOmit
   clientPortalSession?: Prisma.ClientPortalSessionOmit
   followUpNote?: Prisma.FollowUpNoteOmit
+  weightLog?: Prisma.WeightLogOmit
+  bodyMeasurementLog?: Prisma.BodyMeasurementLogOmit
   subscriptionPlan?: Prisma.SubscriptionPlanOmit
   organizationSubscription?: Prisma.OrganizationSubscriptionOmit
   systemSetting?: Prisma.SystemSettingOmit

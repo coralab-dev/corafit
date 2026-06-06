@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { Public } from '../../common/auth/public.decorator';
@@ -14,6 +26,11 @@ import {
   type PreviewClientSessionDto,
   type UseClientSessionAlternativeDto,
 } from './client-session-logs.service';
+import {
+  ProgressService,
+  type ProgressListQuery,
+  type WeightLogDto,
+} from '../progress/progress.service';
 
 const SESSION_COOKIE_NAME = 'corafit_client_session';
 const SESSION_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
@@ -24,6 +41,7 @@ export class ClientPortalController {
   constructor(
     private readonly clientPortalService: ClientPortalService,
     private readonly clientSessionLogsService: ClientSessionLogsService,
+    private readonly progressService: ProgressService,
     private readonly configService: ConfigService<AppConfig, true>,
   ) {}
 
@@ -63,6 +81,62 @@ export class ClientPortalController {
     @Req() request: ClientPortalRequest,
   ) {
     return this.clientPortalService.getCalendar(request.clientPortalAccess!, query);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/progress/weight-logs')
+  listProgressWeightLogs(
+    @Query() query: ProgressListQuery,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.listClientWeightLogs(request.clientPortalAccess!, query);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Post(':token/progress/weight-logs')
+  createProgressWeightLog(
+    @Body() body: WeightLogDto,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.createClientWeightLog(request.clientPortalAccess!, body);
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Patch(':token/progress/weight-logs/:weightLogId')
+  updateProgressWeightLog(
+    @Param('weightLogId') weightLogId: string,
+    @Body() body: WeightLogDto,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.updateClientWeightLog(
+      request.clientPortalAccess!,
+      weightLogId,
+      body,
+    );
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Delete(':token/progress/weight-logs/:weightLogId')
+  deleteProgressWeightLog(
+    @Param('weightLogId') weightLogId: string,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.deleteClientWeightLog(
+      request.clientPortalAccess!,
+      weightLogId,
+    );
+  }
+
+  @UseGuards(ClientPortalAuthGuard)
+  @Get(':token/progress/body-measurements')
+  listProgressBodyMeasurements(
+    @Query() query: ProgressListQuery,
+    @Req() request: ClientPortalRequest,
+  ) {
+    return this.progressService.listClientBodyMeasurements(
+      request.clientPortalAccess!,
+      query,
+    );
   }
 
   @UseGuards(ClientPortalAuthGuard)

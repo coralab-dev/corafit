@@ -58,6 +58,8 @@ export const ModelName = {
   ClientAccess: 'ClientAccess',
   ClientPortalSession: 'ClientPortalSession',
   FollowUpNote: 'FollowUpNote',
+  WeightLog: 'WeightLog',
+  BodyMeasurementLog: 'BodyMeasurementLog',
   SubscriptionPlan: 'SubscriptionPlan',
   OrganizationSubscription: 'OrganizationSubscription',
   SystemSetting: 'SystemSetting',
@@ -200,6 +202,43 @@ export const FollowUpNoteScalarFieldEnum = {
 } as const
 
 export type FollowUpNoteScalarFieldEnum = (typeof FollowUpNoteScalarFieldEnum)[keyof typeof FollowUpNoteScalarFieldEnum]
+
+
+export const WeightLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  recordedByType: 'recordedByType',
+  recordedByMemberId: 'recordedByMemberId',
+  weightKg: 'weightKg',
+  recordedAt: 'recordedAt',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WeightLogScalarFieldEnum = (typeof WeightLogScalarFieldEnum)[keyof typeof WeightLogScalarFieldEnum]
+
+
+export const BodyMeasurementLogScalarFieldEnum = {
+  id: 'id',
+  clientId: 'clientId',
+  recordedByMemberId: 'recordedByMemberId',
+  waistCm: 'waistCm',
+  hipCm: 'hipCm',
+  chestCm: 'chestCm',
+  armCm: 'armCm',
+  legCm: 'legCm',
+  gluteCm: 'gluteCm',
+  visibleToClient: 'visibleToClient',
+  recordedAt: 'recordedAt',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BodyMeasurementLogScalarFieldEnum = (typeof BodyMeasurementLogScalarFieldEnum)[keyof typeof BodyMeasurementLogScalarFieldEnum]
 
 
 export const SubscriptionPlanScalarFieldEnum = {

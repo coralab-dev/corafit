@@ -332,6 +332,8 @@ export type ClientWhereInput = {
   assignedCoach?: Prisma.XOR<Prisma.OrganizationMemberNullableScalarRelationFilter, Prisma.OrganizationMemberWhereInput> | null
   access?: Prisma.XOR<Prisma.ClientAccessNullableScalarRelationFilter, Prisma.ClientAccessWhereInput> | null
   followUpNotes?: Prisma.FollowUpNoteListRelationFilter
+  weightLogs?: Prisma.WeightLogListRelationFilter
+  bodyMeasurements?: Prisma.BodyMeasurementLogListRelationFilter
   assignedPlans?: Prisma.TrainingPlanListRelationFilter
   planAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
   sessionLogs?: Prisma.ClientSessionLogListRelationFilter
@@ -360,6 +362,8 @@ export type ClientOrderByWithRelationInput = {
   assignedCoach?: Prisma.OrganizationMemberOrderByWithRelationInput
   access?: Prisma.ClientAccessOrderByWithRelationInput
   followUpNotes?: Prisma.FollowUpNoteOrderByRelationAggregateInput
+  weightLogs?: Prisma.WeightLogOrderByRelationAggregateInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogOrderByRelationAggregateInput
   assignedPlans?: Prisma.TrainingPlanOrderByRelationAggregateInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentOrderByRelationAggregateInput
   sessionLogs?: Prisma.ClientSessionLogOrderByRelationAggregateInput
@@ -391,6 +395,8 @@ export type ClientWhereUniqueInput = Prisma.AtLeast<{
   assignedCoach?: Prisma.XOR<Prisma.OrganizationMemberNullableScalarRelationFilter, Prisma.OrganizationMemberWhereInput> | null
   access?: Prisma.XOR<Prisma.ClientAccessNullableScalarRelationFilter, Prisma.ClientAccessWhereInput> | null
   followUpNotes?: Prisma.FollowUpNoteListRelationFilter
+  weightLogs?: Prisma.WeightLogListRelationFilter
+  bodyMeasurements?: Prisma.BodyMeasurementLogListRelationFilter
   assignedPlans?: Prisma.TrainingPlanListRelationFilter
   planAssignments?: Prisma.ClientTrainingPlanAssignmentListRelationFilter
   sessionLogs?: Prisma.ClientSessionLogListRelationFilter
@@ -467,6 +473,8 @@ export type ClientCreateInput = {
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
@@ -493,6 +501,8 @@ export type ClientUncheckedCreateInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
@@ -519,6 +529,8 @@ export type ClientUpdateInput = {
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
@@ -545,6 +557,8 @@ export type ClientUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
@@ -846,6 +860,34 @@ export type ClientUpdateOneRequiredWithoutFollowUpNotesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutFollowUpNotesInput, Prisma.ClientUpdateWithoutFollowUpNotesInput>, Prisma.ClientUncheckedUpdateWithoutFollowUpNotesInput>
 }
 
+export type ClientCreateNestedOneWithoutWeightLogsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutWeightLogsInput, Prisma.ClientUncheckedCreateWithoutWeightLogsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutWeightLogsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutWeightLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutWeightLogsInput, Prisma.ClientUncheckedCreateWithoutWeightLogsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutWeightLogsInput
+  upsert?: Prisma.ClientUpsertWithoutWeightLogsInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutWeightLogsInput, Prisma.ClientUpdateWithoutWeightLogsInput>, Prisma.ClientUncheckedUpdateWithoutWeightLogsInput>
+}
+
+export type ClientCreateNestedOneWithoutBodyMeasurementsInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedCreateWithoutBodyMeasurementsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutBodyMeasurementsInput
+  connect?: Prisma.ClientWhereUniqueInput
+}
+
+export type ClientUpdateOneRequiredWithoutBodyMeasurementsNestedInput = {
+  create?: Prisma.XOR<Prisma.ClientCreateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedCreateWithoutBodyMeasurementsInput>
+  connectOrCreate?: Prisma.ClientCreateOrConnectWithoutBodyMeasurementsInput
+  upsert?: Prisma.ClientUpsertWithoutBodyMeasurementsInput
+  connect?: Prisma.ClientWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ClientUpdateToOneWithWhereWithoutBodyMeasurementsInput, Prisma.ClientUpdateWithoutBodyMeasurementsInput>, Prisma.ClientUncheckedUpdateWithoutBodyMeasurementsInput>
+}
+
 export type ClientCreateNestedOneWithoutAssignedPlansInput = {
   create?: Prisma.XOR<Prisma.ClientCreateWithoutAssignedPlansInput, Prisma.ClientUncheckedCreateWithoutAssignedPlansInput>
   connectOrCreate?: Prisma.ClientCreateOrConnectWithoutAssignedPlansInput
@@ -910,6 +952,8 @@ export type ClientCreateWithoutOrganizationInput = {
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
@@ -935,6 +979,8 @@ export type ClientUncheckedCreateWithoutOrganizationInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
@@ -1010,6 +1056,8 @@ export type ClientCreateWithoutAssignedCoachInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
@@ -1035,6 +1083,8 @@ export type ClientUncheckedCreateWithoutAssignedCoachInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
@@ -1086,6 +1136,8 @@ export type ClientCreateWithoutAccessInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
@@ -1111,6 +1163,8 @@ export type ClientUncheckedCreateWithoutAccessInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
@@ -1152,6 +1206,8 @@ export type ClientUpdateWithoutAccessInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
@@ -1177,6 +1233,8 @@ export type ClientUncheckedUpdateWithoutAccessInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
@@ -1202,6 +1260,8 @@ export type ClientCreateWithoutFollowUpNotesInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
@@ -1227,6 +1287,8 @@ export type ClientUncheckedCreateWithoutFollowUpNotesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
@@ -1268,6 +1330,8 @@ export type ClientUpdateWithoutFollowUpNotesInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
@@ -1293,6 +1357,256 @@ export type ClientUncheckedUpdateWithoutFollowUpNotesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutWeightLogsInput = {
+  id?: string
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
+  access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutWeightLogsInput = {
+  id?: string
+  organizationId: string
+  assignedCoachMemberId?: string | null
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutWeightLogsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutWeightLogsInput, Prisma.ClientUncheckedCreateWithoutWeightLogsInput>
+}
+
+export type ClientUpsertWithoutWeightLogsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutWeightLogsInput, Prisma.ClientUncheckedUpdateWithoutWeightLogsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutWeightLogsInput, Prisma.ClientUncheckedCreateWithoutWeightLogsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutWeightLogsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutWeightLogsInput, Prisma.ClientUncheckedUpdateWithoutWeightLogsInput>
+}
+
+export type ClientUpdateWithoutWeightLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
+  access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutWeightLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedCoachMemberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
+}
+
+export type ClientCreateWithoutBodyMeasurementsInput = {
+  id?: string
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutClientsInput
+  assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
+  access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
+}
+
+export type ClientUncheckedCreateWithoutBodyMeasurementsInput = {
+  id?: string
+  organizationId: string
+  assignedCoachMemberId?: string | null
+  name: string
+  phone?: string | null
+  age?: number | null
+  sex?: string | null
+  clientType: $Enums.ClientType
+  mainGoal: string
+  heightCm: number
+  initialWeightKg: number
+  trainingLevel?: string | null
+  injuriesNotes?: string | null
+  generalNotes?: string | null
+  canRegisterWeight?: boolean
+  operationalStatus?: $Enums.ClientOperationalStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
+  sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
+}
+
+export type ClientCreateOrConnectWithoutBodyMeasurementsInput = {
+  where: Prisma.ClientWhereUniqueInput
+  create: Prisma.XOR<Prisma.ClientCreateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedCreateWithoutBodyMeasurementsInput>
+}
+
+export type ClientUpsertWithoutBodyMeasurementsInput = {
+  update: Prisma.XOR<Prisma.ClientUpdateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedUpdateWithoutBodyMeasurementsInput>
+  create: Prisma.XOR<Prisma.ClientCreateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedCreateWithoutBodyMeasurementsInput>
+  where?: Prisma.ClientWhereInput
+}
+
+export type ClientUpdateToOneWithWhereWithoutBodyMeasurementsInput = {
+  where?: Prisma.ClientWhereInput
+  data: Prisma.XOR<Prisma.ClientUpdateWithoutBodyMeasurementsInput, Prisma.ClientUncheckedUpdateWithoutBodyMeasurementsInput>
+}
+
+export type ClientUpdateWithoutBodyMeasurementsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
+  assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
+  access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
+  planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
+  sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
+}
+
+export type ClientUncheckedUpdateWithoutBodyMeasurementsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedCoachMemberId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  age?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sex?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientType?: Prisma.EnumClientTypeFieldUpdateOperationsInput | $Enums.ClientType
+  mainGoal?: Prisma.StringFieldUpdateOperationsInput | string
+  heightCm?: Prisma.FloatFieldUpdateOperationsInput | number
+  initialWeightKg?: Prisma.FloatFieldUpdateOperationsInput | number
+  trainingLevel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  injuriesNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generalNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  canRegisterWeight?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  operationalStatus?: Prisma.EnumClientOperationalStatusFieldUpdateOperationsInput | $Enums.ClientOperationalStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
+  followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
@@ -1319,6 +1633,8 @@ export type ClientCreateWithoutAssignedPlansInput = {
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
@@ -1344,6 +1660,8 @@ export type ClientUncheckedCreateWithoutAssignedPlansInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
@@ -1385,6 +1703,8 @@ export type ClientUpdateWithoutAssignedPlansInput = {
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
@@ -1410,6 +1730,8 @@ export type ClientUncheckedUpdateWithoutAssignedPlansInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
@@ -1435,6 +1757,8 @@ export type ClientCreateWithoutPlanAssignmentsInput = {
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   sessionLogs?: Prisma.ClientSessionLogCreateNestedManyWithoutClientInput
 }
@@ -1460,6 +1784,8 @@ export type ClientUncheckedCreateWithoutPlanAssignmentsInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedCreateNestedManyWithoutClientInput
 }
@@ -1501,6 +1827,8 @@ export type ClientUpdateWithoutPlanAssignmentsInput = {
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
 }
@@ -1526,6 +1854,8 @@ export type ClientUncheckedUpdateWithoutPlanAssignmentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
 }
@@ -1551,6 +1881,8 @@ export type ClientCreateWithoutSessionLogsInput = {
   assignedCoach?: Prisma.OrganizationMemberCreateNestedOneWithoutAssignedClientsInput
   access?: Prisma.ClientAccessCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentCreateNestedManyWithoutClientInput
 }
@@ -1576,6 +1908,8 @@ export type ClientUncheckedCreateWithoutSessionLogsInput = {
   updatedAt?: Date | string
   access?: Prisma.ClientAccessUncheckedCreateNestedOneWithoutClientInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedCreateNestedManyWithoutClientInput
+  weightLogs?: Prisma.WeightLogUncheckedCreateNestedManyWithoutClientInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedCreateNestedManyWithoutClientInput
   assignedPlans?: Prisma.TrainingPlanUncheckedCreateNestedManyWithoutAssignedClientInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedCreateNestedManyWithoutClientInput
 }
@@ -1617,6 +1951,8 @@ export type ClientUpdateWithoutSessionLogsInput = {
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
 }
@@ -1642,6 +1978,8 @@ export type ClientUncheckedUpdateWithoutSessionLogsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
 }
@@ -1686,6 +2024,8 @@ export type ClientUpdateWithoutOrganizationInput = {
   assignedCoach?: Prisma.OrganizationMemberUpdateOneWithoutAssignedClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
@@ -1711,6 +2051,8 @@ export type ClientUncheckedUpdateWithoutOrganizationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
@@ -1776,6 +2118,8 @@ export type ClientUpdateWithoutAssignedCoachInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutClientsNestedInput
   access?: Prisma.ClientAccessUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUpdateManyWithoutClientNestedInput
@@ -1801,6 +2145,8 @@ export type ClientUncheckedUpdateWithoutAssignedCoachInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   access?: Prisma.ClientAccessUncheckedUpdateOneWithoutClientNestedInput
   followUpNotes?: Prisma.FollowUpNoteUncheckedUpdateManyWithoutClientNestedInput
+  weightLogs?: Prisma.WeightLogUncheckedUpdateManyWithoutClientNestedInput
+  bodyMeasurements?: Prisma.BodyMeasurementLogUncheckedUpdateManyWithoutClientNestedInput
   assignedPlans?: Prisma.TrainingPlanUncheckedUpdateManyWithoutAssignedClientNestedInput
   planAssignments?: Prisma.ClientTrainingPlanAssignmentUncheckedUpdateManyWithoutClientNestedInput
   sessionLogs?: Prisma.ClientSessionLogUncheckedUpdateManyWithoutClientNestedInput
@@ -1833,6 +2179,8 @@ export type ClientUncheckedUpdateManyWithoutAssignedCoachInput = {
 
 export type ClientCountOutputType = {
   followUpNotes: number
+  weightLogs: number
+  bodyMeasurements: number
   assignedPlans: number
   planAssignments: number
   sessionLogs: number
@@ -1840,6 +2188,8 @@ export type ClientCountOutputType = {
 
 export type ClientCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   followUpNotes?: boolean | ClientCountOutputTypeCountFollowUpNotesArgs
+  weightLogs?: boolean | ClientCountOutputTypeCountWeightLogsArgs
+  bodyMeasurements?: boolean | ClientCountOutputTypeCountBodyMeasurementsArgs
   assignedPlans?: boolean | ClientCountOutputTypeCountAssignedPlansArgs
   planAssignments?: boolean | ClientCountOutputTypeCountPlanAssignmentsArgs
   sessionLogs?: boolean | ClientCountOutputTypeCountSessionLogsArgs
@@ -1860,6 +2210,20 @@ export type ClientCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Exten
  */
 export type ClientCountOutputTypeCountFollowUpNotesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.FollowUpNoteWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountWeightLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.WeightLogWhereInput
+}
+
+/**
+ * ClientCountOutputType without action
+ */
+export type ClientCountOutputTypeCountBodyMeasurementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BodyMeasurementLogWhereInput
 }
 
 /**
@@ -1907,6 +2271,8 @@ export type ClientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   assignedCoach?: boolean | Prisma.Client$assignedCoachArgs<ExtArgs>
   access?: boolean | Prisma.Client$accessArgs<ExtArgs>
   followUpNotes?: boolean | Prisma.Client$followUpNotesArgs<ExtArgs>
+  weightLogs?: boolean | Prisma.Client$weightLogsArgs<ExtArgs>
+  bodyMeasurements?: boolean | Prisma.Client$bodyMeasurementsArgs<ExtArgs>
   assignedPlans?: boolean | Prisma.Client$assignedPlansArgs<ExtArgs>
   planAssignments?: boolean | Prisma.Client$planAssignmentsArgs<ExtArgs>
   sessionLogs?: boolean | Prisma.Client$sessionLogsArgs<ExtArgs>
@@ -1986,6 +2352,8 @@ export type ClientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   assignedCoach?: boolean | Prisma.Client$assignedCoachArgs<ExtArgs>
   access?: boolean | Prisma.Client$accessArgs<ExtArgs>
   followUpNotes?: boolean | Prisma.Client$followUpNotesArgs<ExtArgs>
+  weightLogs?: boolean | Prisma.Client$weightLogsArgs<ExtArgs>
+  bodyMeasurements?: boolean | Prisma.Client$bodyMeasurementsArgs<ExtArgs>
   assignedPlans?: boolean | Prisma.Client$assignedPlansArgs<ExtArgs>
   planAssignments?: boolean | Prisma.Client$planAssignmentsArgs<ExtArgs>
   sessionLogs?: boolean | Prisma.Client$sessionLogsArgs<ExtArgs>
@@ -2007,6 +2375,8 @@ export type $ClientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     assignedCoach: Prisma.$OrganizationMemberPayload<ExtArgs> | null
     access: Prisma.$ClientAccessPayload<ExtArgs> | null
     followUpNotes: Prisma.$FollowUpNotePayload<ExtArgs>[]
+    weightLogs: Prisma.$WeightLogPayload<ExtArgs>[]
+    bodyMeasurements: Prisma.$BodyMeasurementLogPayload<ExtArgs>[]
     assignedPlans: Prisma.$TrainingPlanPayload<ExtArgs>[]
     planAssignments: Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>[]
     sessionLogs: Prisma.$ClientSessionLogPayload<ExtArgs>[]
@@ -2428,6 +2798,8 @@ export interface Prisma__ClientClient<T, Null = never, ExtArgs extends runtime.T
   assignedCoach<T extends Prisma.Client$assignedCoachArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$assignedCoachArgs<ExtArgs>>): Prisma.Prisma__OrganizationMemberClient<runtime.Types.Result.GetResult<Prisma.$OrganizationMemberPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   access<T extends Prisma.Client$accessArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$accessArgs<ExtArgs>>): Prisma.Prisma__ClientAccessClient<runtime.Types.Result.GetResult<Prisma.$ClientAccessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   followUpNotes<T extends Prisma.Client$followUpNotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$followUpNotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FollowUpNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  weightLogs<T extends Prisma.Client$weightLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$weightLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WeightLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  bodyMeasurements<T extends Prisma.Client$bodyMeasurementsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$bodyMeasurementsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BodyMeasurementLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   assignedPlans<T extends Prisma.Client$assignedPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$assignedPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TrainingPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   planAssignments<T extends Prisma.Client$planAssignmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$planAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientTrainingPlanAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sessionLogs<T extends Prisma.Client$sessionLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Client$sessionLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientSessionLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2938,6 +3310,54 @@ export type Client$followUpNotesArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.FollowUpNoteScalarFieldEnum | Prisma.FollowUpNoteScalarFieldEnum[]
+}
+
+/**
+ * Client.weightLogs
+ */
+export type Client$weightLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the WeightLog
+   */
+  select?: Prisma.WeightLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the WeightLog
+   */
+  omit?: Prisma.WeightLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WeightLogInclude<ExtArgs> | null
+  where?: Prisma.WeightLogWhereInput
+  orderBy?: Prisma.WeightLogOrderByWithRelationInput | Prisma.WeightLogOrderByWithRelationInput[]
+  cursor?: Prisma.WeightLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.WeightLogScalarFieldEnum | Prisma.WeightLogScalarFieldEnum[]
+}
+
+/**
+ * Client.bodyMeasurements
+ */
+export type Client$bodyMeasurementsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BodyMeasurementLog
+   */
+  select?: Prisma.BodyMeasurementLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the BodyMeasurementLog
+   */
+  omit?: Prisma.BodyMeasurementLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.BodyMeasurementLogInclude<ExtArgs> | null
+  where?: Prisma.BodyMeasurementLogWhereInput
+  orderBy?: Prisma.BodyMeasurementLogOrderByWithRelationInput | Prisma.BodyMeasurementLogOrderByWithRelationInput[]
+  cursor?: Prisma.BodyMeasurementLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.BodyMeasurementLogScalarFieldEnum | Prisma.BodyMeasurementLogScalarFieldEnum[]
 }
 
 /**

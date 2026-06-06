@@ -4,8 +4,10 @@ import { ClientPortalController } from './client-portal.controller';
 import { ClientPortalService } from './client-portal.service';
 import { ClientSessionLogsService } from './client-session-logs.service';
 import { ClientSessionSnapshotService } from './client-session-snapshot.service';
+import { ProgressModule } from '../progress/progress.module';
 
 @Module({
+  imports: [ProgressModule],
   controllers: [ClientPortalController],
   providers: [
     ClientPortalAuthGuard,

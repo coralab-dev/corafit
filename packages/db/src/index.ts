@@ -15,6 +15,7 @@ export {
   OrganizationStatus,
   OrganizationType,
   PrimaryMuscle,
+  ProgressRecordActor,
   SubscriptionPlanStatus,
   SubscriptionStatus,
   TrainingDayType,
@@ -29,6 +30,7 @@ export type {
   ClientPortalSession,
   ClientSessionLog,
   ClientTrainingPlanAssignment,
+  BodyMeasurementLog,
   Exercise,
   FollowUpNote,
   Organization,
@@ -43,6 +45,7 @@ export type {
   TrainingPlanDay,
   TrainingPlanWeek,
   TrainingSession,
+  WeightLog,
   User,
 } from './generated/prisma/client';
 export { createPrismaAdapter, createPrismaClient } from './prisma-client';

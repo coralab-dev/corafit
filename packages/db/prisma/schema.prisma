@@ -79,6 +79,11 @@ enum FollowUpNoteVisibility {
   visible_to_client
 }
 
+enum ProgressRecordActor {
+  coach
+  client
+}
+
 model User {
   id             String           @id @default(uuid())
   supabaseUserId String           @unique @map("supabase_user_id")
@@ -136,6 +141,8 @@ model OrganizationMember {
 
   assignedClients         Client[]
   createdFollowUpNotes    FollowUpNote[]
+  recordedWeightLogs      WeightLog[]         @relation("WeightLogRecordedBy")
+  recordedBodyMeasurements BodyMeasurementLog[] @relation("BodyMeasurementRecordedBy")
   createdTrainingPlans    TrainingPlan[]
   createdPlanAssignments  ClientTrainingPlanAssignment[]
 
@@ -167,6 +174,8 @@ model Client {
   assignedCoach  OrganizationMember?                @relation(fields: [assignedCoachMemberId], references: [id])
   access         ClientAccess?
   followUpNotes  FollowUpNote[]
+  weightLogs     WeightLog[]
+  bodyMeasurements BodyMeasurementLog[]
   assignedPlans  TrainingPlan[]                     @relation("AssignedClient")
   planAssignments ClientTrainingPlanAssignment[]
   sessionLogs    ClientSessionLog[]
@@ -221,6 +230,49 @@ model FollowUpNote {
   createdBy OrganizationMember @relation(fields: [createdByMemberId], references: [id])
 
   @@map("follow_up_notes")
+}
+
+model WeightLog {
+  id                 String              @id @default(uuid())
+  clientId           String              @map("client_id")
+  recordedByType     ProgressRecordActor @map("recorded_by_type")
+  recordedByMemberId String?             @map("recorded_by_member_id")
+  weightKg           Float               @map("weight_kg")
+  recordedAt         DateTime            @default(now()) @map("recorded_at")
+  note               String?
+  deletedAt          DateTime?           @map("deleted_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  client           Client              @relation(fields: [clientId], references: [id])
+  recordedByMember OrganizationMember? @relation("WeightLogRecordedBy", fields: [recordedByMemberId], references: [id])
+
+  @@index([clientId, recordedAt])
+  @@map("weight_logs")
+}
+
+model BodyMeasurementLog {
+  id                 String             @id @default(uuid())
+  clientId           String             @map("client_id")
+  recordedByMemberId String             @map("recorded_by_member_id")
+  waistCm            Float?             @map("waist_cm")
+  hipCm              Float?             @map("hip_cm")
+  chestCm            Float?             @map("chest_cm")
+  armCm              Float?             @map("arm_cm")
+  legCm              Float?             @map("leg_cm")
+  gluteCm            Float?             @map("glute_cm")
+  visibleToClient    Boolean            @default(false) @map("visible_to_client")
+  recordedAt         DateTime           @default(now()) @map("recorded_at")
+  note               String?
+  deletedAt          DateTime?          @map("deleted_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  client           Client             @relation(fields: [clientId], references: [id])
+  recordedByMember OrganizationMember @relation("BodyMeasurementRecordedBy", fields: [recordedByMemberId], references: [id])
+
+  @@index([clientId, recordedAt])
+  @@map("body_measurement_logs")
 }
 
 model SubscriptionPlan {

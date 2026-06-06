@@ -117,6 +117,14 @@ export const FollowUpNoteVisibility = {
 export type FollowUpNoteVisibility = (typeof FollowUpNoteVisibility)[keyof typeof FollowUpNoteVisibility]
 
 
+export const ProgressRecordActor = {
+  coach: 'coach',
+  client: 'client'
+} as const
+
+export type ProgressRecordActor = (typeof ProgressRecordActor)[keyof typeof ProgressRecordActor]
+
+
 export const ExerciseStatus = {
   active: 'active',
   inactive: 'inactive',

@@ -75,6 +75,16 @@ export type ClientPortalSession = Prisma.ClientPortalSessionModel
  */
 export type FollowUpNote = Prisma.FollowUpNoteModel
 /**
+ * Model WeightLog
+ * 
+ */
+export type WeightLog = Prisma.WeightLogModel
+/**
+ * Model BodyMeasurementLog
+ * 
+ */
+export type BodyMeasurementLog = Prisma.BodyMeasurementLogModel
+/**
  * Model SubscriptionPlan
  * 
  */

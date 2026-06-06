@@ -16,28 +16,27 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - `packages/shared` is for shared types/constants/validators and must not depend on Next.js or NestJS.
 
 ## Current task state
-- Optimized training plan editor mutations to avoid full `loadPlan()` refreshes after small edits.
-- Frontend hook now patches local plan state for week/day/session/exercise/alternative add/delete/reorder.
-- API now returns enriched session exercise payloads after create/update/duplicate and enriched alternatives after create.
-- Verification passed: `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter api lint`, and `pnpm --filter api test -- src/modules/training-plans/training-plans.service.spec.ts`.
+- COR-700 backend base implemented for weight logs and body measurements.
+- Prisma schema now has `ProgressRecordActor`, `WeightLog`, and `BodyMeasurementLog` plus migration `20260605000000_add_progress_weight_measurements`.
+- API routes added under `/progress/clients/:clientId/...` for coach/owner and `/client-portal/:token/progress/...` for client portal.
+- Verification passed: `pnpm --filter db generate`, `pnpm --filter api test -- progress.service.spec.ts`, `pnpm --filter api typecheck`, and `pnpm --filter api lint`.
 
 ## Last tooling setup
 - Added Codex guidance, compact notes, architecture map, testing notes, local AGENTS files, and safe ignore updates.
 
 ## Recently touched files
-- `AGENTS.md`
+- `packages/db/prisma/schema.prisma`
+- `packages/db/prisma/migrations/20260605000000_add_progress_weight_measurements/migration.sql`
+- `packages/db/src/index.ts`
+- `packages/db/src/generated/prisma/*`
+- `apps/api/src/modules/progress/*`
+- `apps/api/src/modules/client-portal/client-portal.controller.ts`
+- `apps/api/src/modules/client-portal/client-portal.module.ts`
 - `docs/agent-notes.md`
-- `docs/architecture-short.md`
-- `docs/testing.md`
-- `.gitignore`
-- `apps/web/AGENTS.md`
-- `apps/api/AGENTS.md`
-- `packages/db/AGENTS.md`
-- `packages/shared/AGENTS.md`
 
 ## Known failures
 - `bash` is not available in this Windows environment; use PowerShell equivalents.
-- Test suites were not run for this tooling-only task by instruction.
+- No current COR-700 verification failures known.
 
 ## Next steps
 - Keep this file updated during long-running tasks with current state and next action.

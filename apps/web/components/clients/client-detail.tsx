@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArchiveIcon,
   CheckCircle2Icon,
@@ -27,7 +28,18 @@ import type {
   CurrentPlanAssignment,
   OperationalStatus,
 } from "@/lib/clients/types";
+import { ClientProgressPanel } from "./client-progress-panel";
 import { EmptyState } from "./empty-loading";
+
+type ClientDetailTab = "summary" | "plan" | "progress" | "access" | "notes";
+
+const clientDetailTabs: Array<{ key: ClientDetailTab; label: string }> = [
+  { key: "summary", label: "Resumen" },
+  { key: "plan", label: "Plan" },
+  { key: "progress", label: "Progreso" },
+  { key: "access", label: "Acceso" },
+  { key: "notes", label: "Notas" },
+];
 
 export function ClientDetail({
   assignment,
@@ -47,14 +59,93 @@ export function ClientDetail({
   variant?: "drawer" | "page";
 }) {
   const isPage = variant === "page";
+  const [activeTab, setActiveTab] = useState<ClientDetailTab>("summary");
+
+  if (isPage) {
+    return (
+      <aside className="flex min-h-0 flex-col gap-4">
+        <div className="rounded-md border bg-card p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
+                {initials(client.name)}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-semibold tracking-tight">
+                  {client.name}
+                </h2>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {client.phone || "Sin telefono"}
+                </p>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {client.mainGoal} / {typeLabels[client.clientType]}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge
+                label={statusLabels[client.operationalStatus]}
+                variant={client.operationalStatus}
+              />
+              <StatusBadge
+                label={getAccessLabel(client.access.status)}
+                variant={getAccessVariant(client.access.status)}
+              />
+              <Button
+                className="shadow-none"
+                type="button"
+                variant="outline"
+                onClick={() => onEdit(client)}
+              >
+                <EditIcon className="size-4" />
+                Editar cliente
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-md border bg-muted/20 p-1 sm:grid-cols-5">
+            {clientDetailTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={cn(
+                  "rounded px-3 py-2 text-sm font-medium text-muted-foreground transition",
+                  activeTab === tab.key && "bg-background text-foreground shadow-sm",
+                )}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {activeTab === "summary" ? (
+          <OperationalPanel
+            client={client}
+            onStatusChange={onStatusChange}
+          />
+        ) : null}
+        {activeTab === "plan" ? (
+          <CurrentPlanPanel
+            assignment={assignment}
+            clientId={client.id}
+            isLoading={isPlanLoading}
+            onEndPlan={onEndPlan}
+            variant={variant}
+          />
+        ) : null}
+        {activeTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
+        {activeTab === "access" ? <AccessPanel client={client} /> : null}
+        {activeTab === "notes" ? <ClientNotesPanel client={client} onEdit={() => onEdit(client)} /> : null}
+      </aside>
+    );
+  }
 
   return (
-    <aside className={cn("flex min-h-0 flex-col", isPage ? "gap-5" : "bg-card")}>
+    <aside className="flex min-h-0 flex-col bg-card">
       <div
-        className={cn(
-          "flex items-start justify-between gap-4",
-          isPage ? "rounded-md border bg-card p-5" : "border-b px-6 py-7 pr-14",
-        )}
+        className="flex items-start justify-between gap-4 border-b px-6 py-7 pr-14"
       >
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
@@ -84,7 +175,7 @@ export function ClientDetail({
         </Button>
       </div>
 
-      <div className={cn("flex flex-1 flex-col gap-4", isPage ? "" : "overflow-y-auto p-5")}>
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
         <CurrentPlanPanel
           assignment={assignment}
           clientId={client.id}
@@ -93,99 +184,121 @@ export function ClientDetail({
           variant={variant}
         />
 
-        <WorkspacePanel className="p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">Acceso del cliente</h3>
-            <StatusBadge
-              label={getAccessLabel(client.access.status)}
-              variant={getAccessVariant(client.access.status)}
-            />
-          </div>
-          <div className="rounded-md border bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-            {client.access.link ?? "Genera un acceso para compartir link y PIN."}
-          </div>
-          <Button asChild className="mt-3 w-full shadow-none" variant="outline">
-            <Link href={`/clients/${client.id}/access`}>
-              <KeyRoundIcon className="size-4" />
-              {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
-            </Link>
-          </Button>
-        </WorkspacePanel>
-
-        <WorkspacePanel className="p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">Ficha operativa</h3>
-            <StatusBadge
-              label={statusLabels[client.operationalStatus]}
-              variant={client.operationalStatus}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <DetailStat label="Edad" value={`${client.age} anos`} />
-            <DetailStat label="Altura" value={`${client.heightCm} cm`} />
-            <DetailStat label="Peso inicial" value={`${client.initialWeightKg} kg`} />
-            <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              className="shadow-none"
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => onStatusChange(client.id, "active")}
-            >
-              <CheckCircle2Icon className="size-4" />
-              Activar
-            </Button>
-            <Button
-              className="shadow-none"
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => onStatusChange(client.id, "paused")}
-            >
-              Pausar
-            </Button>
-            <Button
-              className="shadow-none"
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => onStatusChange(client.id, "archived")}
-            >
-              <ArchiveIcon className="size-4" />
-              Archivar
-            </Button>
-          </div>
-        </WorkspacePanel>
-
-        <WorkspacePanel className="p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">Notas recientes</h3>
-            <NotebookPenIcon className="size-4 text-muted-foreground" />
-          </div>
-          <div className="space-y-3 text-sm">
-            <NotePreview
-              label="Lesiones"
-              value={client.injuriesNotes || "Sin lesiones registradas."}
-            />
-            <NotePreview
-              label="Notas generales"
-              value={client.generalNotes || "Sin notas generales."}
-            />
-          </div>
-          <Button
-            className="mt-4 w-full shadow-none"
-            type="button"
-            variant="outline"
-            onClick={() => onEdit(client)}
-          >
-            <EditIcon className="size-4" />
-            Editar notas
-          </Button>
-        </WorkspacePanel>
+        <AccessPanel client={client} />
+        <OperationalPanel client={client} onStatusChange={onStatusChange} />
+        <ClientNotesPanel client={client} onEdit={() => onEdit(client)} />
       </div>
     </aside>
+  );
+}
+
+function AccessPanel({ client }: { client: Client }) {
+  return (
+    <WorkspacePanel className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">Acceso del cliente</h3>
+        <StatusBadge
+          label={getAccessLabel(client.access.status)}
+          variant={getAccessVariant(client.access.status)}
+        />
+      </div>
+      <div className="rounded-md border bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
+        {client.access.link ?? "Genera un acceso para compartir link y PIN."}
+      </div>
+      <Button asChild className="mt-3 w-full shadow-none" variant="outline">
+        <Link href={`/clients/${client.id}/access`}>
+          <KeyRoundIcon className="size-4" />
+          {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
+        </Link>
+      </Button>
+    </WorkspacePanel>
+  );
+}
+
+function OperationalPanel({
+  client,
+  onStatusChange,
+}: {
+  client: Client;
+  onStatusChange: (clientId: string, status: OperationalStatus) => void;
+}) {
+  return (
+    <WorkspacePanel className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">Ficha operativa</h3>
+        <StatusBadge
+          label={statusLabels[client.operationalStatus]}
+          variant={client.operationalStatus}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+        <DetailStat label="Edad" value={`${client.age} anos`} />
+        <DetailStat label="Altura" value={`${client.heightCm} cm`} />
+        <DetailStat label="Peso inicial" value={`${client.initialWeightKg} kg`} />
+        <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          className="shadow-none"
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onStatusChange(client.id, "active")}
+        >
+          <CheckCircle2Icon className="size-4" />
+          Activar
+        </Button>
+        <Button
+          className="shadow-none"
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onStatusChange(client.id, "paused")}
+        >
+          Pausar
+        </Button>
+        <Button
+          className="shadow-none"
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={() => onStatusChange(client.id, "archived")}
+        >
+          <ArchiveIcon className="size-4" />
+          Archivar
+        </Button>
+      </div>
+    </WorkspacePanel>
+  );
+}
+
+function ClientNotesPanel({ client, onEdit }: { client: Client; onEdit: () => void }) {
+  return (
+    <WorkspacePanel className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">Notas recientes</h3>
+        <NotebookPenIcon className="size-4 text-muted-foreground" />
+      </div>
+      <div className="space-y-3 text-sm">
+        <NotePreview
+          label="Lesiones"
+          value={client.injuriesNotes || "Sin lesiones registradas."}
+        />
+        <NotePreview
+          label="Notas generales"
+          value={client.generalNotes || "Sin notas generales."}
+        />
+      </div>
+      <Button
+        className="mt-4 w-full shadow-none"
+        type="button"
+        variant="outline"
+        onClick={onEdit}
+      >
+        <EditIcon className="size-4" />
+        Editar notas
+      </Button>
+    </WorkspacePanel>
   );
 }
 

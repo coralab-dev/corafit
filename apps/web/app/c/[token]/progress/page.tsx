@@ -1,4 +1,4 @@
-import { PlaceholderScreen } from "@/components/client-portal/client-portal";
+import { ClientPortalProgressScreen } from "@/components/client-portal/client-portal";
 
 export default async function ClientPortalProgressPage({
   params,
@@ -7,5 +7,5 @@ export default async function ClientPortalProgressPage({
 }) {
   const { token } = await params;
 
-  return <PlaceholderScreen token={token} active="progress" title="Progreso" />;
+  return <ClientPortalProgressScreen token={token} />;
 }

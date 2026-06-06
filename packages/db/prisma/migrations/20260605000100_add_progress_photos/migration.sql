@@ -1,4 +1,9 @@
-CREATE TYPE "ProgressPhotoType" AS ENUM ('front', 'side', 'back', 'other');
+DO $$
+BEGIN
+  CREATE TYPE "ProgressPhotoType" AS ENUM ('front', 'side', 'back', 'other');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE "progress_photos" (
   "id" TEXT NOT NULL,

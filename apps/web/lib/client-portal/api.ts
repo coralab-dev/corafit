@@ -198,6 +198,43 @@ export type ClientPortalSessionStatus = {
   expiresAt?: string;
 };
 
+export type ClientPortalProgressActor = "coach" | "client";
+export type ClientPortalProgressPhotoType = "front" | "side" | "back" | "other";
+
+export type ClientPortalWeightLog = {
+  id: string;
+  note: string | null;
+  recordedAt: string;
+  recordedByType: ClientPortalProgressActor;
+  weightKg: number;
+};
+
+export type ClientPortalBodyMeasurement = {
+  id: string;
+  armCm: number | null;
+  chestCm: number | null;
+  gluteCm: number | null;
+  hipCm: number | null;
+  legCm: number | null;
+  note: string | null;
+  recordedAt: string;
+  waistCm: number | null;
+};
+
+export type ClientPortalProgressPhoto = {
+  id: string;
+  photoType: ClientPortalProgressPhotoType;
+  recordedAt: string;
+  signedUrl: string;
+  uploadedByType: ClientPortalProgressActor;
+};
+
+export type ClientPortalProgressNote = {
+  id: string;
+  createdAt: string;
+  text: string;
+};
+
 export async function clientPortalRequest<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(`${clientPortalApiBaseUrl}${path}`, {
     ...init,
@@ -207,6 +244,22 @@ export async function clientPortalRequest<T>(path: string, init: RequestInit = {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...init.headers,
     },
+  });
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  const text = await response.text();
+  return text ? (JSON.parse(text) as T) : (undefined as T);
+}
+
+export async function clientPortalFormDataRequest<T>(path: string, formData: FormData) {
+  const response = await fetch(`${clientPortalApiBaseUrl}${path}`, {
+    method: "POST",
+    body: formData,
+    cache: "no-store",
+    credentials: "include",
   });
 
   if (!response.ok) {

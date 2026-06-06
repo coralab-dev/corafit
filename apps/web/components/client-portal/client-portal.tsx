@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import NextImage from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -25,11 +26,17 @@ import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   clientPortalRequest,
+  clientPortalFormDataRequest,
   verifyPin,
+  type ClientPortalBodyMeasurement,
   type ClientPortalCalendar,
   type ClientPortalDay,
   type ClientPortalHome,
+  type ClientPortalProgressNote,
+  type ClientPortalProgressPhoto,
+  type ClientPortalProgressPhotoType,
   type ClientPortalStatus,
+  type ClientPortalWeightLog,
   type ClientSessionLog,
   type ClientSessionPreview,
   type CompletionCard,
@@ -115,6 +122,7 @@ const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
 const clientPortalNavItems = [
   { key: "home", label: "Inicio", href: (token: string) => `/c/${encodeURIComponent(token)}/home`, icon: Home },
   { key: "calendar", label: "Calendario", href: (token: string) => `/c/${encodeURIComponent(token)}/calendar`, icon: Calendar },
+  { key: "progress", label: "Progreso", href: (token: string) => `/c/${encodeURIComponent(token)}/progress`, icon: TrendingUp },
 ] as const;
 
 type ClientPortalNavKey = "home" | "calendar" | "progress" | "profile";
@@ -1017,6 +1025,311 @@ export function PlaceholderScreen({ token, active, title }: { token: string; act
       </section>
     </ClientPortalShell>
   );
+}
+
+type PortalProgressTab = "weight" | "measurements" | "photos" | "notes";
+
+const portalProgressTabs: Array<{ key: PortalProgressTab; label: string }> = [
+  { key: "weight", label: "Peso" },
+  { key: "measurements", label: "Medidas" },
+  { key: "photos", label: "Fotos" },
+  { key: "notes", label: "Notas" },
+];
+
+const portalPhotoLabels: Record<ClientPortalProgressPhotoType, string> = {
+  back: "Espalda",
+  front: "Frente",
+  other: "Otra",
+  side: "Lado",
+};
+
+const portalMeasurementFields = [
+  ["waistCm", "Cintura"],
+  ["hipCm", "Cadera"],
+  ["chestCm", "Pecho"],
+  ["armCm", "Brazo"],
+  ["legCm", "Pierna"],
+  ["gluteCm", "Gluteo"],
+] as const;
+
+export function ClientPortalProgressScreen({ token }: { token: string }) {
+  const [activeTab, setActiveTab] = useState<PortalProgressTab>("weight");
+  const [weightLogs, setWeightLogs] = useState<ClientPortalWeightLog[]>([]);
+  const [measurements, setMeasurements] = useState<ClientPortalBodyMeasurement[]>([]);
+  const [photos, setPhotos] = useState<ClientPortalProgressPhoto[]>([]);
+  const [notes, setNotes] = useState<ClientPortalProgressNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadProgress = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const encoded = encodeURIComponent(token);
+      const [weightResult, measurementResult, photoResult, noteResult] = await Promise.all([
+        clientPortalRequest<ClientPortalWeightLog[]>(`/client-portal/${encoded}/progress/weight-logs`),
+        clientPortalRequest<ClientPortalBodyMeasurement[]>(`/client-portal/${encoded}/progress/body-measurements`),
+        clientPortalRequest<ClientPortalProgressPhoto[]>(`/client-portal/${encoded}/progress/photos`),
+        clientPortalRequest<ClientPortalProgressNote[]>(`/client-portal/${encoded}/progress/notes`),
+      ]);
+      setWeightLogs(weightResult);
+      setMeasurements(measurementResult);
+      setPhotos(photoResult);
+      setNotes(noteResult);
+    } catch (caught) {
+      setError(errorMessage(caught, "No pudimos cargar tu progreso."));
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadProgress();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadProgress]);
+
+  async function saveWeight(input: { note?: string | null; recordedAt: string; weightKg: number }, id?: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const encoded = encodeURIComponent(token);
+      await clientPortalRequest(`/client-portal/${encoded}/progress/weight-logs${id ? `/${id}` : ""}`, {
+        method: id ? "PATCH" : "POST",
+        body: JSON.stringify(input),
+      });
+      await loadProgress();
+    } catch (caught) {
+      setError(isForbidden(caught) ? "Tu coach no habilito el registro de peso o este registro no es editable." : errorMessage(caught, "No pudimos guardar el peso."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteWeight(id: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      await clientPortalRequest(`/client-portal/${encodeURIComponent(token)}/progress/weight-logs/${id}`, { method: "DELETE" });
+      await loadProgress();
+    } catch (caught) {
+      setError(isForbidden(caught) ? "Solo puedes borrar registros de peso creados por ti." : errorMessage(caught, "No pudimos borrar el peso."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function uploadPhoto(formData: FormData) {
+    setSaving(true);
+    setError(null);
+    try {
+      await clientPortalFormDataRequest(`/client-portal/${encodeURIComponent(token)}/progress/photos`, formData);
+      await loadProgress();
+    } catch (caught) {
+      setError(isForbidden(caught) ? "No tienes permiso para subir esta foto." : errorMessage(caught, "No pudimos subir la foto."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deletePhoto(id: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      await clientPortalRequest(`/client-portal/${encodeURIComponent(token)}/progress/photos/${id}`, { method: "DELETE" });
+      await loadProgress();
+    } catch (caught) {
+      setError(isForbidden(caught) ? "Solo puedes borrar fotos subidas por ti." : errorMessage(caught, "No pudimos borrar la foto."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ClientPortalShell token={token} active="progress">
+      <section className="px-6 pt-10 md:px-8 lg:px-10">
+        <TopBar title="Progreso" backHref={`/c/${encodeURIComponent(token)}/home`} />
+        <div className="mt-6">
+          <h1 className="text-3xl font-black tracking-normal">Tu progreso</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#667080]">Consulta tus registros compartidos y agrega avances cuando este habilitado.</p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-4 rounded-2xl border border-[#ece7e3] bg-white p-1 text-sm font-bold shadow-sm">
+          {portalProgressTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={cn("rounded-xl px-2 py-3 text-[#667080]", activeTab === tab.key && "bg-[#fff1ee] text-[#df4d3e]")}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {error ? <p className="mt-4 rounded-2xl border border-[#f1c7bd] bg-[#fff6f3] p-4 text-sm font-bold text-[#b63d31]">{error}</p> : null}
+        {loading ? <ScreenState title="Cargando progreso" compact /> : null}
+        {!loading && activeTab === "weight" ? <PortalWeightSection items={weightLogs} saving={saving} onDelete={deleteWeight} onSave={saveWeight} /> : null}
+        {!loading && activeTab === "measurements" ? <PortalMeasurementsSection items={measurements} /> : null}
+        {!loading && activeTab === "photos" ? <PortalPhotosSection items={photos} saving={saving} onDelete={deletePhoto} onUpload={uploadPhoto} /> : null}
+        {!loading && activeTab === "notes" ? <PortalNotesSection items={notes} /> : null}
+      </section>
+    </ClientPortalShell>
+  );
+}
+
+function PortalWeightSection({ items, onDelete, onSave, saving }: { items: ClientPortalWeightLog[]; onDelete: (id: string) => Promise<void>; onSave: (input: { note?: string | null; recordedAt: string; weightKg: number }, id?: string) => Promise<void>; saving: boolean }) {
+  const [editing, setEditing] = useState<ClientPortalWeightLog | null>(null);
+  const [weightKg, setWeightKg] = useState("");
+  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [note, setNote] = useState("");
+  function startEdit(item: ClientPortalWeightLog) {
+    setEditing(item);
+    setWeightKg(item.weightKg.toString());
+    setRecordedAt(portalDateInput(item.recordedAt));
+    setNote(item.note ?? "");
+  }
+  return (
+    <div className="mt-5 space-y-4">
+      <form className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => {
+        event.preventDefault();
+        await onSave({ weightKg: Number(weightKg), recordedAt, note: note.trim() || null }, editing?.id);
+        setEditing(null);
+        setWeightKg("");
+        setNote("");
+      }}>
+        <PortalInput label="Kg" min="1" step="0.1" type="number" value={weightKg} onChange={setWeightKg} />
+        <PortalInput label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
+        <PortalInput label="Nota" value={note} onChange={setNote} />
+        <div className="flex gap-2 self-end">
+          {editing ? <PortalButton disabled={saving} type="button" variant="secondary" onClick={() => setEditing(null)}>Cancelar</PortalButton> : null}
+          <PortalButton disabled={saving} type="submit">{editing ? "Guardar" : "Registrar"}</PortalButton>
+        </div>
+      </form>
+      {items.length === 0 ? <PortalEmpty text="Aun no hay registros de peso." /> : items.map((item) => (
+        <PortalRecord key={item.id} title={`${item.weightKg} kg`} meta={`${portalFormatDate(item.recordedAt)} / ${item.recordedByType === "client" ? "Registrado por ti" : "Registrado por coach"}`} note={item.note}>
+          {item.recordedByType === "client" ? (
+            <>
+              <PortalButton type="button" variant="secondary" onClick={() => startEdit(item)}>Editar</PortalButton>
+              <PortalButton disabled={saving} type="button" variant="danger" onClick={() => void onDelete(item.id)}>Borrar</PortalButton>
+            </>
+          ) : null}
+        </PortalRecord>
+      ))}
+    </div>
+  );
+}
+
+function PortalMeasurementsSection({ items }: { items: ClientPortalBodyMeasurement[] }) {
+  return (
+    <div className="mt-5 space-y-3">
+      {items.length === 0 ? <PortalEmpty text="No hay medidas visibles por ahora." /> : items.map((item) => (
+        <PortalRecord key={item.id} title={portalMeasurementSummary(item)} meta={portalFormatDate(item.recordedAt)} note={item.note} />
+      ))}
+    </div>
+  );
+}
+
+function PortalPhotosSection({ items, onDelete, onUpload, saving }: { items: ClientPortalProgressPhoto[]; onDelete: (id: string) => Promise<void>; onUpload: (formData: FormData) => Promise<void>; saving: boolean }) {
+  const [photoType, setPhotoType] = useState<ClientPortalProgressPhotoType>("front");
+  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [file, setFile] = useState<File | null>(null);
+  return (
+    <div className="mt-5 space-y-4">
+      <form className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => {
+        event.preventDefault();
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("photoType", photoType);
+        formData.append("recordedAt", recordedAt);
+        formData.append("photo", file);
+        await onUpload(formData);
+        setFile(null);
+      }}>
+        <PortalSelect label="Tipo" value={photoType} options={portalPhotoLabels} onChange={(value) => setPhotoType(value as ClientPortalProgressPhotoType)} />
+        <PortalInput label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
+        <label className="grid gap-1 text-sm font-bold text-[#121722]">Foto<input accept="image/jpeg,image/png,image/webp" className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
+        <PortalButton disabled={saving || !file} type="submit">Subir</PortalButton>
+      </form>
+      {items.length === 0 ? <PortalEmpty text="Aun no hay fotos de progreso." /> : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {items.map((item) => (
+            <div key={item.id} className="overflow-hidden rounded-2xl border border-[#ece7e3] bg-white shadow-sm">
+              <div className="relative aspect-[4/3] w-full">
+                <NextImage alt={`Foto ${portalPhotoLabels[item.photoType]}`} className="object-cover" fill sizes="(min-width: 640px) 50vw, 100vw" src={item.signedUrl} unoptimized />
+              </div>
+              <div className="flex items-center justify-between gap-3 p-4 text-sm font-bold">
+                <span>{portalPhotoLabels[item.photoType]} / {portalFormatDate(item.recordedAt)}</span>
+                {item.uploadedByType === "client" ? <PortalButton disabled={saving} type="button" variant="danger" onClick={() => void onDelete(item.id)}>Borrar</PortalButton> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortalNotesSection({ items }: { items: ClientPortalProgressNote[] }) {
+  return (
+    <div className="mt-5 space-y-3">
+      {items.length === 0 ? <PortalEmpty text="No hay notas visibles por ahora." /> : items.map((item) => (
+        <PortalRecord key={item.id} title="Nota de tu coach" meta={portalFormatDate(item.createdAt)} note={item.text} />
+      ))}
+    </div>
+  );
+}
+
+function PortalRecord({ children, meta, note, title }: { children?: ReactNode; meta: string; note?: string | null; title: string }) {
+  return (
+    <article className="rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-base font-black">{title}</h2>
+          <p className="mt-1 text-xs font-bold text-[#667080]">{meta}</p>
+          {note ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#4a5565]">{note}</p> : null}
+        </div>
+        {children ? <div className="flex shrink-0 gap-2">{children}</div> : null}
+      </div>
+    </article>
+  );
+}
+
+function PortalInput({ label, onChange, value, ...props }: { label: string; onChange: (value: string) => void; value: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value">) {
+  return <label className="grid gap-1 text-sm font-bold text-[#121722]">{label}<input className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} {...props} /></label>;
+}
+
+function PortalSelect({ label, onChange, options, value }: { label: string; onChange: (value: string) => void; options: Record<string, string>; value: string }) {
+  return <label className="grid gap-1 text-sm font-bold text-[#121722]">{label}<select className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{Object.entries(options).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>;
+}
+
+function PortalButton({ children, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
+  return <button className={cn("rounded-xl px-4 py-2 text-sm font-black disabled:opacity-60", variant === "primary" && "bg-[#df4d3e] text-white", variant === "secondary" && "border border-[#e4dfda] bg-white text-[#121722]", variant === "danger" && "bg-[#fff1ee] text-[#b63d31]")} {...props}>{children}</button>;
+}
+
+function PortalEmpty({ text }: { text: string }) {
+  return <p className="rounded-2xl border border-dashed border-[#e4dfda] bg-white p-5 text-center text-sm font-bold text-[#667080]">{text}</p>;
+}
+
+function portalDateInput(value?: string) {
+  return value ? value.slice(0, 10) : new Date().toISOString().slice(0, 10);
+}
+
+function portalFormatDate(value: string) {
+  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+}
+
+function portalMeasurementSummary(item: ClientPortalBodyMeasurement) {
+  const parts = portalMeasurementFields
+    .map(([key, label]) => (item[key] ? `${label} ${item[key]} cm` : null))
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : "Medidas";
+}
+
+function isForbidden(caught: unknown) {
+  return typeof caught === "object" && caught !== null && "status" in caught && caught.status === 403;
 }
 
 function ClientPortalDesktopNav({

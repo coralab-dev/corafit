@@ -147,7 +147,7 @@ export function ClientPortalShell({
     <main className="min-h-dvh bg-[#f8f7f5] text-[#121722]">
       <div className="mx-auto min-h-dvh w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none">
         {active ? <ClientPortalDesktopNav token={token} active={active} items={navItems} /> : null}
-        <div className={cn("min-h-dvh pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10", active && "lg:pl-64")}>
+        <div className={cn("min-h-dvh pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10", active && "lg:pl-64")}>
           {children}
         </div>
         {active ? <ClientPortalBottomNav token={token} active={active} items={navItems} /> : null}
@@ -1193,7 +1193,7 @@ function PortalWeightSection({ items, onDelete, onSave, saving }: { items: Clien
   }
   return (
     <div className="mt-5 space-y-4">
-      <form className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => {
+      <form className="grid min-w-0 gap-3 rounded-2xl border border-[#ece7e3] bg-white p-3 shadow-sm sm:grid-cols-[1fr_1fr_2fr_auto] sm:p-4" onSubmit={async (event) => {
         event.preventDefault();
         await onSave({ weightKg: Number(weightKg), recordedAt, note: note.trim() || null }, editing?.id);
         setEditing(null);
@@ -1250,8 +1250,8 @@ function PortalPhotosSection({ items, onDelete, onUpload, saving }: { items: Cli
       }}>
         <PortalSelect label="Tipo" value={photoType} options={portalPhotoLabels} onChange={(value) => setPhotoType(value as ClientPortalProgressPhotoType)} />
         <PortalInput label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
-        <label className="grid gap-1 text-sm font-bold text-[#121722]">Foto<input accept="image/jpeg,image/png,image/webp" className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
-        <PortalButton disabled={saving || !file} type="submit">Subir</PortalButton>
+        <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722]">Foto<input accept="image/jpeg,image/png,image/webp" className="w-full min-w-0 overflow-hidden rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#fff1ee] file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-[#c73e3d]" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
+        <PortalButton className="w-full sm:self-end" disabled={saving || !file} type="submit">Subir</PortalButton>
       </form>
       {items.length === 0 ? <PortalEmpty text="Aun no hay fotos de progreso." /> : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -1298,15 +1298,15 @@ function PortalRecord({ children, meta, note, title }: { children?: ReactNode; m
 }
 
 function PortalInput({ label, onChange, value, ...props }: { label: string; onChange: (value: string) => void; value: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value">) {
-  return <label className="grid gap-1 text-sm font-bold text-[#121722]">{label}<input className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} {...props} /></label>;
+  return <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722]">{label}<input className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} {...props} /></label>;
 }
 
 function PortalSelect({ label, onChange, options, value }: { label: string; onChange: (value: string) => void; options: Record<string, string>; value: string }) {
-  return <label className="grid gap-1 text-sm font-bold text-[#121722]">{label}<select className="rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{Object.entries(options).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>;
+  return <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722]">{label}<select className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{Object.entries(options).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>;
 }
 
-function PortalButton({ children, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
-  return <button className={cn("rounded-xl px-4 py-2 text-sm font-black disabled:opacity-60", variant === "primary" && "bg-[#df4d3e] text-white", variant === "secondary" && "border border-[#e4dfda] bg-white text-[#121722]", variant === "danger" && "bg-[#fff1ee] text-[#b63d31]")} {...props}>{children}</button>;
+function PortalButton({ children, className, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
+  return <button className={cn("rounded-xl px-4 py-2 text-sm font-black disabled:opacity-60", variant === "primary" && "bg-[#df4d3e] text-white", variant === "secondary" && "border border-[#e4dfda] bg-white text-[#121722]", variant === "danger" && "bg-[#fff1ee] text-[#b63d31]", className)} {...props}>{children}</button>;
 }
 
 function PortalEmpty({ text }: { text: string }) {
@@ -1381,22 +1381,29 @@ function ClientPortalBottomNav({
   items: readonly ClientPortalNavItem[];
 }) {
   return (
-    <nav className="fixed bottom-0 left-1/2 z-20 w-full -translate-x-1/2 border-t border-[#ece7e3] bg-white/95 px-6 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
-      <div className={cn("grid", items.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
+    <nav
+      aria-label="Navegacion principal"
+      className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[calc(0.65rem+env(safe-area-inset-bottom))] lg:hidden"
+    >
+      <div className="flex min-h-16 w-full max-w-[24rem] items-center justify-between gap-1 rounded-full border border-white/70 bg-[#f7f3ee]/82 px-2 py-1.5 shadow-[0_18px_45px_rgba(18,23,34,0.18),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[#f7f3ee]/72">
         {items.map((item) => {
           const Icon = item.icon;
           const selected = active === item.key;
           return (
             <Link
+              aria-current={selected ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-1 text-xs font-semibold text-[#6d7581]",
-                selected && "text-[#df4d3e]",
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[0.68rem] font-bold leading-none text-[#7d827f] transition-all duration-200 ease-out",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#df4d3e]",
+                selected
+                  ? "min-h-12 bg-white text-[#c73e3d] shadow-[0_8px_22px_rgba(18,23,34,0.14),inset_0_1px_0_rgba(255,255,255,0.95)]"
+                  : "min-h-11 hover:bg-white/45 hover:text-[#565d66]",
               )}
               href={item.href(token)}
               key={item.key}
             >
-              <Icon className="size-6" />
-              {item.label}
+              <Icon className={cn("size-5 shrink-0 stroke-[2.1]", selected && "size-6 stroke-[2.4]")} />
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}

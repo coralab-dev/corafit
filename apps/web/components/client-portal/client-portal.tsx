@@ -12,14 +12,20 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Download,
   Dumbbell,
+  FileText,
   Flame,
   Home,
+  Info,
+  Layers,
   Loader2,
   MoreHorizontal,
+  PlayCircle,
   RotateCcw,
   Share2,
+  Star,
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -144,10 +150,10 @@ export function ClientPortalShell({
     : clientPortalNavItems;
 
   return (
-    <main className="min-h-dvh bg-[#f8f7f5] text-[#121722]">
-      <div className="mx-auto min-h-dvh w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none">
+    <main className="client-portal-viewport bg-[#f8f7f5] text-[#121722]">
+      <div className="client-portal-viewport mx-auto w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none">
         {active ? <ClientPortalDesktopNav token={token} active={active} items={navItems} /> : null}
-        <div className={cn("min-h-dvh pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10", active && "lg:pl-64")}>
+        <div className={cn("client-portal-viewport pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10", active && "lg:pl-64")}>
           {children}
         </div>
         {active ? <ClientPortalBottomNav token={token} active={active} items={navItems} /> : null}
@@ -209,7 +215,7 @@ export function PinAccessScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="flex min-h-screen flex-col px-8 py-12 md:px-10 lg:px-12">
+      <section className="client-portal-viewport flex flex-col px-8 py-12 md:px-10 lg:px-12">
         <div className="mb-12">
           <BrandMark />
           <h1 className="mt-10 text-3xl font-bold">CoraFit</h1>
@@ -502,14 +508,20 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
-  const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [confirmPartialOpen, setConfirmPartialOpen] = useState(false);
 
   const load = useCallback(() => {
     clientPortalRequest<ClientSessionLog>(
       `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(sessionLogId)}`,
     )
-      .then(setLog)
+      .then((result) => {
+        setLog(result);
+        const completedIds = result.snapshotData.progress?.completedExerciseIds ?? [];
+        const firstPendingIndex = result.snapshotData.exercises.findIndex((exercise) => !completedIds.includes(exercise.sessionExerciseId));
+        setActiveExerciseIndex(firstPendingIndex >= 0 ? firstPendingIndex : 0);
+      })
       .catch((caught) => setError(errorMessage(caught, "No pudimos cargar la sesion.")))
       .finally(() => setLoading(false));
   }, [sessionLogId, token]);
@@ -530,6 +542,18 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
         { method: "POST" },
       );
       setLog(updated);
+      const updatedCompleted = updated.snapshotData.progress?.completedExerciseIds ?? [];
+      const completedIndex = updated.snapshotData.exercises.findIndex((exercise) => exercise.sessionExerciseId === sessionExerciseId);
+      const orderedExercises = [
+        ...updated.snapshotData.exercises.slice(completedIndex + 1),
+        ...updated.snapshotData.exercises.slice(0, Math.max(completedIndex, 0)),
+      ];
+      const nextPendingExercise = orderedExercises.find((exercise) => !updatedCompleted.includes(exercise.sessionExerciseId));
+      const nextPendingIndex = nextPendingExercise
+        ? updated.snapshotData.exercises.findIndex((exercise) => exercise.sessionExerciseId === nextPendingExercise.sessionExerciseId)
+        : -1;
+      if (nextPendingIndex >= 0) setActiveExerciseIndex(nextPendingIndex);
+      if (detailOpen && nextPendingIndex >= 0) setDetailOpen(true);
     } catch (caught) {
       setError(errorMessage(caught, "No pudimos completar el ejercicio."));
     } finally {
@@ -589,11 +613,13 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
 
   const completed = log.snapshotData.progress?.completedExerciseIds ?? [];
   const total = log.snapshotData.exercises.length;
-  const progressLabel = `${completed.length} / ${total}`;
   const pendingCount = Math.max(total - completed.length, 0);
-  const visibleExercises = showPendingOnly
-    ? log.snapshotData.exercises.filter((exercise) => !completed.includes(exercise.sessionExerciseId))
-    : log.snapshotData.exercises;
+  const activeExercise = log.snapshotData.exercises[activeExerciseIndex] ?? log.snapshotData.exercises[0];
+  const selectedAlternativeId = activeExercise
+    ? log.snapshotData.progress?.usedAlternatives.find(
+        (alternative) => alternative.sessionExerciseId === activeExercise.sessionExerciseId,
+      )?.alternativeId ?? null
+    : null;
 
   if (isFinalized(log.status)) return <ClientPortalShell token={token}><ScreenState title="Abriendo tu logro" /></ClientPortalShell>;
 
@@ -604,41 +630,80 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
         {error ? <InlineError message={error} /> : null}
         <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
-            <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm lg:hidden">
-              <div className="flex items-center justify-between text-sm font-bold">
-                <span>Progreso de la sesion</span>
-                <span>{progressLabel}</span>
-              </div>
-              <div className="mt-4 h-2 rounded-full bg-[#f0eeee]">
-                <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${total ? (completed.length / total) * 100 : 0}%` }} />
-              </div>
-            </div>
-            <div className="mt-4 space-y-3 lg:mt-0">
-              {visibleExercises.map((exercise) => (
-                <ExerciseCard
-                  completed={completed.includes(exercise.sessionExerciseId)}
-                  exercise={exercise}
-                  index={log.snapshotData.exercises.findIndex((item) => item.sessionExerciseId === exercise.sessionExerciseId)}
-                  key={exercise.sessionExerciseId}
-                  loading={busyId === exercise.sessionExerciseId}
-                  onComplete={() => void complete(exercise.sessionExerciseId)}
-                  onUseAlternative={(alternativeId) => void applyAlternative(exercise.sessionExerciseId, alternativeId)}
-                  selectedAlternativeId={
-                    log.snapshotData.progress?.usedAlternatives.find(
-                      (alternative) => alternative.sessionExerciseId === exercise.sessionExerciseId,
-                    )?.alternativeId ?? null
-                  }
-                />
-              ))}
-            </div>
-            <button
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ece7e3] bg-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={pendingCount === 0 && !showPendingOnly}
-              onClick={() => setShowPendingOnly((current) => !current)}
-              type="button"
-            >
-              {showPendingOnly ? "Ver todos los ejercicios" : "Ver solo pendientes"} ({pendingCount}) <ChevronDown className={cn("size-4 transition", showPendingOnly && "rotate-180")} />
-            </button>
+            {detailOpen && activeExercise ? (
+              <ClientExerciseDetailView
+                completed={completed.includes(activeExercise.sessionExerciseId)}
+                completedCount={completed.length}
+                exercise={activeExercise}
+                index={activeExerciseIndex}
+                loading={busyId === activeExercise.sessionExerciseId}
+                onBack={() => setDetailOpen(false)}
+                onComplete={() => void complete(activeExercise.sessionExerciseId)}
+                onFinalize={() => requestFinalize(completed.length, total)}
+                onNext={() => setActiveExerciseIndex((current) => Math.min(current + 1, total - 1))}
+                onPrevious={() => setActiveExerciseIndex((current) => Math.max(current - 1, 0))}
+                onSave={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
+                onUseAlternative={(alternativeId) => void applyAlternative(activeExercise.sessionExerciseId, alternativeId)}
+                readOnly={false}
+                selectedAlternativeId={selectedAlternativeId}
+                total={total}
+              />
+            ) : activeExercise ? (
+              <>
+                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm lg:hidden">
+                  <div className="flex items-center justify-between text-sm font-bold">
+                    <span>Progreso de la sesion</span>
+                    <span>{completed.length} / {total}</span>
+                  </div>
+                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee]">
+                    <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${total ? (completed.length / total) * 100 : 0}%` }} />
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3 lg:mt-0">
+                  {log.snapshotData.exercises.map((exercise, index) => (
+                    <SessionExerciseListCard
+                      completed={completed.includes(exercise.sessionExerciseId)}
+                      exercise={exercise}
+                      index={index}
+                      key={exercise.sessionExerciseId}
+                      loading={busyId === exercise.sessionExerciseId}
+                      onComplete={() => void complete(exercise.sessionExerciseId)}
+                      onOpen={() => {
+                        setActiveExerciseIndex(index);
+                        setDetailOpen(true);
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
+                  <button
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[#df5b47] text-sm font-bold text-[#df5b47]"
+                    onClick={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
+                    type="button"
+                  >
+                    <Home className="size-4" /> Guardar y salir
+                  </button>
+                  <button
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
+                    disabled={finalizing}
+                    onClick={() => requestFinalize(completed.length, total)}
+                    type="button"
+                  >
+                    {finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} Finalizar sesion
+                  </button>
+                </div>
+              </>
+            ) : (
+              <EmptyCard title="No hay ejercicios en esta sesion." />
+            )}
+            {detailOpen ? (
+              <ExerciseMiniNavigation
+                activeIndex={activeExerciseIndex}
+                completedIds={completed}
+                exercises={log.snapshotData.exercises}
+                onSelect={setActiveExerciseIndex}
+              />
+            ) : null}
           </div>
           <SessionProgressPanel
             completedCount={completed.length}
@@ -648,23 +713,6 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
             pendingCount={pendingCount}
             total={total}
           />
-        </div>
-        <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
-          <button
-            className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[#df5b47] text-sm font-bold text-[#df5b47]"
-            onClick={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
-            type="button"
-          >
-            <Home className="size-4" /> Guardar y salir
-          </button>
-          <button
-            className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
-            disabled={finalizing}
-            onClick={() => requestFinalize(completed.length, total)}
-            type="button"
-          >
-            {finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} Finalizar sesion
-          </button>
         </div>
       </section>
       <ConfirmDialog
@@ -682,6 +730,7 @@ export function SessionScreen({ token, sessionLogId }: { token: string; sessionL
 }
 
 export function SessionPreviewScreen({ token }: { token: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const date = searchParams.get("date");
   const sessionId = searchParams.get("session");
@@ -689,6 +738,8 @@ export function SessionPreviewScreen({ token }: { token: string }) {
   const [preview, setPreview] = useState<ClientSessionPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
     if (missingParams) return;
@@ -723,6 +774,7 @@ export function SessionPreviewScreen({ token }: { token: string }) {
   if (!preview) return <ClientPortalShell token={token}><ScreenState title="Sesion no disponible" description={error ?? undefined} /></ClientPortalShell>;
 
   const total = preview.snapshotData.exercises.length;
+  const activeExercise = preview.snapshotData.exercises[activeExerciseIndex] ?? preview.snapshotData.exercises[0];
 
   return (
     <ClientPortalShell token={token}>
@@ -732,36 +784,84 @@ export function SessionPreviewScreen({ token }: { token: string }) {
         <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31]">
           Esta sesion esta programada para despues. Puedes revisar ejercicios y notas, pero todavia no se puede iniciar.
         </div>
-        <div className="mt-6 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between text-sm font-bold">
-            <span>Vista de lectura</span>
-            <span>{total} ejercicios</span>
+        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+          <div className="min-w-0">
+            {detailOpen && activeExercise ? (
+              <ClientExerciseDetailView
+                completed={false}
+                completedCount={0}
+                exercise={activeExercise}
+                index={activeExerciseIndex}
+                loading={false}
+                onBack={() => setDetailOpen(false)}
+                onComplete={() => undefined}
+                onFinalize={() => undefined}
+                onNext={() => setActiveExerciseIndex((current) => Math.min(current + 1, total - 1))}
+                onPrevious={() => setActiveExerciseIndex((current) => Math.max(current - 1, 0))}
+                onSave={() => router.push(`/c/${encodeURIComponent(token)}/calendar`)}
+                onUseAlternative={() => undefined}
+                readOnly
+                selectedAlternativeId={null}
+                total={total}
+              />
+            ) : activeExercise ? (
+              <>
+                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between text-sm font-bold">
+                    <span>Vista de lectura</span>
+                    <span>{total} ejercicios</span>
+                  </div>
+                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee]" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {preview.snapshotData.exercises.map((exercise, index) => (
+                    <SessionExerciseListCard
+                      completed={false}
+                      exercise={exercise}
+                      index={index}
+                      key={exercise.sessionExerciseId}
+                      loading={false}
+                      readOnly
+                      onComplete={() => undefined}
+                      onOpen={() => {
+                        setActiveExerciseIndex(index);
+                        setDetailOpen(true);
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
+                  <button
+                    className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080]"
+                    disabled
+                    type="button"
+                  >
+                    Disponible en la fecha programada
+                  </button>
+                </div>
+              </>
+            ) : (
+              <EmptyCard title="No hay ejercicios en esta sesion." />
+            )}
+            {detailOpen ? (
+              <ExerciseMiniNavigation
+                activeIndex={activeExerciseIndex}
+                completedIds={[]}
+                exercises={preview.snapshotData.exercises}
+                onSelect={setActiveExerciseIndex}
+                readOnly
+              />
+            ) : null}
           </div>
-          <div className="mt-4 h-2 rounded-full bg-[#f0eeee]" />
-        </div>
-        <div className="mt-4 space-y-3">
-          {preview.snapshotData.exercises.map((exercise, index) => (
-            <ExerciseCard
-              completed={false}
-              exercise={exercise}
-              index={index}
-              key={exercise.sessionExerciseId}
-              loading={false}
-              readOnly
-              onComplete={() => undefined}
-              onUseAlternative={() => undefined}
-              selectedAlternativeId={null}
-            />
-          ))}
-        </div>
-        <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur">
-          <button
-            className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080]"
-            disabled
-            type="button"
-          >
-            Disponible en la fecha programada
-          </button>
+          <SessionProgressPanel
+            completedCount={0}
+            finalizing={false}
+            onFinalize={() => undefined}
+            onSave={() => router.push(`/c/${encodeURIComponent(token)}/calendar`)}
+            pendingCount={total}
+            readOnly
+            total={total}
+          />
         </div>
       </section>
     </ClientPortalShell>
@@ -865,7 +965,7 @@ export function CompletionCardScreen({ token, sessionLogId }: { token: string; s
 
   return (
     <ClientPortalShell token={token}>
-      <section className="flex min-h-screen flex-col px-5 py-6 md:px-8 lg:px-10">
+      <section className="client-portal-viewport flex flex-col px-5 py-6 md:px-8 lg:px-10">
         <BrandMark />
         {error ? <InlineError message={error} /> : null}
         {data ? (
@@ -1578,6 +1678,7 @@ function SessionProgressPanel({
   onFinalize,
   onSave,
   pendingCount,
+  readOnly = false,
   total,
 }: {
   completedCount: number;
@@ -1585,6 +1686,7 @@ function SessionProgressPanel({
   onFinalize: () => void;
   onSave: () => void;
   pendingCount: number;
+  readOnly?: boolean;
   total: number;
 }) {
   const progress = total ? (completedCount / total) * 100 : 0;
@@ -1604,7 +1706,11 @@ function SessionProgressPanel({
           <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${progress}%` }} />
         </div>
         <p className="mt-4 text-sm font-medium text-[#667080]">
-          {pendingCount > 0 ? `${pendingCount} ejercicios pendientes.` : "Todos los ejercicios estan listos para finalizar."}
+          {readOnly
+            ? "Vista previa de la sesion programada."
+            : pendingCount > 0
+              ? `${pendingCount} ejercicios pendientes.`
+              : "Todos los ejercicios estan listos para finalizar."}
         </p>
         <div className="mt-6 space-y-3">
           <button
@@ -1615,12 +1721,16 @@ function SessionProgressPanel({
             <Home className="size-4" /> Guardar y salir
           </button>
           <button
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
-            disabled={finalizing}
+            className={cn(
+              "flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60",
+              readOnly ? "bg-[#ece7e3] text-[#667080] shadow-none" : "bg-[#df4d3e] text-white",
+            )}
+            disabled={finalizing || readOnly}
             onClick={onFinalize}
             type="button"
           >
-            {finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />} Finalizar sesion
+            {readOnly ? "Disponible en la fecha programada" : finalizing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+            {readOnly ? null : "Finalizar sesion"}
           </button>
         </div>
       </div>
@@ -1628,139 +1738,409 @@ function SessionProgressPanel({
   );
 }
 
-function ExerciseCard({
+type ClientSessionExercise = ClientSessionLog["snapshotData"]["exercises"][number];
+
+function SessionExerciseListCard({
   exercise,
   index,
   completed,
   loading,
   readOnly = false,
   onComplete,
-  onUseAlternative,
-  selectedAlternativeId,
+  onOpen,
 }: {
-  exercise: ClientSessionLog["snapshotData"]["exercises"][number];
+  exercise: ClientSessionExercise;
   index: number;
   completed: boolean;
   loading: boolean;
   readOnly?: boolean;
   onComplete: () => void;
-  onUseAlternative: (alternativeId: string) => void;
-  selectedAlternativeId: string | null;
+  onOpen: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   return (
-    <article className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
-      <div className="flex min-h-16 items-center gap-4">
-        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold", completed ? "bg-[#49ad64] text-white" : "bg-[#fff0ed] text-[#df4d3e]")}>
-          {index + 1}
+    <article className="flex min-h-24 items-center gap-4 rounded-xl border border-[#d8d1ca] bg-white p-4 shadow-sm transition hover:border-[#c9cdd3]">
+      <button className="flex min-w-0 flex-1 items-center gap-4 text-left" onClick={onOpen} type="button">
+        <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold", completed ? "bg-[#49ad64] text-white" : "bg-[#fff0ed] text-[#df4d3e]")}>
+          {completed ? <Check className="size-4" /> : index + 1}
         </div>
-        <button className="min-w-0 flex-1 text-left" onClick={() => setExpanded((current) => !current)} type="button">
-          <h3 className="truncate text-base font-bold">{exercise.exercise.name}</h3>
-          <p className="mt-2 text-sm font-medium text-[#667080]">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-base font-extrabold text-[#09111f]">{exercise.exercise.name}</h3>
+          <p className="mt-2 text-sm font-bold text-[#667080]">
             {exercise.sets ?? "-"} series x {exercise.reps} reps
           </p>
-          <p className="mt-1 text-sm font-medium text-[#667080]">{exercise.restSeconds ?? 0} seg descanso</p>
+          <p className="mt-1 text-sm font-bold text-[#667080]">{exercise.restSeconds ?? "-"} seg descanso</p>
+        </div>
+      </button>
+      {readOnly ? (
+        <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080]">Lectura</div>
+      ) : (
+        <button
+          aria-label="Completar ejercicio"
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#8b929d] bg-white text-[#09111f]",
+            completed && "border-[#49ad64] bg-[#49ad64] text-white",
+          )}
+          disabled={completed || loading}
+          onClick={onComplete}
+          type="button"
+        >
+          {loading ? <Loader2 className="size-4 animate-spin" /> : completed ? <Check className="size-5" /> : null}
         </button>
-        {readOnly ? (
-          <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080]">Lectura</div>
-        ) : (
-          <button
-            className={cn("flex size-9 shrink-0 items-center justify-center rounded-full border border-[#c9cdd3]", completed && "border-[#49ad64] bg-[#49ad64] text-white")}
-            disabled={completed || loading}
-            onClick={onComplete}
-            type="button"
-            aria-label="Completar ejercicio"
-          >
-            {loading ? <Loader2 className="size-4 animate-spin" /> : completed ? <Check className="size-5" /> : null}
-          </button>
-        )}
-      </div>
-      {expanded ? (
-        <ExerciseDetails
-          exercise={exercise}
-          loading={loading}
-          onUseAlternative={onUseAlternative}
-          readOnly={readOnly}
-          selectedAlternativeId={selectedAlternativeId}
-        />
-      ) : null}
+      )}
     </article>
   );
 }
 
-function ExerciseDetails({
+function ClientExerciseDetailView({
   exercise,
+  index,
+  total,
+  completed,
+  completedCount,
   loading,
-  onUseAlternative,
   readOnly,
   selectedAlternativeId,
+  onBack,
+  onNext,
+  onPrevious,
+  onComplete,
+  onUseAlternative,
+  onSave,
+  onFinalize,
 }: {
-  exercise: ClientSessionLog["snapshotData"]["exercises"][number];
+  exercise: ClientSessionExercise;
+  index: number;
+  total: number;
+  completed: boolean;
+  completedCount: number;
   loading: boolean;
-  onUseAlternative: (alternativeId: string) => void;
   readOnly: boolean;
   selectedAlternativeId: string | null;
+  onBack: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+  onComplete: () => void;
+  onUseAlternative: (alternativeId: string) => void;
+  onSave: () => void;
+  onFinalize: () => void;
 }) {
+  const progress = total ? (completedCount / total) * 100 : 0;
+  const selectedAlternative = exercise.alternatives.find((alternative) => alternative.id === selectedAlternativeId);
+  const suggestedAlternative = selectedAlternative ?? exercise.alternatives[0] ?? null;
+
   return (
-    <div className="mt-4 space-y-4 border-t border-[#f0eeee] pt-4">
-      <DetailBlock label="Nota del coach" value={exercise.coachNote} />
-      <DetailBlock label="Instrucciones" value={exercise.exercise.instructions} />
-      <DetailBlock label="Recomendaciones" value={exercise.exercise.recommendations} />
-      <div>
-        <p className="text-xs font-bold uppercase text-[#8b929d]">Media</p>
-        {exercise.exercise.mediaUrl ? (
-          <a
-            className="mt-2 inline-flex rounded-lg border border-[#ece7e3] px-3 py-2 text-sm font-bold text-[#df4d3e]"
-            href={exercise.exercise.mediaUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Ver {exercise.exercise.mediaType === "video_url" ? "video" : "media"}
-          </a>
-        ) : (
-          <p className="mt-2 text-sm text-[#8b929d]">Sin media adjunta.</p>
-        )}
-      </div>
-      {exercise.alternatives.length ? (
-        <div>
-          <p className="text-xs font-bold uppercase text-[#8b929d]">Alternativas</p>
-          <div className="mt-2 space-y-2">
-            {exercise.alternatives.map((alternative) => (
-              <div className="rounded-lg border border-[#ece7e3] p-3" key={alternative.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-bold">{alternative.exercise.name}</p>
-                    {alternative.note ? <p className="mt-1 text-sm text-[#667080]">{alternative.note}</p> : null}
-                  </div>
-                  {readOnly ? null : (
-                    <button
-                      className="shrink-0 rounded-lg border border-[#df5b47] px-3 py-2 text-xs font-bold text-[#df5b47] disabled:opacity-60"
-                      disabled={loading || selectedAlternativeId === alternative.id}
-                      onClick={() => onUseAlternative(alternative.id)}
-                      type="button"
-                    >
-                      {selectedAlternativeId === alternative.id ? "En uso" : "Usar alternativa"}
-                    </button>
-                  )}
-                </div>
-                <DetailBlock compact label="Instrucciones" value={alternative.exercise.instructions} />
-                <DetailBlock compact label="Recomendaciones" value={alternative.exercise.recommendations} />
-              </div>
-            ))}
-          </div>
+    <article>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          aria-label="Volver"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm"
+          onClick={onBack}
+          type="button"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <div className="min-w-0 text-center">
+          <p className="truncate text-base font-extrabold text-[#09111f]">Detalle del ejercicio</p>
+          <p className="mt-1 text-xs font-bold text-[#8b929d]">Sesion cliente</p>
         </div>
-      ) : null}
+        <div className="size-11 shrink-0" aria-hidden="true" />
+      </div>
+
+      <div className="mt-7">
+        <div className="flex items-center justify-between gap-4 text-sm font-bold">
+          <span className="text-[#09111f]">Ejercicio {index + 1} de {total}</span>
+          <span className="text-[#4e5968]">{Math.round(progress)}% completado</span>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-[#eceff2]">
+          <div className="h-2 rounded-full bg-[#df4d3e]" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="mt-8 flex items-end justify-between gap-4">
+        <h1 className="min-w-0 text-4xl font-black leading-tight tracking-normal text-[#09111f] md:text-5xl">
+          {exercise.exercise.name}
+        </h1>
+      </div>
+
+      <ExerciseMediaHero exercise={exercise.exercise} />
+      <ExerciseMetricGrid exercise={exercise} />
+
+      <div className="mt-6 space-y-4">
+        <ExerciseInfoCard
+          icon={<Info className="size-5" />}
+          title="Indicaciones"
+          value={exercise.exercise.instructions ?? "Sin indicaciones registradas."}
+        />
+        {exercise.coachNote ? (
+          <ExerciseInfoCard icon={<Star className="size-5" />} title="Nota del coach" value={exercise.coachNote} />
+        ) : (
+          <ExerciseInfoCard muted icon={<Star className="size-5" />} title="Nota del coach" value="Sin nota del coach." />
+        )}
+        {suggestedAlternative ? (
+          <AlternativeSuggestion
+            alternative={suggestedAlternative}
+            exercise={exercise}
+            loading={loading}
+            readOnly={readOnly}
+            selectedAlternativeId={selectedAlternativeId}
+            onUseAlternative={onUseAlternative}
+          />
+        ) : null}
+      </div>
+
+      <div className="mt-6 hidden items-center justify-between gap-3 lg:flex">
+        <button
+          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50"
+          disabled={index === 0}
+          onClick={onPrevious}
+          type="button"
+        >
+          <ChevronLeft className="size-4" /> Anterior
+        </button>
+        <button
+          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50"
+          disabled={index >= total - 1}
+          onClick={onNext}
+          type="button"
+        >
+          Siguiente <ChevronRight className="size-4" />
+        </button>
+      </div>
+
+      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-[#ece7e3] bg-white/95 px-5 py-4 backdrop-blur lg:hidden">
+        {readOnly ? (
+          <button className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080]" disabled type="button">
+            Disponible en la fecha programada
+          </button>
+        ) : completed ? (
+          <button
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#121722] text-sm font-bold text-white disabled:opacity-60"
+            disabled={index >= total - 1}
+            onClick={onNext}
+            type="button"
+          >
+            <Check className="size-5" /> {index >= total - 1 ? "Completado" : "Siguiente"}
+          </button>
+        ) : (
+          <button
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#df4d3e] text-sm font-bold text-white shadow-[0_10px_24px_rgba(223,77,62,0.22)] disabled:opacity-60"
+            disabled={loading}
+            onClick={onComplete}
+            type="button"
+          >
+            {loading ? <Loader2 className="size-5 animate-spin" /> : <Check className="size-5" />} Marcar completado
+          </button>
+        )}
+        {!readOnly ? (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <button className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#ece7e3] text-xs font-bold text-[#4e5968]" onClick={onSave} type="button">
+              <Home className="size-4" /> Guardar y salir
+            </button>
+            <button className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#f1c7bd] text-xs font-bold text-[#df4d3e]" onClick={onFinalize} type="button">
+              <RotateCcw className="size-4" /> Finalizar sesion
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exercise"] }) {
+  if (!exercise.mediaUrl) {
+    return (
+      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
+        <div>
+          <FileText className="mx-auto size-8 text-[#8b929d]" />
+          <p className="mt-3 text-sm font-bold text-[#4e5968]">Sin demostracion adjunta</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (exercise.mediaType === "video_url") {
+    return (
+      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-[#ece7e3] bg-[#121722] p-5 text-white shadow-sm">
+        <a
+          className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f]"
+          href={exercise.mediaUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <PlayCircle className="size-5 text-[#df4d3e]" /> Ver demostracion
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="mt-5 aspect-[16/10] min-h-56 rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] bg-cover bg-center shadow-sm"
+      role="img"
+      aria-label={`Demostracion de ${exercise.name}`}
+      style={{ backgroundImage: `url(${exercise.mediaUrl})` }}
+    />
+  );
+}
+
+function ExerciseMetricGrid({ exercise }: { exercise: ClientSessionExercise }) {
+  const metrics = [
+    { label: "Musculo trabajado", value: exercise.exercise.primaryMuscle, icon: Dumbbell },
+    { label: "Series", value: exercise.sets ? `${exercise.sets} series` : "-", icon: Layers },
+    { label: "Repeticiones", value: exercise.reps, icon: RotateCcw },
+    { label: "Descanso", value: exercise.restSeconds ? `${exercise.restSeconds} seg` : "-", icon: Clock },
+  ];
+
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      {metrics.map((metric) => {
+        const Icon = metric.icon;
+        return (
+          <div className="min-h-28 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm" key={metric.label}>
+            <Icon className="size-6 text-[#df4d3e]" />
+            <p className="mt-3 text-xs font-bold leading-4 text-[#667080]">{metric.label}</p>
+            <p className="mt-1 text-base font-extrabold text-[#09111f]">{metric.value}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function DetailBlock({ label, value, compact }: { label: string; value: string | null; compact?: boolean }) {
-  if (!value) return null;
+function ExerciseInfoCard({ icon, title, value, muted = false }: { icon: ReactNode; title: string; value: string; muted?: boolean }) {
+  const [expanded, setExpanded] = useState(true);
+
   return (
-    <div className={compact ? "mt-3" : undefined}>
-      <p className="text-xs font-bold uppercase text-[#8b929d]">{label}</p>
-      <p className="mt-1 text-sm leading-6 text-[#4e5968]">{value}</p>
-    </div>
+    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
+      <button className="flex w-full items-center gap-3 text-left" onClick={() => setExpanded((current) => !current)} type="button">
+        <span className="text-[#df4d3e]">{icon}</span>
+        <h2 className="text-xl font-extrabold text-[#09111f]">{title}</h2>
+        <ChevronDown className={cn("ml-auto size-5 text-[#667080] transition", !expanded && "-rotate-90")} />
+      </button>
+      {expanded ? (
+        <p className={cn("mt-3 whitespace-pre-line text-base leading-7", muted ? "text-[#8b929d]" : "text-[#4e5968]")}>{value}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function AlternativeSuggestion({
+  alternative,
+  exercise,
+  loading,
+  readOnly,
+  selectedAlternativeId,
+  onUseAlternative,
+}: {
+  alternative: ClientSessionExercise["alternatives"][number];
+  exercise: ClientSessionExercise;
+  loading: boolean;
+  readOnly: boolean;
+  selectedAlternativeId: string | null;
+  onUseAlternative: (alternativeId: string) => void;
+}) {
+  const isSelected = selectedAlternativeId === alternative.id;
+  const [showDetails, setShowDetails] = useState(false);
+  const canView = Boolean(alternative.exercise.mediaUrl || alternative.exercise.instructions);
+
+  return (
+    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <RotateCcw className="size-5 text-[#df4d3e]" />
+        <h2 className="text-xl font-extrabold text-[#09111f]">Alternativa sugerida</h2>
+      </div>
+      <div className="mt-4 rounded-xl border border-[#ece7e3] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-base font-extrabold text-[#09111f]">{alternative.exercise.name}</h3>
+            {alternative.note ? <p className="mt-2 text-sm leading-6 text-[#667080]">{alternative.note}</p> : null}
+            <p className="mt-2 text-sm font-semibold text-[#667080]">
+              {exercise.sets ?? "-"} series x {exercise.reps} reps · {exercise.restSeconds ?? "-"} seg descanso
+            </p>
+          </div>
+          {isSelected ? <span className="shrink-0 rounded-full bg-[#e4f6e8] px-3 py-1 text-xs font-bold text-[#2e8749]">En uso</span> : null}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {alternative.exercise.mediaUrl ? (
+            <a
+              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-bold text-[#09111f]"
+              href={alternative.exercise.mediaUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Ver alternativa
+            </a>
+          ) : canView ? (
+            <button
+              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-bold text-[#09111f]"
+              onClick={() => setShowDetails((current) => !current)}
+              type="button"
+            >
+              Ver alternativa
+            </button>
+          ) : null}
+          {!readOnly ? (
+            <button
+              className="flex h-11 items-center justify-center rounded-xl border border-[#df5b47] text-sm font-bold text-[#df4d3e] disabled:opacity-60"
+              disabled={loading || isSelected}
+              onClick={() => onUseAlternative(alternative.id)}
+              type="button"
+            >
+              {isSelected ? "En uso" : "Usar alternativa"}
+            </button>
+          ) : null}
+        </div>
+        {showDetails && alternative.exercise.instructions ? (
+          <p className="mt-4 whitespace-pre-line rounded-xl bg-[#f7f4f1] p-4 text-sm leading-6 text-[#4e5968]">
+            {alternative.exercise.instructions}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ExerciseMiniNavigation({
+  activeIndex,
+  completedIds,
+  exercises,
+  onSelect,
+  readOnly = false,
+}: {
+  activeIndex: number;
+  completedIds: string[];
+  exercises: ClientSessionExercise[];
+  onSelect: (index: number) => void;
+  readOnly?: boolean;
+}) {
+  if (!exercises.length) return null;
+
+  return (
+    <nav className="mt-6 hidden rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm lg:block" aria-label="Ejercicios de la sesion">
+      <p className="px-2 pb-2 text-xs font-bold uppercase text-[#8b929d]">{readOnly ? "Vista previa" : "Ejercicios"}</p>
+      <div className="space-y-2">
+        {exercises.map((exercise, itemIndex) => {
+          const isActive = itemIndex === activeIndex;
+          const isCompleted = completedIds.includes(exercise.sessionExerciseId);
+          return (
+            <button
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
+                isActive ? "bg-[#fff0ed] text-[#df4d3e]" : "text-[#4e5968] hover:bg-[#f7f4f1]",
+              )}
+              key={exercise.sessionExerciseId}
+              onClick={() => onSelect(itemIndex)}
+              type="button"
+            >
+              <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full text-xs", isCompleted ? "bg-[#49ad64] text-white" : "bg-[#eceff2] text-[#667080]")}>
+                {isCompleted ? <Check className="size-4" /> : itemIndex + 1}
+              </span>
+              <span className="truncate">{exercise.exercise.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -1820,7 +2200,7 @@ function EmptyCard({ title, description, className }: { title: string; descripti
 
 function ScreenState({ title, description, compact }: { title: string; description?: string; compact?: boolean }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center px-6 text-center", compact ? "py-10" : "min-h-screen")}>
+    <div className={cn("flex flex-col items-center justify-center px-6 text-center", compact ? "py-10" : "client-portal-viewport")}>
       <Loader2 className="mb-4 size-8 animate-spin text-[#df4d3e]" />
       <h1 className="text-xl font-bold">{title}</h1>
       {description ? <p className="mt-2 text-sm leading-6 text-[#667080]">{description}</p> : null}

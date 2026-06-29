@@ -30,10 +30,11 @@ export type Client = {
   canRegisterWeight: boolean;
   operationalStatus: OperationalStatus;
   access: ClientAccess;
+  currentAssignment?: CurrentPlanAssignment | null;
 };
 
 export type ClientsResponse = {
-  items: Array<Omit<Client, "access">>;
+  items: Client[];
   limit: number;
   page: number;
   total: number;

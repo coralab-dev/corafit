@@ -102,6 +102,31 @@ export class ClientsService {
     const [items, total] = await this.prismaService.$transaction([
       this.prismaService.client.findMany({
         where,
+        include: {
+          access: true,
+          planAssignments: {
+            where: { status: ClientTrainingPlanAssignmentStatus.active },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: {
+              assignedPlan: {
+                select: {
+                  id: true,
+                  name: true,
+                  goal: true,
+                  level: true,
+                  durationWeeks: true,
+                  generalNotes: true,
+                  planType: true,
+                  status: true,
+                },
+              },
+              sourcePlan: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -109,7 +134,43 @@ export class ClientsService {
       this.prismaService.client.count({ where }),
     ]);
 
-    return { items, page, limit, total };
+    return {
+      items: items.map((client) => {
+        const { access, planAssignments, ...data } = client;
+        const assignment = planAssignments?.[0];
+
+        return {
+          ...data,
+          access: access
+            ? {
+                id: access.id,
+                createdAt: access.createdAt,
+                updatedAt: access.updatedAt,
+                lastAccessAt: access.lastAccessAt,
+                lockedUntil: access.lockedUntil,
+                status: access.status,
+              }
+            : null,
+          currentAssignment: assignment
+            ? {
+                assignment: {
+                  id: assignment.id,
+                  assignedPlanId: assignment.assignedPlanId,
+                  sourceTrainingPlanId: assignment.sourceTrainingPlanId,
+                  startDate: assignment.startDate,
+                  endedAt: assignment.endedAt,
+                  status: assignment.status,
+                },
+                assignedPlan: assignment.assignedPlan,
+                sourcePlan: assignment.sourcePlan,
+              }
+            : null,
+        };
+      }),
+      page,
+      limit,
+      total,
+    };
   }
 
   async create(body: CreateClientDto, member: OrganizationMember | undefined) {

@@ -11,10 +11,12 @@ import Link from "next/link";
 import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
+import { useAuth } from "@/components/providers/auth-provider";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { apiRequest, clientSchema, emptyDefaults, formatDate, getErrorMessage, getInitialApiConfig, normalizeFormValues, statusLabels } from "@/lib/clients/api";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
+import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
-import type { ApiConfig, Client, ClientAccess, ClientsResponse, CurrentPlanAssignment, OperationalStatus } from "@/lib/clients/types";
+import type { Client, ClientsResponse, CurrentPlanAssignment, OperationalStatus } from "@/lib/clients/types";
 
 interface ClientsWorkspaceProps {
   mode?: "list" | "detail";
@@ -22,6 +24,7 @@ interface ClientsWorkspaceProps {
 }
 
 export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWorkspaceProps = {}) {
+  const { profile, session, status: authStatus } = useAuth();
   const searchParams = useSearchParams();
   const selectedFromQuery = selectedClientId ?? searchParams.get("selected");
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -31,7 +34,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState<ApiConfig>(getInitialApiConfig);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [assignmentsByClient, setAssignmentsByClient] = useState<
@@ -52,7 +54,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     defaultValues: emptyDefaults,
   });
 
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+
+  const clientsRequest = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const loadCurrentPlanAssignment = useCallback(
     async (clientId: string) => {
@@ -60,10 +69,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         return null;
       }
 
-      const assignment = await apiRequest<CurrentPlanAssignment | null>(
+      const assignment = await clientsRequest<CurrentPlanAssignment | null>(
         `/clients/${clientId}/plan-assignment/current`,
         { method: "GET" },
-        apiConfig,
       );
 
       setAssignmentsByClient((current) => ({
@@ -73,76 +81,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
       return assignment;
     },
-    [apiConfig, isApiReady],
-  );
-
-  const loadAssignmentsForClients = useCallback(
-    async (items: Client[]) => {
-      if (!isApiReady || !items.length) {
-        setAssignmentsByClient({});
-        return;
-      }
-
-      const results = await Promise.all(
-        items.map(async (client) => {
-          try {
-            const assignment = await apiRequest<CurrentPlanAssignment | null>(
-              `/clients/${client.id}/plan-assignment/current`,
-              { method: "GET" },
-              apiConfig,
-            );
-            return [client.id, assignment] as const;
-          } catch {
-            return [client.id, null] as const;
-          }
-        }),
-      );
-
-      setAssignmentsByClient(Object.fromEntries(results));
-    },
-    [apiConfig, isApiReady],
-  );
-
-  const loadAccessForClient = useCallback(
-    async (clientId: string) => {
-      if (!isApiReady) {
-        return;
-      }
-
-      const access = await apiRequest<ClientAccess | null>(
-        `/clients/${clientId}/access`,
-        { method: "GET" },
-        apiConfig,
-      );
-
-      setAllClients((current) =>
-        current.map((client) =>
-          client.id === clientId
-            ? {
-                ...client,
-                access: access
-                  ? {
-                      id: access.id,
-                      createdAt: access.createdAt,
-                      lastAccessAt: access.lastAccessAt,
-                      lockedUntil: access.lockedUntil,
-                      status: access.status,
-                      updatedAtRaw: access.updatedAt,
-                      updatedAt: formatDate(access.updatedAt ?? access.lastAccessAt ?? access.lockedUntil),
-                    }
-                  : { status: "none" },
-              }
-            : client,
-        ),
-      );
-    },
-    [apiConfig, isApiReady],
+    [clientsRequest, isApiReady],
   );
 
   const loadClients = useCallback(async () => {
     if (!isApiReady) {
       setAllClients([]);
-      setError("Configura el JWT del coach y la organizacion para leer clientes reales.");
+      setAssignmentsByClient({});
+      setError(authStatus === "loading" ? "" : "Inicia sesión para leer tus clientes.");
       return;
     }
 
@@ -154,18 +100,20 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         limit: "50",
       });
 
-      const response = await apiRequest<ClientsResponse>(
+      const response = await clientsRequest<ClientsResponse>(
         `/clients?${searchParams.toString()}`,
         { method: "GET" },
-        apiConfig,
       );
       const nextClients = response.items.map((client) => ({
         ...client,
-        access: { status: "none" as const },
+        access: client.access ?? { status: "none" as const },
       }));
+      const nextAssignments = Object.fromEntries(
+        nextClients.map((client) => [client.id, client.currentAssignment ?? null]),
+      );
 
       setAllClients(nextClients);
-      void loadAssignmentsForClients(nextClients);
+      setAssignmentsByClient(nextAssignments);
       setSelectedId((current) => {
         if (selectedFromQuery && nextClients.some((client) => client.id === selectedFromQuery)) {
           return selectedFromQuery;
@@ -181,7 +129,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     } finally {
       setIsLoading(false);
     }
-  }, [apiConfig, isApiReady, loadAssignmentsForClients, selectedFromQuery]);
+  }, [authStatus, clientsRequest, isApiReady, selectedFromQuery]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -190,18 +138,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
     return () => window.clearTimeout(timer);
   }, [loadClients]);
-
-  useEffect(() => {
-    if (selectedId) {
-      const timer = window.setTimeout(() => {
-        void loadAccessForClient(selectedId).catch((caughtError) => {
-          setError(getErrorMessage(caughtError));
-        });
-      }, 0);
-
-      return () => window.clearTimeout(timer);
-    }
-  }, [loadAccessForClient, selectedId]);
 
   useEffect(() => {
     if (!selectedId || !isApiReady) {
@@ -278,29 +214,28 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       const payload = normalizeFormValues(values);
 
       if (editingClient) {
-        const updatedClient = await apiRequest<Omit<Client, "access">>(
+        const updatedClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
           `/clients/${editingClient.id}`,
           { method: "PATCH", body: JSON.stringify(payload) },
-          apiConfig,
         );
         setAllClients((current) =>
           current.map((client) =>
             client.id === editingClient.id
-              ? { ...updatedClient, access: client.access }
+              ? { ...updatedClient, access: client.access, currentAssignment: client.currentAssignment }
               : client,
           ),
         );
         toast.success("Cliente actualizado");
       } else {
-        const createdClient = await apiRequest<Omit<Client, "access">>(
+        const createdClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
           "/clients",
           { method: "POST", body: JSON.stringify(payload) },
-          apiConfig,
         );
         setAllClients((current) => [
-          { ...createdClient, access: { status: "none" } },
+          { ...createdClient, access: { status: "none" }, currentAssignment: null },
           ...current,
         ]);
+        setAssignmentsByClient((current) => ({ ...current, [createdClient.id]: null }));
         setSelectedId(createdClient.id);
         toast.success("Cliente creado");
       }
@@ -316,15 +251,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   async function updateStatus(clientId: string, status: OperationalStatus) {
     setError("");
     try {
-      const updatedClient = await apiRequest<Omit<Client, "access">>(
+      const updatedClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
         `/clients/${clientId}/status`,
         { method: "PATCH", body: JSON.stringify({ status }) },
-        apiConfig,
       );
       setAllClients((current) =>
         current.map((client) =>
           client.id === clientId
-            ? { ...updatedClient, access: client.access }
+            ? { ...updatedClient, access: client.access, currentAssignment: client.currentAssignment }
             : client,
         ),
       );
@@ -342,10 +276,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     setIsEndingPlan(true);
     setError("");
     try {
-      await apiRequest(
+      await clientsRequest(
         `/clients/${selectedClient.id}/plan-assignment/current/end`,
         { method: "POST" },
-        apiConfig,
       );
       await loadCurrentPlanAssignment(selectedClient.id);
       setIsEndPlanOpen(false);

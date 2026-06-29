@@ -36,6 +36,19 @@ To connect locally:
 1. Copy `.env.example` to `.env`.
 2. Fill `DATABASE_URL` with the Supabase PostgreSQL connection string.
 3. Fill `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_ANON_KEY`.
+
+## Beta subscription backfill
+
+Existing organizations created before billing defaults may not have an
+`OrganizationSubscription`. Backfill them with the Trial plan:
+
+```bash
+pnpm --filter db backfill:subscriptions
+```
+
+The command uses `DATABASE_URL`, upserts the public `trial` plan, creates Trial
+subscriptions only for organizations that do not already have one, and prints a
+summary of scanned, created, and skipped organizations.
 4. Run `pnpm --filter db generate`.
 5. Run `pnpm --filter db db:push`.
 6. In Supabase Storage, create a private bucket named `progress-photos`.

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CoraFitApiError, type CoraFitApiErrorPayload } from "@/lib/api/authenticated-request";
 import type {
   ApiConfig,
   ClientType,
@@ -158,13 +159,15 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     let message = `API ${response.status}`;
+    let code: string | undefined;
     try {
-      const payload = (await response.json()) as { message?: string };
-      message = payload.message ?? message;
+      const payload = (await response.json()) as CoraFitApiErrorPayload;
+      code = payload.error;
+      message = mapClientsApiError(payload.error ?? payload.message) ?? payload.message ?? message;
     } catch {
       // Keep the generic HTTP message when the API does not return JSON.
     }
-    throw new Error(message);
+    throw new CoraFitApiError(response.status, { error: code, message });
   }
 
   if (response.status === 204) {
@@ -179,7 +182,34 @@ export async function apiRequest<T>(
   return JSON.parse(text) as T;
 }
 
+export function mapClientsApiError(codeOrMessage: string | undefined) {
+  if (codeOrMessage === "CLIENT_LIMIT_REACHED") {
+    return "Llegaste al límite de clientes de tu plan. Archiva un cliente o cambia de plan para agregar otro.";
+  }
+
+  if (codeOrMessage === "SUBSCRIPTION_REQUIRED") {
+    return "Tu organización todavía no tiene un plan activo. Activa un plan para poder agregar clientes.";
+  }
+
+  if (codeOrMessage === "SUBSCRIPTION_NOT_ACTIVE") {
+    return "Tu plan no está activo. Revisa tu suscripción para continuar.";
+  }
+
+  if (codeOrMessage === "Organization is not active") {
+    return "Esta organización no está activa. Contacta a soporte para continuar.";
+  }
+
+  return undefined;
+}
+
 export function getErrorMessage(error: unknown) {
+  if (error instanceof CoraFitApiError) {
+    return (
+      mapClientsApiError(error.code ?? error.payload.message) ??
+      error.message
+    );
+  }
+
   return error instanceof Error ? error.message : "Ocurrio un error inesperado";
 }
 

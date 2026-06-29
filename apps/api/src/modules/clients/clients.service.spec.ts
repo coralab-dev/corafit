@@ -377,11 +377,83 @@ describe('ClientsService', () => {
 
     expect(prismaService.client.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        include: expect.objectContaining({
+          access: true,
+          planAssignments: expect.any(Object),
+        }),
         where: expect.objectContaining({
           operationalStatus: { not: ClientOperationalStatus.archived },
         }),
       }),
     );
+  });
+
+  it('returns client access and current assignment summaries in the list', async () => {
+    const startedAt = new Date('2026-06-01T00:00:00.000Z');
+    prismaService.client.findMany.mockResolvedValueOnce([
+      createClient({
+        access: {
+          id: 'access-id',
+          status: ClientAccessStatus.active,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-02T00:00:00.000Z'),
+          lastAccessAt: null,
+          lockedUntil: null,
+        },
+        planAssignments: [
+          {
+            id: 'assignment-id',
+            assignedPlanId: 'assigned-plan-id',
+            sourceTrainingPlanId: 'source-plan-id',
+            startDate: startedAt,
+            endedAt: null,
+            status: ClientTrainingPlanAssignmentStatus.active,
+            assignedPlan: {
+              id: 'assigned-plan-id',
+              name: 'Assigned Plan',
+              goal: 'Strength',
+              level: 'beginner',
+              durationWeeks: 4,
+              generalNotes: null,
+              planType: TrainingPlanType.assigned_copy,
+              status: TrainingPlanStatus.active,
+            },
+            sourcePlan: {
+              id: 'source-plan-id',
+              name: 'Template Plan',
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const result = await service.list({}, createMember());
+
+    expect(result.items[0]).toMatchObject({
+      id: 'client-id',
+      access: {
+        id: 'access-id',
+        status: ClientAccessStatus.active,
+      },
+      currentAssignment: {
+        assignment: {
+          id: 'assignment-id',
+          startDate: startedAt,
+          status: ClientTrainingPlanAssignmentStatus.active,
+        },
+        assignedPlan: {
+          id: 'assigned-plan-id',
+          name: 'Assigned Plan',
+          durationWeeks: 4,
+        },
+        sourcePlan: {
+          id: 'source-plan-id',
+          name: 'Template Plan',
+        },
+      },
+    });
+    expect(result.items[0]).not.toHaveProperty('assignments');
+    expect(result.items[0]).not.toHaveProperty('planAssignments');
   });
 
   it('archives clients through status updates', async () => {

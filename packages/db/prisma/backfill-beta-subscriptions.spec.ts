@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  backfillBetaSubscriptions,
   buildTrialSubscriptionCreateInput,
   summarizeBackfill,
   trialPlanUpsertArgs,
@@ -48,6 +49,32 @@ void describe('backfill beta subscriptions helpers', () => {
       organizationsScanned: 7,
       subscriptionsCreated: 3,
       skipped: 4,
+    });
+  });
+
+  void it('uses createMany count for the created summary', async () => {
+    const prisma = {
+      subscriptionPlan: {
+        upsert: () => Promise.resolve({ id: 'trial-plan-id' }),
+      },
+      organization: {
+        findMany: () => Promise.resolve([
+          { id: 'org-1', subscription: null },
+          { id: 'org-2', subscription: null },
+          { id: 'org-3', subscription: { id: 'subscription-id' } },
+        ]),
+      },
+      organizationSubscription: {
+        createMany: () => Promise.resolve({ count: 1 }),
+      },
+    };
+
+    const summary = await backfillBetaSubscriptions(prisma, new Date('2026-06-29T00:00:00.000Z'));
+
+    assert.deepEqual(summary, {
+      organizationsScanned: 3,
+      subscriptionsCreated: 1,
+      skipped: 2,
     });
   });
 });

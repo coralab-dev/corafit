@@ -82,19 +82,21 @@ export async function backfillBetaSubscriptions(
   const missingSubscriptionOrganizations = organizations.filter(
     (organization) => !organization.subscription,
   );
+  let subscriptionsCreated = 0;
 
   if (missingSubscriptionOrganizations.length) {
-    await prisma.organizationSubscription.createMany({
+    const result = await prisma.organizationSubscription.createMany({
       data: missingSubscriptionOrganizations.map((organization) =>
         buildTrialSubscriptionCreateInput(organization.id, trialPlan.id, now),
       ),
       skipDuplicates: true,
     });
+    subscriptionsCreated = result.count;
   }
 
   return summarizeBackfill(
     organizations.length,
-    missingSubscriptionOrganizations.length,
+    subscriptionsCreated,
   );
 }
 

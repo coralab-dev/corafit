@@ -7,11 +7,13 @@ export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4
 
 export type CoraFitApiErrorPayload = {
   error?: string;
+  lockedUntil?: string | null;
   message?: string;
 };
 
 export class CoraFitApiError extends Error {
   code?: string;
+  payload: CoraFitApiErrorPayload;
   status: number;
 
   constructor(status: number, payload: CoraFitApiErrorPayload) {
@@ -19,6 +21,7 @@ export class CoraFitApiError extends Error {
     this.name = "CoraFitApiError";
     this.status = status;
     this.code = payload.error;
+    this.payload = payload;
   }
 }
 

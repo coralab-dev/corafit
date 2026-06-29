@@ -182,7 +182,7 @@ export function PinAccessScreen({ token }: { token: string }) {
           return;
         }
         if (result.locked) {
-          setError("Tu acceso esta bloqueado temporalmente por intentos fallidos.");
+          setError(formatPortalLockMessage(result.lockedUntil));
         } else {
           setError(`PIN incorrecto. Intentos restantes: ${result.remainingAttempts}.`);
         }
@@ -268,7 +268,14 @@ export function PinAccessScreen({ token }: { token: string }) {
             error
           )}
         </div>
-        <button className="mt-4 text-sm font-bold text-[#3b5f9f]" type="button">
+        <button
+          className="mt-4 text-sm font-bold text-[#3b5f9f]"
+          onClick={() => {
+            setError("Pide a tu coach que regenere tu acceso y te comparta un nuevo PIN.");
+            inputRef.current?.focus();
+          }}
+          type="button"
+        >
           ¿Olvidaste tu PIN?
         </button>
         <button
@@ -2046,24 +2053,26 @@ function AlternativeSuggestion({
   return (
     <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <RotateCcw className="size-5 text-[#df4d3e]" />
+        <RotateCcw className="size-7 text-[#df4d3e]" />
         <h2 className="text-xl font-extrabold text-[#09111f]">Alternativa sugerida</h2>
       </div>
-      <div className="mt-4 rounded-xl border border-[#ece7e3] p-4">
+      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-[0_8px_22px_rgba(18,23,34,0.06)] sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+        <AlternativeMediaPreview alternative={alternative} />
+        <div className="min-w-0 rounded-xl border border-[#f0eeee] bg-white p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-base font-extrabold text-[#09111f]">{alternative.exercise.name}</h3>
-            {alternative.note ? <p className="mt-2 text-sm leading-6 text-[#667080]">{alternative.note}</p> : null}
+            <h3 className="text-lg font-extrabold leading-snug text-[#09111f]">{alternative.exercise.name}</h3>
+            {alternative.note ? <p className="mt-1 text-sm leading-6 text-[#667080]">{alternative.note}</p> : null}
             <p className="mt-2 text-sm font-semibold text-[#667080]">
               {exercise.sets ?? "-"} series x {exercise.reps} reps · {exercise.restSeconds ?? "-"} seg descanso
             </p>
           </div>
           {isSelected ? <span className="shrink-0 rounded-full bg-[#e4f6e8] px-3 py-1 text-xs font-bold text-[#2e8749]">En uso</span> : null}
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-3">
           {alternative.exercise.mediaUrl ? (
             <a
-              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-bold text-[#09111f]"
+              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm"
               href={alternative.exercise.mediaUrl}
               rel="noreferrer"
               target="_blank"
@@ -2072,7 +2081,7 @@ function AlternativeSuggestion({
             </a>
           ) : canView ? (
             <button
-              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-bold text-[#09111f]"
+              className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm"
               onClick={() => setShowDetails((current) => !current)}
               type="button"
             >
@@ -2081,7 +2090,7 @@ function AlternativeSuggestion({
           ) : null}
           {!readOnly ? (
             <button
-              className="flex h-11 items-center justify-center rounded-xl border border-[#df5b47] text-sm font-bold text-[#df4d3e] disabled:opacity-60"
+              className="flex h-11 items-center justify-center rounded-xl border border-[#df5b47] text-sm font-extrabold text-[#df4d3e] disabled:opacity-60"
               disabled={loading || isSelected}
               onClick={() => onUseAlternative(alternative.id)}
               type="button"
@@ -2095,8 +2104,45 @@ function AlternativeSuggestion({
             {alternative.exercise.instructions}
           </p>
         ) : null}
+        </div>
       </div>
     </section>
+  );
+}
+
+function AlternativeMediaPreview({ alternative }: { alternative: ClientSessionExercise["alternatives"][number] }) {
+  if (!alternative.exercise.mediaUrl) {
+    return (
+      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
+        <div className="px-3">
+          <FileText className="mx-auto size-6 text-[#8b929d]" />
+          <p className="mt-2 text-xs font-bold leading-5 text-[#667080]">Sin demostracion adjunta</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (alternative.exercise.mediaType === "video_url") {
+    return (
+      <a
+        className="flex h-full min-h-32 items-center justify-center rounded-xl bg-[#121722] text-white"
+        href={alternative.exercise.mediaUrl}
+        rel="noreferrer"
+        target="_blank"
+        aria-label={`Ver alternativa ${alternative.exercise.name}`}
+      >
+        <PlayCircle className="size-9 text-white" />
+      </a>
+    );
+  }
+
+  return (
+    <div
+      className="h-full min-h-32 rounded-xl bg-[#f4f1ef] bg-cover bg-center"
+      role="img"
+      aria-label={`Demostracion de ${alternative.exercise.name}`}
+      style={{ backgroundImage: `url(${alternative.exercise.mediaUrl})` }}
+    />
   );
 }
 
@@ -2437,4 +2483,20 @@ function calculateVisibleSessionStreak(days: ClientPortalDay[], today?: string) 
 function errorMessage(caught: unknown, fallback: string) {
   if (caught instanceof Error) return caught.message;
   return fallback;
+}
+
+function formatPortalLockMessage(lockedUntil?: string | null) {
+  if (!lockedUntil) {
+    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde.";
+  }
+
+  const parsed = new Date(lockedUntil);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde.";
+  }
+
+  return `Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta despues de las ${parsed.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}.`;
 }

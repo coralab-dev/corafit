@@ -14,6 +14,7 @@ import {
   DayOfWeek,
   OrganizationMemberRole,
   OrganizationMemberStatus,
+  SubscriptionStatus,
   TrainingDayType,
   TrainingPlanStatus,
   TrainingPlanType,
@@ -31,6 +32,9 @@ type PrismaServiceMock = {
     findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+  };
+  organizationSubscription: {
+    findUnique: ReturnType<typeof vi.fn>;
   };
   clientAccess: {
     create: ReturnType<typeof vi.fn>;
@@ -169,6 +173,34 @@ describe('ClientsService', () => {
           createClient({ operationalStatus: ClientOperationalStatus.archived }),
         ),
       },
+      organizationSubscription: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'subscription-id',
+          organizationId: 'organization-id',
+          subscriptionPlanId: 'plan-id',
+          status: SubscriptionStatus.trial,
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          renewsAt: null,
+          cancelledAt: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          subscriptionPlan: {
+            id: 'plan-id',
+            code: 'trial',
+            name: 'Trial',
+            description: null,
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 5,
+            memberLimit: 1,
+            features: null,
+            isPublic: true,
+            status: 'active',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        }),
+      },
       clientAccess: {
         create: vi.fn().mockImplementation(({ data }: ClientAccessCreateArgs) =>
           Promise.resolve({
@@ -293,6 +325,51 @@ describe('ClientsService', () => {
         organizationId: 'organization-id',
       }),
     });
+    expect(prismaService.client.count).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'organization-id',
+        operationalStatus: { not: ClientOperationalStatus.archived },
+      },
+    });
+  });
+
+  it('blocks client creation when the subscription client limit is reached', async () => {
+    prismaService.client.count.mockResolvedValueOnce(5);
+
+    await expect(
+      service.create(
+        {
+          name: 'Client One',
+          clientType: ClientType.online,
+          mainGoal: 'Strength',
+          heightCm: 170,
+          initialWeightKg: 70,
+        },
+        createMember(),
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(prismaService.client.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks client creation when subscription is not active for operations', async () => {
+    prismaService.organizationSubscription.findUnique.mockResolvedValueOnce({
+      status: SubscriptionStatus.suspended,
+      subscriptionPlan: { clientLimit: 5 },
+    });
+
+    await expect(
+      service.create(
+        {
+          name: 'Client One',
+          clientType: ClientType.online,
+          mainGoal: 'Strength',
+          heightCm: 170,
+          initialWeightKg: 70,
+        },
+        createMember(),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('excludes archived clients from the default list', async () => {

@@ -3,6 +3,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import {
   OrganizationMemberRole,
   OrganizationMemberStatus,
+  OrganizationStatus,
   type OrganizationMember,
   UserPlatformRole,
   UserStatus,
@@ -18,9 +19,13 @@ type PrismaServiceMock = {
   };
 };
 
+type OrganizationMemberWithOrganization = OrganizationMember & {
+  organization: { status: OrganizationStatus };
+};
+
 function createOrganizationMember(
-  overrides: Partial<OrganizationMember> = {},
-): OrganizationMember {
+  overrides: Partial<OrganizationMemberWithOrganization> = {},
+): OrganizationMemberWithOrganization {
   return {
     id: 'member-id',
     organizationId: 'organization-id',
@@ -29,6 +34,7 @@ function createOrganizationMember(
     status: OrganizationMemberStatus.active,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    organization: { status: OrganizationStatus.active },
     ...overrides,
   };
 }
@@ -105,7 +111,32 @@ describe('OrganizationGuard', () => {
         userId: 'user-id',
         status: OrganizationMemberStatus.active,
       },
+      include: { organization: true },
     });
     expect(request.organizationMember).toEqual(createOrganizationMember());
+  });
+
+  it('rejects members of suspended organizations', async () => {
+    prismaService.organizationMember.findFirst.mockResolvedValueOnce(
+      createOrganizationMember({
+        organization: { status: OrganizationStatus.suspended },
+      }),
+    );
+
+    await expect(
+      guard.canActivate(createExecutionContext(createRequest())),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects members of cancelled organizations', async () => {
+    prismaService.organizationMember.findFirst.mockResolvedValueOnce(
+      createOrganizationMember({
+        organization: { status: OrganizationStatus.cancelled },
+      }),
+    );
+
+    await expect(
+      guard.canActivate(createExecutionContext(createRequest())),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

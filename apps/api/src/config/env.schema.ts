@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+const envSchema = z
+  .object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   SUPABASE_URL: z.url(),
-  SUPABASE_SERVICE_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_SERVICE_KEY: z.string().min(1).optional(),
   SUPABASE_ANON_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   WEB_APP_URL: z.url().default('http://localhost:3000'),
@@ -19,7 +21,16 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean),
     ),
-});
+  })
+  .refine(
+    (value) => value.SUPABASE_SERVICE_ROLE_KEY || value.SUPABASE_SERVICE_KEY,
+    'SUPABASE_SERVICE_ROLE_KEY is required',
+  )
+  .transform((value) => ({
+    ...value,
+    SUPABASE_SERVICE_KEY:
+      value.SUPABASE_SERVICE_ROLE_KEY ?? value.SUPABASE_SERVICE_KEY,
+  }));
 
 export type AppConfig = z.infer<typeof envSchema>;
 

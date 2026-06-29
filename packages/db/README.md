@@ -35,7 +35,7 @@ To connect locally:
 
 1. Copy `.env.example` to `.env`.
 2. Fill `DATABASE_URL` with the Supabase PostgreSQL connection string.
-3. Fill `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `SUPABASE_ANON_KEY`.
+3. Fill `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_ANON_KEY`.
 4. Run `pnpm --filter db generate`.
 5. Run `pnpm --filter db db:push`.
 6. In Supabase Storage, create a private bucket named `progress-photos`.

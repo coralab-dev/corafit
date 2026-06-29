@@ -14,6 +14,7 @@ import {
   ClientTrainingPlanAssignmentStatus,
   ClientType,
   DayOfWeek,
+  SubscriptionStatus,
   TrainingDayType,
   TrainingPlanStatus,
   TrainingPlanType,
@@ -117,6 +118,7 @@ export class ClientsService {
     }
     const organizationId = this.getOrganizationId(member);
     const data = this.parseClientData(body, true);
+    await this.assertClientLimitAvailable(organizationId);
 
     return this.prismaService.client.create({
       data: {
@@ -313,6 +315,37 @@ export class ClientsService {
     }
 
     return client;
+  }
+
+  private async assertClientLimitAvailable(organizationId: string) {
+    const subscription =
+      await this.prismaService.organizationSubscription.findUnique({
+        where: { organizationId },
+        include: { subscriptionPlan: true },
+      });
+
+    if (!subscription) {
+      throw new ForbiddenException('SUBSCRIPTION_REQUIRED');
+    }
+
+    if (
+      subscription.status === SubscriptionStatus.cancelled ||
+      subscription.status === SubscriptionStatus.expired ||
+      subscription.status === SubscriptionStatus.suspended
+    ) {
+      throw new ForbiddenException('SUBSCRIPTION_NOT_ACTIVE');
+    }
+
+    const usedClients = await this.prismaService.client.count({
+      where: {
+        organizationId,
+        operationalStatus: { not: ClientOperationalStatus.archived },
+      },
+    });
+
+    if (usedClients >= subscription.subscriptionPlan.clientLimit) {
+      throw new ConflictException('CLIENT_LIMIT_REACHED');
+    }
   }
 
   private formatAccessTokenResult(

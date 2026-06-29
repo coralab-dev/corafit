@@ -673,7 +673,7 @@ export class ProgressService {
   }
 
   private parseFollowUpNoteCreate(body: FollowUpNoteDto) {
-    const text = this.parseFollowUpText(body.text, true);
+    const text = this.parseFollowUpText(body.text);
 
     return {
       text,
@@ -683,14 +683,14 @@ export class ProgressService {
 
   private parseFollowUpNotePatch(body: FollowUpNoteDto) {
     return {
-      ...(body.text !== undefined ? { text: this.parseFollowUpText(body.text, true) } : {}),
+      ...(body.text !== undefined ? { text: this.parseFollowUpText(body.text) } : {}),
       ...(body.visibility !== undefined
         ? { visibility: this.parseFollowUpVisibility(body.visibility) }
         : {}),
     };
   }
 
-  private parseFollowUpText(value: string | null | undefined, required: true) {
+  private parseFollowUpText(value: string | null | undefined) {
     if (value === undefined || value === null) {
       throw new BadRequestException('text is required');
     }

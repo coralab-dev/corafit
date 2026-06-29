@@ -437,7 +437,10 @@ describe('ProgressService', () => {
         photoType: ProgressPhotoType.front,
       }),
     });
-    expect(prismaService.progressPhoto.create.mock.calls[0][0].data).not.toHaveProperty('url');
+    const createPhotoCall = prismaService.progressPhoto.create.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(createPhotoCall.data).not.toHaveProperty('url');
     expect(uploadMock).toHaveBeenCalledWith(
       'progress-photos/organization-id/client-id/photo-id.webp',
       Buffer.from('optimized-photo'),

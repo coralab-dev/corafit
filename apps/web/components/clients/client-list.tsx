@@ -127,7 +127,82 @@ export function ClientList({
         {isLoading ? (
           <LoadingList />
         ) : clients.length ? (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-3 md:hidden">
+            {clients.map((client) => {
+              const assignment = assignmentsByClient[client.id];
+              const hasPlan = Boolean(assignment?.assignedPlan);
+              const isSelected = selectedClientId === client.id;
+
+              return (
+                <article
+                  key={client.id}
+                  className={cn(
+                    "rounded-md border bg-card p-4 shadow-sm transition-colors",
+                    isSelected && "border-primary/35 bg-primary/[0.055]",
+                  )}
+                >
+                  <button
+                    className="flex w-full items-start gap-3 text-left"
+                    type="button"
+                    onClick={() => onOpenClient(client.id)}
+                  >
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
+                      {initials(client.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{client.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {client.phone || "Sin telefono"}
+                          </p>
+                        </div>
+                        <StatusBadge
+                          label={statusLabels[client.operationalStatus]}
+                          variant={client.operationalStatus}
+                        />
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Plan</p>
+                          <p className="mt-1 line-clamp-1 font-medium">
+                            {assignment?.assignedPlan?.name ?? (hasPlan ? "Con plan" : "Sin plan")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Acceso</p>
+                          <div className="mt-1">
+                            <AccessPill status={client.access?.status ?? "none"} />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                        {client.mainGoal || "Sin objetivo registrado"}
+                      </p>
+                    </div>
+                  </button>
+                  <div className="mt-4 flex items-center justify-between border-t pt-3">
+                    <Button
+                      className="h-9 px-3 shadow-none"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onEditClient(client)}
+                    >
+                      Editar
+                    </Button>
+                    <ClientActionsMenu
+                      client={client}
+                      hasPlan={hasPlan}
+                      onEditClient={onEditClient}
+                      onEndPlan={onEndPlan}
+                    />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs font-medium text-muted-foreground">
@@ -185,59 +260,12 @@ export function ClientList({
                         />
                       </td>
                       <td className="py-3.5">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-label={`Abrir acciones de ${client.name}`}
-                              className="size-8 text-muted-foreground shadow-none hover:text-foreground"
-                              size="icon"
-                              variant="ghost"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <MoreVerticalIcon className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-44">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/clients/${client.id}`}>Ver ficha</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {hasPlan ? (
-                              <>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/clients/${client.id}/plan-assignment/edit`}>
-                                    Ver plan actual
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/clients/${client.id}/plan-assignment/edit`}>
-                                    Editar plan
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => onEndPlan(client)}>
-                                  Finalizar plan actual
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <DropdownMenuItem asChild>
-                                <Link href={`/clients/${client.id}/plan-assignment`}>
-                                  Asignar plan
-                                </Link>
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onSelect={() => onEditClient(client)}>
-                              Editar cliente
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/clients/${client.id}/access`}>
-                                {client.access?.status === "active"
-                                  ? "Gestionar acceso"
-                                  : "Generar acceso"}
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <ClientActionsMenu
+                          client={client}
+                          hasPlan={hasPlan}
+                          onEditClient={onEditClient}
+                          onEndPlan={onEndPlan}
+                        />
                       </td>
                     </tr>
                   );
@@ -245,6 +273,7 @@ export function ClientList({
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <EmptyState
             actionLabel="Nuevo cliente"
@@ -272,4 +301,72 @@ function AccessPill({ status }: { status: Client["access"]["status"] }) {
   }
 
   return <StatusBadge label="Sin acceso" variant="no-plan" />;
+}
+
+function ClientActionsMenu({
+  client,
+  hasPlan,
+  onEditClient,
+  onEndPlan,
+}: {
+  client: Client;
+  hasPlan: boolean;
+  onEditClient: (client: Client) => void;
+  onEndPlan: (client: Client) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label={`Abrir acciones de ${client.name}`}
+          className="size-8 text-muted-foreground shadow-none hover:text-foreground"
+          size="icon"
+          variant="ghost"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreVerticalIcon className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-44">
+        <DropdownMenuItem asChild>
+          <Link href={`/clients/${client.id}`}>Ver ficha</Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {hasPlan ? (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                Ver plan actual
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                Editar plan
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onEndPlan(client)}>
+              Finalizar plan actual
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={`/clients/${client.id}/plan-assignment`}>
+              Asignar plan
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onEditClient(client)}>
+          Editar cliente
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/clients/${client.id}/access`}>
+            {client.access?.status === "active"
+              ? "Gestionar acceso"
+              : "Generar acceso"}
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }

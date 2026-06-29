@@ -287,6 +287,17 @@ export function verifyPin(token: string, pin: string) {
   }>(`/client-portal/${encodeURIComponent(token)}/verify-pin`, {
     method: "POST",
     body: JSON.stringify({ pin }),
+  }).catch((caught: unknown) => {
+    if (caught instanceof CoraFitApiError && caught.status === 429) {
+      return {
+        success: false,
+        remainingAttempts: 0,
+        locked: true,
+        lockedUntil: typeof caught.payload.lockedUntil === "string" ? caught.payload.lockedUntil : null,
+      };
+    }
+
+    throw caught;
   });
 }
 

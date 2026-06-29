@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { DownloadIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
@@ -440,21 +440,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           description="Gestiona planes, acceso y seguimiento desde una sola vista."
           title="Clientes"
           actions={
-            <>
-              <Button className="shadow-none" variant="outline" disabled>
-                <DownloadIcon className="size-4" />
-                Importar
-              </Button>
-              <Button className="shadow-none" onClick={openCreateForm}>
-                <PlusIcon className="size-4" />
-                Nuevo cliente
-              </Button>
-            </>
+            <Button className="shadow-none" onClick={openCreateForm}>
+              <PlusIcon className="size-4" />
+              Nuevo cliente
+            </Button>
           }
         />
       }
     >
-      {/* MÃ©tricas estilo referencia */}
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="min-w-0 flex-1 border-r">
           <div className="border-b bg-background px-6 py-5">
@@ -532,7 +525,6 @@ function ClientQuickPanel({
   onEndPlan: () => void;
 }) {
   const hasPlan = Boolean(assignment?.assignedPlan);
- /* hola */
   return (
     <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
       <div className="flex flex-col gap-2 p-4">

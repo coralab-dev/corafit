@@ -5,7 +5,7 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { OrganizationMemberStatus } from 'db';
+import { OrganizationMemberStatus, OrganizationStatus } from 'db';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedRequest } from './authenticated-request';
 
@@ -30,10 +30,15 @@ export class OrganizationGuard implements CanActivate {
           userId: request.user.id,
           status: OrganizationMemberStatus.active,
         },
+        include: { organization: true },
       });
 
     if (!organizationMember) {
       throw new ForbiddenException('User is not a member of this organization');
+    }
+
+    if (organizationMember.organization.status !== OrganizationStatus.active) {
+      throw new ForbiddenException('Organization is not active');
     }
 
     request.organizationMember = organizationMember;

@@ -11,6 +11,7 @@ type SnapshotExercise = {
   recommendations: string | null;
   mediaUrl: string | null;
   mediaType: string | null;
+  videoUrl: string | null;
 };
 
 type SnapshotSessionExerciseSource = {
@@ -65,6 +66,7 @@ export type ClientSessionSnapshotV1 = {
       recommendations: string | null;
       mediaUrl: string | null;
       mediaType: string | null;
+      videoUrl: string | null;
     };
     alternatives: Array<{
       id: string;
@@ -80,6 +82,7 @@ export type ClientSessionSnapshotV1 = {
         recommendations: string | null;
         mediaUrl: string | null;
         mediaType: string | null;
+        videoUrl: string | null;
       };
     }>;
   }>;
@@ -189,6 +192,7 @@ export class ClientSessionSnapshotService {
       recommendations: exercise.recommendations,
       mediaUrl: exercise.mediaUrl,
       mediaType: exercise.mediaType?.toString() ?? null,
+      videoUrl: exercise.videoUrl,
     };
   }
 
@@ -281,7 +285,8 @@ export class ClientSessionSnapshotService {
       this.isNullableString(value.instructions) &&
       this.isNullableString(value.recommendations) &&
       this.isNullableString(value.mediaUrl) &&
-      this.isNullableString(value.mediaType)
+      this.isNullableString(value.mediaType) &&
+      (value.videoUrl === undefined || this.isNullableString(value.videoUrl))
     );
   }
 

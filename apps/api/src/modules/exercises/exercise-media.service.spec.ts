@@ -113,6 +113,7 @@ function createExercise(overrides = {}) {
     recommendations: null,
     mediaUrl: null,
     mediaType: null,
+    videoUrl: null,
     status: ExerciseStatus.active,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -195,12 +196,13 @@ describe('ExerciseMediaService', () => {
       expect.objectContaining({ contentType: 'image/webp' }),
     );
     const updateCall = prismaService.exercise.update.mock.calls[0]?.[0] as {
-      data: { mediaType: ExerciseMediaType; mediaUrl: string };
+      data: { mediaType: ExerciseMediaType; mediaUrl: string; videoUrl?: string | null };
       where: { id: string };
     };
     expect(updateCall.where.id).toBe('exercise-id');
     expect(updateCall.data.mediaType).toBe(ExerciseMediaType.image);
     expect(updateCall.data.mediaUrl).toContain('/exercise-media/');
+    expect(updateCall.data.videoUrl).toBeUndefined();
     expect(result.mediaType).toBe(ExerciseMediaType.image);
   });
 

@@ -1954,7 +1954,7 @@ function ClientExerciseDetailView({
 }
 
 function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exercise"] }) {
-  if (!exercise.mediaUrl) {
+  if (!exercise.mediaUrl && !exercise.videoUrl) {
     return (
       <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
         <div>
@@ -1965,12 +1965,12 @@ function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exer
     );
   }
 
-  if (exercise.mediaType === "video_url") {
+  if (!exercise.mediaUrl && exercise.videoUrl) {
     return (
       <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-[#ece7e3] bg-[#121722] p-5 text-white shadow-sm">
         <a
           className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f]"
-          href={exercise.mediaUrl}
+          href={exercise.videoUrl}
           rel="noreferrer"
           target="_blank"
         >
@@ -1981,12 +1981,24 @@ function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exer
   }
 
   return (
-    <div
-      className="mt-5 aspect-[16/10] min-h-56 rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] bg-cover bg-center shadow-sm"
-      role="img"
-      aria-label={`Demostracion de ${exercise.name}`}
-      style={{ backgroundImage: `url(${exercise.mediaUrl})` }}
-    />
+    <div className="mt-5">
+      <div
+        className="aspect-[16/10] min-h-56 rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] bg-cover bg-center shadow-sm"
+        role="img"
+        aria-label={`Demostracion de ${exercise.name}`}
+        style={{ backgroundImage: `url(${exercise.mediaUrl})` }}
+      />
+      {exercise.videoUrl ? (
+        <a
+          className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f]"
+          href={exercise.videoUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <PlayCircle className="size-5 text-[#df4d3e]" /> Ver video
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -2048,7 +2060,7 @@ function AlternativeSuggestion({
 }) {
   const isSelected = selectedAlternativeId === alternative.id;
   const [showDetails, setShowDetails] = useState(false);
-  const canView = Boolean(alternative.exercise.mediaUrl || alternative.exercise.instructions);
+  const canView = Boolean(alternative.exercise.mediaUrl || alternative.exercise.videoUrl || alternative.exercise.instructions);
 
   return (
     <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
@@ -2070,14 +2082,14 @@ function AlternativeSuggestion({
           {isSelected ? <span className="shrink-0 rounded-full bg-[#e4f6e8] px-3 py-1 text-xs font-bold text-[#2e8749]">En uso</span> : null}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          {alternative.exercise.mediaUrl ? (
+          {alternative.exercise.videoUrl ? (
             <a
               className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm"
-              href={alternative.exercise.mediaUrl}
+              href={alternative.exercise.videoUrl}
               rel="noreferrer"
               target="_blank"
             >
-              Ver alternativa
+              Ver video
             </a>
           ) : canView ? (
             <button
@@ -2111,7 +2123,7 @@ function AlternativeSuggestion({
 }
 
 function AlternativeMediaPreview({ alternative }: { alternative: ClientSessionExercise["alternatives"][number] }) {
-  if (!alternative.exercise.mediaUrl) {
+  if (!alternative.exercise.mediaUrl && !alternative.exercise.videoUrl) {
     return (
       <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
         <div className="px-3">
@@ -2122,11 +2134,11 @@ function AlternativeMediaPreview({ alternative }: { alternative: ClientSessionEx
     );
   }
 
-  if (alternative.exercise.mediaType === "video_url") {
+  if (!alternative.exercise.mediaUrl && alternative.exercise.videoUrl) {
     return (
       <a
         className="flex h-full min-h-32 items-center justify-center rounded-xl bg-[#121722] text-white"
-        href={alternative.exercise.mediaUrl}
+        href={alternative.exercise.videoUrl}
         rel="noreferrer"
         target="_blank"
         aria-label={`Ver alternativa ${alternative.exercise.name}`}

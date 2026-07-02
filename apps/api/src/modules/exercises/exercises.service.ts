@@ -132,6 +132,7 @@ export class ExercisesService {
           recommendations: data.recommendations,
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
+          videoUrl: data.videoUrl,
           organizationId,
           createdByUserId: member.userId,
         },
@@ -192,6 +193,7 @@ export class ExercisesService {
           recommendations: data.recommendations,
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
+          videoUrl: data.videoUrl,
           organizationId: null,
           createdByUserId,
         },
@@ -328,6 +330,7 @@ export class ExercisesService {
       recommendations?: string | null;
       mediaUrl?: string | null;
       mediaType?: ExerciseMediaType | null;
+      videoUrl?: string | null;
     } = {
       name: name as string,
       primaryMuscle: primaryMuscle as PrimaryMuscle,
@@ -348,6 +351,9 @@ export class ExercisesService {
     }
     if (body.mediaType !== undefined) {
       result.mediaType = this.parseMediaType(body.mediaType, false);
+    }
+    if (body.videoUrl !== undefined) {
+      result.videoUrl = this.parseOptionalString(body.videoUrl, 'videoUrl');
     }
 
     return result;
@@ -379,6 +385,9 @@ export class ExercisesService {
     }
     if (body.mediaType !== undefined) {
       result.mediaType = body.mediaType === null ? null : this.parseMediaType(body.mediaType, false);
+    }
+    if (body.videoUrl !== undefined) {
+      result.videoUrl = body.videoUrl === null ? null : this.parseOptionalString(body.videoUrl, 'videoUrl');
     }
     if (body.status !== undefined) {
       result.status = this.parseStatus(body.status, true);

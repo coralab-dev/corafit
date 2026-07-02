@@ -39,7 +39,7 @@ export function ExerciseSearchItem({
   selectionMode?: "card" | "explicit";
 }) {
   const isCustom = Boolean(exercise.organizationId);
-  const hasVideo = exercise.mediaType === "video_url";
+  const hasVideo = Boolean(exercise.videoUrl);
   const isExplicit = selectionMode === "explicit";
 
   return (

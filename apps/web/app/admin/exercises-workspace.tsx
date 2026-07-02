@@ -8,7 +8,6 @@ import {
   SaveIcon,
   Trash2Icon,
   UploadIcon,
-  VideoIcon,
   XIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -376,12 +375,8 @@ function ExerciseDetailPanel({
             />
           ) : (
             <div className="flex flex-col items-center gap-2 text-sm">
-              {exercise.mediaType === "video_url" ? (
-                <VideoIcon className="size-7" />
-              ) : (
-                <ImageIcon className="size-7" />
-              )}
-              {exercise.mediaType === "video_url" ? "Video externo" : "Sin imagen"}
+              <ImageIcon className="size-7" />
+              Sin imagen
             </div>
           )}
         </div>
@@ -427,7 +422,14 @@ function ExerciseDetailPanel({
             </Button>
           </div>
           <section className="border-t pt-4">
-            <p className="text-sm font-semibold">Media</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">Media</p>
+              {exercise.videoUrl ? <Badge variant="outline">Video</Badge> : null}
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {exercise.mediaUrl ? "Imagen registrada." : "Sin imagen registrada."}
+              {exercise.videoUrl ? " Video registrado." : ""}
+            </p>
             <div className="mt-3 flex flex-col gap-2">
               <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
                 <UploadIcon className="size-4" />
@@ -451,7 +453,7 @@ function ExerciseDetailPanel({
                 onClick={() => void handleRemoveMedia()}
               >
                 <XIcon className="size-4" />
-                Quitar media
+                Quitar imagen
               </Button>
             </div>
           </section>
@@ -486,7 +488,7 @@ function ExerciseDialog({
     exercise?.secondaryMuscles.join(", ") ?? "",
   );
   const [videoUrl, setVideoUrl] = useState(
-    exercise?.mediaType === "video_url" ? exercise.mediaUrl ?? "" : "",
+    exercise?.videoUrl ?? "",
   );
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -509,8 +511,6 @@ function ExerciseDialog({
       await onSubmit({
         equipment,
         instructions: instructions.trim() || null,
-        mediaType: trimmedVideoUrl ? "video_url" : exercise?.mediaType === "video_url" ? null : undefined,
-        mediaUrl: trimmedVideoUrl || (exercise?.mediaType === "video_url" ? null : undefined),
         name: trimmedName,
         primaryMuscle,
         recommendations: recommendations.trim() || null,
@@ -518,6 +518,7 @@ function ExerciseDialog({
           .split(",")
           .map((value) => value.trim())
           .filter(Boolean),
+        videoUrl: trimmedVideoUrl || null,
       });
     } catch (caughtError) {
       toast.error(getErrorMessage(caughtError));

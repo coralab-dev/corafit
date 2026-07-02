@@ -438,6 +438,7 @@ model Exercise {
   recommendations  String?
   mediaUrl         String?            @map("media_url")
   mediaType        ExerciseMediaType? @map("media_type")
+  videoUrl         String?            @map("video_url")
   status           ExerciseStatus     @default(active)
 
   createdAt DateTime @default(now()) @map("created_at")

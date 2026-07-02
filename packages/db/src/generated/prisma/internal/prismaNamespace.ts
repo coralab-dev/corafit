@@ -2316,6 +2316,7 @@ export const ExerciseScalarFieldEnum = {
   recommendations: 'recommendations',
   mediaUrl: 'mediaUrl',
   mediaType: 'mediaType',
+  videoUrl: 'videoUrl',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

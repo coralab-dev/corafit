@@ -125,6 +125,7 @@ export type ClientSessionSnapshot = {
       recommendations: string | null;
       mediaUrl: string | null;
       mediaType: string | null;
+      videoUrl: string | null;
     };
     alternatives: Array<{
       id: string;
@@ -140,6 +141,7 @@ export type ClientSessionSnapshot = {
         recommendations: string | null;
         mediaUrl: string | null;
         mediaType: string | null;
+        videoUrl: string | null;
       };
     }>;
   }>;

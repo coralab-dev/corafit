@@ -7,6 +7,7 @@ export type CreateExerciseDto = {
   recommendations?: string;
   mediaUrl?: string | null;
   mediaType?: string | null;
+  videoUrl?: string | null;
 };
 
 export type UpdateExerciseDto = Partial<CreateExerciseDto> & {

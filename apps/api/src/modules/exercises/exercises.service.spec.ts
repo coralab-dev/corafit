@@ -54,6 +54,7 @@ function createExercise(overrides = {}) {
     recommendations: null,
     mediaUrl: null,
     mediaType: null,
+    videoUrl: null,
     status: ExerciseStatus.active,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -115,6 +116,7 @@ describe('ExercisesService', () => {
       equipment: Equipment.dumbbell,
       mediaType: ExerciseMediaType.video_url,
       mediaUrl: 'https://example.com/video',
+      videoUrl: 'https://example.com/video',
     });
 
     expect(prismaService.exercise.create).toHaveBeenCalledWith({
@@ -125,7 +127,24 @@ describe('ExercisesService', () => {
         name: 'Sentadilla goblet',
         organizationId: null,
         primaryMuscle: PrimaryMuscle.legs,
+        videoUrl: 'https://example.com/video',
       }),
+    });
+  });
+
+  it('stores a video URL separately from image media on update', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({
+        mediaType: ExerciseMediaType.image,
+        mediaUrl: 'https://cdn.example.com/image.webp',
+      }),
+    );
+
+    await service.updateGlobal('exercise-id', { videoUrl: ' https://example.com/demo ' });
+
+    expect(prismaService.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-id' },
+      data: { videoUrl: 'https://example.com/demo' },
     });
   });
 

@@ -35,6 +35,7 @@ export type Exercise = {
   recommendations: string | null;
   mediaUrl: string | null;
   mediaType: ExerciseMediaType | null;
+  videoUrl: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +64,7 @@ export type UpdateExerciseInput = {
   instructions?: string | null;
   mediaUrl?: string | null;
   mediaType?: ExerciseMediaType | null;
+  videoUrl?: string | null;
 };
 
 type ExercisesResponse = {
@@ -158,8 +160,7 @@ export function useExercises(filters: ExerciseFilters) {
             primaryMuscle: input.primaryMuscle,
             equipment: input.equipment,
             instructions: input.instructions?.trim() || undefined,
-            mediaType: input.videoUrl?.trim() ? "video_url" : undefined,
-            mediaUrl: input.videoUrl?.trim() || undefined,
+            videoUrl: input.videoUrl?.trim() || undefined,
           }),
         },
         apiConfig,

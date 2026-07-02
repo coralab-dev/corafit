@@ -24,6 +24,7 @@ export type AdminExerciseInput = {
   instructions?: string | null;
   mediaType?: ExerciseMediaType | null;
   mediaUrl?: string | null;
+  videoUrl?: string | null;
   name: string;
   primaryMuscle: PrimaryMuscle;
   recommendations?: string | null;

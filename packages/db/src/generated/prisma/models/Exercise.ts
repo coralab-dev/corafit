@@ -35,6 +35,7 @@ export type ExerciseMinAggregateOutputType = {
   recommendations: string | null
   mediaUrl: string | null
   mediaType: $Enums.ExerciseMediaType | null
+  videoUrl: string | null
   status: $Enums.ExerciseStatus | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -51,6 +52,7 @@ export type ExerciseMaxAggregateOutputType = {
   recommendations: string | null
   mediaUrl: string | null
   mediaType: $Enums.ExerciseMediaType | null
+  videoUrl: string | null
   status: $Enums.ExerciseStatus | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -68,6 +70,7 @@ export type ExerciseCountAggregateOutputType = {
   recommendations: number
   mediaUrl: number
   mediaType: number
+  videoUrl: number
   status: number
   createdAt: number
   updatedAt: number
@@ -86,6 +89,7 @@ export type ExerciseMinAggregateInputType = {
   recommendations?: true
   mediaUrl?: true
   mediaType?: true
+  videoUrl?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -102,6 +106,7 @@ export type ExerciseMaxAggregateInputType = {
   recommendations?: true
   mediaUrl?: true
   mediaType?: true
+  videoUrl?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -119,6 +124,7 @@ export type ExerciseCountAggregateInputType = {
   recommendations?: true
   mediaUrl?: true
   mediaType?: true
+  videoUrl?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -209,6 +215,7 @@ export type ExerciseGroupByOutputType = {
   recommendations: string | null
   mediaUrl: string | null
   mediaType: $Enums.ExerciseMediaType | null
+  videoUrl: string | null
   status: $Enums.ExerciseStatus
   createdAt: Date
   updatedAt: Date
@@ -247,6 +254,7 @@ export type ExerciseWhereInput = {
   recommendations?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaType?: Prisma.EnumExerciseMediaTypeNullableFilter<"Exercise"> | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   status?: Prisma.EnumExerciseStatusFilter<"Exercise"> | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -267,6 +275,7 @@ export type ExerciseOrderByWithRelationInput = {
   recommendations?: Prisma.SortOrderInput | Prisma.SortOrder
   mediaUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   mediaType?: Prisma.SortOrderInput | Prisma.SortOrder
+  videoUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -291,6 +300,7 @@ export type ExerciseWhereUniqueInput = Prisma.AtLeast<{
   recommendations?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaType?: Prisma.EnumExerciseMediaTypeNullableFilter<"Exercise"> | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   status?: Prisma.EnumExerciseStatusFilter<"Exercise"> | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -311,6 +321,7 @@ export type ExerciseOrderByWithAggregationInput = {
   recommendations?: Prisma.SortOrderInput | Prisma.SortOrder
   mediaUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   mediaType?: Prisma.SortOrderInput | Prisma.SortOrder
+  videoUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -334,6 +345,7 @@ export type ExerciseScalarWhereWithAggregatesInput = {
   recommendations?: Prisma.StringNullableWithAggregatesFilter<"Exercise"> | string | null
   mediaUrl?: Prisma.StringNullableWithAggregatesFilter<"Exercise"> | string | null
   mediaType?: Prisma.EnumExerciseMediaTypeNullableWithAggregatesFilter<"Exercise"> | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.StringNullableWithAggregatesFilter<"Exercise"> | string | null
   status?: Prisma.EnumExerciseStatusWithAggregatesFilter<"Exercise"> | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Exercise"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Exercise"> | Date | string
@@ -350,6 +362,7 @@ export type ExerciseCreateInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -370,6 +383,7 @@ export type ExerciseUncheckedCreateInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -388,6 +402,7 @@ export type ExerciseUpdateInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -408,6 +423,7 @@ export type ExerciseUncheckedUpdateInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -427,6 +443,7 @@ export type ExerciseCreateManyInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -443,6 +460,7 @@ export type ExerciseUpdateManyMutationInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -460,6 +478,7 @@ export type ExerciseUncheckedUpdateManyInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -500,6 +519,7 @@ export type ExerciseCountOrderByAggregateInput = {
   recommendations?: Prisma.SortOrder
   mediaUrl?: Prisma.SortOrder
   mediaType?: Prisma.SortOrder
+  videoUrl?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -516,6 +536,7 @@ export type ExerciseMaxOrderByAggregateInput = {
   recommendations?: Prisma.SortOrder
   mediaUrl?: Prisma.SortOrder
   mediaType?: Prisma.SortOrder
+  videoUrl?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -532,6 +553,7 @@ export type ExerciseMinOrderByAggregateInput = {
   recommendations?: Prisma.SortOrder
   mediaUrl?: Prisma.SortOrder
   mediaType?: Prisma.SortOrder
+  videoUrl?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -648,6 +670,7 @@ export type ExerciseCreateWithoutOrganizationInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -666,6 +689,7 @@ export type ExerciseUncheckedCreateWithoutOrganizationInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -714,6 +738,7 @@ export type ExerciseScalarWhereInput = {
   recommendations?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   mediaType?: Prisma.EnumExerciseMediaTypeNullableFilter<"Exercise"> | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.StringNullableFilter<"Exercise"> | string | null
   status?: Prisma.EnumExerciseStatusFilter<"Exercise"> | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -730,6 +755,7 @@ export type ExerciseCreateWithoutSessionExercisesInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -749,6 +775,7 @@ export type ExerciseUncheckedCreateWithoutSessionExercisesInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -782,6 +809,7 @@ export type ExerciseUpdateWithoutSessionExercisesInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -801,6 +829,7 @@ export type ExerciseUncheckedUpdateWithoutSessionExercisesInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -818,6 +847,7 @@ export type ExerciseCreateWithoutAlternativeExercisesInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -837,6 +867,7 @@ export type ExerciseUncheckedCreateWithoutAlternativeExercisesInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -870,6 +901,7 @@ export type ExerciseUpdateWithoutAlternativeExercisesInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -889,6 +921,7 @@ export type ExerciseUncheckedUpdateWithoutAlternativeExercisesInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -906,6 +939,7 @@ export type ExerciseCreateManyOrganizationInput = {
   recommendations?: string | null
   mediaUrl?: string | null
   mediaType?: $Enums.ExerciseMediaType | null
+  videoUrl?: string | null
   status?: $Enums.ExerciseStatus
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -922,6 +956,7 @@ export type ExerciseUpdateWithoutOrganizationInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -940,6 +975,7 @@ export type ExerciseUncheckedUpdateWithoutOrganizationInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -958,6 +994,7 @@ export type ExerciseUncheckedUpdateManyWithoutOrganizationInput = {
   recommendations?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mediaType?: Prisma.NullableEnumExerciseMediaTypeFieldUpdateOperationsInput | $Enums.ExerciseMediaType | null
+  videoUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumExerciseStatusFieldUpdateOperationsInput | $Enums.ExerciseStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1015,6 +1052,7 @@ export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   recommendations?: boolean
   mediaUrl?: boolean
   mediaType?: boolean
+  videoUrl?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1036,6 +1074,7 @@ export type ExerciseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   recommendations?: boolean
   mediaUrl?: boolean
   mediaType?: boolean
+  videoUrl?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1054,6 +1093,7 @@ export type ExerciseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   recommendations?: boolean
   mediaUrl?: boolean
   mediaType?: boolean
+  videoUrl?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1072,12 +1112,13 @@ export type ExerciseSelectScalar = {
   recommendations?: boolean
   mediaUrl?: boolean
   mediaType?: boolean
+  videoUrl?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ExerciseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "createdByUserId" | "name" | "primaryMuscle" | "secondaryMuscles" | "equipment" | "instructions" | "recommendations" | "mediaUrl" | "mediaType" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["exercise"]>
+export type ExerciseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "organizationId" | "createdByUserId" | "name" | "primaryMuscle" | "secondaryMuscles" | "equipment" | "instructions" | "recommendations" | "mediaUrl" | "mediaType" | "videoUrl" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["exercise"]>
 export type ExerciseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organization?: boolean | Prisma.Exercise$organizationArgs<ExtArgs>
   sessionExercises?: boolean | Prisma.Exercise$sessionExercisesArgs<ExtArgs>
@@ -1110,6 +1151,7 @@ export type $ExercisePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     recommendations: string | null
     mediaUrl: string | null
     mediaType: $Enums.ExerciseMediaType | null
+    videoUrl: string | null
     status: $Enums.ExerciseStatus
     createdAt: Date
     updatedAt: Date
@@ -1550,6 +1592,7 @@ export interface ExerciseFieldRefs {
   readonly recommendations: Prisma.FieldRef<"Exercise", 'String'>
   readonly mediaUrl: Prisma.FieldRef<"Exercise", 'String'>
   readonly mediaType: Prisma.FieldRef<"Exercise", 'ExerciseMediaType'>
+  readonly videoUrl: Prisma.FieldRef<"Exercise", 'String'>
   readonly status: Prisma.FieldRef<"Exercise", 'ExerciseStatus'>
   readonly createdAt: Prisma.FieldRef<"Exercise", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Exercise", 'DateTime'>

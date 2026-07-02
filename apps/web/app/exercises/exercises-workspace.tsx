@@ -5,7 +5,6 @@ import {
   ImageIcon,
   Loader2Icon,
   PencilIcon,
-  PlayCircleIcon,
   SaveIcon,
   Trash2Icon,
   UploadIcon,
@@ -253,16 +252,12 @@ function SelectedExerciseCard({
             src={visibleExercise.mediaUrl}
             unoptimized
           />
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-sm">
-            {visibleExercise.mediaType === "video_url" ? (
-              <PlayCircleIcon className="size-8" aria-hidden="true" />
-            ) : (
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-sm">
               <ImageIcon className="size-8" aria-hidden="true" />
-            )}
-            {visibleExercise.mediaType === "video_url" ? "Video externo" : "Sin imagen"}
-          </div>
-        )}
+              Sin imagen
+            </div>
+          )}
       </div>
       <CardHeader className="border-b p-4">
         <div className="flex items-start justify-between gap-3">
@@ -318,16 +313,13 @@ function SelectedExerciseCard({
         <section className="border-t pt-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold">Media</p>
-            {visibleExercise.mediaType === "video_url" ? (
+            {visibleExercise.videoUrl ? (
               <Badge variant="outline">Video</Badge>
             ) : null}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            {visibleExercise.mediaUrl
-              ? visibleExercise.mediaType === "video_url"
-                ? "Video registrado."
-                : "Imagen registrada."
-              : "Sin media registrada."}
+            {visibleExercise.mediaUrl ? "Imagen registrada." : "Sin imagen registrada."}
+            {visibleExercise.videoUrl ? " Video registrado." : ""}
           </p>
           {canEditExercise ? (
             <div className="mt-3 flex flex-col gap-2">
@@ -352,7 +344,7 @@ function SelectedExerciseCard({
                 variant="outline"
                 onClick={handleRemoveMedia}
               >
-                Quitar media
+                Quitar imagen
               </Button>
             </div>
           ) : (
@@ -406,6 +398,7 @@ function ExerciseEditDialog({
     mediaUrl?: string | null;
     name: string;
     primaryMuscle: PrimaryMuscle;
+    videoUrl?: string | null;
   }) => Promise<void>;
 }) {
   const [equipment, setEquipment] = useState<Equipment>(exercise.equipment);
@@ -413,9 +406,7 @@ function ExerciseEditDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState(exercise.name);
   const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle>(exercise.primaryMuscle);
-  const [videoUrl, setVideoUrl] = useState(
-    exercise.mediaType === "video_url" ? exercise.mediaUrl ?? "" : "",
-  );
+  const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? "");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -437,10 +428,9 @@ function ExerciseEditDialog({
       await onUpdate({
         equipment,
         instructions: instructions.trim() || null,
-        mediaType: trimmedVideoUrl ? "video_url" : exercise.mediaType === "video_url" ? null : undefined,
-        mediaUrl: trimmedVideoUrl || (exercise.mediaType === "video_url" ? null : undefined),
         name: trimmedName,
         primaryMuscle,
+        videoUrl: trimmedVideoUrl || null,
       });
     } catch (caughtError) {
       toast.error(
@@ -503,12 +493,10 @@ function ExerciseEditDialog({
               onChange={(event) => setInstructions(event.target.value)}
             />
           </label>
-          {exercise.mediaType !== "image" ? (
-            <label className="flex flex-col gap-2 text-sm font-medium">
-              URL de video externo
-              <Input value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} />
-            </label>
-          ) : null}
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            URL de video externo
+            <Input value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} />
+          </label>
           <DialogFooter>
             <Button
               disabled={isSaving}

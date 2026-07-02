@@ -28,6 +28,7 @@ function createExercise(overrides: Record<string, unknown> = {}) {
     recommendations: 'Keep neutral spine.',
     mediaUrl: 'https://cdn.example.com/squat.mp4',
     mediaType: ExerciseMediaType.video_url,
+    videoUrl: 'https://video.example.com/squat',
     status: 'active',
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -204,6 +205,7 @@ describe('ClientSessionSnapshotService', () => {
           recommendations: 'Keep neutral spine.',
           mediaUrl: 'https://cdn.example.com/squat.mp4',
           mediaType: ExerciseMediaType.video_url,
+          videoUrl: 'https://video.example.com/squat',
         },
       });
       expect(snapshot.exercises[0]?.alternatives.map((alternative) => alternative.id)).toEqual([

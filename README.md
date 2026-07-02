@@ -69,9 +69,48 @@ The API reads root `.env` from `apps/api` and enables CORS for the comma-separat
 
 ## Deploy Base
 
-- `apps/web/vercel.json` prepares the Next.js app for Vercel with pnpm workspace commands.
-- `apps/api/railway.json` prepares the NestJS API for Railway with a Nixpacks build and `/health` healthcheck.
-- Production deploys must set the same variables documented in `.env.example`, replacing local URLs with the deployed web and API domains.
+Current construction/testing stack:
+
+- Web: Vercel.
+- API: Render Free, temporarily replacing Railway during construction/testing.
+- Auth, Postgres, and Storage: Supabase.
+- Railway: disconnected from GitHub auto-deploy for now, but kept as the future demo/beta API target.
+
+Temporary Render API:
+
+- Base URL: `https://corafit-api.onrender.com`
+- Healthcheck: `https://corafit-api.onrender.com/health`
+- Expected health response: `{"status":"ok","service":"corafit-api"}`
+- Render runtime setting: `NODE_VERSION=22`
+
+Vercel web environment:
+
+```text
+NEXT_PUBLIC_API_URL=https://corafit-api.onrender.com
+NEXT_PUBLIC_SUPABASE_URL=<Supabase project URL>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase anon key>
+```
+
+Render API environment:
+
+```text
+NODE_ENV=production
+NODE_VERSION=22
+WEB_APP_URL=<Vercel URL>
+CORS_ALLOWED_ORIGINS=<Vercel URL>
+SUPABASE_URL=<Supabase project URL>
+SUPABASE_SERVICE_ROLE_KEY=<Supabase service role key>
+SUPABASE_ANON_KEY=<Supabase anon key>
+DATABASE_URL=<Supabase Postgres connection string>
+```
+
+`SUPABASE_SERVICE_KEY` is still accepted as the legacy service-role variable, but new deploys should prefer `SUPABASE_SERVICE_ROLE_KEY`. Render provides `PORT`; set it manually only if Render requires it for a specific service configuration.
+
+CORS must allow the deployed Vercel origin in both `WEB_APP_URL` and `CORS_ALLOWED_ORIGINS`. If preview deployments need API access later, add those preview origins to `CORS_ALLOWED_ORIGINS` as a comma-separated list.
+
+`apps/web/vercel.json` prepares the Next.js app for Vercel with pnpm workspace commands. `apps/api/railway.json` remains documented for the future Railway demo/beta deploy with a Nixpacks build and `/health` healthcheck, but Railway should not be treated as the active API deploy while Render is the temporary construction API.
+
+UptimeRobot can be added later to keep an eye on the Render Free health endpoint, but it is optional and not required for the current construction setup.
 
 ## Workspace policy
 

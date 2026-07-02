@@ -3,6 +3,7 @@ import {
   ClipboardListIcon,
   DumbbellIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   SmartphoneIcon,
   UsersIcon,
   type LucideIcon,
@@ -13,6 +14,7 @@ export type AppNavItem = {
   icon: LucideIcon;
   label: string;
   disabled?: boolean;
+  platformRole?: "admin_saas";
 };
 
 export const navItems: AppNavItem[] = [
@@ -21,5 +23,6 @@ export const navItems: AppNavItem[] = [
   { href: "/exercises", icon: DumbbellIcon, label: "Ejercicios" },
   { href: "/training-plans", icon: ClipboardListIcon, label: "Planes" },
   { href: "#", icon: SmartphoneIcon, label: "Portal", disabled: true },
+  { href: "/admin/exercises", icon: ShieldCheckIcon, label: "Admin", platformRole: "admin_saas" },
   { href: "/settings", icon: SettingsIcon, label: "Configuracion" },
 ];

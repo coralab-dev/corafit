@@ -12,6 +12,9 @@ export function Sidebar() {
   const { logout, profile } = useAuth();
   const name = profile?.user?.name ?? "Coach";
   const initials = getInitials(name);
+  const visibleNavItems = navItems.filter(
+    (item) => !item.platformRole || item.platformRole === profile?.user.platformRole,
+  );
 
   async function handleLogout() {
     await logout();
@@ -30,7 +33,7 @@ export function Sidebar() {
 
       {/* Navegación */}
       <nav className="flex flex-1 flex-col gap-1 px-2 py-2">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavItem key={item.href} {...item} />
         ))}
       </nav>
@@ -43,7 +46,9 @@ export function Sidebar() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-sidebar-foreground/55">Coach</p>
+            <p className="truncate text-xs text-sidebar-foreground/55">
+              {profile?.user.platformRole === "admin_saas" ? "Admin SaaS" : "Coach"}
+            </p>
           </div>
           <Button
             aria-label="Cerrar sesion"

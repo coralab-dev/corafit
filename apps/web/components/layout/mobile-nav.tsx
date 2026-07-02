@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DumbbellIcon, MenuIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
 import { NavItem } from "./nav-item";
@@ -14,6 +15,11 @@ interface MobileNavProps {
 
 export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
+  const name = profile?.user.name ?? "Coach";
+  const visibleNavItems = navItems.filter(
+    (item) => !item.platformRole || item.platformRole === profile?.user.platformRole,
+  );
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -34,19 +40,30 @@ export function MobileNav({ className }: MobileNavProps) {
           <span className="text-lg font-bold tracking-tight">CoraFit</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavItem key={item.href} {...item} />
           ))}
         </nav>
         <div className="border-t border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-full bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-              C
+              {getInitials(name)}
             </div>
-            <p className="text-sm font-medium">Coach</p>
+            <p className="text-sm font-medium">
+              {profile?.user.platformRole === "admin_saas" ? "Admin SaaS" : "Coach"}
+            </p>
           </div>
         </div>
       </SheetContent>
     </Sheet>
   );
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }

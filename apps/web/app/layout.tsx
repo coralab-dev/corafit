@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Sora } from "next/font/google";
+import { Inter } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
-const sora = Sora({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sora",
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={sora.variable}>
+      <body className={inter.variable}>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

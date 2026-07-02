@@ -141,6 +141,66 @@ export class ExercisesService {
     }
   }
 
+  async listGlobal(query: ListExercisesQuery) {
+    const page = this.parsePositiveInt(query.page, 1);
+    const limit = Math.min(this.parsePositiveInt(query.limit, 20), 100);
+    const search = query.search?.trim();
+
+    const statusFilter = this.parseStatus(query.status, false) ?? ExerciseStatus.active;
+    const primaryMuscle = this.parsePrimaryMuscle(query.primaryMuscle, false);
+    const equipment = this.parseEquipment(query.equipment, false);
+
+    const where: Prisma.ExerciseWhereInput = {
+      organizationId: null,
+      status: statusFilter,
+    };
+
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+    if (primaryMuscle) {
+      where.primaryMuscle = primaryMuscle;
+    }
+    if (equipment) {
+      where.equipment = equipment;
+    }
+
+    const [items, total] = await this.prismaService.$transaction([
+      this.prismaService.exercise.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prismaService.exercise.count({ where }),
+    ]);
+
+    return { items, page, limit, total };
+  }
+
+  async createGlobal(body: CreateExerciseDto, createdByUserId?: string) {
+    const data = this.parseExerciseData(body, true);
+
+    try {
+      return await this.prismaService.exercise.create({
+        data: {
+          name: data.name,
+          primaryMuscle: data.primaryMuscle,
+          secondaryMuscles: data.secondaryMuscles ?? [],
+          equipment: data.equipment,
+          instructions: data.instructions,
+          recommendations: data.recommendations,
+          mediaUrl: data.mediaUrl,
+          mediaType: data.mediaType,
+          organizationId: null,
+          createdByUserId,
+        },
+      });
+    } catch (error) {
+      this.handleUniqueConflict(error);
+    }
+  }
+
   async update(
     exerciseId: string,
     body: UpdateExerciseDto,
@@ -178,6 +238,27 @@ export class ExercisesService {
     }
   }
 
+  async updateGlobal(exerciseId: string, body: UpdateExerciseDto) {
+    const exercise = await this.prismaService.exercise.findFirst({
+      where: { id: exerciseId, organizationId: null },
+    });
+
+    if (!exercise) {
+      throw new NotFoundException('Global exercise was not found');
+    }
+
+    const data = this.parseUpdateData(body);
+
+    try {
+      return await this.prismaService.exercise.update({
+        where: { id: exerciseId },
+        data,
+      });
+    } catch (error) {
+      this.handleUniqueConflict(error);
+    }
+  }
+
   async delete(exerciseId: string, member: OrganizationMember | undefined) {
     if (!member) {
       throw new ForbiddenException('Organization membership is required');
@@ -197,6 +278,21 @@ export class ExercisesService {
 
     if (exercise.organizationId !== member.organizationId) {
       throw new NotFoundException('Exercise was not found or is not deletable');
+    }
+
+    return this.prismaService.exercise.update({
+      where: { id: exerciseId },
+      data: { status: ExerciseStatus.inactive },
+    });
+  }
+
+  async deleteGlobal(exerciseId: string) {
+    const exercise = await this.prismaService.exercise.findFirst({
+      where: { id: exerciseId, organizationId: null },
+    });
+
+    if (!exercise) {
+      throw new NotFoundException('Global exercise was not found');
     }
 
     return this.prismaService.exercise.update({

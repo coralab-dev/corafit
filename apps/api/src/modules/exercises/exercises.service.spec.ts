@@ -107,6 +107,28 @@ describe('ExercisesService', () => {
     });
   });
 
+  it('creates a global exercise without an organization', async () => {
+    await service.createGlobal({
+      name: ' Sentadilla goblet ',
+      primaryMuscle: PrimaryMuscle.legs,
+      secondaryMuscles: ['glute'],
+      equipment: Equipment.dumbbell,
+      mediaType: ExerciseMediaType.video_url,
+      mediaUrl: 'https://example.com/video',
+    });
+
+    expect(prismaService.exercise.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        equipment: Equipment.dumbbell,
+        mediaType: ExerciseMediaType.video_url,
+        mediaUrl: 'https://example.com/video',
+        name: 'Sentadilla goblet',
+        organizationId: null,
+        primaryMuscle: PrimaryMuscle.legs,
+      }),
+    });
+  });
+
   it('lists active global and organization exercises by default', async () => {
     await service.list({}, createMember());
 
@@ -115,6 +137,19 @@ describe('ExercisesService', () => {
         where: expect.objectContaining({
           OR: [{ organizationId: null }, { organizationId: 'organization-id' }],
           status: ExerciseStatus.active,
+        }),
+      }),
+    );
+  });
+
+  it('lists global exercises for admin without organization scope', async () => {
+    await service.listGlobal({ status: ExerciseStatus.inactive });
+
+    expect(prismaService.exercise.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: null,
+          status: ExerciseStatus.inactive,
         }),
       }),
     );
@@ -148,6 +183,19 @@ describe('ExercisesService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('updates a global exercise for admin', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({ organizationId: null }),
+    );
+
+    await service.updateGlobal('exercise-id', { name: 'New global name' });
+
+    expect(prismaService.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-id' },
+      data: { name: 'New global name' },
+    });
+  });
+
   it('throws ForbiddenException when deleting a global exercise', async () => {
     prismaService.exercise.findFirst.mockResolvedValueOnce(
       createExercise({ organizationId: null }),
@@ -156,6 +204,19 @@ describe('ExercisesService', () => {
     await expect(
       service.delete('exercise-id', createMember()),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('soft deletes global exercises by marking them inactive', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({ organizationId: null }),
+    );
+
+    await service.deleteGlobal('exercise-id');
+
+    expect(prismaService.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-id' },
+      data: { status: ExerciseStatus.inactive },
+    });
   });
 
   it('throws NotFoundException when updating an exercise from another organization', async () => {

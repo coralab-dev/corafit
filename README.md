@@ -11,7 +11,7 @@ apps/
 packages/
   db/         # Prisma schema, migrations, seed scripts, and shared database client
   shared/     # Shared types, constants, and validators without Next.js or NestJS dependencies
-docs/         # Product and technical documentation
+docs/         # Minimal technical notes needed to run, test, or deploy the project
 ```
 
 ## Commands
@@ -66,6 +66,16 @@ and the helper will only create or repair the local database profile and
 membership.
 
 The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the future Vercel domain.
+
+## Documentation policy
+
+CoraFit documentation policy:
+Long-form product documentation, API contracts, architecture notes, decisions, roadmap, and scope live in the Notion workspace.
+Linear is used for execution and issue tracking.
+This repository contains source code and only the minimum technical documentation needed to run, test, and deploy the project.
+Do not reintroduce long-form product docs into the repo.
+
+The old markdown product docs were removed to avoid documentation drift.
 
 ## Deploy Base
 

@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { apiBaseUrl, authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
@@ -57,6 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMissingProfile, setHasMissingProfile] = useState(false);
+  const sessionRef = useRef<Session | null>(null);
+  const profileRef = useRef<AuthProfile | null>(null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+    profileRef.current = profile;
+  }, [profile, session]);
 
   const syncLegacyApiConfig = useCallback((nextSession: Session | null, nextProfile: AuthProfile | null) => {
     if (typeof window === "undefined") {
@@ -184,15 +192,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setIsLoading(true);
+      const hasStableAuth = Boolean(sessionRef.current && profileRef.current);
+
+      if (!hasStableAuth) {
+        setIsLoading(true);
+      }
+
       refreshProfile(nextSession)
         .catch(() => {
-          if (isMounted) {
+          if (isMounted && !hasStableAuth) {
             setProfile(null);
           }
         })
         .finally(() => {
-          if (isMounted) {
+          if (isMounted && !hasStableAuth) {
             setIsLoading(false);
           }
         });

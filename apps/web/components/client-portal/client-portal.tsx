@@ -27,6 +27,7 @@ import {
   Share2,
   Star,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -1954,6 +1955,8 @@ function ClientExerciseDetailView({
 }
 
 function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exercise"] }) {
+  const [isImageOpen, setIsImageOpen] = useState(false);
+
   if (!exercise.mediaUrl && !exercise.videoUrl) {
     return (
       <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
@@ -1980,14 +1983,29 @@ function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exer
     );
   }
 
+  if (!exercise.mediaUrl) {
+    return null;
+  }
+
+  const imageUrl = exercise.mediaUrl;
+
   return (
     <div className="mt-5">
-      <div
-        className="aspect-[16/10] min-h-56 rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] bg-cover bg-center shadow-sm"
-        role="img"
-        aria-label={`Demostracion de ${exercise.name}`}
-        style={{ backgroundImage: `url(${exercise.mediaUrl})` }}
-      />
+      <button
+        className="relative block aspect-[16/10] min-h-56 w-full overflow-hidden rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] shadow-sm"
+        type="button"
+        aria-label={`Ampliar imagen de ${exercise.name}`}
+        onClick={() => setIsImageOpen(true)}
+      >
+        <NextImage
+          alt={`Demostracion de ${exercise.name}`}
+          className="size-full object-cover"
+          fill
+          sizes="(max-width: 640px) 100vw, 560px"
+          src={imageUrl}
+          unoptimized
+        />
+      </button>
       {exercise.videoUrl ? (
         <a
           className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f]"
@@ -1997,6 +2015,40 @@ function ExerciseMediaHero({ exercise }: { exercise: ClientSessionExercise["exer
         >
           <PlayCircle className="size-5 text-[#df4d3e]" /> Ver video
         </a>
+      ) : null}
+      {isImageOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#09111f]/95 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Imagen completa de ${exercise.name}`}
+          onClick={() => setIsImageOpen(false)}
+        >
+          <button
+            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] shadow-lg"
+            type="button"
+            aria-label="Cerrar imagen"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsImageOpen(false);
+            }}
+          >
+            <X className="size-5" />
+          </button>
+          <div
+            className="relative h-[calc(100dvh-7rem)] w-full max-w-3xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <NextImage
+              alt={`Demostracion de ${exercise.name}`}
+              className="object-contain"
+              fill
+              sizes="100vw"
+              src={imageUrl}
+              unoptimized
+            />
+          </div>
+        </div>
       ) : null}
     </div>
   );

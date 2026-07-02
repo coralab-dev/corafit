@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import {
   Equipment,
   ExerciseMediaType,
@@ -17,6 +18,7 @@ import {
   type User,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import WebSocket from 'ws';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ExerciseMediaService } from './exercise-media.service';
 
@@ -160,6 +162,23 @@ describe('ExerciseMediaService', () => {
     service = new ExerciseMediaService(
       createConfigService(),
       prismaService as unknown as PrismaService,
+    );
+  });
+
+  it('creates the Supabase client with websocket realtime transport', () => {
+    expect(createSupabaseClient).toHaveBeenCalledWith(
+      'https://project.supabase.co',
+      'sb_secret_test',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+        realtime: {
+          transport: WebSocket,
+        },
+      },
     );
   });
 

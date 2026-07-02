@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import {
   ClientOperationalStatus,
   ClientType,
@@ -14,6 +15,7 @@ import {
   type OrganizationMember,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import WebSocket from 'ws';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ProgressService } from './progress.service';
 
@@ -268,6 +270,23 @@ describe('ProgressService', () => {
     service = new ProgressService(
       createConfigService(),
       prismaService as unknown as PrismaService,
+    );
+  });
+
+  it('creates the Supabase client with websocket realtime transport', () => {
+    expect(createSupabaseClient).toHaveBeenCalledWith(
+      'https://project.supabase.co',
+      'sb_secret_test',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+        realtime: {
+          transport: WebSocket,
+        },
+      },
     );
   });
 

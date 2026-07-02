@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import WebSocket from 'ws';
+import { type SupabaseClient, type User } from '@supabase/supabase-js';
 import type { AppConfig } from '../../config/env.schema';
+import { createSupabaseServiceClient } from '../supabase/create-supabase-service-client';
 
 type SupabaseDatabase = {
   public: {
@@ -19,20 +19,7 @@ export class SupabaseAuthService {
   private readonly client: SupabaseClient<SupabaseDatabase>;
 
   constructor(configService: ConfigService<AppConfig, true>) {
-    this.client = createClient<SupabaseDatabase>(
-      configService.get('SUPABASE_URL', { infer: true }),
-      configService.get('SUPABASE_SERVICE_KEY', { infer: true }),
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-          detectSessionInUrl: false,
-        },
-        realtime: {
-          transport: WebSocket as never,
-        },
-      },
-    );
+    this.client = createSupabaseServiceClient<SupabaseDatabase>(configService);
   }
 
   async getUserFromJwt(jwt: string): Promise<User> {

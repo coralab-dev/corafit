@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import {
@@ -16,6 +16,7 @@ import {
 } from 'db';
 import type { AppConfig } from '../../config/env.schema';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { createSupabaseServiceClient } from '../../common/supabase/create-supabase-service-client';
 
 type SupabaseDatabase = {
   public: {
@@ -41,16 +42,7 @@ export class ExerciseMediaService {
     configService: ConfigService<AppConfig, true>,
     private readonly prismaService: PrismaService,
   ) {
-    this.supabase = createClient<SupabaseDatabase>(
-      configService.get('SUPABASE_URL', { infer: true }),
-      configService.get('SUPABASE_SERVICE_KEY', { infer: true }),
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      },
-    );
+    this.supabase = createSupabaseServiceClient<SupabaseDatabase>(configService);
   }
 
   async uploadCustomExerciseImage(

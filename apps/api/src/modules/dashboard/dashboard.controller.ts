@@ -23,4 +23,11 @@ export class DashboardController {
       request.organizationMember,
     );
   }
+
+  @UseGuards(OrganizationGuard, RoleGuard)
+  @Roles(OrganizationMemberRole.owner, OrganizationMemberRole.coach)
+  @Get('coach')
+  getCoachDashboard(@Req() request: AuthenticatedRequest) {
+    return this.dashboardService.getCoachDashboard(request.organizationMember);
+  }
 }

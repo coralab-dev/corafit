@@ -830,11 +830,10 @@ export function SessionScreen({
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-8 md:px-8 lg:px-10">
-        <TopBar
-          title={log.snapshotData.session.name}
-          backHref={`/c/${encodeURIComponent(token)}/home`}
-        />
+      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+        {!detailOpen ? (
+          <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
+        ) : null}
         {error ? <InlineError message={error} /> : null}
         <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
@@ -873,14 +872,14 @@ export function SessionScreen({
               />
             ) : activeExercise ? (
               <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm lg:hidden">
-                  <div className="flex items-center justify-between text-sm font-bold">
+                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:hidden">
+                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
                     <span>Progreso de la sesion</span>
                     <span>
                       {completed.length} / {total}
                     </span>
                   </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee]">
+                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
                     <div
                       className="h-2 rounded-full bg-[var(--portal-accent)]"
                       style={{
@@ -907,7 +906,7 @@ export function SessionScreen({
                     />
                   ))}
                 </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
+                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
                   <button
                     className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
                     onClick={() =>
@@ -1038,13 +1037,12 @@ export function SessionPreviewScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-8 md:px-8 lg:px-10">
-        <TopBar
-          title={preview.snapshotData.session.name}
-          backHref={`/c/${encodeURIComponent(token)}/calendar`}
-        />
+      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+        {!detailOpen ? (
+          <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
+        ) : null}
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31]">
+        <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31] dark:border-[#4b2b24] dark:bg-[#271716] dark:text-[#ffb4a8]">
           Esta sesion esta programada para despues. Puedes revisar ejercicios y
           notas, pero todavia no se puede iniciar.
         </div>
@@ -1078,12 +1076,12 @@ export function SessionPreviewScreen({ token }: { token: string }) {
               />
             ) : activeExercise ? (
               <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between text-sm font-bold">
+                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
                     <span>Vista de lectura</span>
                     <span>{total} ejercicios</span>
                   </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee]" />
+                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]" />
                 </div>
                 <div className="mt-4 space-y-3">
                   {preview.snapshotData.exercises.map((exercise, index) => (
@@ -1102,9 +1100,9 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                     />
                   ))}
                 </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur lg:hidden">
+                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
                   <button
-                    className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080]"
+                    className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
                     disabled
                     type="button"
                   >
@@ -1153,6 +1151,7 @@ export function CompletionCardScreen({
   const [error, setError] = useState<string | null>(null);
   const [shareFallback, setShareFallback] = useState<string | null>(null);
   const [saveFallback, setSaveFallback] = useState<string | null>(null);
+  const { resolvedTheme } = useAppTheme();
 
   useEffect(() => {
     clientPortalRequest<CompletionCard>(
@@ -1217,7 +1216,7 @@ export function CompletionCardScreen({
 
     setSaveFallback(null);
 
-    const svg = buildCompletionCardSvg(data);
+    const svg = buildCompletionCardSvg(data, resolvedTheme === "dark");
     const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
 
@@ -1271,7 +1270,7 @@ export function CompletionCardScreen({
                 Compartir
               </button>
               <button
-                className="flex h-12 items-center justify-center gap-2 rounded-full border border-[#cacacb] bg-white px-5 text-sm font-bold text-[#111111] transition hover:border-[#707072] hover:bg-[#f5f5f5] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2"
+                className="flex h-12 items-center justify-center gap-2 rounded-full border border-[#cacacb] bg-white px-5 text-sm font-bold text-[#111111] transition hover:border-[#707072] hover:bg-[#f5f5f5] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2 dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]"
                 onClick={() => void saveCompletionImage()}
                 type="button"
               >
@@ -1312,7 +1311,7 @@ export function CompletionCardScreen({
             Volver al inicio
           </Link>
           <Link
-            className="flex h-14 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-sm font-bold"
+            className="flex h-14 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-sm font-bold text-[#09111f] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8]"
             href={`/c/${encodeURIComponent(token)}/calendar`}
           >
             Ver calendario
@@ -1329,7 +1328,7 @@ function CompletionShareCard({ data }: { data: CompletionCard }) {
   return (
     <article
       aria-label="Card compartible de sesion completada"
-      className="relative w-full overflow-hidden rounded-[28px] border border-[#f2ece7] bg-white px-5 pb-5 pt-6 text-[#071026] shadow-[0_22px_60px_rgba(18,23,34,0.14)]"
+      className="relative w-full overflow-hidden rounded-[28px] border border-[#f2ece7] bg-white px-5 pb-5 pt-6 text-[#071026] shadow-[0_22px_60px_rgba(18,23,34,0.14)] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:shadow-none"
     >
       <div
         className="absolute left-1/2 top-6 h-24 w-32 -translate-x-1/2 text-[var(--portal-accent)]"
@@ -1343,12 +1342,12 @@ function CompletionShareCard({ data }: { data: CompletionCard }) {
       </div>
 
       <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-[var(--portal-accent-soft)]">
-        <div className="flex size-14 items-center justify-center rounded-full bg-[#ffe1d9] text-[var(--portal-accent)]">
+        <div className="flex size-14 items-center justify-center rounded-full bg-[#ffe1d9] text-[var(--portal-accent)] dark:bg-[var(--portal-accent-soft)]">
           <Check className="size-8 stroke-[3]" />
         </div>
       </div>
 
-      <h2 className="mt-4 text-center text-[2rem] font-black leading-none text-[#071026]">
+      <h2 className="mt-4 text-center text-[2rem] font-black leading-none text-[#071026] dark:text-[#f4f6f8]">
         Sesion completada
       </h2>
 
@@ -1358,7 +1357,7 @@ function CompletionShareCard({ data }: { data: CompletionCard }) {
         <span className="h-px w-10 bg-[var(--portal-accent)]/55" />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-[22px] border border-[#ece7e3] bg-white shadow-[0_12px_32px_rgba(7,16,38,0.08)]">
+      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-[22px] border border-[#ece7e3] bg-white shadow-[0_12px_32px_rgba(7,16,38,0.08)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none">
         <CompletionStoryMetric
           caption="completados"
           icon={<Dumbbell className="size-7 text-[var(--portal-accent)]" />}
@@ -1388,7 +1387,7 @@ function CompletionShareCard({ data }: { data: CompletionCard }) {
 
       <div className="mt-5 flex items-center gap-4 text-[var(--portal-accent)]">
         <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
-        <span className="rounded-full border border-[#f4c8bd] bg-[var(--portal-accent-soft)] px-6 py-2 text-sm font-black">
+        <span className="rounded-full border border-[#f4c8bd] bg-[var(--portal-accent-soft)] px-6 py-2 text-sm font-black dark:border-[#5d5124]">
           #CoraFit
         </span>
         <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
@@ -1411,21 +1410,21 @@ function CompletionStoryMetric({
   valueClassName?: string;
 }) {
   return (
-    <div className="flex min-h-20 items-center gap-3 border-b border-r border-[#ece7e3] p-3 last:border-r-0 [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0">
-      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff0ec]">
+    <div className="flex min-h-20 items-center gap-3 border-b border-r border-[#ece7e3] p-3 last:border-r-0 dark:border-[#3a4354] [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0">
+      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff0ec] dark:bg-[var(--portal-accent-soft)]">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-[#667080]">{label}</p>
+        <p className="text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{label}</p>
         <p
           className={cn(
-            "mt-1 break-words text-2xl font-black leading-none text-[#071026]",
+            "mt-1 break-words text-2xl font-black leading-none text-[#071026] dark:text-[#f4f6f8]",
             valueClassName,
           )}
         >
           {value}
         </p>
-        <p className="mt-1 text-xs font-semibold text-[#667080]">{caption}</p>
+        <p className="mt-1 text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{caption}</p>
       </div>
     </div>
   );
@@ -2608,14 +2607,14 @@ function SessionProgressPanel({
 
   return (
     <aside className="hidden lg:sticky lg:top-8 lg:block">
-      <div className="rounded-xl border border-[#ece7e3] bg-white p-5 shadow-sm">
-        <p className="text-sm font-bold text-[#667080]">Progreso actual</p>
+      <div className="rounded-xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+        <p className="text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">Progreso actual</p>
         <div className="mt-3 flex items-end justify-between gap-4">
           <div>
-            <p className="text-3xl font-bold text-[#09111f]">
+            <p className="text-3xl font-bold text-[#09111f] dark:text-[#f4f6f8]">
               {completedCount}/{total}
             </p>
-            <p className="mt-1 text-sm font-medium text-[#667080]">
+            <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
               ejercicios completados
             </p>
           </div>
@@ -2623,13 +2622,13 @@ function SessionProgressPanel({
             {Math.round(progress)}%
           </span>
         </div>
-        <div className="mt-5 h-2 rounded-full bg-[#f0eeee]">
+        <div className="mt-5 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
           <div
             className="h-2 rounded-full bg-[var(--portal-accent)]"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="mt-4 text-sm font-medium text-[#667080]">
+        <p className="mt-4 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
           {readOnly
             ? "Vista previa de la sesion programada."
             : pendingCount > 0
@@ -2648,7 +2647,7 @@ function SessionProgressPanel({
             className={cn(
               "flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60",
               readOnly
-                ? "bg-[#ece7e3] text-[#667080] shadow-none"
+                ? "bg-[#ece7e3] text-[#667080] shadow-none dark:bg-[#242b36] dark:text-[#c7cfdb]"
                 : "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
             )}
             disabled={finalizing || readOnly}
@@ -2691,7 +2690,7 @@ function SessionExerciseListCard({
   onOpen: () => void;
 }) {
   return (
-    <article className="flex min-h-24 items-center gap-4 rounded-xl border border-[#d8d1ca] bg-white p-4 shadow-sm transition hover:border-[#c9cdd3]">
+    <article className="flex min-h-24 items-center gap-4 rounded-xl border border-[#d8d1ca] bg-white p-4 shadow-sm transition hover:border-[#c9cdd3] dark:border-[#293140] dark:bg-[#121722] dark:hover:border-[#3a4354]">
       <button
         className="flex min-w-0 flex-1 items-center gap-4 text-left"
         onClick={onOpen}
@@ -2708,26 +2707,26 @@ function SessionExerciseListCard({
           {completed ? <Check className="size-4" /> : index + 1}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-extrabold text-[#09111f]">
+          <h3 className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
             {exercise.exercise.name}
           </h3>
-          <p className="mt-2 text-sm font-bold text-[#667080]">
+          <p className="mt-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
             {exercise.sets ?? "-"} series x {exercise.reps} reps
           </p>
-          <p className="mt-1 text-sm font-bold text-[#667080]">
+          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
             {exercise.restSeconds ?? "-"} seg descanso
           </p>
         </div>
       </button>
       {readOnly ? (
-        <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080]">
+        <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]">
           Lectura
         </div>
       ) : (
         <button
           aria-label="Completar ejercicio"
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#8b929d] bg-white text-[#09111f]",
+            "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#8b929d] bg-white text-[#09111f] dark:border-[#5f6a7b] dark:bg-[#0d1016] dark:text-[#f4f6f8]",
             completed &&
               "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
           )}
@@ -2791,17 +2790,17 @@ function ClientExerciseDetailView({
       <div className="flex items-center justify-between gap-3">
         <button
           aria-label="Volver"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]"
           onClick={onBack}
           type="button"
         >
           <ArrowLeft className="size-5" />
         </button>
         <div className="min-w-0 text-center">
-          <p className="truncate text-base font-extrabold text-[#09111f]">
+          <p className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
             Detalle del ejercicio
           </p>
-          <p className="mt-1 text-xs font-bold text-[#8b929d]">
+          <p className="mt-1 text-xs font-bold text-[#8b929d] dark:text-[#c7cfdb]">
             Sesion cliente
           </p>
         </div>
@@ -2810,14 +2809,14 @@ function ClientExerciseDetailView({
 
       <div className="mt-7">
         <div className="flex items-center justify-between gap-4 text-sm font-bold">
-          <span className="text-[#09111f]">
+          <span className="text-[#09111f] dark:text-[#f4f6f8]">
             Ejercicio {index + 1} de {total}
           </span>
-          <span className="text-[#4e5968]">
+          <span className="text-[#4e5968] dark:text-[#c7cfdb]">
             {Math.round(progress)}% completado
           </span>
         </div>
-        <div className="mt-3 h-2 rounded-full bg-[#eceff2]">
+        <div className="mt-3 h-2 rounded-full bg-[#eceff2] dark:bg-[#242b36]">
           <div
             className="h-2 rounded-full bg-[var(--portal-accent)]"
             style={{ width: `${progress}%` }}
@@ -2826,7 +2825,7 @@ function ClientExerciseDetailView({
       </div>
 
       <div className="mt-8 flex items-end justify-between gap-4">
-        <h1 className="min-w-0 text-4xl font-black leading-tight tracking-normal text-[#09111f] md:text-5xl">
+        <h1 className="min-w-0 text-4xl font-black leading-tight tracking-normal text-[#09111f] dark:text-[#f4f6f8] md:text-5xl">
           {exercise.exercise.name}
         </h1>
       </div>
@@ -2870,7 +2869,7 @@ function ClientExerciseDetailView({
 
       <div className="mt-6 hidden items-center justify-between gap-3 lg:flex">
         <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50"
+          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
           disabled={index === 0}
           onClick={onPrevious}
           type="button"
@@ -2878,7 +2877,7 @@ function ClientExerciseDetailView({
           <ChevronLeft className="size-4" /> Anterior
         </button>
         <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50"
+          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
           disabled={index >= total - 1}
           onClick={onNext}
           type="button"
@@ -2887,10 +2886,10 @@ function ClientExerciseDetailView({
         </button>
       </div>
 
-      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-[#ece7e3] bg-white/95 px-5 py-4 backdrop-blur lg:hidden">
+      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-[#ece7e3] bg-white/95 px-5 py-4 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
         {readOnly ? (
           <button
-            className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080]"
+            className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
             disabled
             type="button"
           >
@@ -2924,7 +2923,7 @@ function ClientExerciseDetailView({
         {!readOnly ? (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#ece7e3] text-xs font-bold text-[#4e5968]"
+              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#ece7e3] text-xs font-bold text-[#4e5968] dark:border-[#3a4354] dark:text-[#c7cfdb]"
               onClick={onSave}
               type="button"
             >
@@ -2953,10 +2952,10 @@ function ExerciseMediaHero({
 
   if (!exercise.mediaUrl && !exercise.videoUrl) {
     return (
-      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
+      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#121722]">
         <div>
-          <FileText className="mx-auto size-8 text-[#8b929d]" />
-          <p className="mt-3 text-sm font-bold text-[#4e5968]">
+          <FileText className="mx-auto size-8 text-[#8b929d] dark:text-[#c7cfdb]" />
+          <p className="mt-3 text-sm font-bold text-[#4e5968] dark:text-[#c7cfdb]">
             Sin demostracion adjunta
           </p>
         </div>
@@ -2968,7 +2967,7 @@ function ExerciseMediaHero({
     return (
       <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-[#ece7e3] bg-[#121722] p-5 text-white shadow-sm">
         <a
-          className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f]"
+          className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f] dark:bg-[#f4f6f8] dark:text-[#09111f]"
           href={exercise.videoUrl}
           rel="noreferrer"
           target="_blank"
@@ -2989,7 +2988,7 @@ function ExerciseMediaHero({
   return (
     <div className="mt-5">
       <button
-        className="relative block aspect-[16/10] min-h-56 w-full overflow-hidden rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] shadow-sm"
+        className="relative block aspect-[16/10] min-h-56 w-full overflow-hidden rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] shadow-sm dark:border-[#293140] dark:bg-[#121722]"
         type="button"
         aria-label={`Ampliar imagen de ${exercise.name}`}
         onClick={() => setIsImageOpen(true)}
@@ -3005,7 +3004,7 @@ function ExerciseMediaHero({
       </button>
       {exercise.videoUrl ? (
         <a
-          className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f]"
+          className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f] dark:border-[#3a4354] dark:bg-[#121722] dark:text-[#f4f6f8]"
           href={exercise.videoUrl}
           rel="noreferrer"
           target="_blank"
@@ -3023,7 +3022,7 @@ function ExerciseMediaHero({
           onClick={() => setIsImageOpen(false)}
         >
           <button
-            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] shadow-lg"
+            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] shadow-lg dark:bg-[#f4f6f8]"
             type="button"
             aria-label="Cerrar imagen"
             onClick={(event) => {
@@ -3078,14 +3077,14 @@ function ExerciseMetricGrid({ exercise }: { exercise: ClientSessionExercise }) {
         const Icon = metric.icon;
         return (
           <div
-            className="min-h-28 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm"
+            className="min-h-28 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]"
             key={metric.label}
           >
             <Icon className="size-6 text-[var(--portal-accent)]" />
-            <p className="mt-3 text-xs font-bold leading-4 text-[#667080]">
+            <p className="mt-3 text-xs font-bold leading-4 text-[#667080] dark:text-[#c7cfdb]">
               {metric.label}
             </p>
-            <p className="mt-1 text-base font-extrabold text-[#09111f]">
+            <p className="mt-1 text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
               {metric.value}
             </p>
           </div>
@@ -3109,17 +3108,17 @@ function ExerciseInfoCard({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
       <button
         className="flex w-full items-center gap-3 text-left"
         onClick={() => setExpanded((current) => !current)}
         type="button"
       >
         <span className="text-[var(--portal-accent)]">{icon}</span>
-        <h2 className="text-xl font-extrabold text-[#09111f]">{title}</h2>
+        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">{title}</h2>
         <ChevronDown
           className={cn(
-            "ml-auto size-5 text-[#667080] transition",
+            "ml-auto size-5 text-[#667080] transition dark:text-[#c7cfdb]",
             !expanded && "-rotate-90",
           )}
         />
@@ -3128,7 +3127,7 @@ function ExerciseInfoCard({
         <p
           className={cn(
             "mt-3 whitespace-pre-line text-base leading-7",
-            muted ? "text-[#8b929d]" : "text-[#4e5968]",
+            muted ? "text-[#8b929d] dark:text-[#8893a3]" : "text-[#4e5968] dark:text-[#d6dbe3]",
           )}
         >
           {value}
@@ -3162,27 +3161,27 @@ function AlternativeSuggestion({
   );
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
       <div className="flex items-center gap-3">
         <RotateCcw className="size-7 text-[var(--portal-accent)]" />
-        <h2 className="text-xl font-extrabold text-[#09111f]">
+        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
           Alternativa sugerida
         </h2>
       </div>
-      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-[0_8px_22px_rgba(18,23,34,0.06)] sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-[0_8px_22px_rgba(18,23,34,0.06)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none sm:grid-cols-[9.5rem_minmax(0,1fr)]">
         <AlternativeMediaPreview alternative={alternative} />
-        <div className="min-w-0 rounded-xl border border-[#f0eeee] bg-white p-3">
+        <div className="min-w-0 rounded-xl border border-[#f0eeee] bg-white p-3 dark:border-[#293140] dark:bg-[#121722]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-lg font-extrabold leading-snug text-[#09111f]">
+              <h3 className="text-lg font-extrabold leading-snug text-[#09111f] dark:text-[#f4f6f8]">
                 {alternative.exercise.name}
               </h3>
               {alternative.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#667080]">
+                <p className="mt-1 text-sm leading-6 text-[#667080] dark:text-[#c7cfdb]">
                   {alternative.note}
                 </p>
               ) : null}
-              <p className="mt-2 text-sm font-semibold text-[#667080]">
+              <p className="mt-2 text-sm font-semibold text-[#667080] dark:text-[#c7cfdb]">
                 {exercise.sets ?? "-"} series x {exercise.reps} reps ·{" "}
                 {exercise.restSeconds ?? "-"} seg descanso
               </p>
@@ -3196,7 +3195,7 @@ function AlternativeSuggestion({
           <div className="mt-4 grid grid-cols-2 gap-3">
             {alternative.exercise.videoUrl ? (
               <a
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm"
+                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
                 href={alternative.exercise.videoUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -3205,7 +3204,7 @@ function AlternativeSuggestion({
               </a>
             ) : canView ? (
               <button
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm"
+                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
                 onClick={() => setShowDetails((current) => !current)}
                 type="button"
               >
@@ -3224,7 +3223,7 @@ function AlternativeSuggestion({
             ) : null}
           </div>
           {showDetails && alternative.exercise.instructions ? (
-            <p className="mt-4 whitespace-pre-line rounded-xl bg-[#f7f4f1] p-4 text-sm leading-6 text-[#4e5968]">
+            <p className="mt-4 whitespace-pre-line rounded-xl bg-[#f7f4f1] p-4 text-sm leading-6 text-[#4e5968] dark:bg-[#0d1016] dark:text-[#d6dbe3]">
               {alternative.exercise.instructions}
             </p>
           ) : null}
@@ -3241,10 +3240,10 @@ function AlternativeMediaPreview({
 }) {
   if (!alternative.exercise.mediaUrl && !alternative.exercise.videoUrl) {
     return (
-      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center">
+      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#0d1016]">
         <div className="px-3">
-          <FileText className="mx-auto size-6 text-[#8b929d]" />
-          <p className="mt-2 text-xs font-bold leading-5 text-[#667080]">
+          <FileText className="mx-auto size-6 text-[#8b929d] dark:text-[#c7cfdb]" />
+          <p className="mt-2 text-xs font-bold leading-5 text-[#667080] dark:text-[#c7cfdb]">
             Sin demostracion adjunta
           </p>
         </div>
@@ -3293,10 +3292,10 @@ function ExerciseMiniNavigation({
 
   return (
     <nav
-      className="mt-6 hidden rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm lg:block"
+      className="mt-6 hidden rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:block"
       aria-label="Ejercicios de la sesion"
     >
-      <p className="px-2 pb-2 text-xs font-bold uppercase text-[#8b929d]">
+      <p className="px-2 pb-2 text-xs font-bold uppercase text-[#8b929d] dark:text-[#c7cfdb]">
         {readOnly ? "Vista previa" : "Ejercicios"}
       </p>
       <div className="space-y-2">
@@ -3309,7 +3308,7 @@ function ExerciseMiniNavigation({
                 "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
                 isActive
                   ? "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]"
-                  : "text-[#4e5968] hover:bg-[#f7f4f1]",
+                  : "text-[#4e5968] hover:bg-[#f7f4f1] dark:text-[#c7cfdb] dark:hover:bg-[#1a202b]",
               )}
               key={exercise.sessionExerciseId}
               onClick={() => onSelect(itemIndex)}
@@ -3320,7 +3319,7 @@ function ExerciseMiniNavigation({
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-xs",
                   isCompleted
                     ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]"
-                    : "bg-[#eceff2] text-[#667080]",
+                    : "bg-[#eceff2] text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]",
                 )}
               >
                 {isCompleted ? <Check className="size-4" /> : itemIndex + 1}
@@ -3404,6 +3403,18 @@ function TopBar({ title, backHref }: { title: string; backHref: string }) {
         <MoreHorizontal className="size-6" />
       </button>
     </header>
+  );
+}
+
+function SessionBackLink({ href }: { href: string }) {
+  return (
+    <Link
+      className="inline-flex size-11 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]"
+      href={href}
+      aria-label="Volver"
+    >
+      <ArrowLeft className="size-5" />
+    </Link>
   );
 }
 
@@ -3554,7 +3565,7 @@ function formatCompletionDateParts(date: string) {
   };
 }
 
-function buildCompletionCardSvg(data: CompletionCard) {
+function buildCompletionCardSvg(data: CompletionCard, dark = false) {
   const sessionName = escapeSvgText(truncateText(data.sessionName, 34));
   const dateParts = formatCompletionDateParts(data.scheduledDate);
   const dateDayMonth = escapeSvgText(dateParts.dayMonth);
@@ -3562,52 +3573,80 @@ function buildCompletionCardSvg(data: CompletionCard) {
   const completed = escapeSvgText(String(data.completedExercises));
   const total = escapeSvgText(String(data.totalExercises));
   const streak = escapeSvgText(String(data.streak));
+  const colors = dark
+    ? {
+        background: "#090d13",
+        card: "#121722",
+        cardStroke: "#2b3342",
+        grid: "#0d1016",
+        gridStroke: "#3a4354",
+        accent: "#F0C947",
+        accentSoft: "#2b2818",
+        accentSofter: "#3a341d",
+        text: "#f4f6f8",
+        muted: "#c7cfdb",
+        pillStroke: "#5d5124",
+      }
+    : {
+        background: "transparent",
+        card: "#ffffff",
+        cardStroke: "#f2ece7",
+        grid: "#ffffff",
+        gridStroke: "#ece7e3",
+        accent: "#df4d3e",
+        accentSoft: "#fff1ee",
+        accentSofter: "#ffe1d9",
+        text: "#071026",
+        muted: "#667080",
+        pillStroke: "#f4c8bd",
+      };
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1360" viewBox="0 0 1080 1360" role="img" aria-label="CoraFit sesion completada">
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#000000" flood-opacity="0.34"/></filter>
   </defs>
-  <rect x="24" y="24" width="1032" height="1312" rx="86" fill="#ffffff" stroke="#f2ece7" stroke-width="2" filter="url(#shadow)"/>
-  <line x1="540" y1="80" x2="540" y2="155" stroke="#df4d3e" stroke-width="2" opacity="0.65"/>
-  <line x1="430" y1="125" x2="380" y2="75" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
-  <line x1="650" y1="125" x2="700" y2="75" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
-  <line x1="300" y1="245" x2="405" y2="245" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
-  <line x1="675" y1="245" x2="780" y2="245" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
-  <circle cx="540" cy="205" r="105" fill="#fff1ee"/>
-  <circle cx="540" cy="205" r="72" fill="#ffe1d9"/>
-  <path d="M493 205 L526 238 L596 154" fill="none" stroke="#df4d3e" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="540" y="445" fill="#071026" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="84" font-weight="900" text-anchor="middle">Sesion completada</text>
-  <line x1="285" y1="525" x2="405" y2="525" stroke="#df4d3e" stroke-width="3" opacity="0.65"/>
-  <text x="540" y="542" fill="#df4d3e" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="900" text-anchor="middle">${sessionName}</text>
-  <line x1="675" y1="525" x2="795" y2="525" stroke="#df4d3e" stroke-width="3" opacity="0.65"/>
-  <rect x="90" y="630" width="900" height="420" rx="40" fill="#ffffff" stroke="#ece7e3" stroke-width="2"/>
-  <line x1="540" y1="630" x2="540" y2="1050" stroke="#ece7e3" stroke-width="2"/>
-  <line x1="90" y1="840" x2="990" y2="840" stroke="#ece7e3" stroke-width="2"/>
-  <circle cx="205" cy="735" r="55" fill="#fff0ec"/>
-  <path d="M168 735 H182 M228 735 H242 M182 720 V750 M196 712 V758 M214 712 V758 M228 720 V750 M196 735 H214" fill="none" stroke="#df4d3e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="710" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Ejercicios</text>
-  <text x="320" y="780" fill="#071026" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${completed}/${total}</text>
-  <text x="320" y="830" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completados</text>
-  <circle cx="655" cy="735" r="55" fill="#fff1ee"/>
-  <path d="M630 752 L650 732 L666 746 L690 720 M670 720 H690 V740" fill="none" stroke="#df4d3e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="770" y="710" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Avance</text>
-  <text x="770" y="780" fill="#071026" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${percentage}%</text>
-  <text x="770" y="830" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completado</text>
-  <circle cx="205" cy="945" r="55" fill="#fff0ec"/>
-  <path d="M207 980 C185 976 174 959 179 941 C183 925 196 918 197 899 C214 912 221 924 218 938 C225 933 230 926 231 917 C245 933 250 949 244 963 C237 978 222 984 207 980 Z" fill="none" stroke="#df4d3e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="920" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Racha</text>
-  <text x="320" y="990" fill="#071026" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${streak}</text>
-  <text x="320" y="1040" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">dias</text>
-  <circle cx="655" cy="945" r="55" fill="#fff0ec"/>
-  <rect x="625" y="918" width="60" height="62" rx="10" fill="none" stroke="#df4d3e" stroke-width="8"/>
-  <path d="M625 938 H685 M640 906 V928 M670 906 V928" fill="none" stroke="#df4d3e" stroke-width="8" stroke-linecap="round"/>
-  <text x="770" y="920" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Fecha</text>
-  <text x="770" y="990" fill="#071026" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="48" font-weight="900">${dateDayMonth}</text>
-  <text x="770" y="1040" fill="#667080" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">registrado</text>
-  <line x1="90" y1="1190" x2="350" y2="1190" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
-  <rect x="390" y="1147" width="300" height="86" rx="43" fill="#fff1ee" stroke="#f4c8bd"/>
-  <text x="540" y="1203" fill="#df4d3e" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" text-anchor="middle">#CoraFit</text>
-  <line x1="730" y1="1190" x2="990" y2="1190" stroke="#df4d3e" stroke-width="2" opacity="0.55"/>
+  <rect width="1080" height="1360" fill="${colors.background}"/>
+  <rect x="24" y="24" width="1032" height="1312" rx="86" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2" filter="url(#shadow)"/>
+  <line x1="540" y1="80" x2="540" y2="155" stroke="${colors.accent}" stroke-width="2" opacity="0.65"/>
+  <line x1="430" y1="125" x2="380" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
+  <line x1="650" y1="125" x2="700" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
+  <line x1="300" y1="245" x2="405" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
+  <line x1="675" y1="245" x2="780" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
+  <circle cx="540" cy="205" r="105" fill="${colors.accentSoft}"/>
+  <circle cx="540" cy="205" r="72" fill="${colors.accentSofter}"/>
+  <path d="M493 205 L526 238 L596 154" fill="none" stroke="${colors.accent}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="540" y="445" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="84" font-weight="900" text-anchor="middle">Sesion completada</text>
+  <line x1="285" y1="525" x2="405" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
+  <text x="540" y="542" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="900" text-anchor="middle">${sessionName}</text>
+  <line x1="675" y1="525" x2="795" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
+  <rect x="90" y="630" width="900" height="420" rx="40" fill="${colors.grid}" stroke="${colors.gridStroke}" stroke-width="2"/>
+  <line x1="540" y1="630" x2="540" y2="1050" stroke="${colors.gridStroke}" stroke-width="2"/>
+  <line x1="90" y1="840" x2="990" y2="840" stroke="${colors.gridStroke}" stroke-width="2"/>
+  <circle cx="205" cy="735" r="55" fill="${colors.accentSoft}"/>
+  <path d="M168 735 H182 M228 735 H242 M182 720 V750 M196 712 V758 M214 712 V758 M228 720 V750 M196 735 H214" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="320" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Ejercicios</text>
+  <text x="320" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${completed}/${total}</text>
+  <text x="320" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completados</text>
+  <circle cx="655" cy="735" r="55" fill="${colors.accentSoft}"/>
+  <path d="M630 752 L650 732 L666 746 L690 720 M670 720 H690 V740" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="770" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Avance</text>
+  <text x="770" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${percentage}%</text>
+  <text x="770" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completado</text>
+  <circle cx="205" cy="945" r="55" fill="${colors.accentSoft}"/>
+  <path d="M207 980 C185 976 174 959 179 941 C183 925 196 918 197 899 C214 912 221 924 218 938 C225 933 230 926 231 917 C245 933 250 949 244 963 C237 978 222 984 207 980 Z" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="320" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Racha</text>
+  <text x="320" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${streak}</text>
+  <text x="320" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">dias</text>
+  <circle cx="655" cy="945" r="55" fill="${colors.accentSoft}"/>
+  <rect x="625" y="918" width="60" height="62" rx="10" fill="none" stroke="${colors.accent}" stroke-width="8"/>
+  <path d="M625 938 H685 M640 906 V928 M670 906 V928" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round"/>
+  <text x="770" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Fecha</text>
+  <text x="770" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="48" font-weight="900">${dateDayMonth}</text>
+  <text x="770" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">registrado</text>
+  <line x1="90" y1="1190" x2="350" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
+  <rect x="390" y="1147" width="300" height="86" rx="43" fill="${colors.accentSoft}" stroke="${colors.pillStroke}"/>
+  <text x="540" y="1203" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" text-anchor="middle">#CoraFit</text>
+  <line x1="730" y1="1190" x2="990" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
 </svg>`;
 }
 

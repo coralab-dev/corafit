@@ -59,9 +59,20 @@ function applyTheme(theme: Theme, resolvedTheme: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>("light");
+  const [hasMounted, setHasMounted] = useState(false);
   const resolvedTheme = theme === "system" ? systemTheme : theme;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setThemeState(getStoredTheme());
+      setSystemTheme(getSystemTheme());
+      setHasMounted(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -77,8 +88,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!hasMounted) {
+      return;
+    }
+
     applyTheme(theme, resolvedTheme);
-  }, [resolvedTheme, theme]);
+  }, [hasMounted, resolvedTheme, theme]);
 
   const setTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme);

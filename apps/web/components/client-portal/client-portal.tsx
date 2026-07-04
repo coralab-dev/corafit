@@ -3575,7 +3575,6 @@ function buildCompletionCardSvg(data: CompletionCard, dark = false) {
   const streak = escapeSvgText(String(data.streak));
   const colors = dark
     ? {
-        background: "#090d13",
         card: "#121722",
         cardStroke: "#2b3342",
         grid: "#0d1016",
@@ -3588,7 +3587,6 @@ function buildCompletionCardSvg(data: CompletionCard, dark = false) {
         pillStroke: "#5d5124",
       }
     : {
-        background: "transparent",
         card: "#ffffff",
         cardStroke: "#f2ece7",
         grid: "#ffffff",
@@ -3605,7 +3603,6 @@ function buildCompletionCardSvg(data: CompletionCard, dark = false) {
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#000000" flood-opacity="0.34"/></filter>
   </defs>
-  <rect width="1080" height="1360" fill="${colors.background}"/>
   <rect x="24" y="24" width="1032" height="1312" rx="86" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2" filter="url(#shadow)"/>
   <line x1="540" y1="80" x2="540" y2="155" stroke="${colors.accent}" stroke-width="2" opacity="0.65"/>
   <line x1="430" y1="125" x2="380" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>

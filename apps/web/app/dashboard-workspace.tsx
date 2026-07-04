@@ -137,8 +137,8 @@ export function DashboardWorkspace() {
                   {
                     helper:
                       stats.summary.activeClients === 0
-                        ? "Aún no hay clientes activos."
-                        : "Clientes en seguimiento.",
+                        ? "Sin clientes activos."
+                        : "En seguimiento.",
                     icon: <UsersIcon className="size-4" />,
                     label: "Clientes activos",
                     value: stats.summary.activeClients,
@@ -146,17 +146,17 @@ export function DashboardWorkspace() {
                   {
                     helper:
                       stats.summary.clientsWithoutPlan === 0
-                        ? "Todos los clientes activos tienen plan."
-                        : "Necesitan plan asignado.",
+                        ? "Todos iniciados."
+                        : "Nunca tuvieron plan.",
                     icon: <CheckCircle2Icon className="size-4" />,
-                    label: "Sin plan",
+                    label: "Sin plan inicial",
                     tone: "amber",
                     value: stats.summary.clientsWithoutPlan,
                   },
                   {
                     helper:
                       stats.summary.clientsAtRisk === 0
-                        ? "Sin alertas de riesgo esta semana."
+                        ? "Sin alertas."
                         : "Requieren revisión.",
                     icon: <AlertTriangleIcon className="size-4" />,
                     label: "En riesgo",
@@ -166,8 +166,8 @@ export function DashboardWorkspace() {
                   {
                     helper:
                       stats.summary.clientsWithoutActivity === 0
-                        ? "Sin clientes detenidos."
-                        : "Sin sesiones completadas en 14 días.",
+                        ? "Sin detenidos."
+                        : "14 días sin completar.",
                     icon: <CircleIcon className="size-4" />,
                     label: "Sin actividad",
                     tone: "amber",
@@ -194,7 +194,7 @@ export function DashboardWorkspace() {
 
               <WorkspacePanel title="Sesiones completadas esta semana">
                 <div className="flex items-center gap-3 p-4">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <CalendarCheckIcon className="size-5" />
                   </div>
                   <div>
@@ -208,7 +208,7 @@ export function DashboardWorkspace() {
 
               <WorkspacePanel
                 title="Requieren seguimiento"
-                description="Clientes que necesitan una acción clara."
+                description="Incluye planes finalizados, pausas de actividad y clientes sin plan inicial."
               >
                 {stats.attention.length > 0 ? (
                   <div className="divide-y">
@@ -270,11 +270,14 @@ export function DashboardWorkspace() {
           side={
             <div className="p-5">
               {onboarding ? (
-                <WorkspacePanel title="Resumen onboarding">
+                <WorkspacePanel
+                  title="Configuración inicial"
+                  description="Conteo general; sin plan activo incluye planes finalizados."
+                >
                   <div className="grid grid-cols-2 gap-3 p-4 text-sm">
                     <SmallStat label="Clientes" value={onboarding.totalClients} />
                     <SmallStat label="Planes" value={onboarding.totalPlans} />
-                    <SmallStat label="Sin plan" value={onboarding.clientsWithoutPlan} />
+                    <SmallStat label="Sin plan activo" value={onboarding.clientsWithoutPlan} />
                     <SmallStat label="Con acceso" value={onboarding.clientsWithAccess} />
                   </div>
                 </WorkspacePanel>
@@ -374,7 +377,9 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium">{item.name}</p>
-          <Badge variant="outline">{attentionLabels[item.status]}</Badge>
+          <Badge className="bg-muted text-[11px] font-semibold uppercase tracking-normal" variant="outline">
+            {attentionLabels[item.status]}
+          </Badge>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {attentionReasons[item.status] ?? item.reason}

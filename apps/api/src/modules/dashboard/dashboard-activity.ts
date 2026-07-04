@@ -194,9 +194,10 @@ export function classifyClientActivity(
       assignment.status === ClientTrainingPlanAssignmentStatus.finished,
   );
   const assignment = activeAssignment ?? finishedAssignment ?? null;
-  const lastCompletedSessionAt = getLastCompletedSession(client.sessionLogs);
 
   if (!assignment) {
+    const lastCompletedSessionAt = getLastCompletedSession(client.sessionLogs);
+
     return {
       status: 'without_plan',
       reason: 'Client does not have an active training plan.',
@@ -209,6 +210,10 @@ export function classifyClientActivity(
   }
 
   const currentPlan = toCurrentPlan(assignment);
+  const assignmentLogs = client.sessionLogs.filter(
+    (log) => log.assignmentId === assignment.id,
+  );
+  const lastCompletedSessionAt = getLastCompletedSession(assignmentLogs);
 
   if (assignment.status === ClientTrainingPlanAssignmentStatus.finished) {
     return {
@@ -251,7 +256,7 @@ export function classifyClientActivity(
     };
   }
 
-  if (hasCompletedActivityInRange(client.sessionLogs, context.last7StartKey, context.todayKey)) {
+  if (hasCompletedActivityInRange(assignmentLogs, context.last7StartKey, context.todayKey)) {
     return {
       status: 'up_to_date',
       reason: 'Client completed activity in the last 7 days.',
@@ -277,7 +282,7 @@ export function classifyClientActivity(
   if (
     expectedLast14.length > 0 &&
     !hasCompletedActivityInRange(
-      client.sessionLogs,
+      assignmentLogs,
       context.last14StartKey,
       context.todayKey,
     )

@@ -349,6 +349,69 @@ describe('DashboardService', () => {
       expect(result.summary.clientsUpToDate).toBe(0);
     });
 
+    it('does not use old assignment completions to mark the active assignment up to date', async () => {
+      prisma.client.findMany.mockResolvedValue([
+        createClient({
+          planAssignments: [
+            createAssignment({
+              id: 'assignment-active',
+              assignedPlanId: 'assigned-plan-active',
+            }),
+          ],
+          sessionLogs: [
+            createLog({
+              assignmentId: 'assignment-old',
+              scheduledDate: new Date('2026-05-19T00:00:00.000Z'),
+              completedAt: new Date('2026-05-19T15:00:00.000Z'),
+            }),
+          ],
+        }),
+      ]);
+
+      const result = await service.getCoachDashboard(mockMember);
+
+      expect(result.summary.clientsUpToDate).toBe(0);
+      expect(result.summary.clientsWithoutActivity).toBe(1);
+      expect(result.attention[0]).toMatchObject({
+        status: 'without_activity',
+        currentPlan: {
+          assignmentId: 'assignment-active',
+        },
+      });
+    });
+
+    it('uses current assignment logs for lastCompletedSessionAt', async () => {
+      prisma.client.findMany.mockResolvedValue([
+        createClient({
+          planAssignments: [
+            createAssignment({
+              id: 'assignment-active',
+              assignedPlanId: 'assigned-plan-active',
+            }),
+          ],
+          sessionLogs: [
+            createLog({
+              assignmentId: 'assignment-active',
+              scheduledDate: new Date('2026-05-12T00:00:00.000Z'),
+              completedAt: new Date('2026-05-12T15:00:00.000Z'),
+            }),
+            createLog({
+              assignmentId: 'assignment-old',
+              scheduledDate: new Date('2026-05-19T00:00:00.000Z'),
+              completedAt: new Date('2026-05-19T15:00:00.000Z'),
+            }),
+          ],
+        }),
+      ]);
+
+      const result = await service.getCoachDashboard(mockMember);
+
+      expect(result.attention[0]).toMatchObject({
+        status: 'at_risk',
+        lastCompletedSessionAt: new Date('2026-05-12T15:00:00.000Z'),
+      });
+    });
+
     it('classifies expected sessions in last 7 days with no completion as at_risk', async () => {
       prisma.client.findMany.mockResolvedValue([
         createClient({

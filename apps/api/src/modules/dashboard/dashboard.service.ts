@@ -120,7 +120,7 @@ export class DashboardService {
                 ],
               },
             },
-            orderBy: { updatedAt: 'desc' },
+            orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
             take: 2,
             include: {
               assignedPlan: {

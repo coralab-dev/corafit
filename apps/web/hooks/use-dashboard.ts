@@ -1,6 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
+
+type DashboardAttentionStatus =
+  | "without_plan"
+  | "future_plan"
+  | "plan_finished"
+  | "without_activity"
+  | "at_risk";
+
+export type DashboardAttentionItem = {
+  clientId: string;
+  name: string;
+  status: DashboardAttentionStatus;
+  reason: string;
+  lastCompletedSessionAt: string | null;
+  nextExpectedSessionDate: string | null;
+  currentPlan: {
+    assignmentId: string;
+    assignedPlanId: string;
+    name: string;
+    startDate: string;
+  } | null;
+};
+
+export type DashboardSummary = {
+  activeClients: number;
+  clientsWithoutPlan: number;
+  clientsUpToDate: number;
+  clientsAtRisk: number;
+  clientsWithoutActivity: number;
+  pausedClients: number;
+  inactiveClients: number;
+  sessionsCompletedThisWeek: number;
+};
 
 type OnboardingChecklist = {
   hasCreatedClient: boolean;
@@ -10,114 +45,60 @@ type OnboardingChecklist = {
   hasPreviewedPortal: boolean;
 };
 
-export type DashboardStats = {
-  totalClients: number;
-  totalPlans: number;
-  clientsWithPlan: number;
-  clientsWithoutPlan: number;
-  clientsWithAccess: number;
-  checklist: OnboardingChecklist;
-};
-
-type ApiConfig = {
-  apiUrl: string;
-  bearerToken: string;
-  organizationId: string;
-};
-
-const apiConfigStorageKey = "corafit_api_config";
-const fallbackApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-function getApiConfig(): ApiConfig {
-  const fallback = {
-    apiUrl: fallbackApiUrl,
-    bearerToken: "",
-    organizationId: "",
+export type CoachDashboardResponse = {
+  timezone: string;
+  generatedAt: string;
+  summary: DashboardSummary;
+  attention: DashboardAttentionItem[];
+  onboarding: {
+    totalClients: number;
+    totalPlans: number;
+    clientsWithPlan: number;
+    clientsWithoutPlan: number;
+    clientsWithAccess: number;
+    checklist: OnboardingChecklist;
   };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  const storedConfig = window.localStorage.getItem(apiConfigStorageKey);
-  if (!storedConfig) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(storedConfig) as Partial<ApiConfig>;
-    return {
-      apiUrl: (parsed.apiUrl ?? fallback.apiUrl).replace(/\/$/, ""),
-      bearerToken: parsed.bearerToken ?? "",
-      organizationId: parsed.organizationId ?? "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-async function apiRequest<T>(
-  path: string,
-  init: RequestInit,
-  config: ApiConfig,
-): Promise<T> {
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(config.bearerToken ? { Authorization: `Bearer ${config.bearerToken}` } : {}),
-      ...(config.organizationId ? { "X-Organization-Id": config.organizationId } : {}),
-      ...init.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `API request failed with ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
+};
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Ocurrio un error inesperado";
+  return error instanceof Error ? error.message : "No pudimos cargar el dashboard.";
 }
 
 export function useDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { profile, session, status: authStatus } = useAuth();
+  const [stats, setStats] = useState<CoachDashboardResponse | null>(null);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState(getApiConfig);
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady =
+    authStatus === "authenticated" &&
+    Boolean(session && organizationId);
+  const isLoading = authStatus === "loading" || isRequestLoading;
 
   const loadStats = useCallback(async () => {
     if (!isApiReady) {
       setStats(null);
-      setError("Configura la conexion al API para ver el dashboard.");
+      setError(authStatus === "loading" ? "" : "Inicia sesión para ver tu dashboard.");
       return;
     }
 
-    setIsLoading(true);
+    setIsRequestLoading(true);
     setError("");
 
     try {
-      const response = await apiRequest<DashboardStats>(
-        "/dashboard/onboarding",
+      const response = await authenticatedRequest<CoachDashboardResponse>(
+        "/dashboard/coach",
         { method: "GET" },
-        apiConfig,
+        { organizationId, session },
       );
       setStats(response);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsRequestLoading(false);
     }
-  }, [apiConfig, isApiReady]);
+  }, [authStatus, isApiReady, organizationId, session]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

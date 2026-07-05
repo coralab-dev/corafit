@@ -3786,12 +3786,12 @@ function errorMessage(caught: unknown, fallback: string) {
 
 function formatPortalLockMessage(lockedUntil?: string | null) {
   if (!lockedUntil) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde.";
+    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
   const parsed = new Date(lockedUntil);
   if (Number.isNaN(parsed.getTime())) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde.";
+    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
   return `Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta despues de las ${parsed.toLocaleTimeString(
@@ -3800,5 +3800,5 @@ function formatPortalLockMessage(lockedUntil?: string | null) {
       hour: "2-digit",
       minute: "2-digit",
     },
-  )}.`;
+  )}. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.`;
 }

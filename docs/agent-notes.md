@@ -16,6 +16,11 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - `packages/shared` is for shared types/constants/validators and must not depend on Next.js or NestJS.
 
 ## Current task state
+- COR-144 audit branch started from `origin/master`: `balamsilva26/cor-144-cor-000-auditoria-total-del-repositorio-antes-de-beta`.
+- Base verification passed on 2026-07-04: api typecheck/lint/test, web typecheck/lint, db typecheck/lint.
+- COR-144 findings: no P0; dashboard validated; `COR-145` and `COR-146` created for legacy `corafit_api_config` in plans/exercises.
+- COR-144 small fixes: billing `usedClients` excludes archived clients; portal PIN lockout copy tells clients to ask coach for regenerated access if they forgot the PIN.
+- COR-144 report was posted as a Linear comment on `COR-144`; next recommended ticket remains `COR-1206`.
 - COR-700 backend base implemented for weight logs and body measurements.
 - Prisma schema now has `ProgressRecordActor`, `WeightLog`, and `BodyMeasurementLog` plus migration `20260605000000_add_progress_weight_measurements`.
 - API routes added under `/progress/clients/:clientId/...` for coach/owner and `/client-portal/:token/progress/...` for client portal.

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import type { OrganizationMember } from 'db';
+import { ClientOperationalStatus, type OrganizationMember } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -28,7 +28,10 @@ export class BillingService {
     }
 
     const usedClients = await this.prismaService.client.count({
-      where: { organizationId: organizationMember.organizationId },
+      where: {
+        organizationId: organizationMember.organizationId,
+        operationalStatus: { not: ClientOperationalStatus.archived },
+      },
     });
 
     return {

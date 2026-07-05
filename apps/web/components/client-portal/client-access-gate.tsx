@@ -133,15 +133,16 @@ function isExpectedMissingSession(caught: unknown) {
 }
 
 function formatLockedDescription(lockedUntil?: string | null) {
-  if (!lockedUntil) return "Por seguridad, intenta nuevamente mas tarde.";
+  const coachHelp = "Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+  if (!lockedUntil) return `Por seguridad, intenta nuevamente mas tarde. ${coachHelp}`;
 
   const date = new Date(lockedUntil);
-  if (Number.isNaN(date.getTime())) return "Por seguridad, intenta nuevamente mas tarde.";
+  if (Number.isNaN(date.getTime())) return `Por seguridad, intenta nuevamente mas tarde. ${coachHelp}`;
 
   return `Intenta nuevamente despues de ${date.toLocaleString("es-MX", {
     dateStyle: "medium",
     timeStyle: "short",
-  })}.`;
+  })}. ${coachHelp}`;
 }
 
 function errorMessage(caught: unknown, fallback: string) {

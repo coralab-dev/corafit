@@ -1,5 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
+  ClientOperationalStatus,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   SubscriptionPlanStatus,
@@ -82,6 +83,12 @@ describe('BillingService', () => {
       where: { organizationId: 'organization-id' },
       include: {
         subscriptionPlan: true,
+      },
+    });
+    expect(prismaService.client.count).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'organization-id',
+        operationalStatus: { not: ClientOperationalStatus.archived },
       },
     });
     expect(result).toMatchObject({

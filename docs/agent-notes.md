@@ -16,6 +16,12 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - `packages/shared` is for shared types/constants/validators and must not depend on Next.js or NestJS.
 
 ## Current task state
+- COR-1206 deploy/env audit started on `master` after COR-144 was integrated at `0974ace`.
+- COR-1206 inventory: web is Vercel project `corafit-web`; latest production deployment `dpl_46AqZoZAH7iv6WdN6pKZTUFKzo29` from `master` commit `0974ace041cf8c61e02da9d3131398ff56fe1e36`; public domains include `https://corafit-web.vercel.app`.
+- COR-1206 inventory: current API is Render, not Railway, per README; public URL `https://corafit-api.onrender.com`; `/health` returned 200 with `{"status":"ok","service":"corafit-api"}`.
+- COR-1206 env evidence: deployed web bundle points to `https://corafit-api.onrender.com` and Supabase project `hlrfvvpuvqblpzyagffk`; no localhost API URL found in fetched home page chunks.
+- COR-1206 CORS evidence: API allows `Origin: https://corafit-web.vercel.app` with matching `Access-Control-Allow-Origin` and credentials; it does not echo `https://evil.example.com`.
+- COR-1206 not fully verified: Render env/log console, Vercel env values, Supabase dashboard/buckets, production coach login, and portal cookie flow need dashboard access plus test credentials/PIN link. Do not record secrets in this file.
 - COR-144 audit branch started from `origin/master`: `balamsilva26/cor-144-cor-000-auditoria-total-del-repositorio-antes-de-beta`.
 - Base verification passed on 2026-07-04: api typecheck/lint/test, web typecheck/lint, db typecheck/lint.
 - COR-144 findings: no P0; dashboard validated; `COR-145` and `COR-146` created for legacy `corafit_api_config` in plans/exercises.

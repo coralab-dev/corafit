@@ -22,6 +22,7 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - COR-1206 env evidence: deployed web bundle points to `https://corafit-api.onrender.com` and Supabase project `hlrfvvpuvqblpzyagffk`; no localhost API URL found in fetched home page chunks.
 - COR-1206 CORS evidence: API allows `Origin: https://corafit-web.vercel.app` with matching `Access-Control-Allow-Origin` and credentials; it does not echo `https://evil.example.com`.
 - COR-1206 not fully verified: Render env/log console, Vercel env values, Supabase dashboard/buckets, production coach login, and portal cookie flow need dashboard access plus test credentials/PIN link. Do not record secrets in this file.
+- COR-148 smoke test production: Coach login OK; Supabase Auth OK; `/auth/me` OK; dashboard `/dashboard/coach` OK; test client `Cliente Smoke Test COR-148` exists; portal access generation/regeneration OK; wrong PIN shows clear error; correct PIN OK; cookie `corafit_client_session` OK (`HttpOnly`, `Secure`, `SameSite=None`, `Path=/`, approx 7 days); portal refresh persistence OK; portal logout invalidates cookie. No P0/P1 found in the smoke. Do not record portal token, PIN, password, or bearer tokens.
 - COR-144 audit branch started from `origin/master`: `balamsilva26/cor-144-cor-000-auditoria-total-del-repositorio-antes-de-beta`.
 - Base verification passed on 2026-07-04: api typecheck/lint/test, web typecheck/lint, db typecheck/lint.
 - COR-144 findings: no P0; dashboard validated; `COR-145` and `COR-146` created for legacy `corafit_api_config` in plans/exercises.

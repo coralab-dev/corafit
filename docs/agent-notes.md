@@ -33,6 +33,7 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - API routes added under `/progress/clients/:clientId/...` for coach/owner and `/client-portal/:token/progress/...` for client portal.
 - Verification passed: `pnpm --filter db generate`, `pnpm --filter api test -- progress.service.spec.ts`, `pnpm --filter api typecheck`, and `pnpm --filter api lint`.
 - COR-145 plans auth cleanup: `useTrainingPlans` and `useTrainingPlanEditor` migrated from legacy `corafit_api_config` to `useAuth` + `authenticatedRequest`; `apps/web/hooks/use-training-plans.ts` no longer reads bearer/organization from localStorage. Web typecheck/lint passed. Manual plan list/create/editor smoke: not verified; no local credentials/session were available in this run.
+- COR-146 exercises auth cleanup: `useExercises`, `useExerciseMediaActions`, and `useExerciseActions` migrated from legacy `corafit_api_config` to `useAuth` + `authenticatedRequest`; `apps/web/hooks/use-exercises.ts` no longer reads bearer/organization from localStorage. Web typecheck/lint passed. Manual exercise search/create/media smoke: not verified; no local credentials/session were available in this run.
 
 ## Last tooling setup
 - Added Codex guidance, compact notes, architecture map, testing notes, local AGENTS files, and safe ignore updates.

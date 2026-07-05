@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
+import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 
 export type PrimaryMuscle =
   | "chest"
@@ -74,35 +76,38 @@ type ExercisesResponse = {
   total: number;
 };
 
-type ApiConfig = {
-  apiUrl: string;
-  bearerToken: string;
-  organizationId: string;
-};
-
-const apiConfigStorageKey = "corafit_api_config";
-const fallbackApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+type ExerciseRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 export function useExercises(filters: ExerciseFilters) {
+  const { profile, session, status: authStatus } = useAuth();
   const [items, setItems] = useState<Exercise[]>([]);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState(getApiConfig);
 
-  const isApiReady = Boolean(
-    apiConfig.bearerToken.trim() && apiConfig.organizationId.trim(),
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const isLoading = authStatus === "loading" || isRequestLoading;
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
   );
 
   const loadExercises = useCallback(async () => {
     if (!isApiReady) {
       setItems([]);
       setTotal(0);
-      setError("Configura la conexion al API para leer ejercicios reales.");
+      setError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para ver tus ejercicios.",
+      );
       return;
     }
 
-    setIsLoading(true);
+    setIsRequestLoading(true);
     setError("");
 
     try {
@@ -122,10 +127,9 @@ export function useExercises(filters: ExerciseFilters) {
         searchParams.set("equipment", filters.equipment);
       }
 
-      const response = await apiRequest<ExercisesResponse>(
+      const response = await request<ExercisesResponse>(
         `/exercises?${searchParams.toString()}`,
         { method: "GET" },
-        apiConfig,
       );
 
       setItems(response.items);
@@ -133,9 +137,9 @@ export function useExercises(filters: ExerciseFilters) {
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsRequestLoading(false);
     }
-  }, [apiConfig, filters.equipment, filters.primaryMuscle, filters.search, filters.type, isApiReady]);
+  }, [authStatus, filters.equipment, filters.primaryMuscle, filters.search, filters.type, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -148,10 +152,10 @@ export function useExercises(filters: ExerciseFilters) {
   const createExercise = useCallback(
     async (input: CreateExerciseInput) => {
       if (!isApiReady) {
-        throw new Error("Configura la conexion al API antes de crear ejercicios.");
+        throw new Error("Inicia sesión y selecciona una organización para crear ejercicios.");
       }
 
-      let exercise = await apiRequest<Exercise>(
+      let exercise = await request<Exercise>(
         "/exercises/custom",
         {
           method: "POST",
@@ -163,14 +167,13 @@ export function useExercises(filters: ExerciseFilters) {
             videoUrl: input.videoUrl?.trim() || undefined,
           }),
         },
-        apiConfig,
       );
 
       if (input.imageFile) {
         exercise = await uploadExerciseImageRequest(
           exercise.id,
           input.imageFile,
-          apiConfig,
+          request,
         );
       }
 
@@ -178,7 +181,7 @@ export function useExercises(filters: ExerciseFilters) {
       setTotal((current) => current + 1);
       return exercise;
     },
-    [apiConfig, isApiReady],
+    [isApiReady, request],
   );
 
   return {
@@ -193,48 +196,81 @@ export function useExercises(filters: ExerciseFilters) {
 }
 
 export function useExerciseMediaActions() {
-  const [apiConfig] = useState(getApiConfig);
+  const { profile, session, status: authStatus } = useAuth();
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const uploadExerciseImage = useCallback(
-    (exerciseId: string, file: File) =>
-      uploadExerciseImageRequest(exerciseId, file, apiConfig),
-    [apiConfig],
+    (exerciseId: string, file: File) => {
+      if (!isApiReady) {
+        throw new Error("Inicia sesión y selecciona una organización para modificar ejercicios.");
+      }
+
+      return uploadExerciseImageRequest(exerciseId, file, request);
+    },
+    [isApiReady, request],
   );
 
   const removeExerciseMedia = useCallback(
-    (exerciseId: string) =>
-      apiRequest<Exercise>(
+    (exerciseId: string) => {
+      if (!isApiReady) {
+        throw new Error("Inicia sesión y selecciona una organización para modificar ejercicios.");
+      }
+
+      return request<Exercise>(
         `/exercises/${exerciseId}/media`,
         { method: "DELETE" },
-        apiConfig,
-      ),
-    [apiConfig],
+      );
+    },
+    [isApiReady, request],
   );
 
   return { removeExerciseMedia, uploadExerciseImage };
 }
 
 export function useExerciseActions() {
-  const [apiConfig] = useState(getApiConfig);
+  const { profile, session, status: authStatus } = useAuth();
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const updateExercise = useCallback(
-    (exerciseId: string, input: UpdateExerciseInput) =>
-      apiRequest<Exercise>(
+    (exerciseId: string, input: UpdateExerciseInput) => {
+      if (!isApiReady) {
+        throw new Error("Inicia sesión y selecciona una organización para modificar ejercicios.");
+      }
+
+      return request<Exercise>(
         `/exercises/${exerciseId}`,
         { method: "PATCH", body: JSON.stringify(input) },
-        apiConfig,
-      ),
-    [apiConfig],
+      );
+    },
+    [isApiReady, request],
   );
 
   const deactivateExercise = useCallback(
-    (exerciseId: string) =>
-      apiRequest<Exercise>(
+    (exerciseId: string) => {
+      if (!isApiReady) {
+        throw new Error("Inicia sesión y selecciona una organización para modificar ejercicios.");
+      }
+
+      return request<Exercise>(
         `/exercises/${exerciseId}`,
         { method: "DELETE" },
-        apiConfig,
-      ),
-    [apiConfig],
+      );
+    },
+    [isApiReady, request],
   );
 
   return { deactivateExercise, updateExercise };
@@ -243,80 +279,24 @@ export function useExerciseActions() {
 async function uploadExerciseImageRequest(
   exerciseId: string,
   file: File,
-  config: ApiConfig,
+  request: ExerciseRequest,
 ) {
   const formData = new FormData();
   formData.set("image", file);
 
-  return apiRequest<Exercise>(
+  return request<Exercise>(
     `/exercises/${exerciseId}/media`,
     {
       method: "POST",
       body: formData,
-      headers: {},
     },
-    config,
   );
 }
 
-function getApiConfig(): ApiConfig {
-  const fallback = {
-    apiUrl: fallbackApiUrl,
-    bearerToken: "",
-    organizationId: "",
-  };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  const storedConfig = window.localStorage.getItem(apiConfigStorageKey);
-  if (!storedConfig) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(storedConfig) as Partial<ApiConfig>;
-    return {
-      apiUrl: (parsed.apiUrl ?? fallback.apiUrl).replace(/\/$/, ""),
-      bearerToken: parsed.bearerToken ?? "",
-      organizationId: parsed.organizationId ?? "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-async function apiRequest<T>(
-  path: string,
-  init: RequestInit,
-  config: ApiConfig,
-): Promise<T> {
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      Authorization: `Bearer ${config.bearerToken}`,
-      "X-Organization-Id": config.organizationId,
-      ...init.headers,
-    },
-  });
-
-  if (!response.ok) {
-    let message = `API ${response.status}`;
-    try {
-      const payload = (await response.json()) as { message?: string };
-      message = payload.message ?? message;
-    } catch {
-      // Keep the generic HTTP message when the API does not return JSON.
-    }
-    throw new Error(message);
-  }
-
-  return (await response.json()) as T;
-}
-
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Ocurrio un error inesperado";
+  if (error instanceof CoraFitApiError) {
+    return error.payload.message ?? error.code ?? error.message;
+  }
+
+  return error instanceof Error ? error.message : "Ocurrió un error inesperado";
 }

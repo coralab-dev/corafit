@@ -3,7 +3,9 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
 import type { Exercise } from "@/hooks/use-exercises";
+import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 
 export type TrainingPlanStatus = "draft" | "active" | "archived";
 export type TrainingPlanType = "template" | "assigned_copy";
@@ -99,37 +101,41 @@ type PlansResponse = {
   total: number;
 };
 
-type ApiConfig = {
-  apiUrl: string;
-  bearerToken: string;
-  organizationId: string;
-};
-
 export type PlanListFilters = {
   search?: string;
   status?: TrainingPlanStatus | "all";
 };
 
-const apiConfigStorageKey = "corafit_api_config";
-const fallbackApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
 export function useTrainingPlans(filters: PlanListFilters) {
+  const { profile, session, status: authStatus } = useAuth();
   const [items, setItems] = useState<TrainingPlan[]>([]);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState(getApiConfig);
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const isLoading = authStatus === "loading" || isRequestLoading;
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const loadPlans = useCallback(async () => {
     if (!isApiReady) {
       setItems([]);
       setTotal(0);
-      setError("Configura la conexion al API para leer planes reales.");
+      setError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para ver tus planes.",
+      );
       return;
     }
 
-    setIsLoading(true);
+    setIsRequestLoading(true);
     setError("");
 
     try {
@@ -141,19 +147,18 @@ export function useTrainingPlans(filters: PlanListFilters) {
         searchParams.set("status", filters.status);
       }
 
-      const response = await apiRequest<PlansResponse>(
+      const response = await request<PlansResponse>(
         `/training-plans?${searchParams.toString()}`,
         { method: "GET" },
-        apiConfig,
       );
       setItems(response.items);
       setTotal(response.total);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsRequestLoading(false);
     }
-  }, [apiConfig, filters.search, filters.status, isApiReady]);
+  }, [authStatus, filters.search, filters.status, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -171,13 +176,12 @@ export function useTrainingPlans(filters: PlanListFilters) {
     generalNotes?: string;
   }) {
     if (!isApiReady) {
-      throw new Error("Configura la conexion al API para crear planes.");
+      throw new Error("Inicia sesión y selecciona una organización para ver tus planes.");
     }
 
-    const response = await apiRequest<TrainingPlan>(
+    const response = await request<TrainingPlan>(
       "/training-plans",
       { method: "POST", body: JSON.stringify(body) },
-      apiConfig,
     );
 
     return response;
@@ -187,47 +191,51 @@ export function useTrainingPlans(filters: PlanListFilters) {
 }
 
 export function useTrainingPlanEditor(planId: string) {
+  const { profile, session, status: authStatus } = useAuth();
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState(getApiConfig);
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const isLoading = authStatus === "loading" || isRequestLoading;
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const loadPlan = useCallback(async () => {
     if (!planId || !isApiReady) {
       setPlan(null);
-      setError("Configura la conexion al API para editar planes reales.");
+      setError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para editar este plan.",
+      );
       return;
     }
 
-    setIsLoading(true);
+    setIsRequestLoading(true);
     setError("");
 
     try {
-      const response = await apiRequest<TrainingPlan>(
+      const response = await request<TrainingPlan>(
         `/training-plans/${planId}`,
         { method: "GET" },
-        apiConfig,
       );
       setPlan(response);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsRequestLoading(false);
     }
-  }, [apiConfig, isApiReady, planId]);
+  }, [authStatus, isApiReady, planId, request]);
 
   useEffect(() => {
     void loadPlan();
   }, [loadPlan]);
-
-  const request = useCallback(
-    async <T>(path: string, init: RequestInit) => {
-      const response = await apiRequest<T>(path, init, apiConfig);
-      return response;
-    },
-    [apiConfig],
-  );
 
   const replaceSession = useCallback((updatedSession: TrainingSession) => {
     setPlan((currentPlan) => {
@@ -752,62 +760,10 @@ function normalizeSessionExercise(
   };
 }
 
-function getApiConfig(): ApiConfig {
-  const fallback = {
-    apiUrl: fallbackApiUrl,
-    bearerToken: "",
-    organizationId: "",
-  };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  const storedConfig = window.localStorage.getItem(apiConfigStorageKey);
-  if (!storedConfig) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(storedConfig) as Partial<ApiConfig>;
-    return {
-      apiUrl: (parsed.apiUrl ?? fallback.apiUrl).replace(/\/$/, ""),
-      bearerToken: parsed.bearerToken ?? "",
-      organizationId: parsed.organizationId ?? "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-async function apiRequest<T>(
-  path: string,
-  init: RequestInit,
-  config: ApiConfig,
-): Promise<T> {
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(config.bearerToken ? { Authorization: `Bearer ${config.bearerToken}` } : {}),
-      ...(config.organizationId ? { "X-Organization-Id": config.organizationId } : {}),
-      ...init.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `API request failed with ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
-
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Ocurrio un error inesperado";
+  if (error instanceof CoraFitApiError) {
+    return error.payload.message ?? error.code ?? error.message;
+  }
+
+  return error instanceof Error ? error.message : "Ocurrió un error inesperado";
 }

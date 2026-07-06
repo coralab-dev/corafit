@@ -441,7 +441,13 @@ export function ClientHomeScreen({ token }: { token: string }) {
     }
   }
 
-  if (loading) return <ScreenState title="Cargando tu portal" />;
+  if (loading && !data) {
+    return (
+      <ClientPortalShell token={token} active="home">
+        <HomeLoadingState />
+      </ClientPortalShell>
+    );
+  }
   if (error && !data)
     return <ScreenState title="Algo salio mal" description={error} />;
   if (!data) return null;
@@ -461,6 +467,12 @@ export function ClientHomeScreen({ token }: { token: string }) {
       <section className="px-6 pt-9 md:px-8 lg:px-10">
         <header className="flex items-center justify-between">
           <BrandMark compact />
+          {loading ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
+              <Loader2 className="size-3.5 animate-spin" />
+              Actualizando
+            </span>
+          ) : null}
         </header>
         <h1 className="mt-8 text-3xl font-bold tracking-normal">
           Hola, {firstName(data.client.name)}
@@ -3361,6 +3373,47 @@ function MetricCard({
         {caption}
       </p>
     </div>
+  );
+}
+
+function HomeLoadingState() {
+  return (
+    <section className="px-6 pt-9 md:px-8 lg:px-10">
+      <header className="flex items-center justify-between">
+        <BrandMark compact />
+        <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
+          <Loader2 className="size-3.5 animate-spin" />
+          Preparando
+        </span>
+      </header>
+      <div className="mt-8 h-9 w-48 animate-pulse rounded-lg bg-[#ece7e3] dark:bg-[#242b36]" />
+      <div className="mt-3 h-5 w-64 animate-pulse rounded-lg bg-[#ece7e3] dark:bg-[#242b36]" />
+      <div className="mt-6 rounded-3xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+        <div className="h-4 w-28 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="mt-4 h-7 w-56 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="mt-6 h-12 w-full animate-pulse rounded-2xl bg-[#f2efeb] dark:bg-[#1a202b]" />
+      </div>
+      <div className="mt-8 flex items-center justify-between">
+        <div className="h-6 w-24 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="h-4 w-16 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
+      </div>
+      <div className="mt-4 grid grid-cols-7 gap-2">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <div
+            className="h-16 animate-pulse rounded-xl border border-[#ece7e3] bg-white dark:border-[#293140] dark:bg-[#121722]"
+            key={index}
+          />
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            className="h-24 animate-pulse rounded-xl border border-[#ece7e3] bg-white dark:border-[#293140] dark:bg-[#121722]"
+            key={index}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -82,7 +82,7 @@ export function PlanTree({
   selectedSessionId?: string;
 }) {
   return (
-    <WorkspacePanel className="h-fit max-h-[calc(100vh-9rem)] overflow-hidden xl:sticky xl:top-4">
+    <WorkspacePanel className="flex h-[calc(100vh-9rem)] max-h-[calc(100vh-9rem)] flex-col overflow-hidden xl:sticky xl:top-4">
       <div className="gap-2 border-b p-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Estructura</h2>
@@ -101,7 +101,7 @@ export function PlanTree({
           </div>
         ) : null}
       </div>
-      <div className="plan-tree-scroll flex max-h-[calc(100vh-18rem)] flex-col gap-2 overflow-y-auto p-3 pr-4">
+      <div className="plan-tree-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3 pr-4">
         {plan.weeks?.map((week) => (
           <details key={week.id} className="group rounded-md border bg-card">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-2 py-2 text-sm font-semibold hover:bg-background">
@@ -183,7 +183,7 @@ export function PlanTree({
         ))}
       </div>
       {!isReadOnly ? (
-        <div className="border-t p-3">
+        <div className="shrink-0 border-t bg-card p-3">
           <Button
             className="w-full"
             size="sm"

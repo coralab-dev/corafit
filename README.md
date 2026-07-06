@@ -65,7 +65,7 @@ If you already have a real Supabase access token, you can set `DEV_AUTH_JWT`
 and the helper will only create or repair the local database profile and
 membership.
 
-The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the future Vercel domain.
+The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the current beta Vercel domain.
 
 ## Documentation policy
 
@@ -85,6 +85,11 @@ Current construction/testing stack:
 - API: Render Free, temporarily replacing Railway during construction/testing.
 - Auth, Postgres, and Storage: Supabase.
 - Railway: disconnected from GitHub auto-deploy for now, but kept as the future demo/beta API target.
+- Custom domains `app.corafit.mx` and `api.corafit.mx`: future targets only; do not treat them as active until DNS/deploy settings are configured and verified.
+
+Current beta web:
+
+- URL: `https://corafit-web.vercel.app`
 
 Temporary Render API:
 
@@ -106,8 +111,8 @@ Render API environment:
 ```text
 NODE_ENV=production
 NODE_VERSION=22
-WEB_APP_URL=<Vercel URL>
-CORS_ALLOWED_ORIGINS=<Vercel URL>
+WEB_APP_URL=https://corafit-web.vercel.app
+CORS_ALLOWED_ORIGINS=https://corafit-web.vercel.app
 SUPABASE_URL=<Supabase project URL>
 SUPABASE_SERVICE_ROLE_KEY=<Supabase service role key>
 SUPABASE_ANON_KEY=<Supabase anon key>

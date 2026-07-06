@@ -16,6 +16,7 @@ Compact handoff state for future Codex sessions. Keep this short and update it d
 - `packages/shared` is for shared types/constants/validators and must not depend on Next.js or NestJS.
 
 ## Current task state
+- COR-147 deploy/domain alignment: official beta/construction deploy remains Vercel web (`https://corafit-web.vercel.app`) + temporary Render API (`https://corafit-api.onrender.com`) + Supabase auth/db/storage. Railway is future/non-active. Verified `/health` 200 with expected body, allowed Vercel CORS origin with matching `Access-Control-Allow-Origin`, non-reflection of `https://evil.example.com`, and public web bundle containing `https://corafit-api.onrender.com`. Custom domains `app.corafit.mx` / `api.corafit.mx` remain future unless configured.
 - COR-150/COR-151 beta UX fixes: assigned plan editor aligned closely with current training plan editor layout (header actions, metrics, sticky structure tree, main exercise table, plan/session info in menus/drawers); client portal home no longer shows repetitive full-page "Cargando portal" when lighter loading is possible. Web typecheck/lint passed. Manual smoke: not run in this session yet.
 - COR-1206 deploy/env audit started on `master` after COR-144 was integrated at `0974ace`.
 - COR-1206 inventory: web is Vercel project `corafit-web`; latest production deployment `dpl_46AqZoZAH7iv6WdN6pKZTUFKzo29` from `master` commit `0974ace041cf8c61e02da9d3131398ff56fe1e36`; public domains include `https://corafit-web.vercel.app`.

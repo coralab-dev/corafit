@@ -18,8 +18,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
@@ -33,17 +34,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  apiRequest as clientApiRequest,
   getErrorMessage as getClientErrorMessage,
-  getInitialApiConfig,
   initials,
 } from "@/lib/clients/api";
 import type {
-  ApiConfig,
   Client,
   ClientsResponse,
   CurrentPlanAssignment,
 } from "@/lib/clients/types";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import {
   type TrainingPlanStatus,
   useTrainingPlans,
@@ -74,6 +73,7 @@ const sourceFilters: Array<{
 
 export function TrainingPlansWorkspace() {
   const router = useRouter();
+  const { profile, session, status: authStatus } = useAuth();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState<TrainingPlanStatus | "all">("all");
@@ -87,8 +87,14 @@ export function TrainingPlansWorkspace() {
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanWeeks, setNewPlanWeeks] = useState("4");
   const [isCreating, setIsCreating] = useState(false);
-  const [apiConfig] = useState<ApiConfig>(getInitialApiConfig);
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query), 250);
@@ -135,17 +141,20 @@ export function TrainingPlansWorkspace() {
   async function loadUnassignedClients() {
     if (!isApiReady) {
       setUnassignedClients([]);
-      setClientsError("Configura la conexion al API para leer clientes reales.");
+      setClientsError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para leer clientes.",
+      );
       return;
     }
 
     setIsLoadingClients(true);
     setClientsError("");
     try {
-      const response = await clientApiRequest<ClientsResponse>(
+      const response = await request<ClientsResponse>(
         "/clients?page=1&limit=50",
         { method: "GET" },
-        apiConfig,
       );
       const clients = response.items.map((client) => ({
         ...client,
@@ -153,10 +162,9 @@ export function TrainingPlansWorkspace() {
       }));
       const clientsWithAssignments = await Promise.all(
         clients.map(async (client) => {
-          const assignment = await clientApiRequest<CurrentPlanAssignment | null>(
+          const assignment = await request<CurrentPlanAssignment | null>(
             `/clients/${client.id}/plan-assignment/current`,
             { method: "GET" },
-            apiConfig,
           ).catch(() => null);
 
           return { assignment, client };

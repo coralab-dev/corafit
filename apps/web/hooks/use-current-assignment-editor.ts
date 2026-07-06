@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest, getInitialApiConfig } from "@/lib/clients/api";
+import { useAuth } from "@/components/providers/auth-provider";
+import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 import type {
   CurrentPlanAssignment,
   SessionExercise,
@@ -13,26 +14,36 @@ import type {
 } from "@/lib/clients/types";
 
 export function useCurrentAssignmentEditor(clientId: string) {
+  const { profile, session, status: authStatus } = useAuth();
   const [assignment, setAssignment] = useState<CurrentPlanAssignment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [apiConfig] = useState(getInitialApiConfig);
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+  const organizationId = profile?.organization.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+
+  const request = useCallback(
+    async <T>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
 
   const loadAssignment = useCallback(async () => {
     if (!clientId || !isApiReady) {
       setAssignment(null);
-      setError("Configura la conexion al API para editar el plan asignado.");
+      setError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para editar el plan asignado.",
+      );
       return;
     }
 
     setIsLoading(true);
     setError("");
     try {
-      const response = await apiRequest<CurrentPlanAssignment | null>(
+      const response = await request<CurrentPlanAssignment | null>(
         `/clients/${clientId}/plan-assignment/current`,
         { method: "GET" },
-        apiConfig,
       );
       setAssignment(response);
     } catch (caughtError) {
@@ -40,7 +51,7 @@ export function useCurrentAssignmentEditor(clientId: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [apiConfig, clientId, isApiReady]);
+  }, [authStatus, clientId, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -49,11 +60,6 @@ export function useCurrentAssignmentEditor(clientId: string) {
 
     return () => window.clearTimeout(timer);
   }, [loadAssignment]);
-
-  const request = useCallback(
-    async <T>(path: string, init: RequestInit) => apiRequest<T>(path, init, apiConfig),
-    [apiConfig],
-  );
 
   const basePath = `/clients/${clientId}/plan-assignment/current`;
 
@@ -171,6 +177,10 @@ export function useCurrentAssignmentEditor(clientId: string) {
 }
 
 function getErrorMessage(error: unknown) {
+  if (error instanceof CoraFitApiError) {
+    return error.payload.message ?? error.code ?? error.message;
+  }
+
   return error instanceof Error ? error.message : "No se pudo editar el plan asignado";
 }
 

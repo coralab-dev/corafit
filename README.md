@@ -67,6 +67,34 @@ membership.
 
 The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the current beta Vercel domain.
 
+## Beta seed
+
+The production beta seed uses canonical global exercises exported from the
+target database. Set `DATABASE_URL` to the database you want to read or seed;
+do not paste or document secrets in commits, docs, or Linear.
+
+Export the canonical global exercises:
+
+```bash
+pnpm --filter db export:global-exercises
+```
+
+Review `packages/db/prisma/seeds/global-exercises.seed.json` before seeding.
+The export includes only global active image exercises with a non-empty
+`mediaUrl`; the seed does not invent image URLs and rejects exercises without
+image media. During seeding, active global exercises outside that canonical JSON,
+or active global exercises without image media, are cleaned up transactionally.
+The seed first removes old seed-org template plan trees that reference them, then
+physically deletes only unreferenced non-canonical global exercises. Cleanup is
+limited to global exercise rows (`organizationId` null) and seed-org templates;
+exercises and plans from real organizations are not touched.
+
+Run the seed:
+
+```bash
+pnpm --filter db seed
+```
+
 ## Documentation policy
 
 CoraFit documentation policy:

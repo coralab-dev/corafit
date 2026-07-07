@@ -1,0 +1,369 @@
+[
+  {
+    "name": "Aperturas en máquina peck deck",
+    "primaryMuscle": "chest",
+    "secondaryMuscles": [],
+    "equipment": "machine",
+    "instructions": "Siéntate con la espalda apoyada, agarra los mangos y une las manos frente al pecho.",
+    "recommendations": "Aprieta los brazos tanto como sea posible siguiendo el movimiento de la máquina. Contrae el pecho al final del movimiento y luego vuelve lentamente a la posición inicial.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/21e135ed-cd9d-406e-9f88-85925359f39c/05ba6fb6-45ff-4e57-a6bd-5955c363acb0.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=Om6ABTzZrQY"
+  },
+  {
+    "name": "Flexiones",
+    "primaryMuscle": "chest",
+    "secondaryMuscles": [
+      "Biceps",
+      "triceps"
+    ],
+    "equipment": "bodyweight",
+    "instructions": "Dobla lentamente los brazos, dejando que el torso se acerque al suelo, hasta que los codos formen un ángulo de 90 grados. Luego empuja las manos hacia arriba hasta la posición inicial.",
+    "recommendations": "Manos ligeramente más anchas que los hombros. Controla el descenso.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/1d5cde66-9695-4920-b466-5ffcd4f06ac4/4c9170dc-5289-47dd-ab96-f627031b821e.webp",
+    "mediaType": "image",
+    "videoUrl": null
+  },
+  {
+    "name": "Press de banca con barra",
+    "primaryMuscle": "chest",
+    "secondaryMuscles": [],
+    "equipment": "barbell",
+    "instructions": "Acostado en el banco, con los pies en el suelo. Agarra la barra con un agarre más amplio que el ancho de los hombros. Tus antebrazos deben estar perpendiculares al suelo.",
+    "recommendations": "Desengancha la barra y bájala lentamente hasta la parte inferior del pecho. A medida que contraes los pectorales, empuja la carga hacia arriba hasta que los brazos estén casi rectos.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/69c83877-c519-49af-b46e-508b4076795f/af2c6f89-39d0-4a19-af38-42723f077351.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=xxVztNVtoSE"
+  },
+  {
+    "name": "Press inclinado con mancuernas",
+    "primaryMuscle": "chest",
+    "secondaryMuscles": [],
+    "equipment": "dumbbell",
+    "instructions": "Tumbado en el banco inclinado, con los pies apoyados en el suelo, una mancuerna en cada mano, agarre en pronación. Sostén las mancuernas a cada lado a la altura del pecho. Tus antebrazos deben estar perpendiculares al suelo.",
+    "recommendations": "Controla el descenso y mantén los codos a 45 grados del cuerpo.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/4c052562-0847-4ebf-883e-98c09781f545/cdb35f2c-de45-4b4e-a9fb-09e4078aeecd.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=K0TVyl1EIWc"
+  },
+  {
+    "name": "Dominadas",
+    "primaryMuscle": "back",
+    "secondaryMuscles": [],
+    "equipment": "bodyweight",
+    "instructions": "Agarra la barra de tracción con un agarre en pronación, con la cabeza ligeramente levantada, las manos separadas a una distancia superior a la de los hombros y los codos ligeramente doblados.",
+    "recommendations": "Evita el balanceo o impulso. Aprieta los omóplatos al final.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/5fcce785-37b0-478d-9e7a-03facbc2a737/bbaa1dd0-201a-4c8c-ad7f-ca112ed377bc.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=lgE47t3dr2Q"
+  },
+  {
+    "name": "Jalón al pecho prono",
+    "primaryMuscle": "back",
+    "secondaryMuscles": [
+      "Bíceps"
+    ],
+    "equipment": "machine",
+    "instructions": "Sentado, los muslos bajo las partes acolchadas, la barra agarrada en pronación, las manos más separadas que el ancho de los hombros. Mantén los codos apuntados hacia afuera y la espalda recta.",
+    "recommendations": "Tira de la barra hasta llegar a la barbilla. Mantén la contracción por un momento antes de volver lentamente a la posición inicial. Durante el movimiento, no dejes que tus codos se adelanten.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/d5df551c-502f-4b19-8021-c0b8568b2f8f/a7d229db-2e0e-4ae4-a9e1-8e8ebe9ddfe7.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=ld-6cqyRTQQ"
+  },
+  {
+    "name": "Remo con barra",
+    "primaryMuscle": "back",
+    "secondaryMuscles": [
+      "Deltoides posteriores",
+      "bíceps"
+    ],
+    "equipment": "barbell",
+    "instructions": "De pie con las rodillas ligeramente flexionadas, agarrando la barra con las manos en pronación, agarre más amplio que el ancho de los hombros. El pecho inclinado hacia adelante, manteniendo la espalda recta, el pecho arqueado",
+    "recommendations": "Tira de la carga hacia el abdomen. Aprieta la espalda al final del movimiento, los hombros y los codos hacia atrás. Luego vuelve lentamente a la posición inicial.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/dc14ab72-53e2-4b0e-8764-959bd4032e2b/99667456-e602-40b7-b269-fcfe76dabf14.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=MwCJGBu8PFk"
+  },
+  {
+    "name": "Remo T con respaldo",
+    "primaryMuscle": "back",
+    "secondaryMuscles": [],
+    "equipment": "machine",
+    "instructions": "Apoya el pecho en el respaldo de la máquina y toma los agarres. Tira hacia atrás llevando los codos cerca del cuerpo. Aprieta la espalda al final y regresa lento hasta estirar los brazos.",
+    "recommendations": "No despegues el pecho del apoyo. Evita encoger los hombros. Controla la bajada y no uses impulso.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/a0fc9479-f997-4ce4-ae04-0bd6c360ea1f/d0e99e92-6f37-4ce9-bfc9-06689c72baa5.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=hWtudZSwLaI"
+  },
+  {
+    "name": "Curl femoral sentado",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [
+      "Pantorrilla"
+    ],
+    "equipment": "machine",
+    "instructions": "Siéntate con la espalda apoyada, coloca las piernas sobre la máquina y ajusta la almohadilla sobre la parte baja de las piernas. Flexiona las rodillas llevando la almohadilla hacia abajo y atrás. Regresa lento hasta casi extender las piernas.",
+    "recommendations": "No levantes la cadera del asiento. Controla la subida y evita soltar el peso de golpe. Mantén los pies relajados y enfócate en contraer la parte posterior del muslo.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/4a61ab3e-c69e-4b23-a4d3-ff415c9cbaf9/991174db-d26c-4df1-be24-28043d68bda6.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=1dew-wW0hAQ"
+  },
+  {
+    "name": "Extensión de cuádriceps maquina",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [],
+    "equipment": "machine",
+    "instructions": "Siéntate con la espalda apoyada y la almohadilla frente a la parte baja de las piernas. Extiende las rodillas hasta subir la almohadilla y contrae los cuádriceps arriba. Baja lento.",
+    "recommendations": "La almohadilla debe ir frente a las espinillas o arriba de los tobillos, no sobre los pies. Controla la bajada y evita levantar la cadera.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/bdc33372-9137-41fb-8892-b417c4d57d54/617d332b-a782-4028-9972-e1922d67234d.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=J-Y-Z0EU9Ic"
+  },
+  {
+    "name": "Gemelos de pie",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [
+      "Sóleo"
+    ],
+    "equipment": "machine",
+    "instructions": "Coloca la punta de los pies sobre la plataforma y deja los talones libres. Baja los talones de forma controlada hasta sentir estiramiento en las pantorrillas. Luego eleva los talones lo más alto posible apretando las pantorrillas arriba.",
+    "recommendations": "No rebotes. Mantén las rodillas firmes sin bloquearlas demasiado. Haz el recorrido completo: baja bien los talones y sube hasta quedar sobre las puntas.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/a1ffbea4-7b91-4c06-9c4f-d38600190003/9973676d-73c7-433b-9044-e19675288bfc.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=R9eS_1An8L0"
+  },
+  {
+    "name": "Peso muerto rumano con barra",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [
+      "Isquiotibiales",
+      "glúteos"
+    ],
+    "equipment": "barbell",
+    "instructions": "Manteniendo las piernas rígidas, inclínate hacia adelante y baja el peso hacia el suelo. Haz una pausa cuando los isquiotibiales estén tensos, y luego vuelve a la posición inicial. Mantén la espalda recta y los hombros hacia atrás en todo momento.",
+    "recommendations": "De pie con los pies separados a la anchura de los hombros y los dedos de los pies mirando hacia adelante. Dobla las rodillas ligeramente y empuja el pecho hacia afuera. Agarra una barra que descanse en la parte superior de los muslos, con las manos en pronación a la anchura de los hombros.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/6a4e1bc7-8c14-4174-8df2-b3f6a10b2430/b4ebe96c-6bf6-44fd-bfc9-842aee260e42.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=IRN6ZsM_E_c"
+  },
+  {
+    "name": "Peso muerto rumano con mancuernas",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [
+      "Glúteo",
+      "espalda baja"
+    ],
+    "equipment": "dumbbell",
+    "instructions": "De pie, sostén una mancuerna en cada mano frente a los muslos. Flexiona ligeramente las rodillas y lleva la cadera hacia atrás mientras bajas las mancuernas cerca de las piernas. Baja hasta sentir estiramiento en femorales y glúteos, luego sube apretando glúteos.",
+    "recommendations": "Mantén la espalda recta y el cuello neutral. No conviertas el movimiento en sentadilla; la cadera debe ir hacia atrás. Las mancuernas deben bajar pegadas al cuerpo.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/725d7c2f-b928-49b4-bcde-8eb4c365a0a3/810f9731-a765-4d1a-ba5b-8462265c1ab3.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=x7W2BOKWWKs"
+  },
+  {
+    "name": "Sentadilla bulgara con barra",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [],
+    "equipment": "dumbbell",
+    "instructions": "Flexiona la pierna de apoyo mientras refuerza el núcleo y mantiene el pecho erguido hasta que la rodilla trasera casi toque el suelo. Haga una pausa y empuje hacia arriba solo con el pie delantero y regrese a la posición inicial. No permita que su rodilla se mueva hacia adentro o hacia afuera durante el movimiento.",
+    "recommendations": "Mantén el torso erguido. La pierna delantera debe bajar de forma controlada.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/f3b64614-c4c2-42de-82e6-60497494eaba/f0bc6ab0-ec91-4dd2-b87f-a23328c6e652.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=_lQHuVtPe3U"
+  },
+  {
+    "name": "Sentadilla con barra",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [
+      "Abdominales",
+      "lumbares"
+    ],
+    "equipment": "barbell",
+    "instructions": "Dobla las rodillas y las caderas como si estuvieras sentado. Mientras mantienes la espalda recta, deja que los glúteos vayan hacia atrás, lo que hará que el pecho se incline ligeramente hacia delante para que el movimiento sea lo más natural posible.",
+    "recommendations": "De pie con la barra apoyada en el trapecio y los hombros. Toma la barra con las manos para un buen apoyo. Mantén la cabeza recta.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/7ade1458-ada2-47cb-b787-b230222e0133/613c99f6-caf7-4828-9289-f5a9017b1203.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=35Ya-Sy453s"
+  },
+  {
+    "name": "Zancadas con mancuerna",
+    "primaryMuscle": "legs",
+    "secondaryMuscles": [],
+    "equipment": "dumbbell",
+    "instructions": "Manteniendo el pecho recto, das un paso adelante y desciendes lentamente hasta que el muslo delantero esté paralelo al suelo. Luego vuelve a la posición original. Una vez que hayas completado tu serie, haz lo mismo con la otra pierna.",
+    "recommendations": "De pie con las piernas separadas a la anchura de la cadera, una mancuerna en cada mano.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/33025297-4308-4149-94e4-cdbaaea0ee30/f02456bc-d6d6-4c0d-9705-0e30f45f15b2.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=-iGRWD09Jn8"
+  },
+  {
+    "name": "Elevaciones laterales con mancuernas",
+    "primaryMuscle": "shoulder",
+    "secondaryMuscles": [
+      "Trapecio"
+    ],
+    "equipment": "dumbbell",
+    "instructions": "De pie, sostén una mancuerna en cada mano a los lados del cuerpo. Eleva los brazos hacia los lados hasta la altura de los hombros, con los codos ligeramente flexionados. Baja lento y con control.",
+    "recommendations": "No uses impulso ni balancees el cuerpo. Usa poco peso y controla la bajada. No subas los hombros hacia las orejas.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/3d0d7d55-3384-4f0c-b2cf-aa27c99151d1/b2eba5f2-42bd-4ae2-87c4-2de01575ebb1.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=OCoQIC9ojAA"
+  },
+  {
+    "name": "Face pull en polea",
+    "primaryMuscle": "shoulder",
+    "secondaryMuscles": [
+      "Espalda alta",
+      "trapecio"
+    ],
+    "equipment": "cable",
+    "instructions": "Coloca la polea a la altura de la cara y usa una cuerda. Tira la cuerda hacia el rostro separando las manos al final del movimiento. Lleva los codos hacia atrás y regresa lento.",
+    "recommendations": "No arquees la espalda ni uses impulso. Mantén los hombros abajo y controla el movimiento. Usa un peso ligero o moderado.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/7909a205-b42e-4060-bbc3-e67942198db5/9a52a70d-b08e-4c31-a66c-0a63096137d2.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=UaZPhyztYNU"
+  },
+  {
+    "name": "Press militar con barra",
+    "primaryMuscle": "shoulder",
+    "secondaryMuscles": [],
+    "equipment": "barbell",
+    "instructions": "De pie, barra a la altura de los hombros, empuja hacia arriba hasta extender los brazos.",
+    "recommendations": "No arquees la espalda excesivamente. Activa el core.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/d29077a5-53b2-4c71-8ae6-10e07f692c29/b074edff-6a74-4d80-8e71-6e709a55af19.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=U-nNyFcMoLg"
+  },
+  {
+    "name": "Curl con barra",
+    "primaryMuscle": "biceps",
+    "secondaryMuscles": [
+      "Antebrazos"
+    ],
+    "equipment": "barbell",
+    "instructions": "De pie con barra, flexiona los codos para llevar la barra hacia los hombros.",
+    "recommendations": "No te balancees. Mantén los codos fijos a los lados.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/0d2017bc-0f88-4b71-8c30-97d10f927cfa/cc1b09c2-b31b-4cdb-90a5-79dff27b8155.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=1V-o8pDiutU"
+  },
+  {
+    "name": "Curl martillo",
+    "primaryMuscle": "biceps",
+    "secondaryMuscles": [],
+    "equipment": "dumbbell",
+    "instructions": "De pie con mancuernas, flexiona los codos llevando las pesas con las palmas enfrentándose.",
+    "recommendations": "Movimiento controlado. No hiperestender al bajar.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/7da59009-ce11-4018-a888-979dfc81884a/94c26251-a87e-46c7-9dee-7cdc56695ac5.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=h-3fDGqhcVg"
+  },
+  {
+    "name": "Extensión de tríceps en polea",
+    "primaryMuscle": "triceps",
+    "secondaryMuscles": [
+      "Antebrazo"
+    ],
+    "equipment": "cable",
+    "instructions": "Coloca la polea arriba y toma la cuerda o barra. Mantén los codos pegados al cuerpo y empuja hacia abajo hasta extender los brazos. Regresa lento sin dejar que los codos se abran.",
+    "recommendations": "No uses el peso del cuerpo para empujar. Mantén el abdomen firme y enfócate en extender con los tríceps.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/70bad1fe-0d87-448f-b183-b288a3cdac83/5d9b2dae-87c4-4cb6-a78e-19b06a57499d.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=uZg6VtRhwQY"
+  },
+  {
+    "name": "Fondos en paralelas",
+    "primaryMuscle": "triceps",
+    "secondaryMuscles": [],
+    "equipment": "bodyweight",
+    "instructions": "Apoyado en paralelas, baja flexionando los codos y empuja hacia arriba.",
+    "recommendations": "Inclina el torso ligeramente hacia adelante para más enfoque en tríceps.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/86f70480-0647-44f8-96bd-89be0d557f5a/f293e490-3ddd-4dc3-8e94-c38c61f4f499.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=fJ5QdPGMkiY"
+  },
+  {
+    "name": "Crunch en maquina",
+    "primaryMuscle": "core",
+    "secondaryMuscles": [
+      "Oblicuos"
+    ],
+    "equipment": "machine",
+    "instructions": "Siéntate en la máquina y ajusta el peso. Flexiona el torso hacia adelante contrayendo el abdomen. Regresa lento a la posición inicial sin perder tensión.",
+    "recommendations": "No jales con los brazos ni uses impulso. Mantén el movimiento corto y controlado, enfocándote en cerrar las costillas hacia la pelvis.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/157b35dc-cd82-4f4d-a641-d4466201ef76/18cb87fd-bccc-4503-bea3-6c3a61ab76bd.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=AkyF4rGHhqg"
+  },
+  {
+    "name": "Plancha",
+    "primaryMuscle": "core",
+    "secondaryMuscles": [
+      "Espalda baja",
+      "glúteo",
+      "hombros"
+    ],
+    "equipment": "bodyweight",
+    "instructions": "Apoya los antebrazos y las puntas de los pies en el suelo. Mantén el cuerpo en línea recta desde la cabeza hasta los talones. Contrae el abdomen y los glúteos durante todo el tiempo.",
+    "recommendations": "No dejes caer la cadera ni la subas demasiado. Respira de forma controlada y mantén el cuello neutral.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/9f7f95ca-9e30-4401-a312-ec1f5f9182af/a74908da-d91e-453c-8aa7-66c1929e6a79.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=ogfuXWgXVsg"
+  },
+  {
+    "name": "Abducción en máquina",
+    "primaryMuscle": "glute",
+    "secondaryMuscles": [
+      "Glúteo medio",
+      "glúteo menor"
+    ],
+    "equipment": "machine",
+    "instructions": "Siéntate con la espalda apoyada y coloca las piernas contra las almohadillas laterales. Abre las piernas empujando las almohadillas hacia afuera con control. Haz una pausa corta al abrir y vuelve lentamente a la posición inicial.",
+    "recommendations": "No uses impulso ni rebotes. Mantén la cadera estable y el abdomen firme. Para sentir más el glúteo, inclina ligeramente el torso hacia adelante sin despegarte del asiento.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/8357967c-481b-41b8-a367-b446a5eb4693/341c911d-2331-4a67-81e6-9f195e0e668b.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=YmeJZh1-LGM"
+  },
+  {
+    "name": "Hip thrust en máquina",
+    "primaryMuscle": "glute",
+    "secondaryMuscles": [
+      "Femoral",
+      "cuádriceps"
+    ],
+    "equipment": "machine",
+    "instructions": "Apoya la espalda alta en el respaldo de la máquina, coloca los pies firmes al ancho de la cadera y la almohadilla sobre la pelvis. Empuja la cadera hacia arriba hasta formar una línea recta entre hombros, cadera y rodillas. Aprieta los glúteos arriba y baja de forma controlada.",
+    "recommendations": "No arquees la espalda baja. Mantén el abdomen firme, la barbilla ligeramente hacia abajo y empuja con los talones. Haz una pausa corta arriba para sentir mejor el glúteo.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/0598ba80-2552-4dd3-9aad-518b35956754/36554ac7-705e-4cfd-bddb-f0bf8b954ec8.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/watch?v=w5Ao76ENED8"
+  },
+  {
+    "name": "Patada de glúteo en polea",
+    "primaryMuscle": "glute",
+    "secondaryMuscles": [
+      "Femoral"
+    ],
+    "equipment": "cable",
+    "instructions": "Coloca la tobillera en la polea baja y sujétate de la máquina. Inclina ligeramente el torso hacia adelante y lleva la pierna hacia atrás, extendiendo la cadera sin arquear la espalda. Aprieta el glúteo al final y regresa lento.",
+    "recommendations": "No subas la pierna demasiado alto si eso hace que arquees la espalda. Mantén la pelvis estable y el movimiento controlado. El esfuerzo debe sentirse principalmente en el glúteo.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/60322a59-47e8-497f-a854-ab497f27b7d3/2cc5b18d-3d77-462e-89a0-92635bb51837.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/shorts/-YgMavu-_XQ"
+  },
+  {
+    "name": "Prensa en maquina",
+    "primaryMuscle": "glute",
+    "secondaryMuscles": [
+      "Femoral",
+      "cuádriceps",
+      "aductores"
+    ],
+    "equipment": "machine",
+    "instructions": "Coloca los pies altos y abiertos en la plataforma, con las puntas ligeramente hacia afuera. Baja la plataforma de forma controlada hasta que las rodillas se flexionen sin despegar la cadera del respaldo. Empuja la plataforma hacia arriba sin bloquear completamente las rodillas.",
+    "recommendations": "Mantén la espalda y la cadera pegadas al respaldo. Las rodillas deben seguir la dirección de los pies. No bajes tanto si la cadera se despega o la espalda se redondea.",
+    "mediaUrl": "https://hlrfvvpuvqblpzyagffk.supabase.co/storage/v1/object/public/exercise-media/exercises/e4607281-2831-4962-8634-cd406a1f8f25/dc953608-3632-407a-bc28-d5a9fd462919.webp",
+    "mediaType": "image",
+    "videoUrl": "https://www.youtube.com/shorts/EotSw18oR9w"
+  }
+]

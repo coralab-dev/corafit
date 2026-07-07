@@ -82,7 +82,9 @@ pnpm --filter db export:global-exercises
 Review `packages/db/prisma/seeds/global-exercises.seed.json` before seeding.
 The export includes only global active image exercises with a non-empty
 `mediaUrl`; the seed does not invent image URLs and rejects exercises without
-image media.
+image media. During seeding, active global exercises outside that canonical JSON,
+or active global exercises without image media, are physically deleted. Exercise
+cleanup is limited to global rows (`organizationId` null).
 
 Run the seed:
 

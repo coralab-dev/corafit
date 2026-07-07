@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { validateCanonicalExercises, validateTemplateExerciseNames } from './seed-canonical-exercises';
+import {
+  isCanonicalGlobalExerciseSeedRow,
+  validateCanonicalExercises,
+  validateTemplateExerciseNames,
+} from './seed-canonical-exercises';
 import {
   CANONICAL_TEMPLATE_PLANS,
   collectPlanExerciseNames,
@@ -75,6 +79,39 @@ void describe('canonical exercise seed helpers', () => {
         collectPlanExerciseNames(CANONICAL_TEMPLATE_PLANS),
         canonicalExercises,
       ),
+    );
+  });
+
+  void it('identifies global exercise rows outside the canonical image set', () => {
+    const canonicalNames = new Set(['Flexiones']);
+
+    assert.equal(
+      isCanonicalGlobalExerciseSeedRow(
+        { name: 'Flexiones', mediaUrl: 'https://example.com/flexiones.webp', mediaType: 'image' },
+        canonicalNames,
+      ),
+      true,
+    );
+    assert.equal(
+      isCanonicalGlobalExerciseSeedRow(
+        { name: 'Flexiones', mediaUrl: null, mediaType: 'image' },
+        canonicalNames,
+      ),
+      false,
+    );
+    assert.equal(
+      isCanonicalGlobalExerciseSeedRow(
+        { name: 'Ejercicio legacy', mediaUrl: 'https://example.com/legacy.webp', mediaType: 'image' },
+        canonicalNames,
+      ),
+      false,
+    );
+    assert.equal(
+      isCanonicalGlobalExerciseSeedRow(
+        { name: 'Flexiones', mediaUrl: 'https://example.com/flexiones.mp4', mediaType: 'video' },
+        canonicalNames,
+      ),
+      false,
     );
   });
 });

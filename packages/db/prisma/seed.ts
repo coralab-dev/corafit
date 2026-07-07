@@ -18,6 +18,7 @@ import {
 import { createPrismaClient } from '../src/prisma-client';
 import {
   type CanonicalExerciseSeed,
+  isCanonicalGlobalExerciseSeedRow,
   validateCanonicalExercises,
   validateTemplateExerciseNames,
 } from './seed-canonical-exercises';
@@ -284,6 +285,45 @@ async function seedCanonicalExercises(
   return { createdCount, duplicateNameCount, updatedCount };
 }
 
+async function deleteNonCanonicalGlobalExercises(
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
+  prisma: any,
+  canonicalExerciseNames: Set<string>,
+) {
+  const activeGlobalExercises = await prisma.exercise.findMany({
+    where: {
+      organizationId: null,
+      status: ExerciseStatus.active,
+    },
+    select: {
+      id: true,
+      mediaType: true,
+      mediaUrl: true,
+      name: true,
+    },
+  });
+  const nonCanonicalExerciseIds = activeGlobalExercises
+    .filter(
+      (exercise: { mediaType: string | null; mediaUrl: string | null; name: string }) =>
+        !isCanonicalGlobalExerciseSeedRow(exercise, canonicalExerciseNames),
+    )
+    .map((exercise: { id: string }) => exercise.id);
+
+  if (!nonCanonicalExerciseIds.length) {
+    return 0;
+  }
+
+  const result = await prisma.exercise.deleteMany({
+    where: {
+      id: { in: nonCanonicalExerciseIds },
+      organizationId: null,
+      status: ExerciseStatus.active,
+    },
+  });
+
+  return Number(result.count);
+}
+
 async function findExerciseByName(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
   prisma: any,
@@ -502,8 +542,15 @@ async function main() {
   );
 
   const exerciseSeedSummary = await seedCanonicalExercises(prisma, canonicalExercises);
+  const deletedNonCanonicalExercises = await deleteNonCanonicalGlobalExercises(
+    prisma,
+    canonicalExerciseNames,
+  );
   console.log(
     `Exercises seed: ${exerciseSeedSummary.createdCount} created, ${exerciseSeedSummary.updatedCount} updated`,
+  );
+  console.log(
+    `Exercises seed: ${deletedNonCanonicalExercises} non-canonical global active exercises deleted`,
   );
   if (exerciseSeedSummary.duplicateNameCount) {
     console.warn(

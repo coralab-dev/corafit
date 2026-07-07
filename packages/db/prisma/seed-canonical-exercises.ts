@@ -47,6 +47,18 @@ export function validateTemplateExerciseNames(
   }
 }
 
+export function isCanonicalGlobalExerciseSeedRow(
+  exercise: Pick<Exercise, 'mediaType' | 'mediaUrl' | 'name'>,
+  canonicalExerciseNames: Set<string>,
+) {
+  return (
+    canonicalExerciseNames.has(exercise.name) &&
+    typeof exercise.mediaUrl === 'string' &&
+    Boolean(exercise.mediaUrl.trim()) &&
+    exercise.mediaType === ExerciseMediaType.image
+  );
+}
+
 function validateCanonicalExercise(input: unknown, index: number): CanonicalExerciseSeed {
   if (!isRecord(input)) {
     throw new Error(`Canonical exercise at index ${index} must be an object`);

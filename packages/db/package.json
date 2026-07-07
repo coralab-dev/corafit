@@ -17,6 +17,8 @@
     "generate": "prisma generate --schema prisma/schema.prisma",
     "db:push": "prisma db push --schema prisma/schema.prisma",
     "backfill:subscriptions": "tsx prisma/backfill-beta-subscriptions.ts",
+    "export:global-exercises": "tsx prisma/export-global-exercises.ts",
+    "seed": "tsx prisma/seed.ts",
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit"

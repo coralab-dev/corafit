@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 import { config } from 'dotenv';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   DayOfWeek,
-  Equipment,
   ExerciseStatus,
   OrganizationMemberRole,
   OrganizationMemberStatus,
   OrganizationStatus,
   OrganizationType,
-  PrimaryMuscle,
   TrainingDayType,
   TrainingPlanStatus,
   TrainingPlanType,
@@ -17,6 +16,11 @@ import {
   UserStatus,
 } from '../src/generated/prisma/client';
 import { createPrismaClient } from '../src/prisma-client';
+import {
+  type CanonicalExerciseSeed,
+  validateCanonicalExercises,
+  validateTemplateExerciseNames,
+} from './seed-canonical-exercises';
 
 config({ path: resolve(process.cwd(), '../../.env') });
 config();
@@ -28,216 +32,10 @@ const SYSTEM_MEMBER_ID = '00000000-0000-0000-0000-000000000003';
 
 const PLAN_1_ID = '00000000-0000-0000-0000-000000000004';
 const PLAN_2_ID = '00000000-0000-0000-0000-000000000005';
-
-// ── Exercises ────────────────────────────────────────────────────────────────
-const EXERCISES = [
-  // Chest - 4 exercises
-  {
-    name: 'Press de banca con barra',
-    primaryMuscle: PrimaryMuscle.chest,
-    equipment: Equipment.barbell,
-    instructions:
-      'Acostado en banco plano, agarra la barra con agarre medio, baja hasta el pecho y empuja hacia arriba.',
-    recommendations:
-      'Mantén los pies firmes en el suelo y la espalda ligeramente arqueada.',
-  },
-  {
-    name: 'Press inclinado con mancuernas',
-    primaryMuscle: PrimaryMuscle.chest,
-    equipment: Equipment.dumbbell,
-    instructions:
-      'En banco inclinado a 30-45 grados, sostén mancuernas y empuja hacia arriba desde el pecho.',
-    recommendations:
-      'Controla el descenso y mantén los codos a 45 grados del cuerpo.',
-  },
-  {
-    name: 'Aperturas en máquina peck deck',
-    primaryMuscle: PrimaryMuscle.chest,
-    equipment: Equipment.machine,
-    instructions:
-      'Siéntate con la espalda apoyada, agarra los mangos y une las manos frente al pecho.',
-    recommendations:
-      'No bloquees los codos completamente al final del movimiento.',
-  },
-  {
-    name: 'Flexiones de brazos',
-    primaryMuscle: PrimaryMuscle.chest,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'En posición de plancha, baja el pecho hacia el suelo manteniendo el cuerpo recto y empuja hacia arriba.',
-    recommendations:
-      'Manos ligeramente más anchas que los hombros. Controla el descenso.',
-  },
-
-  // Back - 4 exercises
-  {
-    name: 'Dominadas',
-    primaryMuscle: PrimaryMuscle.back,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'Cuelga de la barra con agarre prono, tira de tu pecho hacia la barra y baja controlado.',
-    recommendations: 'Evita el balanceo o impulso. Aprieta los omóplatos al final.',
-  },
-  {
-    name: 'Remo con barra',
-    primaryMuscle: PrimaryMuscle.back,
-    equipment: Equipment.barbell,
-    instructions:
-      'Inclinado a 45 grados, tira de la barra hacia tu abdomen bajo manteniendo la espalda recta.',
-    recommendations: 'No redondees la espalda. Tira con los codos.',
-  },
-  {
-    name: 'Jalón al pecho',
-    primaryMuscle: PrimaryMuscle.back,
-    equipment: Equipment.cable,
-    instructions:
-      'Sentado o de pie, tira de la barra hacia el pecho manteniendo los codos cerca del cuerpo.',
-    recommendations: 'Aprieta los dorsales al final del movimiento.',
-  },
-  {
-    name: 'Remo sentado en máquina',
-    primaryMuscle: PrimaryMuscle.back,
-    equipment: Equipment.machine,
-    instructions:
-      'Siéntate con los pies en los pedales, tira del mango hacia tu torso.',
-    recommendations: 'Mantén el torso erguido y los codos cerca del cuerpo.',
-  },
-
-  // Legs - 4 exercises (at least 2 bodyweight)
-  {
-    name: 'Sentadilla con barra',
-    primaryMuscle: PrimaryMuscle.legs,
-    equipment: Equipment.barbell,
-    instructions:
-      'Barra en los trapecios, baja hasta que los muslos estén paralelos al suelo y sube.',
-    recommendations: 'Rodillas siguen la línea de los pies. Mantén el pecho arriba.',
-  },
-  {
-    name: 'Peso muerto rumano',
-    primaryMuscle: PrimaryMuscle.legs,
-    equipment: Equipment.barbell,
-    instructions:
-      'Con barra en manos, baja flexionando las rodillas ligeramente, manteniendo la espalda recta.',
-    recommendations: 'Siente el estiramiento en los isquiotibiales. No redondees la espalda.',
-  },
-  {
-    name: 'Sentadilla búlgara',
-    primaryMuscle: PrimaryMuscle.legs,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'Con una pierna atrás elevada en banco, baja en sentadilla profunda y sube.',
-    recommendations:
-      'Mantén el torso erguido. La pierna delantera debe bajar de forma controlada.',
-  },
-  {
-    name: 'Zancadas caminando',
-    primaryMuscle: PrimaryMuscle.legs,
-    equipment: Equipment.dumbbell,
-    instructions:
-      'Con mancuernas, da un paso largo adelante, baja hasta que ambos muslos estén paralelos y alterna.',
-    recommendations:
-      'Mantén el torso recto. Evita que la rodilla avanzada se pase de los dedos del pie.',
-  },
-
-  // Shoulder - 3 exercises
-  {
-    name: 'Press militar con barra',
-    primaryMuscle: PrimaryMuscle.shoulder,
-    equipment: Equipment.barbell,
-    instructions:
-      'De pie, barra a la altura de los hombros, empuja hacia arriba hasta extender los brazos.',
-    recommendations: 'No arquees la espalda excesivamente. Activa el core.',
-  },
-  {
-    name: 'Elevaciones laterales',
-    primaryMuscle: PrimaryMuscle.shoulder,
-    equipment: Equipment.dumbbell,
-    instructions:
-      'De pie con mancuernas a los lados, levanta los brazos lateralmente hasta la altura de los hombros.',
-    recommendations: 'Con una leve flexión de codos. Evita subir demasiado alto.',
-  },
-  {
-    name: 'Face pulls',
-    primaryMuscle: PrimaryMuscle.shoulder,
-    equipment: Equipment.cable,
-    instructions:
-      'Con polea alta y cuerda, tira hacia tu cara separando las manos al final.',
-    recommendations: 'Mantén los codos altos. Enfócate en apretar los omóplatos.',
-  },
-
-  // Biceps - 2 exercises
-  {
-    name: 'Curl con barra',
-    primaryMuscle: PrimaryMuscle.biceps,
-    equipment: Equipment.barbell,
-    instructions:
-      'De pie con barra, flexiona los codos para llevar la barra hacia los hombros.',
-    recommendations: 'No te balancees. Mantén los codos fijos a los lados.',
-  },
-  {
-    name: 'Curl martillo',
-    primaryMuscle: PrimaryMuscle.biceps,
-    equipment: Equipment.dumbbell,
-    instructions:
-      'De pie con mancuernas, flexiona los codos llevando las pesas con las palmas enfrentándose.',
-    recommendations: 'Movimiento controlado. No hiperestender al bajar.',
-  },
-
-  // Triceps - 2 exercises (at least 1 bodyweight)
-  {
-    name: 'Extensión de tríceps en polea',
-    primaryMuscle: PrimaryMuscle.triceps,
-    equipment: Equipment.cable,
-    instructions:
-      'Con cuerda o barra en polea alta, empuja hacia abajo extendiendo los brazos.',
-    recommendations: 'Mantén los codos pegados al cuerpo. No bloquees completamente.',
-  },
-  {
-    name: 'Fondos en paralelas',
-    primaryMuscle: PrimaryMuscle.triceps,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'Apoyado en paralelas, baja flexionando los codos y empuja hacia arriba.',
-    recommendations:
-      'Inclina el torso ligeramente hacia adelante para más enfoque en tríceps.',
-  },
-
-  // Core - 2 exercises (at least 1 bodyweight)
-  {
-    name: 'Crunch en polea',
-    primaryMuscle: PrimaryMuscle.core,
-    equipment: Equipment.cable,
-    instructions:
-      'De rodillas frente a polea alta con barra, flexiona el core para bajar la barra.',
-    recommendations: 'No jalar con los brazos. Usa solo el abdominal.',
-  },
-  {
-    name: 'Plancha',
-    primaryMuscle: PrimaryMuscle.core,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'En posición de plancha sobre codos y puntas de pies, mantén el cuerpo recto.',
-    recommendations: 'No dejes caer la cadera. Aprieta glúteos y core.',
-  },
-
-  // Glute - 2 exercises (at least 1 bodyweight)
-  {
-    name: 'Hip thrust con barra',
-    primaryMuscle: PrimaryMuscle.glute,
-    equipment: Equipment.barbell,
-    instructions:
-      'Espalda apoyada en banco, barra sobre las caderas, eleva la cadera apretando glúteos.',
-    recommendations: 'Lleva el movimiento completo hacia arriba. No arquear excesivamente.',
-  },
-  {
-    name: 'Puente glúteo',
-    primaryMuscle: PrimaryMuscle.glute,
-    equipment: Equipment.bodyweight,
-    instructions:
-      'Acostado con rodillas flexionadas, eleva las caderas apretando los glúteos al final.',
-    recommendations: 'Mantén los pies firmes. Aprieta los glúteos en la posición superior.',
-  },
-] as const;
+const canonicalExercisesPath = resolve(
+  process.cwd(),
+  'prisma/seeds/global-exercises.seed.json',
+);
 
 // ── Plan definitions ─────────────────────────────────────────────────────────
 
@@ -277,689 +75,228 @@ interface PlanDef {
   weeks: WeekDef[];
 }
 
+const beginnerDays: DayDef[] = [
+  {
+    dayOfWeek: DayOfWeek.monday,
+    session: {
+      name: 'Full Body A',
+      description: 'Base de sentadilla, empuje horizontal y espalda.',
+      exercises: [
+        { name: 'Sentadilla con barra', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Press de banca con barra', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Remo con barra', sets: 3, reps: '10', restSeconds: 75 },
+        { name: 'Hip thrust en m\u00e1quina', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Plancha', sets: 3, reps: '30s', restSeconds: 60 },
+      ],
+    },
+  },
+  {
+    dayOfWeek: DayOfWeek.wednesday,
+    session: {
+      name: 'Full Body B',
+      description: 'Variante unilateral, empuje inclinado y jal\u00f3n.',
+      exercises: [
+        { name: 'Sentadilla bulgara con barra', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Press inclinado con mancuernas', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Jal\u00f3n al pecho prono', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Zancadas con mancuerna', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Crunch en maquina', sets: 3, reps: '15', restSeconds: 60 },
+      ],
+    },
+  },
+  {
+    dayOfWeek: DayOfWeek.friday,
+    session: {
+      name: 'Full Body C',
+      description: 'Bisagra de cadera, peso corporal y estabilidad.',
+      exercises: [
+        { name: 'Peso muerto rumano con mancuernas', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Flexiones', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Remo T con respaldo', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Abducci\u00f3n en m\u00e1quina', sets: 3, reps: '15', restSeconds: 60 },
+        { name: 'Plancha', sets: 3, reps: '35s', restSeconds: 60 },
+      ],
+    },
+  },
+];
+
+const hypertrophyDays: DayDef[] = [
+  {
+    dayOfWeek: DayOfWeek.monday,
+    session: {
+      name: 'Push',
+      description: 'Pecho, hombros y tr\u00edceps.',
+      exercises: [
+        { name: 'Press de banca con barra', sets: 4, reps: '8', restSeconds: 120 },
+        { name: 'Press inclinado con mancuernas', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Press militar con barra', sets: 3, reps: '8', restSeconds: 90 },
+        { name: 'Elevaciones laterales con mancuernas', sets: 4, reps: '12', restSeconds: 60 },
+        { name: 'Extensi\u00f3n de tr\u00edceps en polea', sets: 3, reps: '12', restSeconds: 60 },
+        { name: 'Fondos en paralelas', sets: 3, reps: '8', restSeconds: 75 },
+      ],
+    },
+  },
+  {
+    dayOfWeek: DayOfWeek.tuesday,
+    session: {
+      name: 'Pull',
+      description: 'Espalda, b\u00edceps y deltoides posteriores.',
+      exercises: [
+        { name: 'Dominadas', sets: 4, reps: '6-8', restSeconds: 120 },
+        { name: 'Remo con barra', sets: 4, reps: '8', restSeconds: 120 },
+        { name: 'Jal\u00f3n al pecho prono', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Face pull en polea', sets: 3, reps: '15', restSeconds: 60 },
+        { name: 'Curl con barra', sets: 3, reps: '10', restSeconds: 60 },
+        { name: 'Curl martillo', sets: 3, reps: '12', restSeconds: 60 },
+      ],
+    },
+  },
+  {
+    dayOfWeek: DayOfWeek.thursday,
+    session: {
+      name: 'Pierna',
+      description: 'Cu\u00e1driceps, femorales, gl\u00fateos y gemelos.',
+      exercises: [
+        { name: 'Sentadilla con barra', sets: 4, reps: '8', restSeconds: 150 },
+        { name: 'Peso muerto rumano con barra', sets: 4, reps: '8', restSeconds: 150 },
+        { name: 'Prensa en maquina', sets: 3, reps: '10', restSeconds: 120 },
+        { name: 'Curl femoral sentado', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Hip thrust en m\u00e1quina', sets: 3, reps: '10', restSeconds: 90 },
+        { name: 'Gemelos de pie', sets: 4, reps: '15', restSeconds: 60 },
+      ],
+    },
+  },
+  {
+    dayOfWeek: DayOfWeek.friday,
+    session: {
+      name: 'Upper accesorios',
+      description: 'Volumen complementario de torso y core.',
+      exercises: [
+        { name: 'Aperturas en m\u00e1quina peck deck', sets: 3, reps: '12', restSeconds: 60 },
+        { name: 'Remo T con respaldo', sets: 3, reps: '12', restSeconds: 75 },
+        { name: 'Elevaciones laterales con mancuernas', sets: 3, reps: '15', restSeconds: 60 },
+        { name: 'Extensi\u00f3n de tr\u00edceps en polea', sets: 3, reps: '12', restSeconds: 60 },
+        { name: 'Curl martillo', sets: 3, reps: '12', restSeconds: 60 },
+        { name: 'Plancha', sets: 3, reps: '45s', restSeconds: 60 },
+      ],
+    },
+  },
+];
+
+function buildWeeks(days: DayDef[], durationWeeks: number): WeekDef[] {
+  return Array.from({ length: durationWeeks }, (_, index) => ({
+    weekNumber: index + 1,
+    days,
+  }));
+}
+
 const PLAN_1: PlanDef = {
   id: PLAN_1_ID,
-  name: 'Principiante Full Body 3 días',
-  goal: 'Ganancia de fuerza y condición general',
+  name: 'Principiante Full Body 3 d\u00edas',
+  goal: 'Base de fuerza, t\u00e9cnica y condici\u00f3n general',
   level: 'beginner',
   durationWeeks: 4,
   generalNotes:
-    'Plan diseñado para principiantes. Prioriza la técnica sobre el peso. Realiza calentamiento antes de cada sesión.',
-  weeks: [
-    {
-      weekNumber: 1,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Full Body A',
-            description: 'Sesión enfocada en patrón de sentadilla, empuje horizontal y remo.',
-            exercises: [
-              {
-                name: 'Sentadilla con barra',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-                alternatives: [{ name: 'Sentadilla búlgara', note: 'Sin peso adicional' }],
-              },
-              {
-                name: 'Press de banca con barra',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-                alternatives: [{ name: 'Flexiones de brazos', note: 'Variante asistida si es necesario' }],
-              },
-              {
-                name: 'Remo con barra',
-                sets: 3,
-                reps: '10',
-                restSeconds: 60,
-                alternatives: [{ name: 'Remo sentado en máquina', note: 'Mejor control del movimiento' }],
-              },
-              {
-                name: 'Puente glúteo',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Plancha',
-                sets: 3,
-                reps: '30s',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.wednesday,
-          session: {
-            name: 'Full Body B',
-            description: 'Sesión enfocada en variante unilateral, empuje inclinado y jalón.',
-            exercises: [
-              {
-                name: 'Sentadilla búlgara',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-              },
-              {
-                name: 'Press inclinado con mancuernas',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-              },
-              {
-                name: 'Jalón al pecho',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Zancadas caminando',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Plancha',
-                sets: 3,
-                reps: '30s',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Full Body C',
-            description: 'Sesión enfocada en bisagra de cadera, empuje con peso corporal y core.',
-            exercises: [
-              {
-                name: 'Peso muerto rumano',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-              },
-              {
-                name: 'Flexiones de brazos',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Remo sentado en máquina',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Puente glúteo',
-                sets: 3,
-                reps: '15',
-                restSeconds: 60,
-              },
-              {
-                name: 'Crunch en polea',
-                sets: 3,
-                reps: '15',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 2,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Full Body A',
-            description: 'Semana 2: añade 1 set o aumenta ligeramente el peso.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Press de banca con barra', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Remo con barra', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '35s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.wednesday,
-          session: {
-            name: 'Full Body B',
-            description: 'Semana 2: añade 1 set o aumenta ligeramente el peso.',
-            exercises: [
-              { name: 'Sentadilla búlgara', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Press inclinado con mancuernas', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Jalón al pecho', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Zancadas caminando', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '35s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Full Body C',
-            description: 'Semana 2: añade 1 set o aumenta ligeramente el peso.',
-            exercises: [
-              { name: 'Peso muerto rumano', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Flexiones de brazos', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Crunch en polea', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 3,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Full Body A',
-            description: 'Semana 3: aumenta progresión de sets o peso.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press de banca con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Remo con barra', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '40s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.wednesday,
-          session: {
-            name: 'Full Body B',
-            description: 'Semana 3: aumenta progresión de sets o peso.',
-            exercises: [
-              { name: 'Sentadilla búlgara', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press inclinado con mancuernas', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Jalón al pecho', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Zancadas caminando', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '40s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Full Body C',
-            description: 'Semana 3: aumenta progresión de sets o peso.',
-            exercises: [
-              { name: 'Peso muerto rumano', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Flexiones de brazos', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Crunch en polea', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 4,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Full Body A',
-            description: 'Semana 4: volumen máximo del ciclo.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press de banca con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Remo con barra', sets: 4, reps: '8', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '45s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.wednesday,
-          session: {
-            name: 'Full Body B',
-            description: 'Semana 4: volumen máximo del ciclo.',
-            exercises: [
-              { name: 'Sentadilla búlgara', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press inclinado con mancuernas', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Jalón al pecho', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Zancadas caminando', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '45s', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Full Body C',
-            description: 'Semana 4: volumen máximo del ciclo.',
-            exercises: [
-              { name: 'Peso muerto rumano', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Flexiones de brazos', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Crunch en polea', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-  ],
+    'Plan can\u00f3nico beta para principiantes. Prioriza t\u00e9cnica, control y progresi\u00f3n moderada.',
+  weeks: buildWeeks(beginnerDays, 4),
 };
 
 const PLAN_2: PlanDef = {
   id: PLAN_2_ID,
-  name: 'Intermedio Push/Pull/Legs',
-  goal: 'Hipertrofia y fuerza con división por grupos musculares',
+  name: 'Intermedio Hipertrofia Dividido',
+  goal: 'Hipertrofia con divisi\u00f3n push, pull, pierna y accesorios',
   level: 'intermediate',
   durationWeeks: 4,
   generalNotes:
-    'Plan de 4 días para nivel intermedio. Descanso activo miércoles y fin de semana. Aumenta peso progresivamente.',
-  weeks: [
-    {
-      weekNumber: 1,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Push',
-            description: 'Pecho, hombros y tríceps.',
-            exercises: [
-              {
-                name: 'Press de banca con barra',
-                sets: 4,
-                reps: '8',
-                restSeconds: 90,
-                alternatives: [{ name: 'Flexiones de brazos', note: 'Variante con peso si es posible' }],
-              },
-              {
-                name: 'Press inclinado con mancuernas',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-              },
-              {
-                name: 'Press militar con barra',
-                sets: 3,
-                reps: '10',
-                restSeconds: 60,
-              },
-              {
-                name: 'Elevaciones laterales',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Extensión de tríceps en polea',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Fondos en paralelas',
-                sets: 3,
-                reps: '10',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.tuesday,
-          session: {
-            name: 'Pull',
-            description: 'Espalda, bíceps y rear deltoides.',
-            exercises: [
-              {
-                name: 'Dominadas',
-                sets: 4,
-                reps: '8',
-                restSeconds: 90,
-                alternatives: [{ name: 'Jalón al pecho', note: 'Asistido o con peso corporal' }],
-              },
-              {
-                name: 'Remo con barra',
-                sets: 4,
-                reps: '8',
-                restSeconds: 90,
-              },
-              {
-                name: 'Jalón al pecho',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Curl con barra',
-                sets: 3,
-                reps: '10',
-                restSeconds: 60,
-              },
-              {
-                name: 'Curl martillo',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Face pulls',
-                sets: 3,
-                reps: '15',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.thursday,
-          session: {
-            name: 'Legs',
-            description: 'Piernas y glúteos con énfasis en sentadilla y bisagra.',
-            exercises: [
-              {
-                name: 'Sentadilla con barra',
-                sets: 4,
-                reps: '8',
-                restSeconds: 120,
-                alternatives: [{ name: 'Sentadilla búlgara', note: 'Con mancuernas' }],
-              },
-              {
-                name: 'Peso muerto rumano',
-                sets: 4,
-                reps: '8',
-                restSeconds: 120,
-                alternatives: [{ name: 'Hip thrust con barra', note: 'Mayor enfoque en glúteos' }],
-              },
-              {
-                name: 'Sentadilla búlgara',
-                sets: 3,
-                reps: '10',
-                restSeconds: 90,
-              },
-              {
-                name: 'Zancadas caminando',
-                sets: 3,
-                reps: '12',
-                restSeconds: 90,
-              },
-              {
-                name: 'Hip thrust con barra',
-                sets: 3,
-                reps: '12',
-                restSeconds: 90,
-              },
-              {
-                name: 'Puente glúteo',
-                sets: 3,
-                reps: '15',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Upper / Accesorios',
-            description: 'Mix de tren superior con énfasis en acabados y core.',
-            exercises: [
-              {
-                name: 'Aperturas en máquina peck deck',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Remo sentado en máquina',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Elevaciones laterales',
-                sets: 3,
-                reps: '15',
-                restSeconds: 60,
-              },
-              {
-                name: 'Curl martillo',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Extensión de tríceps en polea',
-                sets: 3,
-                reps: '12',
-                restSeconds: 60,
-              },
-              {
-                name: 'Plancha',
-                sets: 3,
-                reps: '45s',
-                restSeconds: 60,
-              },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 2,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Push',
-            description: 'Semana 2: añade peso o 1 set en compuestos.',
-            exercises: [
-              { name: 'Press de banca con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press inclinado con mancuernas', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Press militar con barra', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Elevaciones laterales', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Fondos en paralelas', sets: 3, reps: '10', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.tuesday,
-          session: {
-            name: 'Pull',
-            description: 'Semana 2: añade peso o 1 set en compuestos.',
-            exercises: [
-              { name: 'Dominadas', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Remo con barra', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Jalón al pecho', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Curl con barra', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Face pulls', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.thursday,
-          session: {
-            name: 'Legs',
-            description: 'Semana 2: añade peso o 1 set en compuestos.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 4, reps: '8', restSeconds: 120 },
-              { name: 'Peso muerto rumano', sets: 4, reps: '8', restSeconds: 120 },
-              { name: 'Sentadilla búlgara', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Zancadas caminando', sets: 3, reps: '12', restSeconds: 90 },
-              { name: 'Hip thrust con barra', sets: 3, reps: '12', restSeconds: 90 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Upper / Accesorios',
-            description: 'Semana 2: añade peso en aislamientos.',
-            exercises: [
-              { name: 'Aperturas en máquina peck deck', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Elevaciones laterales', sets: 3, reps: '15', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '45s', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 3,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Push',
-            description: 'Semana 3: aumenta intensidad en compuestos.',
-            exercises: [
-              { name: 'Press de banca con barra', sets: 4, reps: '6', restSeconds: 120 },
-              { name: 'Press inclinado con mancuernas', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press militar con barra', sets: 3, reps: '8', restSeconds: 90 },
-              { name: 'Elevaciones laterales', sets: 4, reps: '12', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Fondos en paralelas', sets: 3, reps: '8', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.tuesday,
-          session: {
-            name: 'Pull',
-            description: 'Semana 3: aumenta intensidad en compuestos.',
-            exercises: [
-              { name: 'Dominadas', sets: 4, reps: '6', restSeconds: 120 },
-              { name: 'Remo con barra', sets: 4, reps: '6', restSeconds: 120 },
-              { name: 'Jalón al pecho', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Curl con barra', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '12', restSeconds: 60 },
-              { name: 'Face pulls', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.thursday,
-          session: {
-            name: 'Legs',
-            description: 'Semana 3: aumenta intensidad en compuestos.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 4, reps: '6', restSeconds: 150 },
-              { name: 'Peso muerto rumano', sets: 4, reps: '6', restSeconds: 150 },
-              { name: 'Sentadilla búlgara', sets: 3, reps: '8', restSeconds: 90 },
-              { name: 'Zancadas caminando', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Hip thrust con barra', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Upper / Accesorios',
-            description: 'Semana 3: aumenta intensidad en aislamientos.',
-            exercises: [
-              { name: 'Aperturas en máquina peck deck', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Elevaciones laterales', sets: 4, reps: '12', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '50s', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      weekNumber: 4,
-      days: [
-        {
-          dayOfWeek: DayOfWeek.monday,
-          session: {
-            name: 'Push',
-            description: 'Semana 4: pico de intensidad del ciclo.',
-            exercises: [
-              { name: 'Press de banca con barra', sets: 5, reps: '5', restSeconds: 150 },
-              { name: 'Press inclinado con mancuernas', sets: 4, reps: '8', restSeconds: 90 },
-              { name: 'Press militar con barra', sets: 3, reps: '8', restSeconds: 90 },
-              { name: 'Elevaciones laterales', sets: 4, reps: '12', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Fondos en paralelas', sets: 3, reps: '8', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.tuesday,
-          session: {
-            name: 'Pull',
-            description: 'Semana 4: pico de intensidad del ciclo.',
-            exercises: [
-              { name: 'Dominadas', sets: 5, reps: '5', restSeconds: 150 },
-              { name: 'Remo con barra', sets: 5, reps: '5', restSeconds: 150 },
-              { name: 'Jalón al pecho', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Curl con barra', sets: 3, reps: '8', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Face pulls', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.thursday,
-          session: {
-            name: 'Legs',
-            description: 'Semana 4: pico de intensidad del ciclo.',
-            exercises: [
-              { name: 'Sentadilla con barra', sets: 5, reps: '5', restSeconds: 180 },
-              { name: 'Peso muerto rumano', sets: 5, reps: '5', restSeconds: 180 },
-              { name: 'Sentadilla búlgara', sets: 3, reps: '8', restSeconds: 90 },
-              { name: 'Zancadas caminando', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Hip thrust con barra', sets: 3, reps: '10', restSeconds: 90 },
-              { name: 'Puente glúteo', sets: 3, reps: '15', restSeconds: 60 },
-            ],
-          },
-        },
-        {
-          dayOfWeek: DayOfWeek.friday,
-          session: {
-            name: 'Upper / Accesorios',
-            description: 'Semana 4: pico de intensidad del ciclo.',
-            exercises: [
-              { name: 'Aperturas en máquina peck deck', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Remo sentado en máquina', sets: 4, reps: '10', restSeconds: 60 },
-              { name: 'Elevaciones laterales', sets: 4, reps: '12', restSeconds: 60 },
-              { name: 'Curl martillo', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Extensión de tríceps en polea', sets: 3, reps: '10', restSeconds: 60 },
-              { name: 'Plancha', sets: 3, reps: '60s', restSeconds: 60 },
-            ],
-          },
-        },
-      ],
-    },
-  ],
+    'Plan can\u00f3nico beta para nivel intermedio. Aumenta cargas de forma progresiva y conserva t\u00e9cnica.',
+  weeks: buildWeeks(hypertrophyDays, 4),
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+export const CANONICAL_TEMPLATE_PLANS = [PLAN_1, PLAN_2] as const;
+
+export function readCanonicalExerciseSeeds() {
+  return validateCanonicalExercises(
+    JSON.parse(readFileSync(canonicalExercisesPath, 'utf8')),
+  );
+}
+
+export function collectPlanExerciseNames(plans: readonly PlanDef[]) {
+  const names = new Set<string>();
+
+  for (const plan of plans) {
+    for (const week of plan.weeks) {
+      for (const day of week.days) {
+        for (const exercise of day.session.exercises) {
+          names.add(exercise.name);
+          for (const alternative of exercise.alternatives ?? []) {
+            names.add(alternative.name);
+          }
+        }
+      }
+    }
+  }
+
+  return [...names];
+}
+
+async function seedCanonicalExercises(
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
+  prisma: any,
+  exercises: CanonicalExerciseSeed[],
+) {
+  let createdCount = 0;
+  let updatedCount = 0;
+  let duplicateNameCount = 0;
+
+  for (const exercise of exercises) {
+    const existingExercises = await prisma.exercise.findMany({
+      where: { name: exercise.name, organizationId: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    const existing = existingExercises[0] as { id: string } | undefined;
+
+    if (existingExercises.length > 1) {
+      duplicateNameCount += existingExercises.length - 1;
+      console.warn(
+        `Canonical exercise "${exercise.name}" has ${existingExercises.length} global rows; updating the oldest and leaving duplicates untouched.`,
+      );
+    }
+
+    const data = {
+      ...exercise,
+      status: ExerciseStatus.active,
+      organizationId: null,
+    };
+
+    if (existing) {
+      await prisma.exercise.update({
+        where: { id: existing.id },
+        data,
+      });
+      updatedCount++;
+    } else {
+      await prisma.exercise.create({ data });
+      createdCount++;
+    }
+  }
+
+  return { createdCount, duplicateNameCount, updatedCount };
+}
 
 async function findExerciseByName(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
   prisma: any,
   name: string,
+  canonicalExerciseNames: Set<string>,
 ) {
+  if (!canonicalExerciseNames.has(name)) {
+    throw new Error(`Template exercise is not in canonical seed: ${name}`);
+  }
+
   const exercise = await prisma.exercise.findFirst({
     where: { name, organizationId: null },
+    orderBy: { createdAt: 'asc' },
   });
   if (!exercise) {
     throw new Error(`Exercise not found: ${name}`);
@@ -1021,6 +358,7 @@ async function seedTrainingPlan(
   planDef: PlanDef,
   memberId: string,
   orgId: string,
+  canonicalExerciseNames: Set<string>,
 ) {
   const existingPlan = await prisma.trainingPlan.findUnique({
     where: { id: planDef.id },
@@ -1087,7 +425,11 @@ async function seedTrainingPlan(
 
       for (let i = 0; i < dayDef.session.exercises.length; i++) {
         const exDef = dayDef.session.exercises[i];
-        const exercise = await findExerciseByName(prisma, exDef.name);
+        const exercise = await findExerciseByName(
+          prisma,
+          exDef.name,
+          canonicalExerciseNames,
+        );
 
         const sessionExercise = await prisma.sessionExercise.create({
           data: {
@@ -1103,7 +445,11 @@ async function seedTrainingPlan(
 
         if (exDef.alternatives) {
           for (const altDef of exDef.alternatives) {
-            const altExercise = await findExerciseByName(prisma, altDef.name);
+            const altExercise = await findExerciseByName(
+              prisma,
+              altDef.name,
+              canonicalExerciseNames,
+            );
             await prisma.sessionExerciseAlternative.create({
               data: {
                 sessionExerciseId: sessionExercise.id,
@@ -1118,48 +464,53 @@ async function seedTrainingPlan(
   }
 }
 
+async function clearObsoleteSeedTemplates(
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
+  prisma: any,
+) {
+  const canonicalTemplateIds = CANONICAL_TEMPLATE_PLANS.map((plan) => plan.id);
+  const obsoleteTemplates = await prisma.trainingPlan.findMany({
+    where: {
+      organizationId: SEED_ORG_ID,
+      planType: TrainingPlanType.template,
+      id: { notIn: canonicalTemplateIds },
+    },
+    select: { id: true, name: true },
+  });
+
+  for (const template of obsoleteTemplates) {
+    const templateId = String(template.id);
+    await clearPlanChildren(prisma, templateId);
+    await prisma.trainingPlan.delete({ where: { id: templateId } });
+    console.log(`Removed obsolete seed template: ${String(template.name)}`);
+  }
+
+  return obsoleteTemplates.length;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const prisma = createPrismaClient();
+  const canonicalExercises = readCanonicalExerciseSeeds();
+  const canonicalExerciseNames = new Set(
+    canonicalExercises.map((exercise) => exercise.name),
+  );
+  validateTemplateExerciseNames(
+    collectPlanExerciseNames(CANONICAL_TEMPLATE_PLANS),
+    canonicalExercises,
+  );
 
-  // ── Seed global exercises ────────────────────────────────────────────────
-  let createdCount = 0;
-  let updatedCount = 0;
-
-  for (const exercise of EXERCISES) {
-    const existing = await prisma.exercise.findFirst({
-      where: { name: exercise.name, organizationId: null },
-    });
-
-    const data = {
-      name: exercise.name,
-      primaryMuscle: exercise.primaryMuscle,
-      secondaryMuscles: [] as string[],
-      equipment: exercise.equipment,
-      instructions: exercise.instructions,
-      recommendations: exercise.recommendations,
-      mediaUrl: null,
-      mediaType: null,
-      status: ExerciseStatus.active,
-      organizationId: null,
-    };
-
-    if (existing) {
-      await prisma.exercise.update({
-        where: { id: existing.id },
-        data,
-      });
-      updatedCount++;
-    } else {
-      await prisma.exercise.create({ data });
-      createdCount++;
-    }
+  const exerciseSeedSummary = await seedCanonicalExercises(prisma, canonicalExercises);
+  console.log(
+    `Exercises seed: ${exerciseSeedSummary.createdCount} created, ${exerciseSeedSummary.updatedCount} updated`,
+  );
+  if (exerciseSeedSummary.duplicateNameCount) {
+    console.warn(
+      `Exercises seed: ${exerciseSeedSummary.duplicateNameCount} duplicate global rows left untouched`,
+    );
   }
 
-  console.log(`Exercises seed: ${createdCount} created, ${updatedCount} updated`);
-
-  // ── Seed system user ─────────────────────────────────────────────────────
   await prisma.user.upsert({
     where: { id: SYSTEM_USER_ID },
     update: {
@@ -1178,7 +529,6 @@ async function main() {
     },
   });
 
-  // ── Seed organization ──────────────────────────────────────────────────
   await prisma.organization.upsert({
     where: { id: SEED_ORG_ID },
     update: {
@@ -1197,7 +547,6 @@ async function main() {
     },
   });
 
-  // ── Seed system member ───────────────────────────────────────────────────
   await prisma.organizationMember.upsert({
     where: { id: SYSTEM_MEMBER_ID },
     update: {
@@ -1213,7 +562,6 @@ async function main() {
     },
   });
 
-  // ── Register seed org in SystemSetting ───────────────────────────────────
   await prisma.systemSetting.upsert({
     where: { key: 'system.seedOrganizationId' },
     update: { value: SEED_ORG_ID },
@@ -1223,13 +571,29 @@ async function main() {
     },
   });
 
-  // ── Seed training plans ──────────────────────────────────────────────────
-  await seedTrainingPlan(prisma, PLAN_1, SYSTEM_MEMBER_ID, SEED_ORG_ID);
-  await seedTrainingPlan(prisma, PLAN_2, SYSTEM_MEMBER_ID, SEED_ORG_ID);
+  const removedTemplates = await clearObsoleteSeedTemplates(prisma);
+  await seedTrainingPlan(
+    prisma,
+    PLAN_1,
+    SYSTEM_MEMBER_ID,
+    SEED_ORG_ID,
+    canonicalExerciseNames,
+  );
+  await seedTrainingPlan(
+    prisma,
+    PLAN_2,
+    SYSTEM_MEMBER_ID,
+    SEED_ORG_ID,
+    canonicalExerciseNames,
+  );
 
-  console.log('Training plans seed: 2 base templates ensured');
+  console.log(
+    `Training plans seed: 2 base templates ensured, ${removedTemplates} obsolete seed templates removed`,
+  );
 
   await prisma.$disconnect();
 }
 
-void main();
+if (require.main === module) {
+  void main();
+}

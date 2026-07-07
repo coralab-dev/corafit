@@ -83,8 +83,11 @@ Review `packages/db/prisma/seeds/global-exercises.seed.json` before seeding.
 The export includes only global active image exercises with a non-empty
 `mediaUrl`; the seed does not invent image URLs and rejects exercises without
 image media. During seeding, active global exercises outside that canonical JSON,
-or active global exercises without image media, are physically deleted. Exercise
-cleanup is limited to global rows (`organizationId` null).
+or active global exercises without image media, are cleaned up transactionally.
+The seed first removes old seed-org template plan trees that reference them, then
+physically deletes only unreferenced non-canonical global exercises. Cleanup is
+limited to global exercise rows (`organizationId` null) and seed-org templates;
+exercises and plans from real organizations are not touched.
 
 Run the seed:
 

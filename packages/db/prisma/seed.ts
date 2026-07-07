@@ -285,12 +285,59 @@ async function seedCanonicalExercises(
   return { createdCount, duplicateNameCount, updatedCount };
 }
 
-async function deleteNonCanonicalGlobalExercises(
+type CleanupSummary = {
+  alternativesDeleted: number;
+  daysDeleted: number;
+  exercisesDeleted: number;
+  nonCanonicalExercisesFound: number;
+  plansDeleted: number;
+  referencedExercisesSkipped: number;
+  sessionExercisesDeleted: number;
+  sessionsDeleted: number;
+  weeksDeleted: number;
+};
+
+type ActiveGlobalExerciseRow = {
+  id: string;
+  mediaType: string | null;
+  mediaUrl: string | null;
+  name: string;
+};
+
+type SeedPlanReferenceRow = {
+  session: {
+    day: {
+      week: {
+        trainingPlan: {
+          id: string;
+          organizationId: string | null;
+          planType: TrainingPlanType;
+        };
+      };
+    };
+  } | null;
+};
+
+function emptyCleanupSummary(): CleanupSummary {
+  return {
+    alternativesDeleted: 0,
+    daysDeleted: 0,
+    exercisesDeleted: 0,
+    nonCanonicalExercisesFound: 0,
+    plansDeleted: 0,
+    referencedExercisesSkipped: 0,
+    sessionExercisesDeleted: 0,
+    sessionsDeleted: 0,
+    weeksDeleted: 0,
+  };
+}
+
+async function cleanupNonCanonicalGlobalExercises(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
   prisma: any,
   canonicalExerciseNames: Set<string>,
-) {
-  const activeGlobalExercises = await prisma.exercise.findMany({
+): Promise<CleanupSummary> {
+  const activeGlobalExercises = (await prisma.exercise.findMany({
     where: {
       organizationId: null,
       status: ExerciseStatus.active,
@@ -301,27 +348,61 @@ async function deleteNonCanonicalGlobalExercises(
       mediaUrl: true,
       name: true,
     },
-  });
-  const nonCanonicalExerciseIds = activeGlobalExercises
-    .filter(
-      (exercise: { mediaType: string | null; mediaUrl: string | null; name: string }) =>
-        !isCanonicalGlobalExerciseSeedRow(exercise, canonicalExerciseNames),
-    )
-    .map((exercise: { id: string }) => exercise.id);
+  })) as ActiveGlobalExerciseRow[];
+  const nonCanonicalExercises = activeGlobalExercises.filter(
+    (exercise) => !isCanonicalGlobalExerciseSeedRow(exercise, canonicalExerciseNames),
+  );
+  const nonCanonicalExerciseIds = nonCanonicalExercises.map(
+    (exercise) => exercise.id,
+  );
+  const summary = emptyCleanupSummary();
+  summary.nonCanonicalExercisesFound = nonCanonicalExerciseIds.length;
 
   if (!nonCanonicalExerciseIds.length) {
-    return 0;
+    return summary;
   }
 
-  const result = await prisma.exercise.deleteMany({
-    where: {
-      id: { in: nonCanonicalExerciseIds },
-      organizationId: null,
-      status: ExerciseStatus.active,
-    },
-  });
+  return prisma.$transaction(async (tx: any) => {
+    const seedPlanIds = await findSeedPlansToDeleteForNonCanonicalExercises(
+      tx,
+      nonCanonicalExerciseIds,
+    );
 
-  return Number(result.count);
+    for (const planId of seedPlanIds) {
+      const planCleanup = await clearPlanChildren(tx, planId);
+      summary.alternativesDeleted += planCleanup.alternativesDeleted;
+      summary.daysDeleted += planCleanup.daysDeleted;
+      summary.sessionExercisesDeleted += planCleanup.sessionExercisesDeleted;
+      summary.sessionsDeleted += planCleanup.sessionsDeleted;
+      summary.weeksDeleted += planCleanup.weeksDeleted;
+
+      await tx.trainingPlan.delete({ where: { id: planId } });
+      summary.plansDeleted++;
+    }
+
+    const referencedExerciseIds = await findReferencedExerciseIds(
+      tx,
+      nonCanonicalExerciseIds,
+    );
+    const exerciseIdsToDelete = nonCanonicalExerciseIds.filter(
+      (id: string) => !referencedExerciseIds.has(id),
+    );
+    summary.referencedExercisesSkipped =
+      nonCanonicalExerciseIds.length - exerciseIdsToDelete.length;
+
+    if (exerciseIdsToDelete.length) {
+      const result = await tx.exercise.deleteMany({
+        where: {
+          id: { in: exerciseIdsToDelete },
+          organizationId: null,
+          status: ExerciseStatus.active,
+        },
+      });
+      summary.exercisesDeleted = Number(result.count);
+    }
+
+    return summary;
+  });
 }
 
 async function findExerciseByName(
@@ -342,6 +423,90 @@ async function findExerciseByName(
     throw new Error(`Exercise not found: ${name}`);
   }
   return exercise;
+}
+
+async function findSeedPlansToDeleteForNonCanonicalExercises(
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
+  prisma: any,
+  nonCanonicalExerciseIds: string[],
+) {
+  const canonicalTemplateIds = CANONICAL_TEMPLATE_PLANS.map((plan) => plan.id);
+  const obsoleteSeedTemplates = (await prisma.trainingPlan.findMany({
+    where: {
+      organizationId: SEED_ORG_ID,
+      planType: TrainingPlanType.template,
+      id: { notIn: canonicalTemplateIds },
+    },
+    select: { id: true },
+  })) as Array<{ id: string }>;
+  const sessionExercises = (await prisma.sessionExercise.findMany({
+    where: {
+      OR: [
+        { exerciseId: { in: nonCanonicalExerciseIds } },
+        {
+          alternatives: {
+            some: { alternativeExerciseId: { in: nonCanonicalExerciseIds } },
+          },
+        },
+      ],
+    },
+    select: {
+      session: {
+        select: {
+          day: {
+            select: {
+              week: {
+                select: {
+                  trainingPlan: {
+                    select: {
+                      id: true,
+                      organizationId: true,
+                      planType: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })) as SeedPlanReferenceRow[];
+  const seedPlanIds = new Set<string>(
+    obsoleteSeedTemplates.map((plan) => plan.id),
+  );
+
+  for (const sessionExercise of sessionExercises) {
+    const plan = sessionExercise.session?.day?.week?.trainingPlan;
+    if (
+      plan?.organizationId === SEED_ORG_ID &&
+      plan.planType === TrainingPlanType.template
+    ) {
+      seedPlanIds.add(String(plan.id));
+    }
+  }
+
+  return [...seedPlanIds];
+}
+
+async function findReferencedExerciseIds(
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
+  prisma: any,
+  exerciseIds: string[],
+) {
+  const sessionExerciseReferences = (await prisma.sessionExercise.findMany({
+    where: { exerciseId: { in: exerciseIds } },
+    select: { exerciseId: true },
+  })) as Array<{ exerciseId: string }>;
+  const alternativeReferences = (await prisma.sessionExerciseAlternative.findMany({
+    where: { alternativeExerciseId: { in: exerciseIds } },
+    select: { alternativeExerciseId: true },
+  })) as Array<{ alternativeExerciseId: string }>;
+
+  return new Set<string>([
+    ...sessionExerciseReferences.map((reference) => reference.exerciseId),
+    ...alternativeReferences.map((reference) => reference.alternativeExerciseId),
+  ]);
 }
 
 async function clearPlanChildren(
@@ -373,23 +538,29 @@ async function clearPlanChildren(
   });
   const exerciseIds = exercises.map((e: { id: string }) => e.id);
 
-  await prisma.$transaction([
-    prisma.sessionExerciseAlternative.deleteMany({
-      where: { sessionExerciseId: { in: exerciseIds } },
-    }),
-    prisma.sessionExercise.deleteMany({
-      where: { id: { in: exerciseIds } },
-    }),
-    prisma.trainingSession.deleteMany({
-      where: { id: { in: sessionIds } },
-    }),
-    prisma.trainingPlanDay.deleteMany({
-      where: { id: { in: dayIds } },
-    }),
-    prisma.trainingPlanWeek.deleteMany({
-      where: { id: { in: weekIds } },
-    }),
-  ]);
+  const alternativesDeleted = await prisma.sessionExerciseAlternative.deleteMany({
+    where: { sessionExerciseId: { in: exerciseIds } },
+  });
+  const sessionExercisesDeleted = await prisma.sessionExercise.deleteMany({
+    where: { id: { in: exerciseIds } },
+  });
+  const sessionsDeleted = await prisma.trainingSession.deleteMany({
+    where: { id: { in: sessionIds } },
+  });
+  const daysDeleted = await prisma.trainingPlanDay.deleteMany({
+    where: { id: { in: dayIds } },
+  });
+  const weeksDeleted = await prisma.trainingPlanWeek.deleteMany({
+    where: { id: { in: weekIds } },
+  });
+
+  return {
+    alternativesDeleted: Number(alternativesDeleted.count),
+    daysDeleted: Number(daysDeleted.count),
+    sessionExercisesDeleted: Number(sessionExercisesDeleted.count),
+    sessionsDeleted: Number(sessionsDeleted.count),
+    weeksDeleted: Number(weeksDeleted.count),
+  };
 }
 
 async function seedTrainingPlan(
@@ -504,32 +675,6 @@ async function seedTrainingPlan(
   }
 }
 
-async function clearObsoleteSeedTemplates(
-  // biome-ignore lint/suspicious/noExplicitAny: Prisma client in seed script
-  prisma: any,
-) {
-  const canonicalTemplateIds = CANONICAL_TEMPLATE_PLANS.map((plan) => plan.id);
-  const obsoleteTemplates = await prisma.trainingPlan.findMany({
-    where: {
-      organizationId: SEED_ORG_ID,
-      planType: TrainingPlanType.template,
-      id: { notIn: canonicalTemplateIds },
-    },
-    select: { id: true, name: true },
-  });
-
-  for (const template of obsoleteTemplates) {
-    const templateId = String(template.id);
-    await clearPlanChildren(prisma, templateId);
-    await prisma.trainingPlan.delete({ where: { id: templateId } });
-    console.log(`Removed obsolete seed template: ${String(template.name)}`);
-  }
-
-  return obsoleteTemplates.length;
-}
-
-// ── Main ─────────────────────────────────────────────────────────────────────
-
 async function main() {
   const prisma = createPrismaClient();
   const canonicalExercises = readCanonicalExerciseSeeds();
@@ -542,7 +687,7 @@ async function main() {
   );
 
   const exerciseSeedSummary = await seedCanonicalExercises(prisma, canonicalExercises);
-  const deletedNonCanonicalExercises = await deleteNonCanonicalGlobalExercises(
+  const cleanupSummary = await cleanupNonCanonicalGlobalExercises(
     prisma,
     canonicalExerciseNames,
   );
@@ -550,7 +695,10 @@ async function main() {
     `Exercises seed: ${exerciseSeedSummary.createdCount} created, ${exerciseSeedSummary.updatedCount} updated`,
   );
   console.log(
-    `Exercises seed: ${deletedNonCanonicalExercises} non-canonical global active exercises deleted`,
+    `Exercises seed cleanup: ${cleanupSummary.nonCanonicalExercisesFound} non-canonical global active exercises found, ${cleanupSummary.exercisesDeleted} deleted, ${cleanupSummary.referencedExercisesSkipped} skipped because they remain referenced outside seed cleanup scope`,
+  );
+  console.log(
+    `Exercises seed cleanup: ${cleanupSummary.plansDeleted} seed templates, ${cleanupSummary.weeksDeleted} weeks, ${cleanupSummary.daysDeleted} days, ${cleanupSummary.sessionsDeleted} sessions, ${cleanupSummary.sessionExercisesDeleted} session exercises, ${cleanupSummary.alternativesDeleted} alternatives deleted`,
   );
   if (exerciseSeedSummary.duplicateNameCount) {
     console.warn(
@@ -618,7 +766,6 @@ async function main() {
     },
   });
 
-  const removedTemplates = await clearObsoleteSeedTemplates(prisma);
   await seedTrainingPlan(
     prisma,
     PLAN_1,
@@ -634,9 +781,7 @@ async function main() {
     canonicalExerciseNames,
   );
 
-  console.log(
-    `Training plans seed: 2 base templates ensured, ${removedTemplates} obsolete seed templates removed`,
-  );
+  console.log('Training plans seed: 2 base templates ensured');
 
   await prisma.$disconnect();
 }

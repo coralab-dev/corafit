@@ -1,0 +1,167 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
+
+export type AdminOrganizationStatus = "active" | "suspended" | "cancelled";
+
+export type AdminOrganizationFilters = {
+  search?: string;
+  status?: AdminOrganizationStatus | "all";
+};
+
+export type AdminOrganization = {
+  id: string;
+  name: string;
+  type: string;
+  status: AdminOrganizationStatus;
+  createdAt: string;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  subscription: {
+    status: string;
+  } | null;
+  plan: {
+    id: string;
+    code: string;
+    name: string;
+    clientLimit: number;
+  } | null;
+  clientsUsed: number;
+};
+
+export function useAdminOrganizations(filters: AdminOrganizationFilters) {
+  const { profile, session, status: authStatus } = useAuth();
+  const [items, setItems] = useState<AdminOrganization[]>([]);
+  const [selectedOrganization, setSelectedOrganization] =
+    useState<AdminOrganization | null>(null);
+  const [selectedId, setSelectedId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [detailError, setDetailError] = useState("");
+
+  const isApiReady =
+    authStatus === "authenticated" &&
+    Boolean(session) &&
+    profile?.user.platformRole === "admin_saas";
+
+  const normalizedFilters = useMemo(
+    () => ({
+      search: filters.search?.trim() ?? "",
+      status: filters.status ?? "all",
+    }),
+    [filters.search, filters.status],
+  );
+
+  const adminRequest = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { session }),
+    [session],
+  );
+
+  const loadOrganizations = useCallback(async () => {
+    if (!isApiReady) {
+      setItems([]);
+      setSelectedOrganization(null);
+      setSelectedId("");
+      setError(authStatus === "loading" ? "" : "Inicia sesion como admin.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const searchParams = new URLSearchParams();
+
+      if (normalizedFilters.search) {
+        searchParams.set("search", normalizedFilters.search);
+      }
+
+      if (normalizedFilters.status !== "all") {
+        searchParams.set("status", normalizedFilters.status);
+      }
+
+      const query = searchParams.toString();
+      const response = await adminRequest<AdminOrganization[]>(
+        `/admin/organizations${query ? `?${query}` : ""}`,
+        { method: "GET" },
+      );
+
+      setItems(response);
+      setSelectedId((current) =>
+        response.some((organization) => organization.id === current)
+          ? current
+          : response[0]?.id ?? "",
+      );
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [adminRequest, authStatus, isApiReady, normalizedFilters]);
+
+  const loadOrganization = useCallback(
+    async (organizationId: string) => {
+      if (!isApiReady || !organizationId) {
+        setSelectedOrganization(null);
+        setDetailError("");
+        return;
+      }
+
+      setIsDetailLoading(true);
+      setDetailError("");
+
+      try {
+        const organization = await adminRequest<AdminOrganization>(
+          `/admin/organizations/${organizationId}`,
+          { method: "GET" },
+        );
+        setSelectedOrganization(organization);
+      } catch (caughtError) {
+        setSelectedOrganization(null);
+        setDetailError(getErrorMessage(caughtError));
+      } finally {
+        setIsDetailLoading(false);
+      }
+    },
+    [adminRequest, isApiReady],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadOrganizations();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadOrganizations]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadOrganization(selectedId);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadOrganization, selectedId]);
+
+  return {
+    detailError,
+    error,
+    isDetailLoading,
+    isLoading,
+    items,
+    refresh: loadOrganizations,
+    selectOrganization: setSelectedId,
+    selectedId,
+    selectedOrganization,
+  };
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Ocurrio un error inesperado";
+}

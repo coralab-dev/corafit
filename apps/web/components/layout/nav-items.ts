@@ -24,6 +24,6 @@ export const navItems: AppNavItem[] = [
   { href: "/exercises", icon: DumbbellIcon, label: "Ejercicios", requiresOrganization: true },
   { href: "/training-plans", icon: ClipboardListIcon, label: "Planes", requiresOrganization: true },
   { href: "#", icon: SmartphoneIcon, label: "Portal", disabled: true, requiresOrganization: true },
-  { href: "/admin/exercises", icon: ShieldCheckIcon, label: "Admin", platformRole: "admin_saas" },
+  { href: "/admin/organizations", icon: ShieldCheckIcon, label: "Admin", platformRole: "admin_saas" },
   { href: "/settings", icon: SettingsIcon, label: "Configuracion", requiresOrganization: true },
 ];

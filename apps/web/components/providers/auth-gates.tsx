@@ -24,7 +24,7 @@ export function ProtectedAppGate({ children }: { children: ReactNode }) {
       !profile.organization &&
       !pathname.startsWith("/admin")
     ) {
-      router.replace("/admin/exercises");
+      router.replace("/admin/organizations");
     }
   }, [pathname, profile, router, status]);
 

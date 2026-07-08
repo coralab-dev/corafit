@@ -32,7 +32,8 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -42,11 +43,8 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [assignmentLoadingId, setAssignmentLoadingId] = useState("");
   const [isEndPlanOpen, setIsEndPlanOpen] = useState(false);
   const [isEndingPlan, setIsEndingPlan] = useState(false);
+  const [loadedOrganizationId, setLoadedOrganizationId] = useState<string | null>(null);
 
-  const selectedClient = allClients.find((client) => client.id === selectedId);
-  const selectedAssignment = selectedClient
-    ? assignmentsByClient[selectedClient.id]
-    : null;
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     mode: "onSubmit",
@@ -56,6 +54,23 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const hasLoadedClients = loadedOrganizationId === organizationId;
+  const visibleClients = useMemo(
+    () => (hasLoadedClients ? allClients : []),
+    [allClients, hasLoadedClients],
+  );
+  const visibleAssignmentsByClient = useMemo(
+    () => (hasLoadedClients ? assignmentsByClient : {}),
+    [assignmentsByClient, hasLoadedClients],
+  );
+  const selectedClient = visibleClients.find((client) => client.id === selectedId);
+  const selectedAssignment = selectedClient
+    ? visibleAssignmentsByClient[selectedClient.id]
+    : null;
+  const isInitialLoading =
+    (authStatus === "loading" && !hasLoadedClients) ||
+    (isListLoading && !hasLoadedClients);
+  const isRefreshing = isListLoading && hasLoadedClients;
 
   const clientsRequest = useCallback(
     <T,>(path: string, init: RequestInit = {}) =>
@@ -86,13 +101,17 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   const loadClients = useCallback(async () => {
     if (!isApiReady) {
-      setAllClients([]);
-      setAssignmentsByClient({});
+      if (authStatus !== "loading") {
+        setAllClients([]);
+        setAssignmentsByClient({});
+        setSelectedId("");
+        setLoadedOrganizationId(null);
+      }
       setError(authStatus === "loading" ? "" : "Inicia sesión para leer tus clientes.");
       return;
     }
 
-    setIsLoading(true);
+    setIsListLoading(true);
     setError("");
     try {
       const searchParams = new URLSearchParams({
@@ -114,6 +133,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
       setAllClients(nextClients);
       setAssignmentsByClient(nextAssignments);
+      setLoadedOrganizationId(organizationId);
       setSelectedId((current) => {
         if (selectedFromQuery && nextClients.some((client) => client.id === selectedFromQuery)) {
           return selectedFromQuery;
@@ -127,9 +147,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsListLoading(false);
     }
-  }, [authStatus, clientsRequest, isApiReady, selectedFromQuery]);
+  }, [authStatus, clientsRequest, isApiReady, organizationId, selectedFromQuery]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -163,7 +183,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const displayClients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return allClients.filter((client) => {
+    return visibleClients.filter((client) => {
       const matchesStatus =
         statusFilter === "all" || client.operationalStatus === statusFilter;
       const matchesQuery =
@@ -174,12 +194,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
       return matchesStatus && matchesQuery;
     });
-  }, [allClients, query, statusFilter]);
+  }, [query, statusFilter, visibleClients]);
 
-  const activeCount = allClients.filter(
+  const activeCount = visibleClients.filter(
     (client) => client.operationalStatus === "active",
   ).length;
-  const accessCount = allClients.filter((client) => client.access.status === "active").length;
+  const accessCount = visibleClients.filter((client) => client.access.status === "active").length;
 
   function openCreateForm() {
     setEditingClient(null);
@@ -207,7 +227,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }
 
   async function submitClient(values: ClientFormValues) {
-    setIsLoading(true);
+    setIsSubmittingClient(true);
     setError("");
 
     try {
@@ -244,7 +264,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
-      setIsLoading(false);
+      setIsSubmittingClient(false);
     }
   }
 
@@ -294,7 +314,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     <>
       <ClientFormDialog
         form={form}
-        isLoading={isLoading}
+        isLoading={isSubmittingClient}
         isOpen={isFormOpen}
         mode={editingClient ? "edit" : "create"}
         onOpenChange={setIsFormOpen}
@@ -330,7 +350,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             <div className="flex flex-col gap-5 bg-background p-6">
               {error ? <ClientErrorCard error={error} /> : null}
 
-              {isLoading ? (
+              {isInitialLoading && !selectedClient ? (
                 <ClientDetailLoadingCard />
               ) : selectedClient ? (
                 <ClientDetail
@@ -384,19 +404,24 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="min-w-0 flex-1 border-r">
           <div className="border-b bg-background px-6 py-5">
+            {isRefreshing ? (
+              <div className="mb-4 rounded-md border bg-card px-3 py-2 text-xs text-muted-foreground">
+                Actualizando clientes...
+              </div>
+            ) : null}
             <ClientMetrics
               accessCount={accessCount}
               activeCount={activeCount}
-              assignmentCount={Object.values(assignmentsByClient).filter(Boolean).length}
-              totalCount={allClients.length}
+              assignmentCount={Object.values(visibleAssignmentsByClient).filter(Boolean).length}
+              totalCount={visibleClients.length}
             />
           </div>
 
           <ClientList
-            assignmentsByClient={assignmentsByClient}
+            assignmentsByClient={visibleAssignmentsByClient}
             clients={displayClients}
             error={error}
-            isLoading={isLoading}
+            isLoading={isInitialLoading}
             query={query}
             selectedClientId={selectedClient?.id ?? ""}
             statusFilter={statusFilter}

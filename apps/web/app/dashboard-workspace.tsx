@@ -36,7 +36,7 @@ type ChecklistItem = {
 };
 
 export function DashboardWorkspace() {
-  const { error, isApiReady, isLoading, refresh, stats } = useDashboard();
+  const { error, isApiReady, isInitialLoading, isRefreshing, refresh, stats } = useDashboard();
   const onboarding = stats?.onboarding;
 
   const checklist: ChecklistItem[] = stats
@@ -104,7 +104,7 @@ export function DashboardWorkspace() {
         />
       }
     >
-      {isLoading ? (
+      {isInitialLoading ? (
         <div className="flex min-h-96 flex-col items-center justify-center gap-3">
           <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Cargando dashboard...</p>
@@ -121,7 +121,7 @@ export function DashboardWorkspace() {
             Reintentar
           </Button>
         </div>
-      ) : error ? (
+      ) : error && !stats ? (
         <div className="m-6 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
           No pudimos cargar el dashboard.
           <Button className="mt-2" onClick={refresh} size="sm" variant="outline">
@@ -132,6 +132,17 @@ export function DashboardWorkspace() {
         <WorkspaceSplit
           main={
             <div className="flex flex-col gap-5 bg-background p-6">
+              {isRefreshing ? (
+                <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                  Actualizando...
+                </div>
+              ) : null}
+              {error ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  {error}
+                </div>
+              ) : null}
               <MetricStrip
                 items={[
                   {

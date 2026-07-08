@@ -69,16 +69,23 @@ export function useDashboard() {
   const [stats, setStats] = useState<CoachDashboardResponse | null>(null);
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loadedOrganizationId, setLoadedOrganizationId] = useState<string | null>(null);
 
   const organizationId = profile?.organization?.id ?? null;
   const isApiReady =
     authStatus === "authenticated" &&
     Boolean(session && organizationId);
-  const isLoading = authStatus === "loading" || isRequestLoading;
+  const visibleStats = loadedOrganizationId === organizationId ? stats : null;
+  const isInitialLoading =
+    (authStatus === "loading" && !visibleStats) || (isRequestLoading && !visibleStats);
+  const isRefreshing = isRequestLoading && Boolean(visibleStats);
 
   const loadStats = useCallback(async () => {
     if (!isApiReady) {
-      setStats(null);
+      if (authStatus !== "loading") {
+        setStats(null);
+        setLoadedOrganizationId(null);
+      }
       setError(authStatus === "loading" ? "" : "Inicia sesión para ver tu dashboard.");
       return;
     }
@@ -93,6 +100,7 @@ export function useDashboard() {
         { organizationId, session },
       );
       setStats(response);
+      setLoadedOrganizationId(organizationId);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -108,5 +116,12 @@ export function useDashboard() {
     return () => window.clearTimeout(timer);
   }, [loadStats]);
 
-  return { error, isApiReady, isLoading, refresh: loadStats, stats };
+  return {
+    error,
+    isApiReady,
+    isInitialLoading,
+    isRefreshing,
+    refresh: loadStats,
+    stats: visibleStats,
+  };
 }

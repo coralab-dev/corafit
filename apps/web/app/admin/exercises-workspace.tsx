@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,7 +99,7 @@ export function AdminExercisesWorkspace() {
     const exercise = await createExercise(input);
     setSelectedId(exercise.id);
     setIsCreateOpen(false);
-    toast.success("Ejercicio global creado");
+    notify.success("Ejercicio global creado");
   }
 
   async function handleUpdate(input: AdminExerciseInput) {
@@ -110,7 +110,7 @@ export function AdminExercisesWorkspace() {
     const exercise = await updateExercise(editingExercise.id, input);
     setSelectedId(exercise.id);
     setEditingExercise(null);
-    toast.success("Ejercicio global actualizado");
+    notify.success("Ejercicio global actualizado");
   }
 
   if (authStatus === "loading") {
@@ -326,9 +326,9 @@ function ExerciseDetailPanel({
     setIsBusy(true);
     try {
       await onDeactivate(exercise.id);
-      toast.success("Ejercicio desactivado");
+      notify.success("Ejercicio desactivado");
     } catch (caughtError) {
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     } finally {
       setIsBusy(false);
     }
@@ -339,9 +339,9 @@ function ExerciseDetailPanel({
     setIsBusy(true);
     try {
       await onUploadImage(exercise.id, file);
-      toast.success("Imagen actualizada");
+      notify.success("Imagen actualizada");
     } catch (caughtError) {
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     } finally {
       setIsBusy(false);
     }
@@ -352,9 +352,9 @@ function ExerciseDetailPanel({
     setIsBusy(true);
     try {
       await onRemoveMedia(exercise.id);
-      toast.success("Media eliminada");
+      notify.success("Media eliminada");
     } catch (caughtError) {
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     } finally {
       setIsBusy(false);
     }
@@ -496,13 +496,13 @@ function ExerciseDialog({
 
     const trimmedName = name.trim();
     if (trimmedName.length < 2) {
-      toast.error("El nombre debe tener al menos 2 caracteres");
+      notify.error("El nombre debe tener al menos 2 caracteres");
       return;
     }
 
     const trimmedVideoUrl = videoUrl.trim();
     if (trimmedVideoUrl && !isValidUrl(trimmedVideoUrl)) {
-      toast.error("La URL de video no es valida");
+      notify.error("La URL de video no es valida");
       return;
     }
 
@@ -521,7 +521,7 @@ function ExerciseDialog({
         videoUrl: trimmedVideoUrl || null,
       });
     } catch (caughtError) {
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     } finally {
       setIsSaving(false);
     }

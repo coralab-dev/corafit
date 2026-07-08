@@ -15,7 +15,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,7 +131,7 @@ export function PlanTree({
                       <DropdownMenuItem
                         onSelect={() => {
                           void editor.duplicateWeek(week.id).then(() => {
-                            toast.success("Semana duplicada");
+                            notify.success("Semana duplicada");
                           });
                         }}
                       >
@@ -146,7 +146,7 @@ export function PlanTree({
                             )
                           ) {
                             void editor.deleteWeek(week.id).then(() => {
-                              toast.success("Semana eliminada");
+                              notify.success("Semana eliminada");
                             });
                           }
                         }}
@@ -193,7 +193,7 @@ export function PlanTree({
               void editor
                 .createWeek({})
                 .then(() => {
-                  toast.success("Semana agregada");
+                  notify.success("Semana agregada");
                 })
             }
           >
@@ -275,7 +275,7 @@ function AddDayControl({
           onClick={() =>
             void editor.createDay(weekId, { dayOfWeek: selectedDay }).then(() => {
               setIsOpen(false);
-              toast.success("Dia agregado");
+              notify.success("Dia agregado");
             })
           }
         >
@@ -370,10 +370,10 @@ function DayNode({
                       name: `Sesion ${dayLabels[day.dayOfWeek] ?? day.dayOfWeek}`,
                     })
                     .then(() => {
-                      toast.success("Sesion agregada");
+                      notify.success("Sesion agregada");
                     })
                     .catch((caughtError: unknown) => {
-                      toast.error(
+                      notify.error(
                         caughtError instanceof Error
                           ? caughtError.message
                           : "No se pudo crear la sesion",
@@ -473,7 +473,7 @@ function DayActions({
               onSelect={() => {
                 if (window.confirm("Eliminar este dia y su contenido?")) {
                   void editor.deleteDay(day.id).then(() => {
-                    toast.success("Dia eliminado");
+                    notify.success("Dia eliminado");
                   });
                 }
               }}
@@ -510,14 +510,14 @@ function DayActions({
               if (copiedDay.session) {
                 onSelectSession(copiedDay.session.id);
               }
-              toast.success("Dia duplicado");
+              notify.success("Dia duplicado");
             });
             return;
           }
 
           void editor.updateDay(day.id, { dayOfWeek: targetDay }).then(() => {
             setDayDialogMode(null);
-            toast.success("Dia actualizado");
+            notify.success("Dia actualizado");
           });
         }}
       />

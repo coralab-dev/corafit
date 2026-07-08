@@ -9,7 +9,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,9 +100,9 @@ export function ExerciseSearch({
       const exercise = await createExercise(input);
       setIsCreateOpen(false);
       onSelect?.(exercise);
-      toast.success("Ejercicio creado");
+      notify.success("Ejercicio creado");
     } catch (caughtError) {
-      toast.error(
+      notify.error(
         caughtError instanceof Error
           ? caughtError.message
           : "No se pudo crear el ejercicio",

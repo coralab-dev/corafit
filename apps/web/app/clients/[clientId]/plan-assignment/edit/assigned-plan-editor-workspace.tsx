@@ -20,7 +20,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { ExerciseSearch } from "@/components/exercise-search";
 import { PlanTree } from "@/components/training-plans/assigned-plan-tree";
 import { Button } from "@/components/ui/button";
@@ -123,10 +123,10 @@ export function AssignedPlanEditorWorkspace() {
       await editor.updatePlan(planDraft);
       await editor.loadAssignment();
       setPlanSaveState("saved");
-      toast.success("Plan asignado actualizado");
+      notify.success("Plan asignado actualizado");
     } catch (caughtError) {
       setPlanSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -140,10 +140,10 @@ export function AssignedPlanEditorWorkspace() {
       await editor.updateSession(selectedSession.id, sessionDraft);
       await editor.loadAssignment();
       setSessionSaveState("saved");
-      toast.success("Sesion actualizada");
+      notify.success("Sesion actualizada");
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -153,10 +153,10 @@ export function AssignedPlanEditorWorkspace() {
       await action();
       await editor.loadAssignment();
       setSessionSaveState("saved");
-      toast.success(success);
+      notify.success(success);
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -257,11 +257,11 @@ export function AssignedPlanEditorWorkspace() {
                 await editor.updateSession(sessionId, draft);
                 await editor.loadAssignment();
                 setSessionSaveState("saved");
-                toast.success("Sesion actualizada");
+                notify.success("Sesion actualizada");
                 return true;
               } catch (caughtError) {
                 setSessionSaveState("error");
-                toast.error(getErrorMessage(caughtError));
+                notify.error(getErrorMessage(caughtError));
                 return false;
               }
             }}

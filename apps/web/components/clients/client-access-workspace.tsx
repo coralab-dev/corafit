@@ -18,7 +18,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,7 +144,7 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
             }
           : current,
       );
-      toast.success(mode === "create" ? "Acceso generado" : "Acceso regenerado");
+      notify.success(mode === "create" ? "Acceso generado" : "Acceso regenerado");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -178,7 +178,7 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
             }
           : current,
       );
-      toast.success("Acceso desactivado");
+      notify.success("Acceso desactivado");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -193,7 +193,7 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
     }
 
     await navigator.clipboard.writeText(value);
-    toast.success(`${label} copiado`);
+    notify.success(`${label} copiado`);
   }
 
   const whatsAppMessage = useMemo(() => {

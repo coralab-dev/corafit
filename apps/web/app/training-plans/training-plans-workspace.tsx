@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -419,14 +419,14 @@ export function TrainingPlansWorkspace() {
                     name: newPlanName.trim(),
                     durationWeeks: Number(newPlanWeeks),
                   });
-                  toast.success("Plan creado");
+                  notify.success("Plan creado");
                   setIsCreateOpen(false);
                   setNewPlanName("");
                   setNewPlanWeeks("4");
                   void refresh();
                   router.push(`/training-plans/${plan.id}/edit`);
                 } catch (caughtError) {
-                  toast.error(
+                  notify.error(
                     caughtError instanceof Error
                       ? caughtError.message
                       : "Error al crear plan",

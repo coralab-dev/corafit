@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
@@ -160,6 +160,22 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }, [loadClients]);
 
   useEffect(() => {
+    if (!isRefreshing) {
+      notify.dismiss("clients-refresh");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      notify.refresh("Actualizando clientes", { id: "clients-refresh" });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      notify.dismiss("clients-refresh");
+    };
+  }, [isRefreshing]);
+
+  useEffect(() => {
     if (!selectedId || !isApiReady) {
       return;
     }
@@ -245,7 +261,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
               : client,
           ),
         );
-        toast.success("Cliente actualizado");
+        notify.success("Cliente actualizado");
       } else {
         const createdClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
           "/clients",
@@ -257,7 +273,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         ]);
         setAssignmentsByClient((current) => ({ ...current, [createdClient.id]: null }));
         setSelectedId(createdClient.id);
-        toast.success("Cliente creado");
+        notify.success("Cliente creado");
       }
 
       setIsFormOpen(false);
@@ -282,7 +298,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             : client,
         ),
       );
-      toast.success(`Cliente ${statusLabels[status].toLowerCase()}`);
+      notify.success(`Cliente ${statusLabels[status].toLowerCase()}`);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     }
@@ -302,7 +318,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       );
       await loadCurrentPlanAssignment(selectedClient.id);
       setIsEndPlanOpen(false);
-      toast.success("Plan finalizado");
+      notify.success("Plan finalizado");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -404,11 +420,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="min-w-0 flex-1 border-r">
           <div className="border-b bg-background px-6 py-5">
-            {isRefreshing ? (
-              <div className="mb-4 rounded-md border bg-card px-3 py-2 text-xs text-muted-foreground">
-                Actualizando clientes...
-              </div>
-            ) : null}
             <ClientMetrics
               accessCount={accessCount}
               activeCount={activeCount}

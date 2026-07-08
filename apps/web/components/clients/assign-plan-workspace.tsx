@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,7 +185,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
         },
         apiConfig,
       );
-      toast.success("Plan asignado");
+      notify.success("Plan asignado");
       router.push(`/clients/${client.id}`);
     } catch (caughtError) {
       const message = getErrorMessage(caughtError);

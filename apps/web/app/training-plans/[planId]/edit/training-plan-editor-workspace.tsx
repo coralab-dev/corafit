@@ -22,7 +22,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type React from "react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { ExerciseSearch } from "@/components/exercise-search";
 import {
   WorkspaceFrame,
@@ -201,7 +201,7 @@ export function TrainingPlanEditorWorkspace() {
       setPlanSaveState("saved");
     } catch (caughtError) {
       setPlanSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -224,7 +224,7 @@ export function TrainingPlanEditorWorkspace() {
       setSessionSaveState("saved");
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -247,11 +247,11 @@ export function TrainingPlanEditorWorkspace() {
         });
       }
       setSessionSaveState("saved");
-      toast.success("Sesion actualizada");
+      notify.success("Sesion actualizada");
       return true;
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
       return false;
     }
   }
@@ -272,10 +272,10 @@ export function TrainingPlanEditorWorkspace() {
     try {
       await action();
       setSessionSaveState("saved");
-      toast.success(success);
+      notify.success(success);
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -291,10 +291,10 @@ export function TrainingPlanEditorWorkspace() {
     try {
       await action();
       setSessionSaveState("saved");
-      toast.success(success);
+      notify.success(success);
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -312,10 +312,10 @@ export function TrainingPlanEditorWorkspace() {
       await editor.deleteSession(selectedSession.id);
       setSessionSaveState("saved");
       setSelectedSessionId("");
-      toast.success("Sesion eliminada");
+      notify.success("Sesion eliminada");
     } catch (caughtError) {
       setSessionSaveState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -335,7 +335,7 @@ export function TrainingPlanEditorWorkspace() {
         await editor.updatePlanStatus("draft");
         await editor.loadPlan();
         setPublishState("saved");
-        toast.success("Plan despublicado");
+        notify.success("Plan despublicado");
         return;
       }
 
@@ -352,10 +352,10 @@ export function TrainingPlanEditorWorkspace() {
       await editor.updatePlanStatus("active");
       await editor.loadPlan();
       setPublishState("saved");
-      toast.success("Plan publicado");
+      notify.success("Plan publicado");
     } catch (caughtError) {
       setPublishState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -367,11 +367,11 @@ export function TrainingPlanEditorWorkspace() {
     setPublishState("saving");
     try {
       const copy = await editor.duplicatePlan();
-      toast.success("Copia creada para editar");
+      notify.success("Copia creada para editar");
       router.push(`/training-plans/${copy.id}/edit`);
     } catch (caughtError) {
       setPublishState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 
@@ -388,11 +388,11 @@ export function TrainingPlanEditorWorkspace() {
     try {
       await editor.updatePlanStatus("archived");
       setPublishState("saved");
-      toast.success("Plan eliminado");
+      notify.success("Plan eliminado");
       router.push("/training-plans");
     } catch (caughtError) {
       setPublishState("error");
-      toast.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(caughtError));
     }
   }
 

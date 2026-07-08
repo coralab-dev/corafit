@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
@@ -161,9 +161,9 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
         body: JSON.stringify({ name: values.name, phone: phoneValue }),
       });
       await refreshProfile();
-      toast.success("Perfil actualizado");
+      notify.success("Perfil actualizado");
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      notify.error(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -252,9 +252,9 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
         body: JSON.stringify({ name: values.name }),
       }, { organizationId: profile.organization.id });
       await refreshProfile();
-      toast.success("Organizacion actualizada");
+      notify.success("Organizacion actualizada");
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      notify.error(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WorkspaceFrame, WorkspaceHeader, WorkspaceSplit } from "@/components/layout/workspace-shell";
@@ -160,9 +160,9 @@ function SelectedExerciseCard({
     try {
       const updatedExercise = await uploadExerciseImage(visibleExercise.id, file);
       onExerciseChange(updatedExercise);
-      toast.success("Imagen actualizada");
+      notify.success("Imagen actualizada");
     } catch (caughtError) {
-      toast.error(
+      notify.error(
         caughtError instanceof Error
           ? caughtError.message
           : "No se pudo actualizar la imagen",
@@ -181,9 +181,9 @@ function SelectedExerciseCard({
     try {
       const updatedExercise = await removeExerciseMedia(visibleExercise.id);
       onExerciseChange(updatedExercise);
-      toast.success("Media eliminada");
+      notify.success("Media eliminada");
     } catch (caughtError) {
-      toast.error(
+      notify.error(
         caughtError instanceof Error
           ? caughtError.message
           : "No se pudo eliminar la media",
@@ -208,7 +208,7 @@ function SelectedExerciseCard({
     const updatedExercise = await updateExercise(visibleExercise.id, input);
     onExerciseChange(updatedExercise);
     setIsEditOpen(false);
-    toast.success("Ejercicio actualizado");
+    notify.success("Ejercicio actualizado");
   }
 
   async function handleDeactivate() {
@@ -228,9 +228,9 @@ function SelectedExerciseCard({
     try {
       await deactivateExercise(visibleExercise.id);
       onExerciseChange(null);
-      toast.success("Ejercicio desactivado");
+      notify.success("Ejercicio desactivado");
     } catch (caughtError) {
-      toast.error(
+      notify.error(
         caughtError instanceof Error
           ? caughtError.message
           : "No se pudo desactivar el ejercicio",
@@ -413,13 +413,13 @@ function ExerciseEditDialog({
 
     const trimmedName = name.trim();
     if (trimmedName.length < 2) {
-      toast.error("El nombre debe tener al menos 2 caracteres");
+      notify.error("El nombre debe tener al menos 2 caracteres");
       return;
     }
 
     const trimmedVideoUrl = videoUrl.trim();
     if (trimmedVideoUrl && !isValidUrl(trimmedVideoUrl)) {
-      toast.error("La URL de video no es valida");
+      notify.error("La URL de video no es valida");
       return;
     }
 
@@ -433,7 +433,7 @@ function ExerciseEditDialog({
         videoUrl: trimmedVideoUrl || null,
       });
     } catch (caughtError) {
-      toast.error(
+      notify.error(
         caughtError instanceof Error
           ? caughtError.message
           : "No se pudo actualizar el ejercicio",

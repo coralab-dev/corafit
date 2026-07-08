@@ -15,6 +15,11 @@ export class BillingController {
     return this.billingService.getStatus();
   }
 
+  @Get('plans')
+  listPlans() {
+    return this.billingService.listPublicPlans();
+  }
+
   @UseGuards(OrganizationGuard, RoleGuard)
   @Roles(OrganizationMemberRole.owner)
   @Get('current')

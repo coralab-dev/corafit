@@ -2,6 +2,7 @@ import {
   ClientOperationalStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionPlanStatus,
   SubscriptionStatus,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,9 @@ type PrismaServiceMock = {
   organization: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
+  };
+  subscriptionPlan: {
+    findMany: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -52,6 +56,23 @@ describe('AdminService', () => {
       organization: {
         findMany: vi.fn().mockResolvedValue([organization]),
         findUnique: vi.fn().mockResolvedValue(organization),
+      },
+      subscriptionPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'founder-plan-id',
+            code: 'founder',
+            name: 'Founder',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 30,
+            memberLimit: 1,
+            isPublic: false,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ]),
       },
     };
     service = new AdminService(prismaService as unknown as PrismaService);
@@ -118,6 +139,43 @@ describe('AdminService', () => {
     expect(prismaService.organization.findUnique).toHaveBeenCalledWith({
       where: { id: 'organization-id' },
       include: includeMatcher,
+    });
+  });
+
+  it('lists all subscription plans for admin operations', async () => {
+    await expect(service.listSubscriptionPlans()).resolves.toEqual([
+      {
+        id: 'founder-plan-id',
+        code: 'founder',
+        name: 'Founder',
+        status: SubscriptionPlanStatus.active,
+        isPublic: false,
+        betaPrice: 0,
+        postBetaPrice: null,
+        currency: 'MXN',
+        clientLimit: 30,
+        memberLimit: 1,
+        sortOrder: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    ]);
+
+    expect(prismaService.subscriptionPlan.findMany).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        isPublic: true,
+        priceMonthly: true,
+        currency: true,
+        clientLimit: true,
+        memberLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
     });
   });
 });

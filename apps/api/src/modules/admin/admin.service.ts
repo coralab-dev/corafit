@@ -20,6 +20,20 @@ type OrganizationWithAdminRelations = Organization & {
       })
     | null;
 };
+type AdminSubscriptionPlanRecord = Pick<
+  SubscriptionPlan,
+  | 'clientLimit'
+  | 'code'
+  | 'createdAt'
+  | 'currency'
+  | 'id'
+  | 'isPublic'
+  | 'memberLimit'
+  | 'name'
+  | 'priceMonthly'
+  | 'status'
+  | 'updatedAt'
+>;
 
 export type ListAdminOrganizationsQuery = {
   search?: string;
@@ -36,6 +50,22 @@ export type AdminOrganization = {
   status: OrganizationStatus;
   subscription: Pick<OrganizationSubscription, 'status'> | null;
   type: Organization['type'];
+};
+
+export type AdminSubscriptionPlan = {
+  betaPrice: number;
+  clientLimit: number;
+  code: string;
+  createdAt: Date;
+  currency: string;
+  id: string;
+  isPublic: boolean;
+  memberLimit: number;
+  name: string;
+  postBetaPrice: null;
+  sortOrder: null;
+  status: SubscriptionPlan['status'];
+  updatedAt: Date;
 };
 
 @Injectable()
@@ -71,6 +101,27 @@ export class AdminService {
     }
 
     return this.toAdminOrganization(organization);
+  }
+
+  async listSubscriptionPlans(): Promise<AdminSubscriptionPlan[]> {
+    const plans = await this.prismaService.subscriptionPlan.findMany({
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        isPublic: true,
+        priceMonthly: true,
+        currency: true,
+        clientLimit: true,
+        memberLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return plans.map((plan) => this.toAdminSubscriptionPlan(plan));
   }
 
   private get organizationInclude() {
@@ -155,5 +206,25 @@ export class AdminService {
     status: string | undefined,
   ): status is OrganizationStatus {
     return Object.values(OrganizationStatus).includes(status as OrganizationStatus);
+  }
+
+  private toAdminSubscriptionPlan(
+    plan: AdminSubscriptionPlanRecord,
+  ): AdminSubscriptionPlan {
+    return {
+      id: plan.id,
+      code: plan.code,
+      name: plan.name,
+      status: plan.status,
+      isPublic: plan.isPublic,
+      betaPrice: plan.priceMonthly,
+      postBetaPrice: null,
+      currency: plan.currency,
+      clientLimit: plan.clientLimit,
+      memberLimit: plan.memberLimit,
+      sortOrder: null,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+    };
   }
 }

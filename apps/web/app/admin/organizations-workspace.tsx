@@ -23,10 +23,12 @@ import {
 } from "@/components/layout/workspace-shell";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
+  type AdminSubscriptionPlan,
   type AdminOrganization,
   type AdminOrganizationStatus,
   useAdminOrganizations,
 } from "@/hooks/use-admin-organizations";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 const organizationStatusLabels: Record<AdminOrganizationStatus, string> = {
@@ -60,11 +62,14 @@ export function AdminOrganizationsWorkspace() {
     error,
     isDetailLoading,
     isLoading,
+    isPlansLoading,
     items,
     refresh,
     selectOrganization,
     selectedId,
     selectedOrganization,
+    subscriptionPlans,
+    updateOrganizationSubscription,
   } = useAdminOrganizations({ search, status });
 
   const totals = useMemo(
@@ -196,7 +201,10 @@ export function AdminOrganizationsWorkspace() {
           <OrganizationDetail
             detailError={detailError}
             isLoading={isDetailLoading}
+            isPlansLoading={isPlansLoading}
             organization={selectedOrganization}
+            subscriptionPlans={subscriptionPlans}
+            onChangePlan={updateOrganizationSubscription}
           />
         }
         sideClassName="xl:w-[380px] xl:min-w-[340px]"
@@ -309,11 +317,17 @@ function OrganizationRow({
 function OrganizationDetail({
   detailError,
   isLoading,
+  isPlansLoading,
+  onChangePlan,
   organization,
+  subscriptionPlans,
 }: {
   detailError: string;
   isLoading: boolean;
+  isPlansLoading: boolean;
+  onChangePlan: (organizationId: string, planCode: string) => Promise<AdminOrganization>;
   organization: AdminOrganization | null;
+  subscriptionPlans: AdminSubscriptionPlan[];
 }) {
   if (detailError) {
     return (
@@ -392,8 +406,80 @@ function OrganizationDetail({
             }
           />
         </div>
+        <PlanChangeForm
+          key={`${organization.id}-${organization.plan?.code ?? "none"}`}
+          isPlansLoading={isPlansLoading}
+          organization={organization}
+          subscriptionPlans={subscriptionPlans}
+          onChangePlan={onChangePlan}
+        />
       </WorkspacePanel>
     </aside>
+  );
+}
+
+function PlanChangeForm({
+  isPlansLoading,
+  onChangePlan,
+  organization,
+  subscriptionPlans,
+}: {
+  isPlansLoading: boolean;
+  onChangePlan: (organizationId: string, planCode: string) => Promise<AdminOrganization>;
+  organization: AdminOrganization;
+  subscriptionPlans: AdminSubscriptionPlan[];
+}) {
+  const [selectedPlanCode, setSelectedPlanCode] = useState(
+    organization.plan?.code ?? "",
+  );
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+
+  return (
+    <div className="border-t p-4">
+      <div className="grid gap-3">
+        <Select
+          value={selectedPlanCode}
+          onChange={setSelectedPlanCode}
+          disabled={isPlansLoading || isChangingPlan}
+        >
+          <option value="">Selecciona un plan</option>
+          {subscriptionPlans.map((plan) => (
+            <option key={plan.id} value={plan.code}>
+              {plan.name} ({plan.code})
+              {plan.isPublic ? "" : " - privado"}
+            </option>
+          ))}
+        </Select>
+        <Button
+          type="button"
+          className="w-full shadow-none"
+          disabled={
+            isPlansLoading ||
+            isChangingPlan ||
+            !selectedPlanCode ||
+            selectedPlanCode === organization.plan?.code
+          }
+          onClick={async () => {
+            if (!selectedPlanCode) {
+              notify.error("Selecciona un plan");
+              return;
+            }
+
+            setIsChangingPlan(true);
+            try {
+              await onChangePlan(organization.id, selectedPlanCode);
+              notify.success("Plan actualizado");
+            } catch (caughtError) {
+              notify.error(getErrorMessage(caughtError));
+            } finally {
+              setIsChangingPlan(false);
+            }
+          }}
+        >
+          {isChangingPlan ? "Cambiando..." : "Cambiar plan"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -418,16 +504,19 @@ function StatusBadge({ status }: { status: AdminOrganizationStatus }) {
 
 function Select({
   children,
+  disabled,
   onChange,
   value,
 }: {
   children: React.ReactNode;
+  disabled?: boolean;
   onChange: (value: string) => void;
   value: string;
 }) {
   return (
     <select
       className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+      disabled={disabled}
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
@@ -491,4 +580,8 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Ocurrio un error inesperado";
 }

@@ -34,6 +34,22 @@ export type AdminOrganization = {
   clientsUsed: number;
 };
 
+export type AdminSubscriptionPlan = {
+  id: string;
+  code: string;
+  name: string;
+  status: "active" | "inactive";
+  isPublic: boolean;
+  betaPrice: number;
+  postBetaPrice: number | null;
+  currency: string;
+  clientLimit: number;
+  memberLimit: number;
+  sortOrder: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export function useAdminOrganizations(filters: AdminOrganizationFilters) {
   const { profile, session, status: authStatus } = useAuth();
   const [items, setItems] = useState<AdminOrganization[]>([]);
@@ -42,8 +58,10 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
   const [selectedId, setSelectedId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isPlansLoading, setIsPlansLoading] = useState(false);
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
+  const [subscriptionPlans, setSubscriptionPlans] = useState<AdminSubscriptionPlan[]>([]);
 
   const isApiReady =
     authStatus === "authenticated" &&
@@ -133,6 +151,47 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [adminRequest, isApiReady],
   );
 
+  const loadSubscriptionPlans = useCallback(async () => {
+    if (!isApiReady) {
+      setSubscriptionPlans([]);
+      return;
+    }
+
+    setIsPlansLoading(true);
+
+    try {
+      const plans = await adminRequest<AdminSubscriptionPlan[]>(
+        "/admin/subscription-plans",
+        { method: "GET" },
+      );
+      setSubscriptionPlans(plans);
+    } finally {
+      setIsPlansLoading(false);
+    }
+  }, [adminRequest, isApiReady]);
+
+  const updateOrganizationSubscription = useCallback(
+    async (organizationId: string, planCode: string) => {
+      const organization = await adminRequest<AdminOrganization>(
+        `/admin/organizations/${organizationId}/subscription`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ planCode }),
+        },
+      );
+
+      setSelectedOrganization(organization);
+      setItems((current) =>
+        current.map((item) =>
+          item.id === organization.id ? organization : item,
+        ),
+      );
+
+      return organization;
+    },
+    [adminRequest],
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadOrganizations();
@@ -149,16 +208,27 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     return () => window.clearTimeout(timer);
   }, [loadOrganization, selectedId]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadSubscriptionPlans();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadSubscriptionPlans]);
+
   return {
     detailError,
     error,
     isDetailLoading,
     isLoading,
+    isPlansLoading,
     items,
     refresh: loadOrganizations,
     selectOrganization: setSelectedId,
     selectedId,
     selectedOrganization,
+    subscriptionPlans,
+    updateOrganizationSubscription,
   };
 }
 

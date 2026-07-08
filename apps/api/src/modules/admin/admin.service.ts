@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientOperationalStatus,
   OrganizationStatus,
+  SubscriptionPlanStatus,
+  SubscriptionStatus,
   type Organization,
   type OrganizationSubscription,
   type SubscriptionPlan,
@@ -38,6 +40,10 @@ type AdminSubscriptionPlanRecord = Pick<
 export type ListAdminOrganizationsQuery = {
   search?: string;
   status?: string;
+};
+
+export type UpdateOrganizationSubscriptionDto = {
+  planCode?: string;
 };
 
 export type AdminOrganization = {
@@ -122,6 +128,62 @@ export class AdminService {
     });
 
     return plans.map((plan) => this.toAdminSubscriptionPlan(plan));
+  }
+
+  async updateOrganizationSubscription(
+    organizationId: string,
+    body: UpdateOrganizationSubscriptionDto,
+  ): Promise<AdminOrganization> {
+    const normalizedOrganizationId = organizationId.trim();
+    const planCode = body.planCode?.trim();
+
+    if (!normalizedOrganizationId) {
+      throw new BadRequestException('organizationId is required');
+    }
+
+    if (!planCode) {
+      throw new BadRequestException('planCode is required');
+    }
+
+    const organization = await this.prismaService.organization.findUnique({
+      where: { id: normalizedOrganizationId },
+      select: { id: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization was not found');
+    }
+
+    const plan = await this.prismaService.subscriptionPlan.findUnique({
+      where: { code: planCode },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Subscription plan was not found');
+    }
+
+    if (plan.status !== SubscriptionPlanStatus.active) {
+      throw new BadRequestException('Subscription plan is not active');
+    }
+
+    await this.prismaService.organizationSubscription.upsert({
+      where: { organizationId: normalizedOrganizationId },
+      create: {
+        organizationId: normalizedOrganizationId,
+        subscriptionPlanId: plan.id,
+        status: SubscriptionStatus.active,
+        startedAt: new Date(),
+        renewsAt: null,
+        cancelledAt: null,
+      },
+      update: {
+        subscriptionPlanId: plan.id,
+        status: SubscriptionStatus.active,
+        cancelledAt: null,
+      },
+    });
+
+    return this.getOrganization(normalizedOrganizationId);
   }
 
   private get organizationInclude() {

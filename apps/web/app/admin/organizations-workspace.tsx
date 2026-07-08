@@ -2,7 +2,6 @@
 
 import {
   Building2Icon,
-  Loader2Icon,
   RefreshCwIcon,
   SearchIcon,
   ShieldCheckIcon,
@@ -11,10 +10,11 @@ import {
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
-import { LoadingState } from "@/components/shared/loading-state";
+import { DetailSkeleton, TableSkeleton } from "@/components/shared/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   WorkspaceFrame,
   WorkspaceHeader,
@@ -75,13 +75,14 @@ export function AdminOrganizationsWorkspace() {
     }),
     [items],
   );
+  const isInitialLoading = isLoading && items.length === 0;
 
   if (authStatus === "loading") {
     return (
       <WorkspaceFrame
         header={<WorkspaceHeader title="Admin" description="Validando permisos." />}
       >
-        <LoadingState message="Validando admin..." />
+        <AdminOrganizationsSkeleton />
       </WorkspaceFrame>
     );
   }
@@ -126,11 +127,15 @@ export function AdminOrganizationsWorkspace() {
       <WorkspaceSplit
         main={
           <section className="min-w-0 bg-background p-4 md:p-5">
-            <div className="mb-4 grid gap-3 md:grid-cols-3">
-              <Metric label="Organizaciones" value={totals.organizations} />
-              <Metric label="Activas" value={totals.active} />
-              <Metric label="Clientes usados" value={totals.clientsUsed} />
-            </div>
+            {isInitialLoading ? (
+              <AdminMetricsSkeleton />
+            ) : (
+              <div className="mb-4 grid gap-3 md:grid-cols-3">
+                <Metric label="Organizaciones" value={totals.organizations} />
+                <Metric label="Activas" value={totals.active} />
+                <Metric label="Clientes usados" value={totals.clientsUsed} />
+              </div>
+            )}
 
             <WorkspacePanel className="overflow-hidden" title="Organizaciones beta">
               <div className="grid gap-3 border-b p-4 lg:grid-cols-[minmax(240px,1fr)_180px]">
@@ -160,8 +165,10 @@ export function AdminOrganizationsWorkspace() {
                 <div className="p-4">
                   <ErrorState message={error} onRetry={() => void refresh()} />
                 </div>
-              ) : isLoading ? (
-                <LoadingState message="Cargando organizaciones..." />
+              ) : isInitialLoading ? (
+                <div className="p-4">
+                  <TableSkeleton rows={6} />
+                </div>
               ) : items.length === 0 ? (
                 <div className="p-4">
                   <EmptyState
@@ -204,6 +211,46 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
     </div>
+  );
+}
+
+function AdminMetricsSkeleton() {
+  return (
+    <div className="mb-4 grid gap-3 md:grid-cols-3" role="status" aria-label="Cargando metricas admin">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="rounded-md border bg-card px-4 py-3">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="mt-3 h-7 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminOrganizationsSkeleton() {
+  return (
+    <WorkspaceSplit
+      main={
+        <section className="min-w-0 bg-background p-4 md:p-5">
+          <AdminMetricsSkeleton />
+          <WorkspacePanel className="overflow-hidden">
+            <div className="grid gap-3 border-b p-4 lg:grid-cols-[minmax(240px,1fr)_180px]">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="p-4">
+              <TableSkeleton rows={6} />
+            </div>
+          </WorkspacePanel>
+        </section>
+      }
+      side={
+        <aside className="p-4">
+          <DetailSkeleton />
+        </aside>
+      }
+      sideClassName="xl:w-[380px] xl:min-w-[340px]"
+    />
   );
 }
 
@@ -277,6 +324,14 @@ function OrganizationDetail({
   }
 
   if (!organization) {
+    if (isLoading) {
+      return (
+        <aside className="p-4">
+          <DetailSkeleton />
+        </aside>
+      );
+    }
+
     return (
       <aside className="p-4">
         <EmptyState
@@ -293,7 +348,7 @@ function OrganizationDetail({
       <WorkspacePanel
         title="Detalle operativo"
         description="Solo lectura para soporte beta."
-        icon={isLoading ? <Loader2Icon className="size-4 animate-spin" /> : <Building2Icon className="size-4" />}
+        icon={<Building2Icon className="size-4" />}
       >
         <div className="divide-y">
           <DetailRow label="Organizacion" value={organization.name} />

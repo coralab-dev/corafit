@@ -15,6 +15,8 @@ import { useMemo, useState } from "react";
 import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DetailSkeleton, TableSkeleton } from "@/components/shared/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -94,6 +96,7 @@ export function AdminExercisesWorkspace() {
     () => items.find((exercise) => exercise.id === selectedId) ?? items[0] ?? null,
     [items, selectedId],
   );
+  const isInitialLoading = isLoading && items.length === 0;
 
   async function handleCreate(input: AdminExerciseInput) {
     const exercise = await createExercise(input);
@@ -118,9 +121,7 @@ export function AdminExercisesWorkspace() {
       <WorkspaceFrame
         header={<WorkspaceHeader title="Admin" description="Validando permisos." />}
       >
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Validando admin...
-        </div>
+        <AdminExercisesSkeleton />
       </WorkspaceFrame>
     );
   }
@@ -212,58 +213,69 @@ export function AdminExercisesWorkspace() {
                     {total} ejercicios encontrados
                   </p>
                 </div>
-                {isLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}
               </div>
               {error ? (
                 <div className="border-b bg-destructive/10 px-4 py-3 text-sm text-destructive">
                   {error}
                 </div>
               ) : null}
-              <div className="divide-y">
-                {items.map((exercise) => (
-                  <button
-                    key={exercise.id}
-                    className={cn(
-                      "grid w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 md:grid-cols-[minmax(0,1.5fr)_140px_140px_90px]",
-                      selectedExercise?.id === exercise.id && "bg-primary/8",
-                    )}
-                    type="button"
-                    onClick={() => setSelectedId(exercise.id)}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{exercise.name}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {exercise.instructions || "Sin instrucciones"}
-                      </p>
+              {isInitialLoading ? (
+                <div className="p-4">
+                  <TableSkeleton rows={7} />
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {items.map((exercise) => (
+                    <button
+                      key={exercise.id}
+                      className={cn(
+                        "grid w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 md:grid-cols-[minmax(0,1.5fr)_140px_140px_90px]",
+                        selectedExercise?.id === exercise.id && "bg-primary/8",
+                      )}
+                      type="button"
+                      onClick={() => setSelectedId(exercise.id)}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{exercise.name}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {exercise.instructions || "Sin instrucciones"}
+                        </p>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {muscleLabels[exercise.primaryMuscle]}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {equipmentLabels[exercise.equipment]}
+                      </span>
+                      <Badge variant={exercise.status === "active" ? "secondary" : "muted"}>
+                        {statusLabels[exercise.status as ExerciseStatus] ?? exercise.status}
+                      </Badge>
+                    </button>
+                  ))}
+                  {items.length === 0 ? (
+                    <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      No hay ejercicios globales con estos filtros.
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {muscleLabels[exercise.primaryMuscle]}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {equipmentLabels[exercise.equipment]}
-                    </span>
-                    <Badge variant={exercise.status === "active" ? "secondary" : "muted"}>
-                      {statusLabels[exercise.status as ExerciseStatus] ?? exercise.status}
-                    </Badge>
-                  </button>
-                ))}
-                {!isLoading && items.length === 0 ? (
-                  <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-                    No hay ejercicios globales con estos filtros.
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           </section>
         }
         side={
-          <ExerciseDetailPanel
-            exercise={selectedExercise}
-            onDeactivate={deactivateExercise}
-            onEdit={setEditingExercise}
-            onRemoveMedia={removeExerciseMedia}
-            onUploadImage={uploadExerciseImage}
-          />
+          isInitialLoading ? (
+            <aside className="p-5">
+              <DetailSkeleton />
+            </aside>
+          ) : (
+            <ExerciseDetailPanel
+              exercise={selectedExercise}
+              onDeactivate={deactivateExercise}
+              onEdit={setEditingExercise}
+              onRemoveMedia={removeExerciseMedia}
+              onUploadImage={uploadExerciseImage}
+            />
+          )
         }
       />
 
@@ -285,6 +297,37 @@ export function AdminExercisesWorkspace() {
         />
       ) : null}
     </WorkspaceFrame>
+  );
+}
+
+function AdminExercisesSkeleton() {
+  return (
+    <WorkspaceSplit
+      main={
+        <section className="min-w-0 bg-background p-5">
+          <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_160px_180px_160px]">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="overflow-hidden rounded-md border bg-card">
+            <div className="border-b px-4 py-3">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="mt-2 h-3 w-28" />
+            </div>
+            <div className="p-4">
+              <TableSkeleton rows={7} />
+            </div>
+          </div>
+        </section>
+      }
+      side={
+        <aside className="p-5">
+          <DetailSkeleton />
+        </aside>
+      }
+    />
   );
 }
 

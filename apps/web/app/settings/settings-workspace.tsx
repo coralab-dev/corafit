@@ -30,6 +30,8 @@ import {
   WorkspaceHeader,
   WorkspacePanel,
 } from "@/components/layout/workspace-shell";
+import { PanelSkeleton } from "@/components/shared/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -551,7 +553,7 @@ export function SettingsWorkspace() {
   const { profile } = useAuth();
 
   if (!profile || !profile.organization || !profile.member || !profile.subscription) {
-    return null;
+    return <SettingsSkeleton />;
   }
 
   return (
@@ -575,6 +577,72 @@ export function SettingsWorkspace() {
           </div>
         </div>
         <AppearanceSection />
+      </div>
+    </WorkspaceFrame>
+  );
+}
+
+function SettingsSkeleton() {
+  return (
+    <WorkspaceFrame
+      header={
+        <WorkspaceHeader
+          title="Configuracion"
+          description="Ajusta tu perfil, organizacion, plan y preferencias."
+        />
+      }
+    >
+      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0 space-y-4">
+            <PanelSkeleton rows={3} titleWidth="w-36" />
+            <PanelSkeleton rows={3} titleWidth="w-32" />
+          </div>
+          <div className="min-w-0 space-y-4">
+            <WorkspacePanel>
+              <div className="border-b px-4 py-4">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="mt-2 h-3 w-52 max-w-full" />
+              </div>
+              <div className="space-y-4 p-4">
+                <div className="rounded-md border bg-background/60 p-4">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="mt-3 h-7 w-32" />
+                  <Skeleton className="mt-2 h-4 w-20" />
+                </div>
+                <div className="overflow-hidden rounded-md border bg-background/60">
+                  <div className="p-4">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="mt-3 h-4 w-20" />
+                  </div>
+                  <div className="border-t p-4">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="mt-3 h-4 w-24" />
+                  </div>
+                </div>
+              </div>
+            </WorkspacePanel>
+            <PanelSkeleton rows={1} titleWidth="w-20" />
+          </div>
+        </div>
+        <WorkspacePanel>
+          <div className="border-b px-4 py-4">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="mt-2 h-3 w-64 max-w-full" />
+          </div>
+          <div className="grid gap-3 p-4 lg:grid-cols-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="flex min-h-28 items-start gap-3 rounded-md border bg-card p-4">
+                <Skeleton className="size-9 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-3 h-3 w-full" />
+                  <Skeleton className="mt-2 h-3 w-3/4" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </WorkspacePanel>
       </div>
     </WorkspaceFrame>
   );

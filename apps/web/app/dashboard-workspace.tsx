@@ -7,7 +7,6 @@ import {
   CircleIcon,
   DumbbellIcon,
   LinkIcon,
-  Loader2Icon,
   PlusIcon,
   SmartphoneIcon,
   UserRoundIcon,
@@ -24,6 +23,7 @@ import {
   WorkspaceSplit,
 } from "@/components/layout/workspace-shell";
 import { MetricStrip } from "@/components/shared/metric-strip";
+import { ListRowsSkeleton, MetricStripSkeleton, PanelSkeleton } from "@/components/shared/skeletons";
 import { useDashboard } from "@/hooks/use-dashboard";
 import type { DashboardAttentionItem } from "@/hooks/use-dashboard";
 import { notify } from "@/lib/notify";
@@ -123,10 +123,7 @@ export function DashboardWorkspace() {
       }
     >
       {isInitialLoading ? (
-        <div className="flex min-h-96 flex-col items-center justify-center gap-3">
-          <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Cargando dashboard...</p>
-        </div>
+        <DashboardSkeleton />
       ) : error && !isApiReady ? (
         <div className="flex min-h-96 flex-col items-center justify-center gap-4 p-8 text-center">
           <div>
@@ -348,6 +345,46 @@ export function DashboardWorkspace() {
         />
       ) : null}
     </WorkspaceFrame>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <WorkspaceSplit
+      main={
+        <div className="flex flex-col gap-5 bg-background p-6">
+          <MetricStripSkeleton />
+          <PanelSkeleton rows={1} titleWidth="w-56" />
+          <PanelSkeleton rows={1} titleWidth="w-48" />
+          <WorkspacePanel>
+            <div className="border-b px-4 py-4">
+              <div className="h-4 w-44 animate-pulse rounded-md bg-muted" />
+              <div className="mt-2 h-3 w-72 max-w-full animate-pulse rounded-md bg-muted" />
+            </div>
+            <div className="p-4">
+              <ListRowsSkeleton rows={4} />
+            </div>
+          </WorkspacePanel>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-md border bg-card p-4">
+                <div className="size-9 animate-pulse rounded-md bg-muted" />
+                <div className="min-w-0 flex-1">
+                  <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
+                  <div className="mt-2 h-3 w-32 animate-pulse rounded-md bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      }
+      side={
+        <div className="p-5">
+          <PanelSkeleton rows={2} titleWidth="w-40" />
+          <PanelSkeleton className="mt-5" rows={5} titleWidth="w-48" />
+        </div>
+      }
+    />
   );
 }
 

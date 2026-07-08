@@ -24,6 +24,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
+import { ListRowsSkeleton } from "@/components/shared/skeletons";
 import {
   Dialog,
   DialogContent,
@@ -108,6 +109,7 @@ export function TrainingPlansWorkspace() {
   const { createPlan, error, isLoading, items, refresh, total } =
     useTrainingPlans(filters);
   const hasPlansLoaded = items.length > 0 || total > 0;
+  const isInitialPlansLoading = isLoading && !hasPlansLoaded;
   const isRefreshingPlans = isLoading && hasPlansLoaded;
   const visibleItems = useMemo(
     () =>
@@ -304,7 +306,9 @@ export function TrainingPlansWorkspace() {
           </div>
         ) : null}
 
-        {!error && visibleItems.length ? (
+        {!error && isInitialPlansLoading ? (
+          <ListRowsSkeleton rows={6} />
+        ) : !error && visibleItems.length ? (
           <div className="overflow-hidden rounded-md border bg-card">
             {visibleItems.map((plan) => (
               <Link

@@ -3,6 +3,7 @@
 import { ActivityIcon, ClockIcon, KeyRoundIcon, UserRoundIcon, UsersIcon } from "lucide-react";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { MetricStrip } from "@/components/shared/metric-strip";
+import { DetailSkeleton, PanelSkeleton } from "@/components/shared/skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function ClientMetrics({
@@ -83,12 +84,14 @@ export function ClientErrorCard({ error }: { error: string }) {
 }
 
 export function ClientDetailLoadingCard() {
+  return <DetailSkeleton />;
+}
+
+export function ClientActivitySkeletonPanel() {
   return (
-    <Card>
-      <CardContent className="flex min-h-44 items-center justify-center p-6 text-sm text-muted-foreground">
-        Cargando ficha
-      </CardContent>
-    </Card>
+    <aside className="flex min-h-full flex-col p-5">
+      <PanelSkeleton rows={4} titleWidth="w-36" />
+    </aside>
   );
 }
 

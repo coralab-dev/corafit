@@ -2,6 +2,7 @@
 
 import { PlusIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
+import { ListRowsSkeleton } from "@/components/shared/skeletons";
 import { Button } from "@/components/ui/button";
 
 export function EmptyState({
@@ -43,14 +44,5 @@ export function EmptyState({
 }
 
 export function LoadingList() {
-  return (
-    <div className="flex flex-col gap-2">
-      {[0, 1, 2].map((item) => (
-        <div key={item} className="rounded-lg border bg-background p-3">
-          <div className="h-4 w-2/3 rounded bg-muted" />
-          <div className="mt-3 h-3 w-1/2 rounded bg-muted" />
-        </div>
-      ))}
-    </div>
-  );
+  return <ListRowsSkeleton rows={6} />;
 }

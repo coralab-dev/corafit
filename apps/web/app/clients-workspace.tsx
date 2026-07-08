@@ -10,9 +10,10 @@ import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
-import { ClientActivityPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
+import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { useAuth } from "@/components/providers/auth-provider";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { MetricStripSkeleton, PanelSkeleton } from "@/components/shared/skeletons";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
@@ -392,6 +393,8 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                   onEdit={() => openEditForm(selectedClient)}
                   onEndPlan={() => setIsEndPlanOpen(true)}
                 />
+              ) : isInitialLoading ? (
+                <PanelSkeleton rows={4} titleWidth="w-32" />
               ) : null}
             </div>
           }
@@ -420,12 +423,16 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="min-w-0 flex-1 border-r">
           <div className="border-b bg-background px-6 py-5">
-            <ClientMetrics
-              accessCount={accessCount}
-              activeCount={activeCount}
-              assignmentCount={Object.values(visibleAssignmentsByClient).filter(Boolean).length}
-              totalCount={visibleClients.length}
-            />
+            {isInitialLoading ? (
+              <MetricStripSkeleton />
+            ) : (
+              <ClientMetrics
+                accessCount={accessCount}
+                activeCount={activeCount}
+                assignmentCount={Object.values(visibleAssignmentsByClient).filter(Boolean).length}
+                totalCount={visibleClients.length}
+              />
+            )}
           </div>
 
           <ClientList
@@ -455,7 +462,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         </div>
 
         <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[420px] xl:resize-x xl:overflow-auto">
-          <ClientActivityPanel />
+          {isInitialLoading ? <ClientActivitySkeletonPanel /> : <ClientActivityPanel />}
         </div>
       </div>
 

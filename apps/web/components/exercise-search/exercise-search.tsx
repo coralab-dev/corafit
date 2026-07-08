@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { notify } from "@/lib/notify";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   type Equipment,
@@ -369,17 +369,22 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function ExerciseSkeletonList() {
   return (
-    <div className="flex flex-col" aria-label="Cargando ejercicios">
-      {[0, 1, 2, 3].map((item) => (
-        <div key={item} className="flex items-center gap-3 border-b bg-background p-2.5 last:border-b-0">
-          <div className="size-11 rounded-md bg-muted" />
-          <div className="flex flex-1 flex-col gap-2">
-            <div className="h-4 w-2/3 rounded bg-muted" />
-            <div className="flex gap-2">
-              <Badge variant="muted"> </Badge>
-              <Badge variant="outline"> </Badge>
+    <div
+      className="overflow-hidden rounded-md border bg-card"
+      role="status"
+      aria-label="Cargando ejercicios"
+    >
+      {[0, 1, 2, 3, 4, 5].map((item) => (
+        <div key={item} className="flex items-center gap-3 border-b bg-background p-3 last:border-b-0">
+          <Skeleton className="size-11 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-4 w-2/3" />
+            <div className="mt-2 flex gap-2">
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
             </div>
           </div>
+          <Skeleton className="hidden h-8 w-20 sm:block" />
         </div>
       ))}
     </div>

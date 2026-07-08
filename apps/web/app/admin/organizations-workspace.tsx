@@ -2,14 +2,12 @@
 
 import {
   Building2Icon,
-  DumbbellIcon,
   Loader2Icon,
   RefreshCwIcon,
   SearchIcon,
   ShieldCheckIcon,
   UsersIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -119,12 +117,6 @@ export function AdminOrganizationsWorkspace() {
               <Button variant="outline" className="shadow-none" onClick={() => void refresh()}>
                 <RefreshCwIcon className="size-4" />
                 Actualizar
-              </Button>
-              <Button asChild variant="secondary" className="shadow-none">
-                <Link href="/admin/exercises">
-                  <DumbbellIcon className="size-4" />
-                  Ejercicios globales
-                </Link>
               </Button>
             </>
           }
@@ -248,7 +240,14 @@ function OrganizationRow({
       </div>
       <div>
         <p className="text-xs text-muted-foreground">Clientes</p>
-        <p className="text-sm font-semibold">{organization.clientsUsed}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold">
+            {formatClientUsage(organization)}
+          </p>
+          {needsPlanReview(organization) ? (
+            <Badge variant="secondary">Revision</Badge>
+          ) : null}
+        </div>
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm">{formatPlan(organization)}</p>
@@ -326,7 +325,17 @@ function OrganizationDetail({
             label="Limite clientes"
             value={organization.plan ? organization.plan.clientLimit : "N/A"}
           />
-          <DetailRow label="Clientes usados" value={organization.clientsUsed} />
+          <DetailRow
+            label="Clientes usados"
+            value={
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{formatClientUsage(organization)}</span>
+                {needsPlanReview(organization) ? (
+                  <Badge variant="secondary">Revision manual</Badge>
+                ) : null}
+              </div>
+            }
+          />
         </div>
       </WorkspacePanel>
     </aside>
@@ -378,6 +387,20 @@ function formatPlan(organization: AdminOrganization) {
   }
 
   return `${organization.plan.code} · ${organization.plan.name} · ${organization.plan.clientLimit}`;
+}
+
+function formatClientUsage(organization: AdminOrganization) {
+  if (!organization.plan) {
+    return organization.clientsUsed;
+  }
+
+  return `${organization.clientsUsed} / ${organization.plan.clientLimit}`;
+}
+
+function needsPlanReview(organization: AdminOrganization) {
+  return Boolean(
+    organization.plan && organization.clientsUsed >= organization.plan.clientLimit,
+  );
 }
 
 function formatSubscriptionStatus(status: string | null | undefined) {

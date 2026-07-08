@@ -10,34 +10,129 @@ import {
 const trialPlanCode = 'trial';
 const trialDurationDays = 30;
 
+export type BetaSubscriptionPlanDefinition = {
+  code: string;
+  name: string;
+  description: string;
+  priceMonthly: number;
+  currency: string;
+  clientLimit: number;
+  memberLimit: number;
+  isPublic: boolean;
+  status: SubscriptionPlanStatus;
+};
+
 export type BackfillSummary = {
   organizationsScanned: number;
   subscriptionsCreated: number;
   skipped: number;
 };
 
-export function trialPlanUpsertArgs(): Prisma.SubscriptionPlanUpsertArgs {
+export const betaSubscriptionPlans: BetaSubscriptionPlanDefinition[] = [
+  {
+    code: 'trial',
+    name: 'Trial',
+    description: 'Beta trial plan',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 5,
+    memberLimit: 1,
+    isPublic: true,
+    status: SubscriptionPlanStatus.active,
+  },
+  {
+    code: 'starter',
+    name: 'Starter',
+    description: 'Beta starter plan',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 10,
+    memberLimit: 1,
+    isPublic: true,
+    status: SubscriptionPlanStatus.active,
+  },
+  {
+    code: 'founder',
+    name: 'Founder',
+    description: 'Manual founder beta plan',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 30,
+    memberLimit: 1,
+    isPublic: false,
+    status: SubscriptionPlanStatus.active,
+  },
+  {
+    code: 'pro',
+    name: 'Pro',
+    description: 'Beta pro plan',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 30,
+    memberLimit: 1,
+    isPublic: true,
+    status: SubscriptionPlanStatus.active,
+  },
+  {
+    code: 'pro_plus',
+    name: 'Pro Plus',
+    description: 'Beta pro plus plan',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 60,
+    memberLimit: 1,
+    isPublic: true,
+    status: SubscriptionPlanStatus.active,
+  },
+  {
+    code: 'studio_beta',
+    name: 'Studio Beta',
+    description: 'Manual beta plan for studios',
+    priceMonthly: 0,
+    currency: 'MXN',
+    clientLimit: 200,
+    memberLimit: 20,
+    isPublic: false,
+    status: SubscriptionPlanStatus.active,
+  },
+];
+
+export function betaPlanUpsertArgs(
+  plan: BetaSubscriptionPlanDefinition,
+): Prisma.SubscriptionPlanUpsertArgs {
   return {
-    where: { code: trialPlanCode },
+    where: { code: plan.code },
     create: {
-      code: trialPlanCode,
-      name: 'Trial',
-      description: 'Beta trial plan',
-      priceMonthly: 0,
-      currency: 'MXN',
-      clientLimit: 5,
-      memberLimit: 1,
-      status: SubscriptionPlanStatus.active,
+      code: plan.code,
+      name: plan.name,
+      description: plan.description,
+      priceMonthly: plan.priceMonthly,
+      currency: plan.currency,
+      clientLimit: plan.clientLimit,
+      memberLimit: plan.memberLimit,
+      isPublic: plan.isPublic,
+      status: plan.status,
     },
     update: {
-      name: 'Trial',
-      priceMonthly: 0,
-      currency: 'MXN',
-      clientLimit: 5,
-      memberLimit: 1,
-      status: SubscriptionPlanStatus.active,
+      name: plan.name,
+      priceMonthly: plan.priceMonthly,
+      currency: plan.currency,
+      clientLimit: plan.clientLimit,
+      memberLimit: plan.memberLimit,
+      isPublic: plan.isPublic,
+      status: plan.status,
     },
   };
+}
+
+export function trialPlanUpsertArgs(): Prisma.SubscriptionPlanUpsertArgs {
+  const trialPlan = betaSubscriptionPlans.find((plan) => plan.code === trialPlanCode);
+
+  if (!trialPlan) {
+    throw new Error('Canonical trial plan is not configured');
+  }
+
+  return betaPlanUpsertArgs(trialPlan);
 }
 
 export function buildTrialSubscriptionCreateInput(
@@ -69,10 +164,20 @@ export async function backfillBetaSubscriptions(
   prisma: Pick<
     PrismaClient,
     'organization' | 'organizationSubscription' | 'subscriptionPlan'
-  >,
+>,
   now = new Date(),
 ): Promise<BackfillSummary> {
-  const trialPlan = await prisma.subscriptionPlan.upsert(trialPlanUpsertArgs());
+  const upsertedPlans = await Promise.all(
+    betaSubscriptionPlans.map((plan) =>
+      prisma.subscriptionPlan.upsert(betaPlanUpsertArgs(plan)),
+    ),
+  );
+  const trialPlan = upsertedPlans.find((plan) => plan.code === trialPlanCode);
+
+  if (!trialPlan) {
+    throw new Error('Canonical trial plan was not upserted');
+  }
+
   const organizations = await prisma.organization.findMany({
     select: {
       id: true,

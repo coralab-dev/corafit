@@ -261,17 +261,35 @@ describe('AuthService', () => {
       create: {
         clientLimit: number;
         code: string;
+        currency: string;
+        isPublic: boolean;
         memberLimit: number;
+        priceMonthly: number;
         status: SubscriptionPlanStatus;
       };
-      update: { status: SubscriptionPlanStatus };
+      update: {
+        clientLimit: number;
+        currency: string;
+        isPublic: boolean;
+        memberLimit: number;
+        priceMonthly: number;
+        status: SubscriptionPlanStatus;
+      };
       where: { code: string };
     };
     expect(upsertPlanInput.where.code).toBe('trial');
     expect(upsertPlanInput.create.code).toBe('trial');
+    expect(upsertPlanInput.create.priceMonthly).toBe(0);
+    expect(upsertPlanInput.create.currency).toBe('MXN');
     expect(upsertPlanInput.create.clientLimit).toBe(5);
     expect(upsertPlanInput.create.memberLimit).toBe(1);
+    expect(upsertPlanInput.create.isPublic).toBe(true);
     expect(upsertPlanInput.create.status).toBe(SubscriptionPlanStatus.active);
+    expect(upsertPlanInput.update.priceMonthly).toBe(0);
+    expect(upsertPlanInput.update.currency).toBe('MXN');
+    expect(upsertPlanInput.update.clientLimit).toBe(5);
+    expect(upsertPlanInput.update.memberLimit).toBe(1);
+    expect(upsertPlanInput.update.isPublic).toBe(true);
     expect(upsertPlanInput.update.status).toBe(SubscriptionPlanStatus.active);
     const createUserInput = transaction.user.create.mock.calls[0]?.[0] as {
       data: {

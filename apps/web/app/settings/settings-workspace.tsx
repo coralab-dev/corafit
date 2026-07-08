@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangleIcon,
   Building2Icon,
   CreditCardIcon,
   LaptopIcon,
@@ -91,6 +92,14 @@ type BillingData = {
   renewsAt: string | null;
   cancelledAt: string | null;
   usedClients: number;
+  clientUsage?: {
+    used: number;
+    limit: number;
+    remaining: number;
+    isAtLimit: boolean;
+    isOverLimit: boolean;
+    warningLevel: "ok" | "near_limit" | "at_limit" | "over_limit";
+  };
   plan: {
     id: string;
     code: string;
@@ -354,7 +363,31 @@ function PlanSection({ profile }: { profile: AuthProfile }) {
 
   const planName = billing?.plan.name ?? profile.subscription.subscriptionPlan.name;
   const clientLimit = billing?.plan.clientLimit ?? profile.subscription.subscriptionPlan.clientLimit;
-  const usedClients = billing?.usedClients;
+  const usedClients = billing?.clientUsage?.used ?? billing?.usedClients;
+  const clientUsage = billing?.clientUsage ?? (
+    usedClients !== undefined && usedClients !== null
+      ? {
+          used: usedClients,
+          limit: clientLimit,
+          remaining: Math.max(clientLimit - usedClients, 0),
+          isAtLimit: usedClients === clientLimit,
+          isOverLimit: usedClients > clientLimit,
+          warningLevel: usedClients > clientLimit
+            ? "over_limit"
+            : usedClients === clientLimit
+              ? "at_limit"
+              : usedClients >= clientLimit * 0.8
+                ? "near_limit"
+                : "ok",
+        }
+      : null
+  );
+  const usageWarning =
+    clientUsage?.warningLevel === "over_limit"
+      ? "Tu organizacion supera el limite recomendado del plan beta. No se bloqueara la operacion durante beta, pero queda pendiente revision manual."
+      : clientUsage?.warningLevel === "at_limit"
+        ? "Llegaste al limite recomendado de tu plan beta. Puedes seguir operando durante la beta; revisaremos el plan manualmente si hace falta."
+        : null;
 
   const statusLabels: Record<string, string> = {
     trial: "Prueba",
@@ -390,14 +423,20 @@ function PlanSection({ profile }: { profile: AuthProfile }) {
             value={
               billingLoading ? (
                 <LoaderIcon className="size-4 animate-spin" />
-              ) : usedClients !== undefined && usedClients !== null ? (
-                usedClients
+              ) : clientUsage ? (
+                `${clientUsage.used} / ${clientUsage.limit}`
               ) : (
                 "No disponible"
               )
             }
           />
         </div>
+        {usageWarning ? (
+          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+            <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+            <p>{usageWarning}</p>
+          </div>
+        ) : null}
       </div>
     </WorkspacePanel>
   );

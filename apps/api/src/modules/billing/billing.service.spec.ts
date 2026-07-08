@@ -95,11 +95,64 @@ describe('BillingService', () => {
       organizationId: 'organization-id',
       status: SubscriptionStatus.trial,
       usedClients: 3,
+      clientUsage: {
+        used: 3,
+        limit: 5,
+        remaining: 2,
+        isAtLimit: false,
+        isOverLimit: false,
+        warningLevel: 'ok',
+      },
       plan: {
         code: 'trial',
         clientLimit: 5,
         memberLimit: 1,
       },
+    });
+  });
+
+  it('marks client usage as near limit at 80 percent of the plan limit', async () => {
+    prismaService.client.count.mockResolvedValueOnce(4);
+
+    const result = await service.getCurrent(createOrganizationMember());
+
+    expect(result.clientUsage).toMatchObject({
+      used: 4,
+      limit: 5,
+      remaining: 1,
+      isAtLimit: false,
+      isOverLimit: false,
+      warningLevel: 'near_limit',
+    });
+  });
+
+  it('marks client usage as at limit when used clients equal the plan limit', async () => {
+    prismaService.client.count.mockResolvedValueOnce(5);
+
+    const result = await service.getCurrent(createOrganizationMember());
+
+    expect(result.clientUsage).toMatchObject({
+      used: 5,
+      limit: 5,
+      remaining: 0,
+      isAtLimit: true,
+      isOverLimit: false,
+      warningLevel: 'at_limit',
+    });
+  });
+
+  it('marks client usage as over limit when used clients exceed the plan limit', async () => {
+    prismaService.client.count.mockResolvedValueOnce(6);
+
+    const result = await service.getCurrent(createOrganizationMember());
+
+    expect(result.clientUsage).toMatchObject({
+      used: 6,
+      limit: 5,
+      remaining: 0,
+      isAtLimit: false,
+      isOverLimit: true,
+      warningLevel: 'over_limit',
     });
   });
 

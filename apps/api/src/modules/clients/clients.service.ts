@@ -179,7 +179,7 @@ export class ClientsService {
     }
     const organizationId = this.getOrganizationId(member);
     const data = this.parseClientData(body, true);
-    await this.assertClientLimitAvailable(organizationId);
+    await this.assertSubscriptionAllowsClientCreation(organizationId);
 
     return this.prismaService.client.create({
       data: {
@@ -378,11 +378,10 @@ export class ClientsService {
     return client;
   }
 
-  private async assertClientLimitAvailable(organizationId: string) {
+  private async assertSubscriptionAllowsClientCreation(organizationId: string) {
     const subscription =
       await this.prismaService.organizationSubscription.findUnique({
         where: { organizationId },
-        include: { subscriptionPlan: true },
       });
 
     if (!subscription) {
@@ -395,17 +394,6 @@ export class ClientsService {
       subscription.status === SubscriptionStatus.suspended
     ) {
       throw new ForbiddenException('SUBSCRIPTION_NOT_ACTIVE');
-    }
-
-    const usedClients = await this.prismaService.client.count({
-      where: {
-        organizationId,
-        operationalStatus: { not: ClientOperationalStatus.archived },
-      },
-    });
-
-    if (usedClients >= subscription.subscriptionPlan.clientLimit) {
-      throw new ConflictException('CLIENT_LIMIT_REACHED');
     }
   }
 

@@ -325,16 +325,31 @@ describe('ClientsService', () => {
         organizationId: 'organization-id',
       }),
     });
-    expect(prismaService.client.count).toHaveBeenCalledWith({
-      where: {
-        organizationId: 'organization-id',
-        operationalStatus: { not: ClientOperationalStatus.archived },
-      },
+    expect(prismaService.organizationSubscription.findUnique).toHaveBeenCalledWith({
+      where: { organizationId: 'organization-id' },
     });
+    expect(prismaService.client.count).not.toHaveBeenCalled();
   });
 
-  it('blocks client creation when the subscription client limit is reached', async () => {
+  it('allows client creation when the beta client limit is reached', async () => {
     prismaService.client.count.mockResolvedValueOnce(5);
+
+    await service.create(
+      {
+        name: 'Client One',
+        clientType: ClientType.online,
+        mainGoal: 'Strength',
+        heightCm: 170,
+        initialWeightKg: 70,
+      },
+      createMember(),
+    );
+
+    expect(prismaService.client.create).toHaveBeenCalled();
+  });
+
+  it('blocks client creation when the organization has no subscription', async () => {
+    prismaService.organizationSubscription.findUnique.mockResolvedValueOnce(null);
 
     await expect(
       service.create(
@@ -347,7 +362,7 @@ describe('ClientsService', () => {
         },
         createMember(),
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(prismaService.client.create).not.toHaveBeenCalled();
   });

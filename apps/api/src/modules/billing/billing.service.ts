@@ -2,6 +2,8 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ClientOperationalStatus, type OrganizationMember } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+type ClientUsageWarningLevel = 'ok' | 'near_limit' | 'at_limit' | 'over_limit';
+
 @Injectable()
 export class BillingService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -33,6 +35,15 @@ export class BillingService {
         operationalStatus: { not: ClientOperationalStatus.archived },
       },
     });
+    const clientLimit = subscription.subscriptionPlan.clientLimit;
+    const clientUsage = {
+      used: usedClients,
+      limit: clientLimit,
+      remaining: Math.max(clientLimit - usedClients, 0),
+      isAtLimit: usedClients === clientLimit,
+      isOverLimit: usedClients > clientLimit,
+      warningLevel: this.getClientUsageWarningLevel(usedClients, clientLimit),
+    };
 
     return {
       id: subscription.id,
@@ -42,6 +53,7 @@ export class BillingService {
       renewsAt: subscription.renewsAt,
       cancelledAt: subscription.cancelledAt,
       usedClients,
+      clientUsage,
       plan: {
         id: subscription.subscriptionPlan.id,
         code: subscription.subscriptionPlan.code,
@@ -52,5 +64,24 @@ export class BillingService {
         currency: subscription.subscriptionPlan.currency,
       },
     };
+  }
+
+  private getClientUsageWarningLevel(
+    usedClients: number,
+    clientLimit: number,
+  ): ClientUsageWarningLevel {
+    if (usedClients > clientLimit) {
+      return 'over_limit';
+    }
+
+    if (usedClients === clientLimit) {
+      return 'at_limit';
+    }
+
+    if (usedClients >= clientLimit * 0.8) {
+      return 'near_limit';
+    }
+
+    return 'ok';
   }
 }

@@ -3,7 +3,6 @@
 import {
   AlertCircleIcon,
   DumbbellIcon,
-  Loader2Icon,
   PlusIcon,
   SlidersHorizontalIcon,
   SearchIcon,
@@ -70,6 +69,7 @@ export function ExerciseSearch({
   );
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
+  const isRefreshingExercises = isLoading && items.length > 0;
   const pageCount = Math.max(1, Math.ceil(items.length / exercisePageSize));
   const safePage = Math.min(page, pageCount);
   const visibleItems = useMemo(
@@ -93,6 +93,22 @@ export function ExerciseSearch({
 
     void refresh();
   }, [refresh, reloadToken]);
+
+  useEffect(() => {
+    if (!isRefreshingExercises) {
+      notify.dismiss("exercises-refresh");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      notify.refresh("Actualizando ejercicios", { id: "exercises-refresh" });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      notify.dismiss("exercises-refresh");
+    };
+  }, [isRefreshingExercises]);
 
   async function handleCreate(input: Parameters<typeof createExercise>[0]) {
     setIsCreating(true);
@@ -209,12 +225,6 @@ export function ExerciseSearch({
                 )} de ${total} resultados`
               : `${total} resultados`}
           </span>
-          {isLoading ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2Icon aria-hidden="true" />
-              Cargando
-            </span>
-          ) : null}
         </div>
 
         {error ? <ErrorState message={error} /> : null}

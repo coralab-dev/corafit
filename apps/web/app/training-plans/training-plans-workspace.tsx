@@ -107,6 +107,8 @@ export function TrainingPlansWorkspace() {
   );
   const { createPlan, error, isLoading, items, refresh, total } =
     useTrainingPlans(filters);
+  const hasPlansLoaded = items.length > 0 || total > 0;
+  const isRefreshingPlans = isLoading && hasPlansLoaded;
   const visibleItems = useMemo(
     () =>
       items.filter((plan) => {
@@ -124,6 +126,23 @@ export function TrainingPlansWorkspace() {
   );
   const visibleTotal =
     sourceFilter === "all" ? total : visibleItems.length;
+
+  useEffect(() => {
+    if (!isRefreshingPlans) {
+      notify.dismiss("training-plans-refresh");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      notify.refresh("Actualizando planes", { id: "training-plans-refresh" });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      notify.dismiss("training-plans-refresh");
+    };
+  }, [isRefreshingPlans]);
+
   const filteredUnassignedClients = useMemo(() => {
     const normalizedQuery = clientQuery.trim().toLowerCase();
 
@@ -203,12 +222,6 @@ export function TrainingPlansWorkspace() {
           title="Planes de entrenamiento"
           actions={
             <>
-              {isLoading ? (
-                <span className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground">
-                  <Loader2Icon className="size-4 animate-spin" />
-                  Actualizando
-                </span>
-              ) : null}
               <Button size="sm" type="button" variant="outline" onClick={openAssignDialog}>
                 <UserRoundIcon data-icon="inline-start" />
                 Asignar plan
@@ -227,7 +240,7 @@ export function TrainingPlansWorkspace() {
           <div className="max-w-2xl">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="muted">
-                {isLoading ? "Cargando" : `${visibleTotal} planes`}
+                {`${visibleTotal} planes`}
               </Badge>
             </div>
           </div>

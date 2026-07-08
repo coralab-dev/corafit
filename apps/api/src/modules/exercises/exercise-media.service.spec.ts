@@ -28,6 +28,10 @@ const getPublicUrlMock = vi.fn();
 const getBucketMock = vi.fn();
 const createBucketMock = vi.fn();
 const updateBucketMock = vi.fn();
+const resizeMock = vi.fn().mockReturnThis();
+const rotateMock = vi.fn().mockReturnThis();
+const webpMock = vi.fn().mockReturnThis();
+const toBufferMock = vi.fn().mockResolvedValue(Buffer.from('optimized-image'));
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
@@ -46,10 +50,10 @@ vi.mock('@supabase/supabase-js', () => ({
 
 vi.mock('sharp', () => ({
   default: vi.fn(() => ({
-    resize: vi.fn().mockReturnThis(),
-    rotate: vi.fn().mockReturnThis(),
-    toBuffer: vi.fn().mockResolvedValue(Buffer.from('optimized-image')),
-    webp: vi.fn().mockReturnThis(),
+    resize: resizeMock,
+    rotate: rotateMock,
+    toBuffer: toBufferMock,
+    webp: webpMock,
   })),
 }));
 
@@ -138,6 +142,10 @@ describe('ExerciseMediaService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resizeMock.mockReturnThis();
+    rotateMock.mockReturnThis();
+    webpMock.mockReturnThis();
+    toBufferMock.mockResolvedValue(Buffer.from('optimized-image'));
     getBucketMock.mockResolvedValue({ data: { public: true }, error: null });
     uploadMock.mockResolvedValue({ data: { path: 'path' }, error: null });
     removeMock.mockResolvedValue({ data: [], error: null });
@@ -195,6 +203,13 @@ describe('ExerciseMediaService', () => {
       Buffer.from('optimized-image'),
       expect.objectContaining({ contentType: 'image/webp' }),
     );
+    expect(resizeMock).toHaveBeenCalledWith({
+      width: 1200,
+      height: 1200,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+    expect(webpMock).toHaveBeenCalledWith({ quality: 82 });
     const updateCall = prismaService.exercise.update.mock.calls[0]?.[0] as {
       data: { mediaType: ExerciseMediaType; mediaUrl: string; videoUrl?: string | null };
       where: { id: string };
@@ -205,6 +220,23 @@ describe('ExerciseMediaService', () => {
     expect(updateCall.data.videoUrl).toBeUndefined();
     expect(result.mediaType).toBe(ExerciseMediaType.image);
   });
+
+  it.each(['image/jpeg', 'image/png', 'image/webp'])(
+    'accepts %s uploads',
+    async (mimetype) => {
+      await service.uploadCustomExerciseImage(
+        'exercise-id',
+        createFile({ mimetype }),
+        createMember(),
+      );
+
+      expect(uploadMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^exercises\/exercise-id\/.*\.webp$/),
+        Buffer.from('optimized-image'),
+        expect.objectContaining({ contentType: 'image/webp' }),
+      );
+    },
+  );
 
   it('rejects invalid image formats', async () => {
     await expect(
@@ -228,6 +260,59 @@ describe('ExerciseMediaService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it('replaces an existing image and removes the previous storage object', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({
+        mediaUrl:
+          'https://project.supabase.co/storage/v1/object/public/exercise-media/exercises/exercise-id/old.webp',
+      }),
+    );
+
+    await service.uploadCustomExerciseImage(
+      'exercise-id',
+      createFile(),
+      createMember(),
+    );
+
+    expect(uploadMock).toHaveBeenCalledTimes(1);
+    expect(removeMock).toHaveBeenCalledWith(['exercises/exercise-id/old.webp']);
+  });
+
+  it('removes custom exercise media without changing video URL', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({
+        mediaType: ExerciseMediaType.image,
+        mediaUrl:
+          'https://project.supabase.co/storage/v1/object/public/exercise-media/exercises/exercise-id/current.webp',
+        videoUrl: 'https://video.example.com/demo',
+      }),
+    );
+    prismaService.exercise.update.mockResolvedValueOnce(
+      createExercise({
+        mediaType: null,
+        mediaUrl: null,
+        videoUrl: 'https://video.example.com/demo',
+      }),
+    );
+
+    const result = await service.removeCustomExerciseMedia(
+      'exercise-id',
+      createMember(),
+    );
+
+    expect(prismaService.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-id' },
+      data: {
+        mediaType: null,
+        mediaUrl: null,
+      },
+    });
+    expect(removeMock).toHaveBeenCalledWith([
+      'exercises/exercise-id/current.webp',
+    ]);
+    expect(result.videoUrl).toBe('https://video.example.com/demo');
   });
 
   it('rejects media edits for exercises from another organization', async () => {
@@ -264,5 +349,31 @@ describe('ExerciseMediaService', () => {
     );
 
     expect(uploadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows platform admins to remove global exercise media', async () => {
+    prismaService.exercise.findFirst.mockResolvedValueOnce(
+      createExercise({
+        organizationId: null,
+        mediaUrl:
+          'https://project.supabase.co/storage/v1/object/public/exercise-media/exercises/exercise-id/global.webp',
+      }),
+    );
+
+    await service.removeGlobalExerciseMedia(
+      'exercise-id',
+      createUser({ platformRole: UserPlatformRole.admin_saas }),
+    );
+
+    expect(prismaService.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-id' },
+      data: {
+        mediaType: null,
+        mediaUrl: null,
+      },
+    });
+    expect(removeMock).toHaveBeenCalledWith([
+      'exercises/exercise-id/global.webp',
+    ]);
   });
 });

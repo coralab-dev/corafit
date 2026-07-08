@@ -3,5 +3,10 @@
   "framework": "nextjs",
   "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm --filter web build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://corafit-api-staging.onrender.com",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://hlrfvvpuvqblpzyagffk.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_Vw7xW3uIqavqzOKVpdmUEQ_nl6edj59"
+  }
 }

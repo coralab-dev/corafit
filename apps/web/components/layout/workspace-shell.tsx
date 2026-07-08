@@ -13,7 +13,7 @@ export function WorkspaceFrame({
   header?: ReactNode;
 }) {
   return (
-    <div className={cn("flex min-h-screen flex-col bg-card", className)}>
+    <div className={cn("flex min-h-screen flex-col bg-background", className)}>
       {header}
       {children}
     </div>
@@ -30,9 +30,9 @@ export function WorkspaceHeader({
   title: string;
 }) {
   return (
-    <header className="flex min-h-20 flex-col gap-3 border-b px-6 py-4 md:flex-row md:items-center md:justify-between">
+    <header className="flex min-h-20 flex-col gap-3 border-b bg-background/80 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="truncate text-2xl font-bold tracking-normal">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         ) : null}
@@ -57,7 +57,7 @@ export function WorkspaceSplit({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-      <div className={cn("min-w-0 flex-1 border-r", mainClassName)}>{main}</div>
+      <div className={cn("min-w-0 flex-1 border-r border-border", mainClassName)}>{main}</div>
       {side ? (
         <div
           className={cn(
@@ -86,17 +86,22 @@ export function WorkspacePanel({
   title?: string;
 }) {
   return (
-    <section className={cn("rounded-md border bg-card", className)}>
+    <section
+      className={cn(
+        "rounded-2xl border bg-card shadow-[0_10px_30px_rgba(21,23,26,0.05)] dark:shadow-none",
+        className,
+      )}
+    >
       {title ? (
         <div className="flex items-start justify-between gap-4 border-b px-4 py-4">
           <div>
-            <h2 className="text-sm font-semibold">{title}</h2>
+            <h2 className="text-sm font-semibold tracking-normal">{title}</h2>
             {description ? (
               <p className="mt-1 text-xs text-muted-foreground">{description}</p>
             ) : null}
           </div>
           {icon ? (
-            <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
               {icon}
             </div>
           ) : null}

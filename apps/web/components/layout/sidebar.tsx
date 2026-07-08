@@ -24,13 +24,13 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col bg-sidebar text-sidebar-foreground lg:flex">
+    <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pb-8 pt-7">
-        <div className="flex size-10 items-center justify-center rounded-md text-sidebar-primary">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-primary">
           <DumbbellIcon className="size-5" />
         </div>
-        <span className="text-xl font-bold tracking-tight">CoraFit</span>
+        <span className="text-xl font-bold tracking-normal">CoraFit</span>
       </div>
 
       {/* Navegación */}
@@ -42,7 +42,7 @@ export function Sidebar() {
 
       {/* Usuario */}
       <div className="px-4 pb-5">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 rounded-2xl border border-sidebar-border bg-sidebar-accent/65 p-3">
           <div className="flex size-10 items-center justify-center rounded-full bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
             {initials}
           </div>
@@ -54,7 +54,7 @@ export function Sidebar() {
           </div>
           <Button
             aria-label="Cerrar sesion"
-            className="size-8 text-sidebar-foreground/60 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground"
+            className="size-8 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             size="icon"
             type="button"
             variant="ghost"

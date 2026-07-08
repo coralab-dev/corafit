@@ -1,6 +1,6 @@
 # CoraFit staging / preproducción
 
-Estado inicial creado desde ChatGPT el 2026-07-08.
+Estado actualizado desde ChatGPT el 2026-07-08.
 
 ## Decisión de ramas
 
@@ -32,113 +32,144 @@ Proyecto actual:
 
 Producción actual se despliega desde `master`.
 
-Vercel genera preview deployments para ramas no productivas. La rama `staging` debe usarse como preview/preproducción, apuntando a API staging en sus variables de entorno.
+Vercel genera preview deployments para ramas no productivas. La rama `staging` debe usarse como preview/preproducción.
+
+Alias detectado para la rama staging:
+
+```txt
+corafit-web-git-staging-corafit-s-projects.vercel.app
+```
 
 Variables esperadas para web staging:
 
 ```env
 NEXT_PUBLIC_API_URL=https://<api-staging-url>
-NEXT_PUBLIC_SUPABASE_URL=https://dzgmuiwuaglxbkiqulss.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-or-publishable-key-staging>
+NEXT_PUBLIC_SUPABASE_URL=https://hlrfvvpuvqblpzyagffk.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key-produccion-actual>
 ```
 
-### Supabase staging
+## Supabase
 
-Se intentó crear una branch de Supabase sobre el proyecto productivo, pero Supabase devolvió que branching requiere plan Pro o superior.
+Por limitación del plan Free, CoraFit staging usará temporalmente el mismo proyecto Supabase que producción.
 
-Por eso se creó un proyecto separado:
+Proyecto usado:
 
-- Project name: `corafit-staging`
-- Project ref: `dzgmuiwuaglxbkiqulss`
-- Region: `us-east-1`
-- URL: `https://dzgmuiwuaglxbkiqulss.supabase.co`
-- Cost reportado por Supabase para el proyecto: `$0 / mes` al momento de creación.
+- Project name: `corafit`
+- Project ref: `hlrfvvpuvqblpzyagffk`
+- URL: `https://hlrfvvpuvqblpzyagffk.supabase.co`
 
-Public keys disponibles:
+Nota histórica:
 
-```txt
-anon legacy key: configurar manualmente en entornos si se decide usar legacy anon.
-publishable key: configurar manualmente en entornos si se decide usar publishable key.
-```
+- Se intentó crear una branch de Supabase, pero branching requiere plan Pro o superior.
+- Se creó temporalmente `corafit-staging` (`dzgmuiwuaglxbkiqulss`), pero se pausó porque el plan Free solo permite dos proyectos activos y el usuario necesita conservar activos `corafit` y `sentiq`.
 
-No guardar secretos en este archivo.
+## Regla crítica mientras staging comparte Supabase con producción
 
-### Backend API staging
+Staging NO debe considerarse un ambiente de datos aislado.
 
-Pendiente.
+Permitido en staging:
 
-El backend actual parece estar desplegado en Railway según los checks de GitHub/Vercel observados. Este asistente no tiene conector directo de Railway/Render habilitado en este proyecto, así que no se pudo crear un servicio backend staging desde aquí.
+- Validar UI.
+- Validar navegación.
+- Validar auth con cuentas de prueba controladas.
+- Validar llamadas API no destructivas.
+- Validar flujos usando registros demo/test claramente identificados.
+
+No permitido en staging sin confirmación explícita:
+
+- Ejecutar seeds destructivos.
+- Ejecutar reset de base.
+- Ejecutar migraciones automáticas.
+- Borrar datos.
+- Limpiar storage.
+- Cambiar planes reales.
+- Usar clientes reales para QA.
+
+## Backend API staging
+
+Pendiente de crear en Render o Railway.
+
+El backend staging debe usar la misma base Supabase actual por ahora, pero debe tener URL separada para que la web staging no apunte al API productivo.
 
 Variables esperadas para API staging:
 
 ```env
 NODE_ENV=production
 PORT=4000
-WEB_APP_URL=https://<web-staging-url>
-CORS_ALLOWED_ORIGINS=https://<web-staging-url>
-SUPABASE_URL=https://dzgmuiwuaglxbkiqulss.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key-staging>
-SUPABASE_ANON_KEY=<anon-or-publishable-key-staging>
-DATABASE_URL=<postgres-connection-string-staging>
-DIRECT_URL=<postgres-direct-connection-string-staging>
-ADMIN_EMAIL=<admin-staging-email>
-ADMIN_SUPABASE_USER_ID=<admin-auth-user-id-staging>
-ADMIN_NAME=CoraFit Admin Staging
-DEV_AUTH_EMAIL=<coach-demo-staging-email>
-DEV_AUTH_PASSWORD=<coach-demo-staging-password>
-DEV_AUTH_NAME=Coach Demo Staging
-DEV_ORGANIZATION_NAME=CoraFit Staging Demo
+WEB_APP_URL=https://corafit-web-git-staging-corafit-s-projects.vercel.app
+CORS_ALLOWED_ORIGINS=https://corafit-web-git-staging-corafit-s-projects.vercel.app
+SUPABASE_URL=https://hlrfvvpuvqblpzyagffk.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key-produccion-actual>
+SUPABASE_ANON_KEY=<anon-key-produccion-actual>
+DATABASE_URL=<database-url-produccion-actual>
+DIRECT_URL=<direct-url-produccion-actual>
+ADMIN_EMAIL=<admin-email-actual-o-admin-staging>
+ADMIN_SUPABASE_USER_ID=<admin-supabase-user-id>
+ADMIN_NAME=CoraFit Admin
+DEV_AUTH_EMAIL=<coach-demo-email>
+DEV_AUTH_PASSWORD=<coach-demo-password>
+DEV_AUTH_NAME=Coach Demo
+DEV_ORGANIZATION_NAME=CoraFit Demo
 ```
 
-## Pendiente para dejar staging operativo 100%
+Importante:
 
-1. Configurar schema/base en Supabase staging.
-   - Ejecutar Prisma migrations/db push contra el proyecto `corafit-staging`.
-   - Ejecutar seeds mínimos.
+- Si el API staging comparte la DB productiva, no debe ejecutar seeds automáticos.
+- No debe correr `prisma db push` ni scripts de backfill desde el build/deploy.
+- Cualquier cambio de schema sigue siendo cambio de producción.
 
-2. Crear usuarios de staging.
-   - Admin SaaS staging.
-   - Coach demo staging.
-   - Clientes fake.
+## Render staging API — configuración sugerida
 
-3. Crear backend API staging.
-   - Preferible duplicar el servicio actual del API en Railway/Render.
-   - Apuntar variables al Supabase staging.
-   - Ajustar CORS para permitir la URL de Vercel staging.
+Crear un Web Service separado para el API:
 
-4. Configurar Vercel preview para rama `staging`.
-   - `NEXT_PUBLIC_API_URL` debe apuntar al backend staging.
-   - `NEXT_PUBLIC_SUPABASE_URL` debe apuntar a Supabase staging.
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` debe usar key de staging.
+```txt
+Name: corafit-api-staging
+Repository: coralab-dev/corafit
+Branch: staging
+Root directory: repo root
+Runtime: Node
+Node version: >=20.19.0
+Build command: corepack enable && pnpm install --frozen-lockfile && pnpm --filter db build && pnpm --filter api build
+Start command: pnpm --filter api start
+Health check path: /health o endpoint equivalente si existe
+Auto deploy: on para staging
+```
 
-5. Validar flujo mínimo.
-   - Login admin staging.
-   - Login coach staging.
-   - Crear cliente.
-   - Crear/editar plan.
-   - Asignar plan.
-   - Abrir portal cliente staging.
+Si Render no detecta pnpm automáticamente, usar `corepack enable` antes de instalar.
 
-## Regla operativa
+## Pendiente para dejar staging operativo
 
-No conectar staging a la base de datos de producción.
+1. Crear backend API staging en Render/Railway.
+2. Configurar variables del API staging.
+3. Configurar variables Preview/branch `staging` en Vercel:
+   - `NEXT_PUBLIC_API_URL` -> URL del API staging.
+   - `NEXT_PUBLIC_SUPABASE_URL` -> Supabase actual.
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` -> anon actual.
+4. Validar login admin y coach con cuentas de prueba.
+5. Validar navegación y flujos básicos sin tocar datos reales.
 
-No usar service-role key de producción en staging.
+## Criterio de cierre
 
-No usar datos reales para QA staging.
+Staging queda aceptado cuando:
+
+- La rama `staging` despliega web preview.
+- Existe API staging separado.
+- Web staging apunta al API staging.
+- API staging responde desde Render/Railway.
+- Staging no usa un API productivo.
+- Se valida login y navegación básica.
 
 ## Estado de cierre de esta fase
 
 Hecho:
 
 - Rama `staging` creada.
-- Proyecto Supabase `corafit-staging` creado.
+- Proyecto Supabase temporal `corafit-staging` pausado.
+- Runbook actualizado para usar el Supabase actual.
 - Inventario de Vercel web documentado.
-- Runbook de staging agregado a repo.
 
 No hecho por falta de acceso/secretos directos desde herramientas disponibles:
 
-- Crear/duplicar backend staging en Railway/Render.
-- Configurar variables de Vercel/hosting.
-- Obtener service role key o database password de Supabase staging.
-- Ejecutar app completa end-to-end sobre staging.
+- Crear/duplicar backend staging en Render/Railway.
+- Configurar variables privadas de Vercel/hosting.
+- Validar app completa end-to-end sobre staging.

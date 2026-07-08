@@ -1,8 +1,24 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ClientOperationalStatus, type OrganizationMember } from 'db';
+import {
+  ClientOperationalStatus,
+  SubscriptionPlanStatus,
+  type OrganizationMember,
+  type SubscriptionPlan,
+} from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type ClientUsageWarningLevel = 'ok' | 'near_limit' | 'at_limit' | 'over_limit';
+type BillingPlanRecord = Pick<
+  SubscriptionPlan,
+  | 'clientLimit'
+  | 'code'
+  | 'currency'
+  | 'description'
+  | 'id'
+  | 'memberLimit'
+  | 'name'
+  | 'priceMonthly'
+>;
 
 @Injectable()
 export class BillingService {
@@ -10,6 +26,28 @@ export class BillingService {
 
   getStatus() {
     return { module: 'billing', status: 'ready' };
+  }
+
+  async listPublicPlans() {
+    const plans = await this.prismaService.subscriptionPlan.findMany({
+      where: {
+        status: SubscriptionPlanStatus.active,
+        isPublic: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        priceMonthly: true,
+        currency: true,
+        clientLimit: true,
+        memberLimit: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return plans.map((plan) => this.toBillingPlan(plan));
   }
 
   async getCurrent(organizationMember: OrganizationMember | undefined) {
@@ -83,5 +121,19 @@ export class BillingService {
     }
 
     return 'ok';
+  }
+
+  private toBillingPlan(plan: BillingPlanRecord) {
+    return {
+      id: plan.id,
+      code: plan.code,
+      name: plan.name,
+      description: plan.description,
+      betaPrice: plan.priceMonthly,
+      postBetaPrice: null,
+      currency: plan.currency,
+      clientLimit: plan.clientLimit,
+      memberLimit: plan.memberLimit,
+    };
   }
 }

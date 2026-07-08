@@ -1,7 +1,12 @@
 import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
   ClientOperationalStatus,
   OrganizationStatus,
   OrganizationType,
+  SubscriptionPlanStatus,
   SubscriptionStatus,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +18,13 @@ type PrismaServiceMock = {
     count: ReturnType<typeof vi.fn>;
   };
   organization: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+  };
+  organizationSubscription: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
+  subscriptionPlan: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
   };
@@ -52,6 +64,47 @@ describe('AdminService', () => {
       organization: {
         findMany: vi.fn().mockResolvedValue([organization]),
         findUnique: vi.fn().mockResolvedValue(organization),
+      },
+      organizationSubscription: {
+        upsert: vi.fn().mockResolvedValue({
+          id: 'subscription-id',
+          organizationId: 'organization-id',
+          subscriptionPlanId: 'pro-plan-id',
+          status: SubscriptionStatus.active,
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          renewsAt: new Date('2026-02-01T00:00:00.000Z'),
+          cancelledAt: null,
+        }),
+      },
+      subscriptionPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'founder-plan-id',
+            code: 'founder',
+            name: 'Founder',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 30,
+            memberLimit: 1,
+            isPublic: false,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ]),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'pro-plan-id',
+          code: 'pro',
+          name: 'Pro',
+          priceMonthly: 0,
+          currency: 'MXN',
+          clientLimit: 30,
+          memberLimit: 1,
+          isPublic: true,
+          status: SubscriptionPlanStatus.active,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        }),
       },
     };
     service = new AdminService(prismaService as unknown as PrismaService);
@@ -119,5 +172,150 @@ describe('AdminService', () => {
       where: { id: 'organization-id' },
       include: includeMatcher,
     });
+  });
+
+  it('lists all subscription plans for admin operations', async () => {
+    await expect(service.listSubscriptionPlans()).resolves.toEqual([
+      {
+        id: 'founder-plan-id',
+        code: 'founder',
+        name: 'Founder',
+        status: SubscriptionPlanStatus.active,
+        isPublic: false,
+        betaPrice: 0,
+        postBetaPrice: null,
+        currency: 'MXN',
+        clientLimit: 30,
+        memberLimit: 1,
+        sortOrder: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    ]);
+
+    expect(prismaService.subscriptionPlan.findMany).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        isPublic: true,
+        priceMonthly: true,
+        currency: true,
+        clientLimit: true,
+        memberLimit: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  });
+
+  it('updates an existing organization subscription to an active plan', async () => {
+    const updatedOrganization = {
+      ...organization,
+      subscription: {
+        status: SubscriptionStatus.active,
+        subscriptionPlan: {
+          id: 'pro-plan-id',
+          code: 'pro',
+          name: 'Pro',
+          clientLimit: 30,
+        },
+      },
+    };
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(organization)
+      .mockResolvedValueOnce(updatedOrganization);
+
+    await expect(
+      service.updateOrganizationSubscription('organization-id', { planCode: 'pro' }),
+    ).resolves.toMatchObject({
+      id: 'organization-id',
+      subscription: { status: SubscriptionStatus.active },
+      plan: {
+        id: 'pro-plan-id',
+        code: 'pro',
+        name: 'Pro',
+        clientLimit: 30,
+      },
+      clientsUsed: 3,
+    });
+
+    expect(prismaService.subscriptionPlan.findUnique).toHaveBeenCalledWith({
+      where: { code: 'pro' },
+    });
+    expect(prismaService.organizationSubscription.upsert).toHaveBeenCalledWith({
+      where: { organizationId: 'organization-id' },
+      create: {
+        organizationId: 'organization-id',
+        subscriptionPlanId: 'pro-plan-id',
+        status: SubscriptionStatus.active,
+        startedAt: expect.any(Date) as Date,
+        renewsAt: null,
+        cancelledAt: null,
+      },
+      update: {
+        subscriptionPlanId: 'pro-plan-id',
+        status: SubscriptionStatus.active,
+        cancelledAt: null,
+      },
+    });
+  });
+
+  it('rejects empty plan codes before writing', async () => {
+    await expect(
+      service.updateOrganizationSubscription('organization-id', { planCode: '   ' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaService.organizationSubscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when changing a subscription for an unknown organization', async () => {
+    prismaService.organization.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.updateOrganizationSubscription('missing-organization-id', {
+        planCode: 'pro',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prismaService.organizationSubscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('returns a clear error when the requested plan is inactive', async () => {
+    prismaService.subscriptionPlan.findUnique.mockResolvedValueOnce({
+      id: 'inactive-plan-id',
+      code: 'inactive',
+      name: 'Inactive',
+      priceMonthly: 0,
+      currency: 'MXN',
+      clientLimit: 1,
+      memberLimit: 1,
+      isPublic: true,
+      status: SubscriptionPlanStatus.inactive,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+
+    await expect(
+      service.updateOrganizationSubscription('organization-id', {
+        planCode: 'inactive',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaService.organizationSubscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the requested plan does not exist', async () => {
+    prismaService.subscriptionPlan.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.updateOrganizationSubscription('organization-id', {
+        planCode: 'unknown',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prismaService.organizationSubscription.upsert).not.toHaveBeenCalled();
   });
 });

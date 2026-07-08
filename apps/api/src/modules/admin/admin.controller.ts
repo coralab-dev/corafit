@@ -26,6 +26,7 @@ import {
   AdminService,
   type AdminOrganization,
   type ListAdminOrganizationsQuery,
+  type UpdateOrganizationSubscriptionDto,
 } from './admin.service';
 
 @Controller('admin')
@@ -42,6 +43,12 @@ export class AdminController {
   }
 
   @UseGuards(PlatformAdminGuard)
+  @Get('subscription-plans')
+  listSubscriptionPlans() {
+    return this.adminService.listSubscriptionPlans();
+  }
+
+  @UseGuards(PlatformAdminGuard)
   @Get('organizations')
   listOrganizations(
     @Query() query: ListAdminOrganizationsQuery,
@@ -55,6 +62,15 @@ export class AdminController {
     @Param('organizationId') organizationId: string,
   ): Promise<AdminOrganization> {
     return this.adminService.getOrganization(organizationId);
+  }
+
+  @UseGuards(PlatformAdminGuard)
+  @Patch('organizations/:organizationId/subscription')
+  updateOrganizationSubscription(
+    @Param('organizationId') organizationId: string,
+    @Body() body: UpdateOrganizationSubscriptionDto,
+  ): Promise<AdminOrganization> {
+    return this.adminService.updateOrganizationSubscription(organizationId, body);
   }
 
   @UseGuards(PlatformAdminGuard)

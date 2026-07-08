@@ -18,6 +18,9 @@ type PrismaServiceMock = {
   organizationSubscription: {
     findUnique: ReturnType<typeof vi.fn>;
   };
+  subscriptionPlan: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 function createOrganizationMember(
@@ -71,6 +74,25 @@ describe('BillingService', () => {
             updatedAt: new Date('2026-01-01T00:00:00.000Z'),
           },
         }),
+      },
+      subscriptionPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'starter-plan-id',
+            code: 'starter',
+            name: 'Starter',
+            description: 'Beta starter plan',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 10,
+            memberLimit: 1,
+            features: null,
+            isPublic: true,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ]),
       },
     };
     service = new BillingService(prismaService as unknown as PrismaService);
@@ -168,5 +190,39 @@ describe('BillingService', () => {
     await expect(
       service.getCurrent(createOrganizationMember()),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lists only active public plans for coach billing', async () => {
+    await expect(service.listPublicPlans()).resolves.toEqual([
+      {
+        id: 'starter-plan-id',
+        code: 'starter',
+        name: 'Starter',
+        description: 'Beta starter plan',
+        betaPrice: 0,
+        postBetaPrice: null,
+        currency: 'MXN',
+        clientLimit: 10,
+        memberLimit: 1,
+      },
+    ]);
+
+    expect(prismaService.subscriptionPlan.findMany).toHaveBeenCalledWith({
+      where: {
+        status: SubscriptionPlanStatus.active,
+        isPublic: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        priceMonthly: true,
+        currency: true,
+        clientLimit: true,
+        memberLimit: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
   });
 });

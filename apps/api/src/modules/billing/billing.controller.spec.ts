@@ -11,6 +11,7 @@ import type { BillingService } from './billing.service';
 type BillingServiceMock = {
   getStatus: ReturnType<typeof vi.fn>;
   getCurrent: ReturnType<typeof vi.fn>;
+  listPublicPlans: ReturnType<typeof vi.fn>;
 };
 
 function createOrganizationMember(): OrganizationMember {
@@ -33,6 +34,7 @@ describe('BillingController', () => {
     service = {
       getStatus: vi.fn().mockReturnValue({ module: 'billing', status: 'ready' }),
       getCurrent: vi.fn().mockResolvedValue({ organizationId: 'organization-id' }),
+      listPublicPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
     };
     controller = new BillingController(service as unknown as BillingService);
   });
@@ -62,5 +64,10 @@ describe('BillingController', () => {
     expect(Reflect.getMetadata(ROLES_KEY, handler)).toEqual([
       OrganizationMemberRole.owner,
     ]);
+  });
+
+  it('delegates public plan listing for authenticated billing users', async () => {
+    await expect(controller.listPlans()).resolves.toEqual([{ code: 'starter' }]);
+    expect(service.listPublicPlans).toHaveBeenCalledWith();
   });
 });

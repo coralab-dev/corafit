@@ -32,6 +32,7 @@ describe('AdminController', () => {
       getOrganization: vi.fn().mockResolvedValue({ id: 'organization-id' }),
       getStatus: vi.fn(),
       listOrganizations: vi.fn().mockResolvedValue([{ id: 'organization-id' }]),
+      listSubscriptionPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
     };
     const controller = new AdminController(
       adminService as never,
@@ -50,6 +51,33 @@ describe('AdminController', () => {
       status: 'active',
     });
     expect(adminService.getOrganization).toHaveBeenCalledWith('organization-id');
+  });
+
+  it('delegates protected subscription plan listings to AdminService', async () => {
+    const adminService = {
+      getStatus: vi.fn(),
+      listSubscriptionPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
+    };
+    const controller = new AdminController(
+      adminService as never,
+      {} as never,
+      {} as never,
+    );
+    const handler = Object.getOwnPropertyDescriptor(
+      AdminController.prototype,
+      'listSubscriptionPlans',
+    )?.value as () => unknown;
+
+    await expect(controller.listSubscriptionPlans()).resolves.toEqual([
+      { code: 'starter' },
+    ]);
+    expect(adminService.listSubscriptionPlans).toHaveBeenCalledWith();
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(
+      'subscription-plans',
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+      PlatformAdminGuard,
+    ]);
   });
 
   it('keeps admin exercises protected by PlatformAdminGuard', () => {

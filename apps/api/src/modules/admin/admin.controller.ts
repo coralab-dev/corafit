@@ -42,6 +42,12 @@ export class AdminController {
   }
 
   @UseGuards(PlatformAdminGuard)
+  @Get('subscription-plans')
+  listSubscriptionPlans() {
+    return this.adminService.listSubscriptionPlans();
+  }
+
+  @UseGuards(PlatformAdminGuard)
   @Get('organizations')
   listOrganizations(
     @Query() query: ListAdminOrganizationsQuery,

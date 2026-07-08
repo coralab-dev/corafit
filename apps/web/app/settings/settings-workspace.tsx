@@ -511,7 +511,7 @@ function SessionSection() {
 export function SettingsWorkspace() {
   const { profile } = useAuth();
 
-  if (!profile) {
+  if (!profile || !profile.organization || !profile.member || !profile.subscription) {
     return null;
   }
 

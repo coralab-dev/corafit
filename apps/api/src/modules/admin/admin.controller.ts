@@ -22,7 +22,11 @@ import type {
   ListExercisesQuery,
   UpdateExerciseDto,
 } from '../exercises/dto/exercise.dto';
-import { AdminService } from './admin.service';
+import {
+  AdminService,
+  type AdminOrganization,
+  type ListAdminOrganizationsQuery,
+} from './admin.service';
 
 @Controller('admin')
 export class AdminController {
@@ -35,6 +39,22 @@ export class AdminController {
   @Get('status')
   getStatus() {
     return this.adminService.getStatus();
+  }
+
+  @UseGuards(PlatformAdminGuard)
+  @Get('organizations')
+  listOrganizations(
+    @Query() query: ListAdminOrganizationsQuery,
+  ): Promise<AdminOrganization[]> {
+    return this.adminService.listOrganizations(query);
+  }
+
+  @UseGuards(PlatformAdminGuard)
+  @Get('organizations/:organizationId')
+  getOrganization(
+    @Param('organizationId') organizationId: string,
+  ): Promise<AdminOrganization> {
+    return this.adminService.getOrganization(organizationId);
   }
 
   @UseGuards(PlatformAdminGuard)

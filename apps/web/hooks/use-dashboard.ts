@@ -70,7 +70,7 @@ export function useDashboard() {
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady =
     authStatus === "authenticated" &&
     Boolean(session && organizationId);

@@ -378,6 +378,32 @@ describe('AuthService', () => {
     });
   });
 
+  it('returns an admin profile without organization, member, or subscription', async () => {
+    prismaService.user.findUnique.mockResolvedValue({
+      id: 'admin-user-id',
+      supabaseUserId: 'supabase-user-id',
+      email: 'admin@corafit.test',
+      name: 'Platform Admin',
+      phone: null,
+      platformRole: UserPlatformRole.admin_saas,
+      status: UserStatus.active,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    prismaService.organizationMember.findFirst.mockResolvedValue(null);
+
+    await expect(service.getMe('Bearer valid-token')).resolves.toMatchObject({
+      user: {
+        id: 'admin-user-id',
+        email: 'admin@corafit.test',
+        platformRole: UserPlatformRole.admin_saas,
+      },
+      organization: null,
+      member: null,
+      subscription: null,
+    });
+  });
+
   it('throws PROFILE_NOT_FOUND when no internal profile is available', async () => {
     await expect(service.getMe('Bearer valid-token')).rejects.toMatchObject({
       response: {

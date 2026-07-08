@@ -1,7 +1,7 @@
 export type AuthUser = {
   id: string;
   supabaseUserId: string;
-  platformRole: string;
+  platformRole: "user" | "admin_saas";
   name: string;
   email: string;
   phone: string | null;
@@ -46,3 +46,12 @@ export type AuthProfile = {
   member: AuthMember;
   subscription: AuthSubscription;
 };
+
+export type AdminAuthProfile = {
+  user: AuthUser & { platformRole: "admin_saas" };
+  organization: null;
+  member: null;
+  subscription: null;
+};
+
+export type CurrentAuthProfile = AuthProfile | AdminAuthProfile;

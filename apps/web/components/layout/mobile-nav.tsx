@@ -18,7 +18,9 @@ export function MobileNav({ className }: MobileNavProps) {
   const { profile } = useAuth();
   const name = profile?.user.name ?? "Coach";
   const visibleNavItems = navItems.filter(
-    (item) => !item.platformRole || item.platformRole === profile?.user.platformRole,
+    (item) =>
+      (!item.platformRole || item.platformRole === profile?.user.platformRole) &&
+      (!item.requiresOrganization || Boolean(profile?.organization)),
   );
 
   return (

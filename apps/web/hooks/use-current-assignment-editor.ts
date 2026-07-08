@@ -18,7 +18,7 @@ export function useCurrentAssignmentEditor(clientId: string) {
   const [assignment, setAssignment] = useState<CurrentPlanAssignment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
 
   const request = useCallback(

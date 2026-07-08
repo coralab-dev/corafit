@@ -85,7 +85,7 @@ export function useExercises(filters: ExerciseFilters) {
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
   const isLoading = authStatus === "loading" || isRequestLoading;
 
@@ -197,7 +197,7 @@ export function useExercises(filters: ExerciseFilters) {
 
 export function useExerciseMediaActions() {
   const { profile, session, status: authStatus } = useAuth();
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
 
   const request = useCallback(
@@ -236,7 +236,7 @@ export function useExerciseMediaActions() {
 
 export function useExerciseActions() {
   const { profile, session, status: authStatus } = useAuth();
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
 
   const request = useCallback(

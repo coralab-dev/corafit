@@ -7,7 +7,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 export function ProtectedAppGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status } = useAuth();
+  const { profile, status } = useAuth();
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -17,9 +17,26 @@ export function ProtectedAppGate({ children }: { children: ReactNode }) {
     if (status === "missing-profile") {
       router.replace("/complete-profile");
     }
-  }, [pathname, router, status]);
 
-  if (status === "loading" || status === "anonymous" || status === "missing-profile") {
+    if (
+      status === "authenticated" &&
+      profile?.user.platformRole === "admin_saas" &&
+      !profile.organization &&
+      !pathname.startsWith("/admin")
+    ) {
+      router.replace("/admin/exercises");
+    }
+  }, [pathname, profile, router, status]);
+
+  if (
+    status === "loading" ||
+    status === "anonymous" ||
+    status === "missing-profile" ||
+    (status === "authenticated" &&
+      profile?.user.platformRole === "admin_saas" &&
+      !profile.organization &&
+      !pathname.startsWith("/admin"))
+  ) {
     return <FullScreenLoading label="Validando acceso..." />;
   }
 

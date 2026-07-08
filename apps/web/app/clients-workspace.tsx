@@ -54,7 +54,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     defaultValues: emptyDefaults,
   });
 
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
 
   const clientsRequest = useCallback(

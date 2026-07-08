@@ -16,6 +16,7 @@ import {
   type OrganizationMember,
   type OrganizationSubscription,
   type SubscriptionPlan,
+  UserPlatformRole,
   UserStatus,
   type User,
 } from 'db';
@@ -34,6 +35,12 @@ export type RegisterProfileResult = {
 };
 
 export type AuthProfileResult = RegisterProfileResult;
+export type AdminAuthProfileResult = {
+  member: null;
+  organization: null;
+  subscription: null;
+  user: User;
+};
 
 @Injectable()
 export class AuthService {
@@ -46,7 +53,9 @@ export class AuthService {
     return { module: 'auth', status: 'ready' };
   }
 
-  async getMe(authorizationHeader: string | undefined): Promise<AuthProfileResult> {
+  async getMe(
+    authorizationHeader: string | undefined,
+  ): Promise<AuthProfileResult | AdminAuthProfileResult> {
     const jwt = this.extractBearerToken(authorizationHeader);
     const supabaseUser = await this.supabaseAuthService.getUserFromJwt(jwt);
     const user = await this.prismaService.user.findUnique({
@@ -84,6 +93,15 @@ export class AuthService {
     const subscription = member?.organization.subscription;
 
     if (!member || !subscription) {
+      if (user.platformRole === UserPlatformRole.admin_saas) {
+        return {
+          user,
+          organization: null,
+          member: null,
+          subscription: null,
+        };
+      }
+
       throw new NotFoundException({
         error: 'PROFILE_NOT_FOUND',
         message: 'Internal profile was not found',

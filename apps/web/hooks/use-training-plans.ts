@@ -113,7 +113,7 @@ export function useTrainingPlans(filters: PlanListFilters) {
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
   const isLoading = authStatus === "loading" || isRequestLoading;
 
@@ -196,7 +196,7 @@ export function useTrainingPlanEditor(planId: string) {
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
   const isLoading = authStatus === "loading" || isRequestLoading;
 

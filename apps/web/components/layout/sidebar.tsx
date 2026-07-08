@@ -13,7 +13,9 @@ export function Sidebar() {
   const name = profile?.user?.name ?? "Coach";
   const initials = getInitials(name);
   const visibleNavItems = navItems.filter(
-    (item) => !item.platformRole || item.platformRole === profile?.user.platformRole,
+    (item) =>
+      (!item.platformRole || item.platformRole === profile?.user.platformRole) &&
+      (!item.requiresOrganization || Boolean(profile?.organization)),
   );
 
   async function handleLogout() {

@@ -87,7 +87,7 @@ export function TrainingPlansWorkspace() {
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanWeeks, setNewPlanWeeks] = useState("4");
   const [isCreating, setIsCreating] = useState(false);
-  const organizationId = profile?.organization.id ?? null;
+  const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
 
   const request = useCallback(

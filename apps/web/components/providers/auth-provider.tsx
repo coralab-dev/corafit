@@ -13,7 +13,7 @@ import {
 } from "react";
 import { apiBaseUrl, authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 import { getSupabaseBrowserClient } from "@/lib/auth/supabase";
-import type { AuthProfile } from "@/lib/auth/types";
+import type { CurrentAuthProfile } from "@/lib/auth/types";
 
 type SignupInput = {
   email: string;
@@ -37,12 +37,12 @@ type LegacyAuthUser = {
 };
 
 type AuthContextValue = {
-  completeProfile: (input: { name: string; phone?: string; termsAccepted: boolean }) => Promise<AuthProfile>;
+  completeProfile: (input: { name: string; phone?: string; termsAccepted: boolean }) => Promise<CurrentAuthProfile>;
   isLoading: boolean;
-  login: (input: { email: string; password: string }) => Promise<AuthProfile | null>;
+  login: (input: { email: string; password: string }) => Promise<CurrentAuthProfile | null>;
   logout: () => Promise<void>;
-  profile: AuthProfile | null;
-  refreshProfile: (nextSession?: Session | null) => Promise<AuthProfile | null>;
+  profile: CurrentAuthProfile | null;
+  refreshProfile: (nextSession?: Session | null) => Promise<CurrentAuthProfile | null>;
   resetPassword: (email: string) => Promise<void>;
   session: Session | null;
   signup: (input: SignupInput) => Promise<"profile-created" | "confirm-email">;
@@ -55,18 +55,18 @@ const apiConfigStorageKey = "corafit_api_config";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<AuthProfile | null>(null);
+  const [profile, setProfile] = useState<CurrentAuthProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMissingProfile, setHasMissingProfile] = useState(false);
   const sessionRef = useRef<Session | null>(null);
-  const profileRef = useRef<AuthProfile | null>(null);
+  const profileRef = useRef<CurrentAuthProfile | null>(null);
 
   useEffect(() => {
     sessionRef.current = session;
     profileRef.current = profile;
   }, [profile, session]);
 
-  const syncLegacyApiConfig = useCallback((nextSession: Session | null, nextProfile: AuthProfile | null) => {
+  const syncLegacyApiConfig = useCallback((nextSession: Session | null, nextProfile: CurrentAuthProfile | null) => {
     if (typeof window === "undefined") {
       return;
     }
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       JSON.stringify({
         apiUrl: apiBaseUrl,
         bearerToken: nextSession.access_token,
-        organizationId: nextProfile.organization.id,
+        organizationId: nextProfile.organization?.id ?? null,
       }),
     );
   }, []);
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const nextProfile = normalizeAuthProfile(
-          await authenticatedRequest<AuthProfile | LegacyAuthUser>(
+          await authenticatedRequest<CurrentAuthProfile | LegacyAuthUser>(
             "/auth/me",
             { method: "GET" },
             { session: activeSession },
@@ -355,7 +355,7 @@ function isMissingProfileError(error: unknown) {
   );
 }
 
-function normalizeAuthProfile(payload: AuthProfile | LegacyAuthUser) {
+function normalizeAuthProfile(payload: CurrentAuthProfile | LegacyAuthUser) {
   if ("user" in payload && payload.user) {
     return payload;
   }
@@ -392,7 +392,7 @@ function getPendingProfileInput(session: Session) {
 
 async function createProfileFromMetadata(
   session: Session,
-  syncLegacyApiConfig: (session: Session | null, profile: AuthProfile | null) => void,
+  syncLegacyApiConfig: (session: Session | null, profile: CurrentAuthProfile | null) => void,
 ) {
   const input = getPendingProfileInput(session);
 
@@ -410,10 +410,10 @@ async function createProfileFromMetadata(
 async function createProfile(
   session: Session,
   input: { name: string; phone?: string; termsAccepted?: boolean },
-  syncLegacyApiConfig: (session: Session | null, profile: AuthProfile | null) => void,
+  syncLegacyApiConfig: (session: Session | null, profile: CurrentAuthProfile | null) => void,
 ) {
   try {
-    const profile = await authenticatedRequest<AuthProfile>(
+    const profile = await authenticatedRequest<CurrentAuthProfile>(
       "/auth/register-profile",
       {
         method: "POST",
@@ -431,7 +431,7 @@ async function createProfile(
     return profile;
   } catch (error) {
     if (error instanceof CoraFitApiError && error.code === "PROFILE_EXISTS") {
-      const profile = await authenticatedRequest<AuthProfile>(
+      const profile = await authenticatedRequest<CurrentAuthProfile>(
         "/auth/me",
         { method: "GET" },
         { session },

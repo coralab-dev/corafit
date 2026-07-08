@@ -18,7 +18,7 @@ export function NavItem({ href, icon: Icon, label, disabled }: NavItemProps) {
 
   if (disabled) {
     return (
-      <div className="flex cursor-not-allowed items-center gap-3 rounded-lg px-4 py-3 text-sm text-muted-foreground opacity-40">
+      <div className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-sidebar-foreground/45">
         <Icon className="size-4" />
         {label}
       </div>
@@ -29,10 +29,10 @@ export function NavItem({ href, icon: Icon, label, disabled }: NavItemProps) {
     <Link
       href={href}
       className={cn(
-        "relative flex items-center gap-3 rounded-md px-4 py-3 text-sm transition-colors",
+        "relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-[background,color]",
         isActive
-          ? "bg-sidebar-accent font-semibold text-sidebar-primary after:absolute after:bottom-0 after:right-0 after:top-0 after:w-0.5 after:rounded-full after:bg-sidebar-primary"
-          : "text-sidebar-foreground/68 hover:bg-sidebar-foreground/8 hover:text-sidebar-foreground",
+          ? "bg-sidebar-accent font-semibold text-sidebar-primary"
+          : "text-sidebar-foreground/68 hover:bg-sidebar-accent/75 hover:text-sidebar-foreground",
       )}
     >
       <Icon className="size-4" />

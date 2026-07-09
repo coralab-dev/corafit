@@ -19,11 +19,13 @@ export function EmptyState({
   title: string;
 }) {
   return (
-    <div className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-lg border bg-background p-6 text-center">
-      <UserRoundIcon className="text-muted-foreground" />
+    <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border !border-transparent bg-card p-8 text-center shadow-[var(--surface-shadow-soft)]">
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+        <UserRoundIcon className="size-5" />
+      </div>
       <div>
         <p className="font-semibold">{title}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
       </div>
       {actionLabel && actionHref ? (
         <Button asChild variant="outline">
@@ -44,5 +46,9 @@ export function EmptyState({
 }
 
 export function LoadingList() {
-  return <ListRowsSkeleton rows={6} />;
+  return (
+    <div className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+      <ListRowsSkeleton rows={6} />
+    </div>
+  );
 }

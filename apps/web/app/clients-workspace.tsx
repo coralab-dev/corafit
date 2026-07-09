@@ -13,7 +13,7 @@ import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/com
 import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { useAuth } from "@/components/providers/auth-provider";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { MetricStripSkeleton, PanelSkeleton } from "@/components/shared/skeletons";
+import { PanelSkeleton } from "@/components/shared/skeletons";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
@@ -216,6 +216,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const activeCount = visibleClients.filter(
     (client) => client.operationalStatus === "active",
   ).length;
+  const pausedInactiveCount = visibleClients.filter(
+    (client) =>
+      client.operationalStatus === "paused" ||
+      client.operationalStatus === "inactive",
+  ).length;
+  const assignmentCount = Object.values(visibleAssignmentsByClient).filter(Boolean).length;
   const accessCount = visibleClients.filter((client) => client.access.status === "active").length;
 
   function openCreateForm() {
@@ -421,15 +427,16 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       }
     >
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-        <div className="min-w-0 flex-1 border-r">
-          <div className="border-b bg-background px-6 py-5">
+        <div className="min-w-0 flex-1">
+          <div className="bg-background px-4 py-5 sm:px-6 xl:pr-2">
             {isInitialLoading ? (
-              <MetricStripSkeleton />
+              <ClientMetricsSkeleton />
             ) : (
               <ClientMetrics
                 accessCount={accessCount}
                 activeCount={activeCount}
-                assignmentCount={Object.values(visibleAssignmentsByClient).filter(Boolean).length}
+                assignmentCount={assignmentCount}
+                pausedInactiveCount={pausedInactiveCount}
                 totalCount={visibleClients.length}
               />
             )}
@@ -461,7 +468,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           />
         </div>
 
-        <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[420px] xl:resize-x xl:overflow-auto">
+        <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[380px] xl:resize-x xl:overflow-auto">
           {isInitialLoading ? <ClientActivitySkeletonPanel /> : <ClientActivityPanel />}
         </div>
       </div>
@@ -486,6 +493,20 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
       {sharedDialogs}
     </WorkspaceFrame>
+  );
+}
+
+function ClientMetricsSkeleton() {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div key={index} className="rounded-2xl border !border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)]">
+          <div className="h-3 w-20 animate-pulse rounded-md bg-muted" />
+          <div className="mt-4 h-7 w-10 animate-pulse rounded-md bg-muted" />
+          <div className="mt-2 h-3 w-24 animate-pulse rounded-md bg-muted" />
+        </div>
+      ))}
+    </div>
   );
 }
 

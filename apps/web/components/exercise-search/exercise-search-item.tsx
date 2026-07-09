@@ -27,17 +27,17 @@ const muscleLabels: Record<Exercise["primaryMuscle"], string> = {
   back: "Espalda",
   legs: "Piernas",
   shoulder: "Hombro",
-  biceps: "Biceps",
-  triceps: "Triceps",
+  biceps: "Bíceps",
+  triceps: "Tríceps",
   core: "Core",
-  glute: "Gluteo",
+  glute: "Glúteo",
 };
 
 const equipmentLabels: Record<Exercise["equipment"], string> = {
   barbell: "Barra",
   dumbbell: "Mancuerna",
   cable: "Cable",
-  machine: "Maquina",
+  machine: "Máquina",
   bodyweight: "Peso corporal",
   other: "Otro",
 };
@@ -279,7 +279,7 @@ function DetailSection({ title, value }: { title: string; value: string | null }
     <section>
       <h4 className="text-sm font-semibold">{title}</h4>
       <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-        {value?.trim() || "Sin informacion registrada."}
+        {value?.trim() || "Sin información registrada."}
       </p>
     </section>
   );

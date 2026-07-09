@@ -51,7 +51,7 @@ const exerciseCreateSchema = z.object({
     "other",
   ]),
   instructions: z.string().trim().optional(),
-  videoUrl: z.string().trim().url("URL invalida").optional().or(z.literal("")),
+  videoUrl: z.string().trim().url("URL inválida").optional().or(z.literal("")),
 });
 
 type ExerciseCreateValues = z.infer<typeof exerciseCreateSchema>;
@@ -106,14 +106,14 @@ export function ExerciseCreateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden p-0 sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-xl">
         <DialogTitle className="sr-only">Nuevo ejercicio</DialogTitle>
         <Form {...form}>
           <form
             className="flex max-h-[calc(100vh-2rem)] flex-col bg-background"
             onSubmit={form.handleSubmit(submit)}
           >
-            <header className="border-b bg-card px-5 py-4 pr-14">
+            <header className="border-b border-border/55 bg-card/90 px-5 py-4 pr-14">
               <p className="text-xs font-medium uppercase text-primary">
                 Biblioteca
               </p>
@@ -131,7 +131,7 @@ export function ExerciseCreateDialog({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField
                     control={form.control}
-                    label="Musculo principal"
+                    label="Músculo principal"
                     name="primaryMuscle"
                     options={Object.entries(muscleLabels) as Array<[PrimaryMuscle, string]>}
                   />
@@ -156,7 +156,7 @@ export function ExerciseCreateDialog({
                   onImageFileChange={updateImageFile}
                 />
                 {!imageFile ? (
-                  <div className="rounded-md border bg-background p-3">
+                  <div className="rounded-2xl border !border-transparent bg-muted/35 p-3 shadow-[var(--surface-shadow-soft)]">
                     <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                       <LinkIcon className="size-4 text-muted-foreground" />
                       Video externo
@@ -171,7 +171,7 @@ export function ExerciseCreateDialog({
               </FormSection>
             </div>
 
-            <DialogFooter className="border-t bg-card px-5 py-3">
+            <DialogFooter className="border-t border-border/55 bg-card/90 px-5 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -203,7 +203,7 @@ function FormSection({
   compact?: boolean;
 }) {
   return (
-    <section className={cn("border-b px-5 last:border-b-0", compact ? "py-3" : "py-4")}>
+    <section className={cn("border-b border-border/55 px-5 last:border-b-0", compact ? "py-3" : "py-4")}>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -225,9 +225,9 @@ function ImagePicker({
       <label className="text-xs font-medium uppercase text-muted-foreground" htmlFor={inputId}>
         Imagen principal
       </label>
-      <div className="flex items-center gap-3 rounded-md border bg-background p-3">
+      <div className="flex items-center gap-3 rounded-2xl border !border-transparent bg-muted/35 p-3 shadow-[var(--surface-shadow-soft)]">
         <label
-          className="flex size-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex size-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border !border-transparent bg-muted text-muted-foreground shadow-[var(--surface-shadow-soft)] transition-colors hover:bg-accent hover:text-accent-foreground"
           htmlFor={inputId}
         >
           {previewUrl ? (
@@ -261,10 +261,10 @@ function ImagePicker({
             Seleccionar imagen
           </label>
           <p className="mt-2 truncate text-sm text-muted-foreground">
-            {imageFile ? imageFile.name : "Ningun archivo seleccionado"}
+            {imageFile ? imageFile.name : "Ningún archivo seleccionado"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            JPG, PNG o WebP. Maximo 2 MB.
+            JPG, PNG o WebP. Máximo 2 MB.
           </p>
           {imageFile ? (
             <Button
@@ -333,7 +333,7 @@ function TextAreaField({
           <FormControl>
             <textarea
               className={cn(
-                "min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                "min-h-24 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
               )}
               value={String(field.value ?? "")}
               onChange={field.onChange}
@@ -366,7 +366,7 @@ function SelectField({
           <FormLabel>{label}</FormLabel>
           <FormControl>
             <select
-              className="h-9 rounded-md border bg-background px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              className="h-9 rounded-xl border bg-card px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
               value={String(field.value)}
               onChange={field.onChange}
             >

@@ -2,12 +2,10 @@
 
 import {
   AlertCircleIcon,
-  CheckCircle2Icon,
   DumbbellIcon,
   ImageIcon,
   InfoIcon,
   MoreVerticalIcon,
-  PencilIcon,
   PlusIcon,
   SlidersHorizontalIcon,
   SearchIcon,
@@ -547,8 +545,6 @@ function ExerciseActions({
   exercise: Exercise;
   onSelect?: (exercise: Exercise) => void;
 }) {
-  const isCustom = Boolean(exercise.organizationId);
-
   return (
     <div className="flex justify-end gap-2">
       <Button
@@ -556,18 +552,14 @@ function ExerciseActions({
           "size-9 rounded-xl bg-muted/45 p-0 text-foreground shadow-none hover:bg-accent hover:text-primary",
           compact && "size-9",
         )}
-        aria-label={isCustom ? "Editar ejercicio" : "Ver detalle"}
+        aria-label="Ver detalle"
         size="sm"
         type="button"
         variant="ghost"
         onClick={() => onSelect?.(exercise)}
       >
-        {isCustom ? (
-          <PencilIcon data-icon="inline-start" />
-        ) : (
-          <InfoIcon data-icon="inline-start" />
-        )}
-        <span className="sr-only">{isCustom ? "Editar" : "Ver detalle"}</span>
+        <InfoIcon data-icon="inline-start" />
+        <span className="sr-only">Ver detalle</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -583,12 +575,8 @@ function ExerciseActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]">
           <DropdownMenuItem onClick={() => onSelect?.(exercise)}>
-            {isCustom ? <PencilIcon className="size-4" /> : <InfoIcon className="size-4" />}
-            {isCustom ? "Abrir edición" : "Abrir detalle"}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onSelect?.(exercise)}>
-            <CheckCircle2Icon className="size-4" />
-            Seleccionar
+            <InfoIcon className="size-4" />
+            Abrir detalle
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

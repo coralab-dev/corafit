@@ -65,16 +65,43 @@ const equipmentLabels: Record<Exercise["equipment"], string> = {
 };
 
 export function ExercisesWorkspace() {
+  const { updateExercise } = useExerciseActions();
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   const handleSelect: ExerciseSearchProps["onSelect"] = (exercise) => {
     setSelectedExercise(exercise);
+    setIsDetailOpen(true);
   };
 
   function handleExerciseChange(exercise: Exercise | null) {
     setSelectedExercise(exercise);
+    if (!exercise) {
+      setIsDetailOpen(false);
+    }
     setReloadToken((current) => current + 1);
+  }
+
+  async function handleUpdate(input: {
+    equipment: Equipment;
+    instructions: string | null;
+    mediaType?: Exercise["mediaType"];
+    mediaUrl?: string | null;
+    name: string;
+    primaryMuscle: PrimaryMuscle;
+    videoUrl?: string | null;
+  }) {
+    if (!editingExercise) {
+      return;
+    }
+
+    const updatedExercise = await updateExercise(editingExercise.id, input);
+    setSelectedExercise(updatedExercise);
+    setEditingExercise(null);
+    setReloadToken((current) => current + 1);
+    notify.success("Ejercicio actualizado");
   }
 
   return (
@@ -104,10 +131,10 @@ export function ExercisesWorkspace() {
         />
       </section>
       <Dialog
-        open={Boolean(selectedExercise)}
+        open={isDetailOpen && Boolean(selectedExercise)}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
-            setSelectedExercise(null);
+            setIsDetailOpen(false);
           }
         }}
       >
@@ -115,15 +142,32 @@ export function ExercisesWorkspace() {
           <DialogHeader className="sr-only">
             <DialogTitle>Detalle de ejercicio</DialogTitle>
             <DialogDescription>
-              Preview operativo del ejercicio seleccionado.
+              Vista previa operativa del ejercicio seleccionado.
             </DialogDescription>
           </DialogHeader>
           <SelectedExerciseCard
             exercise={selectedExercise}
             onExerciseChange={handleExerciseChange}
+            onEditRequest={(exercise) => {
+              setIsDetailOpen(false);
+              setEditingExercise(exercise);
+            }}
           />
         </DialogContent>
       </Dialog>
+      {editingExercise ? (
+        <ExerciseEditDialog
+          key={`${editingExercise.id}-${editingExercise.updatedAt}`}
+          exercise={editingExercise}
+          isOpen={Boolean(editingExercise)}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setEditingExercise(null);
+            }
+          }}
+          onUpdate={handleUpdate}
+        />
+      ) : null}
     </WorkspaceFrame>
   );
 }
@@ -131,13 +175,14 @@ export function ExercisesWorkspace() {
 function SelectedExerciseCard({
   exercise,
   onExerciseChange,
+  onEditRequest,
 }: {
   exercise: Exercise | null;
   onExerciseChange: (exercise: Exercise | null) => void;
+  onEditRequest: (exercise: Exercise) => void;
 }) {
-  const { deactivateExercise, updateExercise } = useExerciseActions();
+  const { deactivateExercise } = useExerciseActions();
   const { removeExerciseMedia, uploadExerciseImage } = useExerciseMediaActions();
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingMedia, setIsSavingMedia] = useState(false);
 
@@ -178,7 +223,7 @@ function SelectedExerciseCard({
     try {
       const updatedExercise = await removeExerciseMedia(visibleExercise.id);
       onExerciseChange(updatedExercise);
-      notify.success("Media eliminada");
+      notify.success("Imagen eliminada");
     } catch (caughtError) {
       notify.error(
         caughtError instanceof Error
@@ -188,24 +233,6 @@ function SelectedExerciseCard({
     } finally {
       setIsSavingMedia(false);
     }
-  }
-
-  async function handleUpdate(input: {
-    equipment: Equipment;
-    instructions: string | null;
-    mediaType?: Exercise["mediaType"];
-    mediaUrl?: string | null;
-    name: string;
-    primaryMuscle: PrimaryMuscle;
-  }) {
-    if (!visibleExercise) {
-      return;
-    }
-
-    const updatedExercise = await updateExercise(visibleExercise.id, input);
-    onExerciseChange(updatedExercise);
-    setIsEditOpen(false);
-    notify.success("Ejercicio actualizado");
   }
 
   async function handleDeactivate() {
@@ -274,49 +301,6 @@ function SelectedExerciseCard({
           <DetailMetric label="Músculo" value={muscleLabels[visibleExercise.primaryMuscle]} />
           <DetailMetric label="Equipo" value={equipmentLabels[visibleExercise.equipment]} />
         </div>
-        <section className="hidden">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold">Media</p>
-            {visibleExercise.videoUrl ? (
-              <Badge variant="outline">Video</Badge>
-            ) : null}
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {visibleExercise.mediaUrl ? "Imagen registrada." : "Sin imagen registrada."}
-            {visibleExercise.videoUrl ? " Video registrado." : ""}
-          </p>
-          {canEditExercise ? (
-            <div className="mt-3 flex flex-col gap-2">
-              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border !border-transparent bg-card px-3 text-sm font-semibold shadow-[var(--surface-shadow-soft)] transition-colors hover:bg-accent hover:text-accent-foreground">
-                <UploadIcon className="size-4" aria-hidden="true" />
-                Subir imagen
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  disabled={isSavingMedia}
-                  type="file"
-                  onChange={(event) => {
-                    void handleImageChange(event.target.files?.[0]);
-                    event.currentTarget.value = "";
-                  }}
-                />
-              </label>
-              <Button
-                disabled={isSavingMedia || !visibleExercise.mediaUrl}
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={handleRemoveMedia}
-              >
-                Quitar imagen
-              </Button>
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              La media de ejercicios globales se administra desde Admin SaaS.
-            </p>
-          )}
-        </section>
         <DetailSection title="Músculos secundarios">
           {visibleExercise.secondaryMuscles.length ? (
             <div className="flex flex-wrap gap-1.5">
@@ -402,7 +386,7 @@ function SelectedExerciseCard({
               size="sm"
               type="button"
               variant="outline"
-              onClick={() => setIsEditOpen(true)}
+              onClick={() => onEditRequest(visibleExercise)}
             >
               <PencilIcon data-icon="inline-start" />
               Editar
@@ -425,15 +409,6 @@ function SelectedExerciseCard({
           </div>
         ) : null}
       </CardContent>
-      {isEditOpen ? (
-        <ExerciseEditDialog
-          key={`${visibleExercise.id}-${visibleExercise.updatedAt}`}
-          exercise={visibleExercise}
-          isOpen={isEditOpen}
-          onOpenChange={setIsEditOpen}
-          onUpdate={handleUpdate}
-        />
-      ) : null}
     </Card>
   );
 }

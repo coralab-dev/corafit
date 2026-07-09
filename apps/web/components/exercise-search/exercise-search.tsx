@@ -3,13 +3,24 @@
 import {
   AlertCircleIcon,
   DumbbellIcon,
+  ImageIcon,
+  InfoIcon,
+  MoreVerticalIcon,
   PlusIcon,
   SlidersHorizontalIcon,
   SearchIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { notify } from "@/lib/notify";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -24,7 +35,10 @@ import { ExerciseCreateDialog } from "./exercise-create-dialog";
 import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-search-item";
 
 export interface ExerciseSearchProps {
+  createDialogOpen?: boolean;
   onSelect?: (exercise: Exercise) => void;
+  onCreateDialogOpenChange?: (open: boolean) => void;
+  presentation?: "list" | "table";
   reloadToken?: number;
   selectionMode?: "card" | "explicit";
   selectedId?: string;
@@ -35,7 +49,10 @@ const equipmentOptions = Object.entries(equipmentLabels) as Array<[Equipment, st
 const exercisePageSize = 8;
 
 export function ExerciseSearch({
+  createDialogOpen,
   onSelect,
+  onCreateDialogOpenChange,
+  presentation = "list",
   reloadToken,
   selectionMode = "card",
   selectedId,
@@ -45,10 +62,12 @@ export function ExerciseSearch({
   const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle | "all">("all");
   const [equipment, setEquipment] = useState<Equipment | "all">("all");
   const [type, setType] = useState<ExerciseType>("all");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [internalIsCreateOpen, setInternalIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [page, setPage] = useState(1);
   const didHandleReloadToken = useRef(false);
+  const isCreateOpen = createDialogOpen ?? internalIsCreateOpen;
+  const setCreateOpen = onCreateDialogOpenChange ?? setInternalIsCreateOpen;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -114,7 +133,7 @@ export function ExerciseSearch({
     setIsCreating(true);
     try {
       const exercise = await createExercise(input);
-      setIsCreateOpen(false);
+      setCreateOpen(false);
       onSelect?.(exercise);
       notify.success("Ejercicio creado");
     } catch (caughtError) {
@@ -129,27 +148,47 @@ export function ExerciseSearch({
   }
 
   return (
-    <section className="min-w-0 overflow-hidden">
-      <div className="gap-3 border-b bg-card/80 p-3 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold">Biblioteca</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {total} ejercicios disponibles
-            </p>
+    <section
+      className={cn(
+        "min-w-0 overflow-hidden",
+        presentation === "table" &&
+          "rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow)]",
+      )}
+    >
+      <div
+        className={cn(
+          "gap-3 bg-card/80 p-3 sm:p-4",
+          presentation === "table" ? "border-b border-border/50" : "border-b",
+        )}
+      >
+        {presentation === "list" ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold">Biblioteca</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {total} ejercicios disponibles
+              </p>
+            </div>
+            <Button className="w-full sm:w-auto" size="sm" onClick={() => setCreateOpen(true)}>
+              <PlusIcon data-icon="inline-start" />
+              Nuevo ejercicio
+            </Button>
           </div>
-          <Button className="w-full sm:w-auto" size="sm" onClick={() => setIsCreateOpen(true)}>
-            <PlusIcon data-icon="inline-start" />
-            Nuevo ejercicio
-          </Button>
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
+        ) : null}
+        <div className="flex flex-col gap-3">
+          <div
+            className={cn(
+              "grid gap-3 lg:items-center",
+              presentation === "table"
+                ? "lg:grid-cols-[minmax(260px,1fr)_190px_160px_150px]"
+                : "md:grid-cols-[minmax(260px,1fr)_160px_150px]",
+            )}
+          >
+            <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-9 bg-background pl-10"
-                placeholder="Buscar por nombre"
+                className="h-11 bg-card pl-10"
+                placeholder={presentation === "table" ? "Buscar ejercicios..." : "Buscar por nombre"}
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
@@ -157,62 +196,83 @@ export function ExerciseSearch({
                 }}
               />
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:w-[19rem]">
+            {presentation === "table" ? (
               <select
-                aria-label="Filtrar por equipamiento"
-                className="h-9 rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-                value={equipment}
+                aria-label="Filtrar por músculo principal"
+                className="h-11 rounded-xl border bg-card px-3 text-sm shadow-none outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                value={primaryMuscle}
                 onChange={(event) => {
-                  setEquipment(event.target.value as Equipment | "all");
+                  setPrimaryMuscle(event.target.value as PrimaryMuscle | "all");
                   setPage(1);
                 }}
               >
-                <option value="all">Todo equipo</option>
-                {equipmentOptions.map(([value, label]) => (
+                <option value="all">Músculo principal</option>
+                {muscleOptions.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
               </select>
-              <select
-                aria-label="Filtrar por tipo"
-                className="h-9 rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-                value={type}
-                onChange={(event) => {
-                  setType(event.target.value as ExerciseType);
-                  setPage(1);
-                }}
-              >
-                <option value="all">Todos</option>
-                <option value="global">Global</option>
-                <option value="custom">Personalizado</option>
-              </select>
-            </div>
+            ) : null}
+            <select
+              aria-label="Filtrar por equipamiento"
+              className="h-11 rounded-xl border bg-card px-3 text-sm shadow-none outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={equipment}
+              onChange={(event) => {
+                setEquipment(event.target.value as Equipment | "all");
+                setPage(1);
+              }}
+            >
+              <option value="all">Equipo</option>
+              {equipmentOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar por origen"
+              className={cn(
+                "h-11 rounded-xl border bg-card px-3 text-sm shadow-none outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                presentation === "table" && "lg:w-36",
+              )}
+              value={type}
+              onChange={(event) => {
+                setType(event.target.value as ExerciseType);
+                setPage(1);
+              }}
+            >
+              <option value="all">Todos</option>
+              <option value="global">Global</option>
+              <option value="custom">Personalizado</option>
+            </select>
           </div>
-          <div className="flex items-center gap-2">
-            <SlidersHorizontalIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
-            <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por musculo">
-              <FilterChip
-                active={primaryMuscle === "all"}
-                label="Todos"
-                onClick={() => {
-                  setPrimaryMuscle("all");
-                  setPage(1);
-                }}
-              />
-              {muscleOptions.map(([value, label]) => (
+          {presentation === "list" ? (
+            <div className="flex items-center gap-2">
+              <SlidersHorizontalIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
+              <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por músculo">
                 <FilterChip
-                  key={value}
-                  active={primaryMuscle === value}
-                  label={label}
+                  active={primaryMuscle === "all"}
+                  label="Todos"
                   onClick={() => {
-                    setPrimaryMuscle(value);
+                    setPrimaryMuscle("all");
                     setPage(1);
                   }}
                 />
-              ))}
+                {muscleOptions.map(([value, label]) => (
+                  <FilterChip
+                    key={value}
+                    active={primaryMuscle === value}
+                    label={label}
+                    onClick={() => {
+                      setPrimaryMuscle(value);
+                      setPage(1);
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
       <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -230,18 +290,26 @@ export function ExerciseSearch({
         {error ? <ErrorState message={error} /> : null}
 
         {!error && isLoading && items.length === 0 ? (
-          <ExerciseSkeletonList />
+          <ExerciseSkeletonList presentation={presentation} />
         ) : !error && items.length ? (
           <div className="flex flex-col">
-            {visibleItems.map((exercise) => (
-              <ExerciseSearchItem
-                key={exercise.id}
-                exercise={exercise}
-                isSelected={selectedId === exercise.id}
+            {presentation === "table" ? (
+              <ExerciseTable
+                exercises={visibleItems}
+                selectedId={selectedId}
                 onSelect={onSelect}
-                selectionMode={selectionMode}
               />
-            ))}
+            ) : (
+              visibleItems.map((exercise) => (
+                <ExerciseSearchItem
+                  key={exercise.id}
+                  exercise={exercise}
+                  isSelected={selectedId === exercise.id}
+                  onSelect={onSelect}
+                  selectionMode={selectionMode}
+                />
+              ))
+            )}
             {pageCount > 1 ? (
               <ExercisePagination
                 page={safePage}
@@ -251,16 +319,262 @@ export function ExerciseSearch({
             ) : null}
           </div>
         ) : !error ? (
-          <EmptyState onCreate={() => setIsCreateOpen(true)} />
+          <EmptyState onCreate={() => setCreateOpen(true)} />
         ) : null}
       </div>
       <ExerciseCreateDialog
         isLoading={isCreating}
         isOpen={isCreateOpen}
         onCreate={handleCreate}
-        onOpenChange={setIsCreateOpen}
+        onOpenChange={setCreateOpen}
       />
     </section>
+  );
+}
+
+function ExerciseTable({
+  exercises,
+  onSelect,
+  selectedId,
+}: {
+  exercises: Exercise[];
+  onSelect?: (exercise: Exercise) => void;
+  selectedId?: string;
+}) {
+  return (
+    <>
+      <div className="hidden overflow-x-auto rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow-soft)] lg:block">
+        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-border/55 text-[11px] font-semibold uppercase text-muted-foreground">
+              <th className="px-4 py-3">Ejercicio</th>
+              <th className="px-4 py-3">Músculo principal</th>
+              <th className="px-4 py-3">Equipo</th>
+              <th className="px-4 py-3">Origen</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Creado el</th>
+              <th className="px-4 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {exercises.map((exercise) => (
+              <ExerciseTableRow
+                key={exercise.id}
+                exercise={exercise}
+                isSelected={selectedId === exercise.id}
+                onSelect={onSelect}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="grid gap-3 lg:hidden">
+        {exercises.map((exercise) => (
+          <ExerciseMobileCard
+            key={exercise.id}
+            exercise={exercise}
+            isSelected={selectedId === exercise.id}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ExerciseTableRow({
+  exercise,
+  isSelected,
+  onSelect,
+}: {
+  exercise: Exercise;
+  isSelected: boolean;
+  onSelect?: (exercise: Exercise) => void;
+}) {
+  const isCustom = Boolean(exercise.organizationId);
+
+  return (
+    <tr
+      className={cn(
+        "group border-b border-border/45 bg-card transition-colors last:border-b-0 hover:bg-muted/35",
+        isSelected && "bg-accent/45 shadow-[inset_3px_0_0_var(--primary)]",
+      )}
+    >
+      <td className="px-4 py-3">
+        <button
+          className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          type="button"
+          onClick={() => onSelect?.(exercise)}
+        >
+          <ExerciseThumb exercise={exercise} />
+          <span className="min-w-0">
+            <span className="block max-w-[190px] truncate font-semibold">
+              {exercise.name}
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+            </span>
+          </span>
+        </button>
+      </td>
+      <td className="px-4 py-3">
+        <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
+      </td>
+      <td className="px-4 py-3">
+        <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
+      </td>
+      <td className="px-4 py-3">
+        <Badge variant={isCustom ? "info" : "outline"}>
+          {isCustom ? "Personalizado" : "Global"}
+        </Badge>
+      </td>
+      <td className="px-4 py-3">
+        <StatusPill status={exercise.status} />
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
+        {formatDate(exercise.createdAt)}
+      </td>
+      <td className="px-4 py-3">
+        <ExerciseActions exercise={exercise} onSelect={onSelect} />
+      </td>
+    </tr>
+  );
+}
+
+function ExerciseMobileCard({
+  exercise,
+  isSelected,
+  onSelect,
+}: {
+  exercise: Exercise;
+  isSelected: boolean;
+  onSelect?: (exercise: Exercise) => void;
+}) {
+  const isCustom = Boolean(exercise.organizationId);
+
+  return (
+    <article
+      className={cn(
+        "rounded-2xl border !border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)]",
+        isSelected && "bg-accent/45 shadow-[inset_3px_0_0_var(--primary),var(--surface-shadow-soft)]",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <ExerciseThumb exercise={exercise} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <button
+              className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              type="button"
+              onClick={() => onSelect?.(exercise)}
+            >
+              <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
+              </p>
+            </button>
+            <Badge variant={isCustom ? "info" : "outline"}>
+              {isCustom ? "Personalizado" : "Global"}
+            </Badge>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
+            <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
+            <StatusPill status={exercise.status} />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              Creado {formatDate(exercise.createdAt)}
+            </span>
+            <ExerciseActions exercise={exercise} onSelect={onSelect} compact />
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ExerciseThumb({ exercise }: { exercise: Exercise }) {
+  return (
+    <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-muted-foreground shadow-[var(--surface-shadow-soft)]">
+      {exercise.mediaUrl && exercise.mediaType === "image" ? (
+        <Image
+          alt=""
+          className="size-full object-cover"
+          height={72}
+          loading="lazy"
+          src={exercise.mediaUrl}
+          unoptimized
+          width={72}
+        />
+      ) : (
+        <ImageIcon className="size-5" aria-hidden="true" />
+      )}
+    </span>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const isActive = status === "active";
+
+  return (
+    <Badge variant={isActive ? "success" : "muted"}>
+      <span
+        className={cn(
+          "mr-1 size-1.5 rounded-full",
+          isActive ? "bg-emerald-500" : "bg-muted-foreground",
+        )}
+      />
+      {isActive ? "Activo" : "Inactivo"}
+    </Badge>
+  );
+}
+
+function ExerciseActions({
+  compact,
+  exercise,
+  onSelect,
+}: {
+  compact?: boolean;
+  exercise: Exercise;
+  onSelect?: (exercise: Exercise) => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2">
+      <Button
+        className={cn(
+          "size-9 rounded-xl bg-muted/45 p-0 text-foreground shadow-none hover:bg-accent hover:text-primary",
+          compact && "size-9",
+        )}
+        aria-label="Ver detalle"
+        size="sm"
+        type="button"
+        variant="ghost"
+        onClick={() => onSelect?.(exercise)}
+      >
+        <InfoIcon data-icon="inline-start" />
+        <span className="sr-only">Ver detalle</span>
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label="Más acciones"
+            className="size-9 rounded-xl bg-muted/35 shadow-none hover:bg-accent hover:text-primary"
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <MoreVerticalIcon className="size-4" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]">
+          <DropdownMenuItem onClick={() => onSelect?.(exercise)}>
+            <InfoIcon className="size-4" />
+            Abrir detalle
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -356,7 +670,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <div>
         <p className="font-semibold">No hay ejercicios con esos filtros</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Ajusta la busqueda o crea un ejercicio personalizado.
+          Ajusta la búsqueda o crea un ejercicio personalizado.
         </p>
       </div>
       <Button size="sm" variant="outline" onClick={onCreate}>
@@ -367,7 +681,37 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function ExerciseSkeletonList() {
+function ExerciseSkeletonList({ presentation = "list" }: { presentation?: "list" | "table" }) {
+  if (presentation === "table") {
+    return (
+      <div
+        className="overflow-hidden rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow-soft)]"
+        role="status"
+        aria-label="Cargando ejercicios"
+      >
+        <div className="hidden border-b border-border/55 px-4 py-3 lg:grid lg:grid-cols-[1.8fr_1fr_0.85fr_0.8fr_0.8fr_0.9fr_0.5fr] lg:gap-4">
+          {Array.from({ length: 7 }, (_, index) => (
+            <Skeleton key={index} className="h-3 rounded-full" />
+          ))}
+        </div>
+        {[0, 1, 2, 3, 4, 5].map((item) => (
+          <div key={item} className="flex items-center gap-3 border-b border-border/45 p-4 last:border-b-0">
+            <Skeleton className="size-14 shrink-0 rounded-xl" />
+            <div className="grid min-w-0 flex-1 gap-3 lg:grid-cols-[1.8fr_1fr_0.85fr_0.8fr_0.8fr_0.9fr_0.5fr] lg:items-center">
+              <div>
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-2 h-3 w-24" />
+              </div>
+              {Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="hidden h-7 rounded-full lg:block" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       className="overflow-hidden rounded-md border bg-card"
@@ -389,4 +733,18 @@ function ExerciseSkeletonList() {
       ))}
     </div>
   );
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Sin fecha";
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }

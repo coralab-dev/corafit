@@ -352,12 +352,11 @@ function ExerciseTable({
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow-soft)] lg:block">
-        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border/55 text-[11px] font-semibold uppercase text-muted-foreground">
               <th className="px-4 py-3">Ejercicio</th>
               <th className="px-4 py-3">Músculo principal</th>
-              <th className="px-4 py-3">Músculos secundarios</th>
               <th className="px-4 py-3">Equipo</th>
               <th className="px-4 py-3">Origen</th>
               <th className="px-4 py-3">Estado</th>
@@ -428,9 +427,6 @@ function ExerciseTableRow({
       </td>
       <td className="px-4 py-3">
         <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
-      </td>
-      <td className="px-4 py-3">
-        <SecondaryMuscles muscles={exercise.secondaryMuscles} />
       </td>
       <td className="px-4 py-3">
         <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
@@ -526,23 +522,6 @@ function ExerciseThumb({ exercise }: { exercise: Exercise }) {
   );
 }
 
-function SecondaryMuscles({ muscles }: { muscles: string[] }) {
-  if (muscles.length === 0) {
-    return <span className="text-sm text-muted-foreground">-</span>;
-  }
-
-  return (
-    <div className="flex max-w-[190px] flex-wrap gap-1.5">
-      {muscles.slice(0, 2).map((muscle) => (
-        <Badge key={muscle} variant="muted">
-          {formatSecondaryMuscle(muscle)}
-        </Badge>
-      ))}
-      {muscles.length > 2 ? <Badge variant="outline">+{muscles.length - 2}</Badge> : null}
-    </div>
-  );
-}
-
 function StatusPill({ status }: { status: string }) {
   const isActive = status === "active";
 
@@ -574,9 +553,10 @@ function ExerciseActions({
     <div className="flex justify-end gap-2">
       <Button
         className={cn(
-          "h-9 rounded-xl bg-muted/45 px-3 text-foreground shadow-none hover:bg-accent hover:text-primary",
-          compact ? "px-3" : "min-w-24",
+          "size-9 rounded-xl bg-muted/45 p-0 text-foreground shadow-none hover:bg-accent hover:text-primary",
+          compact && "size-9",
         )}
+        aria-label={isCustom ? "Editar ejercicio" : "Ver detalle"}
         size="sm"
         type="button"
         variant="ghost"
@@ -587,7 +567,7 @@ function ExerciseActions({
         ) : (
           <InfoIcon data-icon="inline-start" />
         )}
-        {isCustom ? "Editar" : "Ver detalle"}
+        <span className="sr-only">{isCustom ? "Editar" : "Ver detalle"}</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -727,20 +707,20 @@ function ExerciseSkeletonList({ presentation = "list" }: { presentation?: "list"
         role="status"
         aria-label="Cargando ejercicios"
       >
-        <div className="hidden border-b border-border/55 px-4 py-3 lg:grid lg:grid-cols-[1.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_0.9fr_1fr] lg:gap-4">
-          {Array.from({ length: 8 }, (_, index) => (
+        <div className="hidden border-b border-border/55 px-4 py-3 lg:grid lg:grid-cols-[1.8fr_1fr_0.85fr_0.8fr_0.8fr_0.9fr_0.5fr] lg:gap-4">
+          {Array.from({ length: 7 }, (_, index) => (
             <Skeleton key={index} className="h-3 rounded-full" />
           ))}
         </div>
         {[0, 1, 2, 3, 4, 5].map((item) => (
           <div key={item} className="flex items-center gap-3 border-b border-border/45 p-4 last:border-b-0">
             <Skeleton className="size-14 shrink-0 rounded-xl" />
-            <div className="grid min-w-0 flex-1 gap-3 lg:grid-cols-[1.6fr_1fr_1.2fr_0.8fr_0.8fr_0.8fr_0.9fr_1fr] lg:items-center">
+            <div className="grid min-w-0 flex-1 gap-3 lg:grid-cols-[1.8fr_1fr_0.85fr_0.8fr_0.8fr_0.9fr_0.5fr] lg:items-center">
               <div>
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="mt-2 h-3 w-24" />
               </div>
-              {Array.from({ length: 7 }, (_, index) => (
+              {Array.from({ length: 6 }, (_, index) => (
                 <Skeleton key={index} className="hidden h-7 rounded-full lg:block" />
               ))}
             </div>
@@ -785,17 +765,4 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(date);
-}
-
-function formatSecondaryMuscle(value: string) {
-  const normalized = value.trim();
-  const localLabel = muscleLabels[normalized as PrimaryMuscle];
-
-  if (localLabel) {
-    return localLabel;
-  }
-
-  return normalized
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

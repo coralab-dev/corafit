@@ -11,6 +11,8 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
@@ -51,6 +53,8 @@ const exerciseCreateSchema = z.object({
     "other",
   ]),
   instructions: z.string().trim().optional(),
+  secondaryMuscles: z.string().trim().optional(),
+  recommendations: z.string().trim().optional(),
   videoUrl: z.string().trim().url("URL inválida").optional().or(z.literal("")),
 });
 
@@ -61,6 +65,8 @@ const defaultValues: ExerciseCreateValues = {
   primaryMuscle: "chest",
   equipment: "dumbbell",
   instructions: "",
+  secondaryMuscles: "",
+  recommendations: "",
   videoUrl: "",
 };
 
@@ -97,8 +103,13 @@ export function ExerciseCreateDialog({
       primaryMuscle: values.primaryMuscle,
       equipment: values.equipment,
       instructions: values.instructions?.trim(),
+      recommendations: values.recommendations?.trim(),
+      secondaryMuscles: values.secondaryMuscles
+        ?.split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
       imageFile,
-      videoUrl: imageFile ? undefined : values.videoUrl?.trim(),
+      videoUrl: values.videoUrl?.trim(),
     });
     updateImageFile(null);
     form.reset(defaultValues);
@@ -106,27 +117,27 @@ export function ExerciseCreateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-xl">
-        <DialogTitle className="sr-only">Nuevo ejercicio</DialogTitle>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-2xl">
         <Form {...form}>
           <form
             className="flex max-h-[calc(100vh-2rem)] flex-col bg-background"
             onSubmit={form.handleSubmit(submit)}
           >
-            <header className="border-b border-border/55 bg-card/90 px-5 py-4 pr-14">
-              <p className="text-xs font-medium uppercase text-primary">
-                Biblioteca
+            <DialogHeader className="relative overflow-hidden border-b border-border/55 bg-card/90 px-5 py-5 pr-14">
+              <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Biblioteca personalizada
               </p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight">
-                Nuevo ejercicio
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Crea un ejercicio personalizado para usarlo en tus planes.
-              </p>
-            </header>
+              <DialogTitle className="mt-1 text-xl font-semibold tracking-tight">
+                Nuevo ejercicio personalizado
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                Crea un movimiento propio para usarlo en tus planes y sesiones.
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <FormSection>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+              <FormSection title="Datos básicos">
                 <TextField control={form.control} label="Nombre" name="name" />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField
@@ -142,36 +153,49 @@ export function ExerciseCreateDialog({
                     options={Object.entries(equipmentLabels) as Array<[Equipment, string]>}
                   />
                 </div>
+                <TextField
+                  control={form.control}
+                  label="Músculos secundarios"
+                  name="secondaryMuscles"
+                  placeholder="Separados por coma"
+                />
+              </FormSection>
+
+              <FormSection title="Guía del ejercicio">
                 <TextAreaField
                   control={form.control}
                   label="Instrucciones"
                   name="instructions"
                 />
+                <TextAreaField
+                  control={form.control}
+                  label="Recomendaciones"
+                  name="recommendations"
+                  rows="compact"
+                />
               </FormSection>
 
-              <FormSection compact>
+              <FormSection title="Recursos visuales">
                 <ImagePicker
                   imageFile={imageFile}
                   previewUrl={previewUrl}
                   onImageFileChange={updateImageFile}
                 />
-                {!imageFile ? (
-                  <div className="rounded-2xl border !border-transparent bg-muted/35 p-3 shadow-[var(--surface-shadow-soft)]">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                      <LinkIcon className="size-4 text-muted-foreground" />
-                      Video externo
-                    </div>
-              <TextField
-                control={form.control}
-                label="URL de video externo"
-                name="videoUrl"
-              />
+                <div className="rounded-2xl border !border-transparent bg-muted/25 p-3 shadow-[var(--surface-shadow-soft)]">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                    <LinkIcon className="size-4 text-primary" aria-hidden="true" />
+                    URL de video externo
                   </div>
-                ) : null}
+                  <TextField
+                    control={form.control}
+                    label="URL de video externo"
+                    name="videoUrl"
+                  />
+                </div>
               </FormSection>
             </div>
 
-            <DialogFooter className="border-t border-border/55 bg-card/90 px-5 py-3">
+            <DialogFooter className="sticky bottom-0 border-t border-border/55 bg-card/95 px-5 py-4 backdrop-blur">
               <Button
                 type="button"
                 variant="outline"
@@ -185,7 +209,7 @@ export function ExerciseCreateDialog({
                 ) : (
                   <PlusIcon data-icon="inline-start" />
                 )}
-                Crear
+                Crear ejercicio
               </Button>
             </DialogFooter>
           </form>
@@ -197,13 +221,14 @@ export function ExerciseCreateDialog({
 
 function FormSection({
   children,
-  compact,
+  title,
 }: {
   children: React.ReactNode;
-  compact?: boolean;
+  title: string;
 }) {
   return (
-    <section className={cn("border-b border-border/55 px-5 last:border-b-0", compact ? "py-3" : "py-4")}>
+    <section className="rounded-2xl border !border-transparent bg-card/80 p-4 shadow-[var(--surface-shadow-soft)]">
+      <h3 className="mb-4 text-sm font-semibold">{title}</h3>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -222,25 +247,28 @@ function ImagePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-medium uppercase text-muted-foreground" htmlFor={inputId}>
+      <label className="text-sm font-medium" htmlFor={inputId}>
         Imagen principal
       </label>
-      <div className="flex items-center gap-3 rounded-2xl border !border-transparent bg-muted/35 p-3 shadow-[var(--surface-shadow-soft)]">
+      <div className="grid gap-3 rounded-2xl border !border-transparent bg-muted/25 p-3 shadow-[var(--surface-shadow-soft)] sm:grid-cols-[220px_1fr]">
         <label
-          className="flex size-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border !border-transparent bg-muted text-muted-foreground shadow-[var(--surface-shadow-soft)] transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="relative flex aspect-[16/10] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border !border-transparent bg-muted text-muted-foreground shadow-[var(--surface-shadow-soft)] transition-colors hover:bg-accent hover:text-accent-foreground"
           htmlFor={inputId}
         >
           {previewUrl ? (
             <Image
               alt=""
               className="size-full object-cover"
-              height={80}
+              fill
+              sizes="(min-width: 640px) 220px, 100vw"
               src={previewUrl}
               unoptimized
-              width={80}
             />
           ) : (
-            <ImageIcon aria-hidden="true" />
+            <div className="flex flex-col items-center gap-2 text-sm">
+              <ImageIcon className="size-7" aria-hidden="true" />
+              Sin imagen
+            </div>
           )}
           <span className="sr-only">Seleccionar imagen</span>
         </label>
@@ -255,7 +283,7 @@ function ImagePicker({
             }
           />
           <label
-            className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border bg-card px-3 text-sm font-semibold shadow-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border bg-card px-3 text-sm font-semibold shadow-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
             htmlFor={inputId}
           >
             Seleccionar imagen
@@ -268,7 +296,7 @@ function ImagePicker({
           </p>
           {imageFile ? (
             <Button
-              className="mt-2"
+              className="mt-3"
               size="sm"
               type="button"
               variant="outline"
@@ -288,10 +316,12 @@ function TextField({
   control,
   label,
   name,
+  placeholder,
 }: {
   control: Control<ExerciseCreateValues>;
   label: string;
   name: keyof ExerciseCreateValues;
+  placeholder?: string;
 }) {
   return (
     <FormField
@@ -303,7 +333,8 @@ function TextField({
           <FormControl>
             <Input
               {...field}
-              className="h-9 shadow-none"
+              className="h-10 rounded-xl shadow-none"
+              placeholder={placeholder}
               value={String(field.value ?? "")}
             />
           </FormControl>
@@ -318,10 +349,12 @@ function TextAreaField({
   control,
   label,
   name,
+  rows = "default",
 }: {
   control: Control<ExerciseCreateValues>;
   label: string;
   name: keyof ExerciseCreateValues;
+  rows?: "default" | "compact";
 }) {
   return (
     <FormField
@@ -333,7 +366,8 @@ function TextAreaField({
           <FormControl>
             <textarea
               className={cn(
-                "min-h-24 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                "w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                rows === "compact" ? "min-h-20" : "min-h-28",
               )}
               value={String(field.value ?? "")}
               onChange={field.onChange}
@@ -366,7 +400,7 @@ function SelectField({
           <FormLabel>{label}</FormLabel>
           <FormControl>
             <select
-              className="h-9 rounded-xl border bg-card px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              className="h-10 rounded-xl border bg-card px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
               value={String(field.value)}
               onChange={field.onChange}
             >

@@ -67,6 +67,7 @@ const equipmentLabels: Record<Exercise["equipment"], string> = {
 export function ExercisesWorkspace() {
   const { updateExercise } = useExerciseActions();
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -113,7 +114,7 @@ export function ExercisesWorkspace() {
           actions={
             <Button
               type="button"
-              onClick={() => document.dispatchEvent(new CustomEvent("corafit:create-exercise"))}
+              onClick={() => setIsCreateOpen(true)}
             >
               <PlusIcon data-icon="inline-start" />
               Nuevo ejercicio
@@ -124,9 +125,11 @@ export function ExercisesWorkspace() {
     >
       <section className="min-w-0 flex-1 bg-background p-5">
         <ExerciseSearch
+          createDialogOpen={isCreateOpen}
           presentation="table"
           reloadToken={reloadToken}
           selectedId={selectedExercise?.id}
+          onCreateDialogOpenChange={setIsCreateOpen}
           onSelect={handleSelect}
         />
       </section>

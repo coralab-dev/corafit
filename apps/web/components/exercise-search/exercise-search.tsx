@@ -35,7 +35,9 @@ import { ExerciseCreateDialog } from "./exercise-create-dialog";
 import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-search-item";
 
 export interface ExerciseSearchProps {
+  createDialogOpen?: boolean;
   onSelect?: (exercise: Exercise) => void;
+  onCreateDialogOpenChange?: (open: boolean) => void;
   presentation?: "list" | "table";
   reloadToken?: number;
   selectionMode?: "card" | "explicit";
@@ -47,7 +49,9 @@ const equipmentOptions = Object.entries(equipmentLabels) as Array<[Equipment, st
 const exercisePageSize = 8;
 
 export function ExerciseSearch({
+  createDialogOpen,
   onSelect,
+  onCreateDialogOpenChange,
   presentation = "list",
   reloadToken,
   selectionMode = "card",
@@ -58,10 +62,12 @@ export function ExerciseSearch({
   const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle | "all">("all");
   const [equipment, setEquipment] = useState<Equipment | "all">("all");
   const [type, setType] = useState<ExerciseType>("all");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [internalIsCreateOpen, setInternalIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [page, setPage] = useState(1);
   const didHandleReloadToken = useRef(false);
+  const isCreateOpen = createDialogOpen ?? internalIsCreateOpen;
+  const setCreateOpen = onCreateDialogOpenChange ?? setInternalIsCreateOpen;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -123,23 +129,11 @@ export function ExerciseSearch({
     };
   }, [isRefreshingExercises]);
 
-  useEffect(() => {
-    function openCreateDialog() {
-      setIsCreateOpen(true);
-    }
-
-    document.addEventListener("corafit:create-exercise", openCreateDialog);
-
-    return () => {
-      document.removeEventListener("corafit:create-exercise", openCreateDialog);
-    };
-  }, []);
-
   async function handleCreate(input: Parameters<typeof createExercise>[0]) {
     setIsCreating(true);
     try {
       const exercise = await createExercise(input);
-      setIsCreateOpen(false);
+      setCreateOpen(false);
       onSelect?.(exercise);
       notify.success("Ejercicio creado");
     } catch (caughtError) {
@@ -175,7 +169,7 @@ export function ExerciseSearch({
                 {total} ejercicios disponibles
               </p>
             </div>
-            <Button className="w-full sm:w-auto" size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Button className="w-full sm:w-auto" size="sm" onClick={() => setCreateOpen(true)}>
               <PlusIcon data-icon="inline-start" />
               Nuevo ejercicio
             </Button>
@@ -325,14 +319,14 @@ export function ExerciseSearch({
             ) : null}
           </div>
         ) : !error ? (
-          <EmptyState onCreate={() => setIsCreateOpen(true)} />
+          <EmptyState onCreate={() => setCreateOpen(true)} />
         ) : null}
       </div>
       <ExerciseCreateDialog
         isLoading={isCreating}
         isOpen={isCreateOpen}
         onCreate={handleCreate}
-        onOpenChange={setIsCreateOpen}
+        onOpenChange={setCreateOpen}
       />
     </section>
   );

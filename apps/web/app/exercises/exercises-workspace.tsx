@@ -8,6 +8,7 @@ import {
   SaveIcon,
   Trash2Icon,
   UploadIcon,
+  PlayCircleIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -269,44 +270,11 @@ function SelectedExerciseCard({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-4">
-        {canEditExercise ? (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              className="sm:flex-1"
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditOpen(true)}
-            >
-              <PencilIcon data-icon="inline-start" />
-              Editar
-            </Button>
-            <Button
-              className="sm:flex-1"
-              disabled={isDeleting}
-              size="sm"
-              type="button"
-              variant="destructive"
-              onClick={() => void handleDeactivate()}
-            >
-              {isDeleting ? (
-                <Loader2Icon data-icon="inline-start" />
-              ) : (
-                <Trash2Icon data-icon="inline-start" />
-              )}
-              Desactivar
-            </Button>
-          </div>
-        ) : (
-          <p className="rounded-2xl border !border-transparent bg-muted/35 p-3 text-sm text-muted-foreground shadow-[var(--surface-shadow-soft)]">
-            Los ejercicios globales solo se administran desde Admin SaaS.
-          </p>
-        )}
         <div className="grid grid-cols-2 gap-2">
           <DetailMetric label="Músculo" value={muscleLabels[visibleExercise.primaryMuscle]} />
           <DetailMetric label="Equipo" value={equipmentLabels[visibleExercise.equipment]} />
         </div>
-        <section className="border-t border-border/55 pt-4">
+        <section className="hidden">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold">Media</p>
             {visibleExercise.videoUrl ? (
@@ -349,12 +317,113 @@ function SelectedExerciseCard({
             </p>
           )}
         </section>
+        <DetailSection title="Músculos secundarios">
+          {visibleExercise.secondaryMuscles.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {visibleExercise.secondaryMuscles.map((muscle) => (
+                <Badge key={muscle} variant="muted">
+                  {formatSecondaryMuscle(muscle)}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Sin músculos secundarios registrados.
+            </p>
+          )}
+        </DetailSection>
+
+        {visibleExercise.videoUrl || canEditExercise ? (
+          <section className="rounded-2xl border !border-transparent bg-muted/25 p-3 shadow-[var(--surface-shadow-soft)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Video y recursos</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {visibleExercise.videoUrl
+                    ? "Video de referencia disponible para revisar la ejecución."
+                    : "Agrega imagen o video externo para completar este ejercicio."}
+                </p>
+              </div>
+              {visibleExercise.videoUrl ? (
+                <Button asChild size="sm" variant="outline">
+                  <a href={visibleExercise.videoUrl} rel="noreferrer" target="_blank">
+                    <PlayCircleIcon data-icon="inline-start" />
+                    Ver video
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+            {canEditExercise ? (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border !border-transparent bg-card px-3 text-sm font-semibold shadow-[var(--surface-shadow-soft)] transition-colors hover:bg-accent hover:text-accent-foreground sm:flex-1">
+                  <UploadIcon className="size-4" aria-hidden="true" />
+                  Subir imagen
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={isSavingMedia}
+                    type="file"
+                    onChange={(event) => {
+                      void handleImageChange(event.target.files?.[0]);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                <Button
+                  className="sm:flex-1"
+                  disabled={isSavingMedia || !visibleExercise.mediaUrl}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={handleRemoveMedia}
+                >
+                  Quitar imagen
+                </Button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="border-t border-border/55 pt-4">
           <p className="text-sm font-semibold">Instrucciones</p>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
             {visibleExercise.instructions || "Sin instrucciones registradas."}
           </p>
         </section>
+        <DetailSection title="Recomendaciones">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+            {visibleExercise.recommendations || "Sin recomendaciones registradas."}
+          </p>
+        </DetailSection>
+        {canEditExercise ? (
+          <div className="flex flex-col gap-2 border-t border-border/55 pt-4 sm:flex-row">
+            <Button
+              className="sm:flex-1"
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditOpen(true)}
+            >
+              <PencilIcon data-icon="inline-start" />
+              Editar
+            </Button>
+            <Button
+              className="sm:flex-1"
+              disabled={isDeleting}
+              size="sm"
+              type="button"
+              variant="destructive"
+              onClick={() => void handleDeactivate()}
+            >
+              {isDeleting ? (
+                <Loader2Icon data-icon="inline-start" />
+              ) : (
+                <Trash2Icon data-icon="inline-start" />
+              )}
+              Desactivar
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
       {isEditOpen ? (
         <ExerciseEditDialog
@@ -376,6 +445,34 @@ function DetailMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function DetailSection({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="border-t border-border/55 pt-4">
+      <p className="text-sm font-semibold">{title}</p>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+function formatSecondaryMuscle(value: string) {
+  const normalized = value.trim();
+  const localLabel = muscleLabels[normalized as PrimaryMuscle];
+
+  if (localLabel) {
+    return localLabel;
+  }
+
+  return normalized
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ExerciseEditDialog({

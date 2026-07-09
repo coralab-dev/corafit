@@ -105,6 +105,8 @@ export function DashboardWorkspace() {
         />
       ) : stats ? (
         <WorkspaceSplit
+          mainClassName="border-r-0"
+          sideClassName="xl:w-[360px] xl:min-w-[340px] xl:max-w-[480px]"
           main={
             <div className="flex flex-col gap-5 bg-background p-4 sm:p-6">
               {error ? (
@@ -205,7 +207,7 @@ export function DashboardWorkspace() {
             </div>
           }
           side={
-            <div className="space-y-5 p-4 sm:p-5">
+            <div className="space-y-5 p-4 xl:pl-3 xl:pr-5">
               {onboarding ? (
                 <WorkspacePanel
                   title="Configuracion inicial"
@@ -651,6 +653,8 @@ function DashboardErrorState({
 function DashboardSkeleton() {
   return (
     <WorkspaceSplit
+      mainClassName="border-r-0"
+      sideClassName="xl:w-[360px] xl:min-w-[340px] xl:max-w-[480px]"
       main={
         <div className="flex flex-col gap-5 bg-background p-4 sm:p-6">
           <DashboardMetricGridSkeleton />
@@ -678,7 +682,7 @@ function DashboardSkeleton() {
         </div>
       }
       side={
-        <div className="space-y-5 p-4 sm:p-5">
+        <div className="space-y-5 p-4 xl:pl-3 xl:pr-5">
           <PanelSkeleton rows={2} titleWidth="w-40" />
           <PanelSkeleton rows={5} titleWidth="w-48" />
         </div>

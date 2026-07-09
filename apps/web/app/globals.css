@@ -36,7 +36,7 @@
 
 :root {
   --radius: 0.75rem;
-  --background: #fcfeff;
+  --background: #fffdfc;
   --foreground: #15171a;
   --card: #ffffff;
   --card-foreground: #15171a;
@@ -44,17 +44,17 @@
   --popover-foreground: #15171a;
   --primary: #fe3d1b;
   --primary-foreground: #ffffff;
-  --secondary: #f5f2ec;
+  --secondary: #fffefc;
   --secondary-foreground: #15171a;
   --muted: #f3f0ea;
   --muted-foreground: #6f737c;
-  --accent: #f8e7df;
+  --accent: #f8ede8;
   --accent-foreground: #e9452f;
   --destructive: #ec1e1e;
   --border: #e4ded5;
   --input: #ddd6cc;
   --ring: #d95f49;
-  --sidebar: #fcfeff;
+  --sidebar: #ffffff;
   --sidebar-foreground: #15171a;
   --sidebar-accent: #f8e7df;
   --sidebar-border: #e8e1d8;

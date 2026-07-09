@@ -255,39 +255,7 @@ export function ExerciseSearch({
               <option value="custom">Personalizado</option>
             </select>
           </div>
-          {presentation === "table" ? (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="rounded-xl border bg-background px-3 py-2 font-semibold">
-                  {total} ejercicios
-                </span>
-                <Badge className="rounded-xl px-3 py-1.5" variant="muted">
-                  <InfoIcon className="mr-1 size-3.5" aria-hidden="true" />
-                  Biblioteca global y personalizada
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <SlidersHorizontalIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
-                <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por origen">
-                  {[
-                    ["all", "Todos"],
-                    ["global", "Globales"],
-                    ["custom", "Personalizados"],
-                  ].map(([value, label]) => (
-                    <FilterChip
-                      key={value}
-                      active={type === value}
-                      label={label}
-                      onClick={() => {
-                        setType(value as ExerciseType);
-                        setPage(1);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
+          {presentation === "list" ? (
             <div className="flex items-center gap-2">
               <SlidersHorizontalIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
               <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Filtrar por músculo">
@@ -312,7 +280,7 @@ export function ExerciseSearch({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       <div className="flex flex-col gap-2 p-3 sm:p-4">
@@ -605,10 +573,13 @@ function ExerciseActions({
   return (
     <div className="flex justify-end gap-2">
       <Button
-        className={cn("h-9", compact ? "px-3" : "min-w-24")}
+        className={cn(
+          "h-9 rounded-xl bg-muted/45 px-3 text-foreground shadow-none hover:bg-accent hover:text-primary",
+          compact ? "px-3" : "min-w-24",
+        )}
         size="sm"
         type="button"
-        variant="outline"
+        variant="ghost"
         onClick={() => onSelect?.(exercise)}
       >
         {isCustom ? (
@@ -620,7 +591,13 @@ function ExerciseActions({
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button aria-label="Más acciones" className="size-9" size="icon" type="button" variant="outline">
+          <Button
+            aria-label="Más acciones"
+            className="size-9 rounded-xl bg-muted/35 shadow-none hover:bg-accent hover:text-primary"
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
             <MoreVerticalIcon className="size-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>

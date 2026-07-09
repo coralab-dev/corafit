@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  DumbbellIcon,
   ImageIcon,
   Loader2Icon,
   PencilIcon,
@@ -15,7 +14,7 @@ import { useState } from "react";
 import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { WorkspaceFrame, WorkspaceHeader, WorkspaceSplit } from "@/components/layout/workspace-shell";
+import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
 import {
   Card,
   CardContent,
@@ -95,26 +94,35 @@ export function ExercisesWorkspace() {
         />
       }
     >
-      <WorkspaceSplit
-        main={
-        <section className="min-w-0 bg-background p-5">
-          <ExerciseSearch
-            presentation="table"
-            reloadToken={reloadToken}
-            selectedId={selectedExercise?.id}
-            onSelect={handleSelect}
-          />
-        </section>
-        }
-        side={
-        <aside className="min-w-0 p-5 xl:sticky xl:top-8 xl:self-start">
+      <section className="min-w-0 flex-1 bg-background p-5">
+        <ExerciseSearch
+          presentation="table"
+          reloadToken={reloadToken}
+          selectedId={selectedExercise?.id}
+          onSelect={handleSelect}
+        />
+      </section>
+      <Dialog
+        open={Boolean(selectedExercise)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedExercise(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Detalle de ejercicio</DialogTitle>
+            <DialogDescription>
+              Preview operativo del ejercicio seleccionado.
+            </DialogDescription>
+          </DialogHeader>
           <SelectedExerciseCard
             exercise={selectedExercise}
             onExerciseChange={handleExerciseChange}
           />
-        </aside>
-        }
-      />
+        </DialogContent>
+      </Dialog>
     </WorkspaceFrame>
   );
 }
@@ -133,26 +141,7 @@ function SelectedExerciseCard({
   const [isSavingMedia, setIsSavingMedia] = useState(false);
 
   if (!exercise) {
-    return (
-    <Card className="min-w-0 overflow-hidden rounded-2xl border !border-transparent shadow-[var(--surface-shadow)]">
-      <CardHeader className="border-b border-border/55 p-4">
-        <CardTitle className="text-base">Detalle</CardTitle>
-        <CardDescription>
-          Elige un ejercicio para revisar sus detalles.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-4">
-        <div className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-2xl border !border-transparent bg-muted/35 p-5 text-center shadow-[var(--surface-shadow-soft)]">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
-            <DumbbellIcon className="size-6" aria-hidden="true" />
-          </span>
-          <p className="text-sm text-muted-foreground">
-            La selección queda lista para revisar media, instrucciones y permisos.
-          </p>
-        </div>
-      </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   const visibleExercise = exercise;
@@ -248,7 +237,7 @@ function SelectedExerciseCard({
   }
 
   return (
-    <Card className="min-w-0 overflow-hidden rounded-2xl border !border-transparent shadow-[var(--surface-shadow)]">
+    <Card className="min-w-0 overflow-hidden rounded-2xl border-0 !border-transparent shadow-none">
       <div className="relative m-4 mb-0 flex aspect-[16/9] items-center justify-center overflow-hidden rounded-2xl bg-muted text-muted-foreground shadow-[var(--surface-shadow-soft)]">
         {visibleExercise.mediaUrl && visibleExercise.mediaType === "image" ? (
           <Image

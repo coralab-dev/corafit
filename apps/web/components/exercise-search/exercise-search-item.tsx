@@ -171,7 +171,7 @@ export function ExerciseSearchItem({
   );
 }
 
-function ExerciseDetailsDialog({
+export function ExerciseDetailsDialog({
   exercise,
   isCustom,
   isOpen,

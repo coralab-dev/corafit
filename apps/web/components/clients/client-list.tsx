@@ -63,14 +63,20 @@ export function ClientList({
   statusFilter: OperationalStatus | "all";
 }) {
   return (
-    <section className="min-w-0 bg-card">
-      <div className="border-b px-6 py-5">
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_210px_112px]">
+    <section className="min-w-0 bg-background px-4 pb-6 sm:px-6">
+      <div className="rounded-2xl border bg-card p-4">
+        <div className="flex flex-col gap-1 pb-4">
+          <h2 className="text-sm font-semibold">Directorio operativo</h2>
+          <p className="text-xs text-muted-foreground">
+            Busca, filtra y abre la ficha sin salir del flujo de clientes.
+          </p>
+        </div>
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_112px]">
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="h-11 rounded-md border-border/90 bg-card pl-11 shadow-none"
-              placeholder="Buscar clientes..."
+              className="h-11 border-border/90 bg-background pl-11 shadow-none"
+              placeholder="Buscar por nombre, telefono u objetivo..."
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
             />
@@ -78,7 +84,7 @@ export function ClientList({
           <label className="relative">
             <span className="sr-only">Filtrar por estado</span>
             <select
-              className="h-11 w-full appearance-none rounded-md border bg-card px-4 pr-10 text-sm font-medium shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20"
+              className="h-11 w-full appearance-none rounded-xl border bg-background px-4 pr-10 text-sm font-medium shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20"
               value={statusFilter}
               onChange={(event) =>
                 onStatusFilterChange(event.target.value as OperationalStatus | "all")
@@ -92,18 +98,18 @@ export function ClientList({
             </select>
             <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           </label>
-          <Button className="h-11 shadow-none" variant="outline">
+          <Button className="h-11" variant="outline">
             <SlidersHorizontalIcon className="size-4" />
             Filtros
           </Button>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-1.5">
           {filterOptions.map((option) => (
             <button
               key={option.value}
               className={cn(
-                "h-8 rounded-md border px-3 text-sm font-medium transition-colors",
+                "h-8 rounded-full border px-3 text-sm font-medium transition-colors",
                 statusFilter === option.value
                   ? "border-primary/45 bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -117,9 +123,9 @@ export function ClientList({
         </div>
       </div>
 
-      <div className="px-6 py-5">
+      <div className="pt-4">
         {error ? (
-          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
@@ -138,8 +144,8 @@ export function ClientList({
                 <article
                   key={client.id}
                   className={cn(
-                    "rounded-md border bg-card p-4 shadow-sm transition-colors",
-                    isSelected && "border-primary/35 bg-primary/[0.055]",
+                    "rounded-2xl border bg-card p-4 transition-[background,border-color]",
+                    isSelected && "border-primary/45 bg-accent/55",
                   )}
                 >
                   <button
@@ -147,7 +153,7 @@ export function ClientList({
                     type="button"
                     onClick={() => onOpenClient(client.id)}
                   >
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent text-sm font-semibold text-primary">
                       {initials(client.name)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -164,13 +170,13 @@ export function ClientList({
                         />
                       </div>
                       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                        <div>
+                        <div className="rounded-xl border bg-background p-3">
                           <p className="text-xs font-medium text-muted-foreground">Plan</p>
                           <p className="mt-1 line-clamp-1 font-medium">
                             {assignment?.assignedPlan?.name ?? (hasPlan ? "Con plan" : "Sin plan")}
                           </p>
                         </div>
-                        <div>
+                        <div className="rounded-xl border bg-background p-3">
                           <p className="text-xs font-medium text-muted-foreground">Acceso</p>
                           <div className="mt-1">
                             <AccessPill status={client.access?.status ?? "none"} />
@@ -184,7 +190,7 @@ export function ClientList({
                   </button>
                   <div className="mt-4 flex items-center justify-between border-t pt-3">
                     <Button
-                      className="h-9 px-3 shadow-none"
+                      className="h-9 px-3"
                       size="sm"
                       variant="outline"
                       onClick={() => onEditClient(client)}
@@ -202,16 +208,17 @@ export function ClientList({
               );
             })}
           </div>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-muted-foreground">
-                  <th className="px-3 pb-3 font-medium">Cliente</th>
-                  <th className="px-3 pb-3 font-medium">Objetivo</th>
-                  <th className="px-3 pb-3 font-medium">Plan actual</th>
-                  <th className="px-3 pb-3 font-medium">Acceso</th>
-                  <th className="px-3 pb-3 font-medium">Estado</th>
-                  <th className="w-10 pb-3" aria-label="Acciones" />
+          <div className="hidden overflow-hidden rounded-2xl border bg-card md:block">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
+              <thead className="bg-secondary/55">
+                <tr className="border-b text-left text-xs font-semibold text-muted-foreground">
+                  <th className="px-4 py-3 font-semibold">Cliente</th>
+                  <th className="px-4 py-3 font-semibold">Objetivo</th>
+                  <th className="px-4 py-3 font-semibold">Plan actual</th>
+                  <th className="px-4 py-3 font-semibold">Acceso</th>
+                  <th className="px-4 py-3 font-semibold">Estado</th>
+                  <th className="w-12 py-3" aria-label="Acciones" />
                 </tr>
               </thead>
               <tbody>
@@ -224,14 +231,14 @@ export function ClientList({
                     <tr
                       key={client.id}
                       className={cn(
-                        "group cursor-pointer border-b transition-colors hover:bg-muted/45",
-                        isSelected && "bg-primary/[0.075] hover:bg-primary/[0.095]",
+                        "group cursor-pointer border-b transition-colors last:border-b-0 hover:bg-secondary/45",
+                        isSelected && "bg-accent/55 shadow-[inset_3px_0_0_var(--primary)] hover:bg-accent/65",
                       )}
                       onClick={() => onOpenClient(client.id)}
                     >
-                      <td className="px-3 py-3.5">
+                      <td className="px-4 py-4">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent text-xs font-semibold text-primary">
                             {initials(client.name)}
                           </div>
                           <div className="min-w-0">
@@ -242,24 +249,24 @@ export function ClientList({
                           </div>
                         </div>
                       </td>
-                      <td className="max-w-44 px-3 py-3.5 text-muted-foreground">
+                      <td className="max-w-48 px-4 py-4 text-muted-foreground">
                         <span className="line-clamp-1">{client.mainGoal || "-"}</span>
                       </td>
-                      <td className="max-w-44 px-3 py-3.5">
+                      <td className="max-w-48 px-4 py-4">
                         <span className="line-clamp-1 text-foreground">
                           {assignment?.assignedPlan?.name ?? (hasPlan ? "Con plan" : "Sin plan")}
                         </span>
                       </td>
-                      <td className="px-3 py-3.5">
+                      <td className="px-4 py-4">
                         <AccessPill status={client.access?.status ?? "none"} />
                       </td>
-                      <td className="px-3 py-3.5">
+                      <td className="px-4 py-4">
                         <StatusBadge
                           label={statusLabels[client.operationalStatus]}
                           variant={client.operationalStatus}
                         />
                       </td>
-                      <td className="py-3.5">
+                      <td className="py-4 pr-3">
                         <ClientActionsMenu
                           client={client}
                           hasPlan={hasPlan}
@@ -272,6 +279,7 @@ export function ClientList({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
           </>
         ) : (

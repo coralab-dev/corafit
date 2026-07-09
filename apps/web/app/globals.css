@@ -56,10 +56,16 @@
   --ring: #d95f49;
   --sidebar: #ffffff;
   --sidebar-foreground: #15171a;
-  --sidebar-accent: #f8e7df;
+  --sidebar-accent: #fff5f1;
   --sidebar-border: #e8e1d8;
   --sidebar-primary: #fe3d1b;
   --sidebar-primary-foreground: #ffffff;
+  --surface-line: rgba(228, 222, 213, 0.42);
+  --surface-line-soft: rgba(228, 222, 213, 0.26);
+  --surface-shadow: 0 0 0 1px var(--surface-line),
+    0 18px 48px rgba(21, 23, 26, 0.045);
+  --surface-shadow-soft: 0 0 0 1px var(--surface-line-soft),
+    0 12px 34px rgba(21, 23, 26, 0.032);
 }
 
 .dark {
@@ -87,9 +93,13 @@
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-primary: #d95f49;
   --sidebar-primary-foreground: #ffffff;
+  --surface-line: rgba(255, 255, 255, 0.075);
+  --surface-line-soft: rgba(255, 255, 255, 0.055);
+  --surface-shadow: 0 0 0 1px var(--surface-line);
+  --surface-shadow-soft: 0 0 0 1px var(--surface-line-soft);
 }
 
-* {
+:where(*) {
   border-color: var(--border);
 }
 

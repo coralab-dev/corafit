@@ -428,7 +428,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     >
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <div className="min-w-0 flex-1">
-          <div className="bg-background px-4 py-5 sm:px-6">
+          <div className="bg-background px-4 py-5 sm:px-6 xl:pr-2">
             {isInitialLoading ? (
               <ClientMetricsSkeleton />
             ) : (
@@ -468,7 +468,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           />
         </div>
 
-        <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[420px] xl:resize-x xl:overflow-auto">
+        <div className="min-w-0 bg-background xl:w-[320px] xl:min-w-[280px] xl:max-w-[380px] xl:resize-x xl:overflow-auto">
           {isInitialLoading ? <ClientActivitySkeletonPanel /> : <ClientActivityPanel />}
         </div>
       </div>
@@ -500,7 +500,7 @@ function ClientMetricsSkeleton() {
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
       {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="rounded-2xl border bg-card p-3">
+        <div key={index} className="rounded-2xl border !border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)]">
           <div className="h-3 w-20 animate-pulse rounded-md bg-muted" />
           <div className="mt-4 h-7 w-10 animate-pulse rounded-md bg-muted" />
           <div className="mt-2 h-3 w-24 animate-pulse rounded-md bg-muted" />

@@ -19,7 +19,7 @@ export function EmptyState({
   title: string;
 }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border bg-card p-8 text-center">
+    <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border !border-transparent bg-card p-8 text-center shadow-[var(--surface-shadow-soft)]">
       <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
         <UserRoundIcon className="size-5" />
       </div>
@@ -47,7 +47,7 @@ export function EmptyState({
 
 export function LoadingList() {
   return (
-    <div className="rounded-2xl border bg-card p-4">
+    <div className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
       <ListRowsSkeleton rows={6} />
     </div>
   );

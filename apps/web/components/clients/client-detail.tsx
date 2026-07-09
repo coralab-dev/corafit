@@ -10,6 +10,7 @@ import {
   KeyRoundIcon,
   Loader2Icon,
   NotebookPenIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,6 @@ import type {
   OperationalStatus,
 } from "@/lib/clients/types";
 import { ClientProgressPanel } from "./client-progress-panel";
-import { EmptyState } from "./empty-loading";
 
 type ClientDetailTab = "summary" | "plan" | "progress" | "access" | "notes";
 
@@ -64,7 +64,7 @@ export function ClientDetail({
   if (isPage) {
     return (
       <aside className="flex min-h-0 flex-col gap-4">
-        <div className="rounded-md border bg-card p-5">
+        <div className="rounded-2xl border !border-transparent bg-card p-5 shadow-[var(--surface-shadow)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
@@ -103,13 +103,13 @@ export function ClientDetail({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2 rounded-md border bg-muted/20 p-1 sm:grid-cols-5">
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)] sm:grid-cols-5">
             {clientDetailTabs.map((tab) => (
               <button
                 key={tab.key}
                 className={cn(
-                  "rounded px-3 py-2 text-sm font-medium text-muted-foreground transition",
-                  activeTab === tab.key && "bg-background text-foreground shadow-sm",
+                  "rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition",
+                  activeTab === tab.key && "bg-card text-foreground shadow-[var(--surface-shadow-soft)]",
                 )}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
@@ -143,16 +143,16 @@ export function ClientDetail({
   }
 
   return (
-    <aside className="flex min-h-0 flex-col bg-card">
+    <aside className="flex min-h-0 flex-col bg-background">
       <div
-        className="flex items-start justify-between gap-4 border-b px-6 py-7 pr-14"
+        className="flex items-start justify-between gap-4 border-b border-border/60 bg-card/80 px-6 py-7 pr-14 backdrop-blur"
       >
         <div className="flex min-w-0 items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-primary shadow-[var(--surface-shadow-soft)]">
             {initials(client.name)}
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-xl font-semibold tracking-tight">
+            <h2 className="truncate text-xl font-bold tracking-normal">
               {client.name}
             </h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -202,7 +202,7 @@ function AccessPanel({ client }: { client: Client }) {
           variant={getAccessVariant(client.access.status)}
         />
       </div>
-      <div className="rounded-md border bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
+      <div className="rounded-xl border !border-transparent bg-muted/35 px-3 py-2 text-sm text-muted-foreground shadow-[var(--surface-shadow-soft)]">
         {client.access.link ?? "Genera un acceso para compartir link y PIN."}
       </div>
       <Button asChild className="mt-3 w-full shadow-none" variant="outline">
@@ -231,13 +231,13 @@ function OperationalPanel({
           variant={client.operationalStatus}
         />
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <DetailStat label="Edad" value={`${client.age} anos`} />
         <DetailStat label="Altura" value={`${client.heightCm} cm`} />
         <DetailStat label="Peso inicial" value={`${client.initialWeightKg} kg`} />
         <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <Button
           className="shadow-none"
           size="sm"
@@ -317,7 +317,7 @@ export function CurrentPlanPanel({
 }) {
   if (isLoading) {
     return (
-      <section className="flex min-h-48 items-center justify-center rounded-md border bg-card p-6 text-sm text-muted-foreground">
+      <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
         <Loader2Icon className="mr-2 size-4 animate-spin" />
         Cargando plan actual
       </section>
@@ -327,12 +327,23 @@ export function CurrentPlanPanel({
   if (!assignment?.assignedPlan) {
     return (
       <WorkspacePanel className="p-4">
-        <EmptyState
-          actionHref={`/clients/${clientId}/plan-assignment`}
-          actionLabel="Asignar plan"
-          description="Selecciona un template y crea una copia editable para este cliente."
-          title="Sin plan asignado"
-        />
+        <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border !border-transparent bg-background p-6 text-center shadow-[var(--surface-shadow-soft)]">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+            <UserRoundIcon className="size-5" />
+          </div>
+          <div>
+            <p className="font-semibold">Sin plan asignado</p>
+            <p className="mt-1 max-w-72 text-sm leading-5 text-muted-foreground">
+              Selecciona un template y crea una copia editable para este cliente.
+            </p>
+          </div>
+          <Button asChild variant="outline">
+            <Link href={`/clients/${clientId}/plan-assignment`}>
+              <DumbbellIcon className="size-4" />
+              Asignar plan
+            </Link>
+          </Button>
+        </div>
       </WorkspacePanel>
     );
   }
@@ -354,7 +365,7 @@ export function CurrentPlanPanel({
         <StatusBadge label="Activo" variant="with-plan" />
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3 border-t pt-4">
+      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border/60 pt-4">
         <DetailStat
           label="Duracion"
           value={`${assignment.assignedPlan.durationWeeks} sem.`}
@@ -399,7 +410,7 @@ export function DetailBlock({ label, value }: { label: string; value: string }) 
 
 function DetailStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 rounded-xl bg-muted/30 p-3">
       <p className="truncate text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
@@ -408,7 +419,7 @@ function DetailStat({ label, value }: { label: string; value: string }) {
 
 function NotePreview({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-b pb-3 last:border-b-0 last:pb-0">
+    <div className="border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 line-clamp-2 text-foreground">{value}</p>
     </div>

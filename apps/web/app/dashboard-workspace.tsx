@@ -110,7 +110,7 @@ export function DashboardWorkspace() {
           main={
             <div className="flex flex-col gap-5 bg-background p-4 sm:p-6">
               {error ? (
-                <div className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                <div className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive shadow-[var(--surface-shadow-soft)]">
                   {error}
                 </div>
               ) : null}
@@ -338,7 +338,7 @@ function DashboardMetricCard({
   value: ReactNode;
 }) {
   return (
-    <article className="rounded-2xl border bg-card p-4 shadow-[0_10px_30px_rgba(21,23,26,0.04)] dark:shadow-none">
+    <article className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-start justify-between gap-3">
         <div className={cn("flex size-10 items-center justify-center rounded-xl", metricToneStyles[tone])}>
           {icon}
@@ -376,7 +376,7 @@ function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
         </div>
       ) : (
         <div className="p-5">
-          <div className="rounded-2xl border bg-secondary/55 p-5">
+          <div className="rounded-2xl border !border-transparent bg-secondary/55 p-5 shadow-[var(--surface-shadow-soft)]">
             <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300">
               <CheckCircle2Icon className="size-5" />
             </div>
@@ -430,17 +430,17 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
           {item.currentPlan ? (
-            <span className="rounded-full border bg-background px-2.5 py-1">
+            <span className="rounded-full border border-border/55 bg-background px-2.5 py-1">
               Plan: {item.currentPlan.name}
             </span>
           ) : null}
           {item.lastCompletedSessionAt ? (
-            <span className="rounded-full border bg-background px-2.5 py-1">
+            <span className="rounded-full border border-border/55 bg-background px-2.5 py-1">
               Ultima sesion: {formatDisplayDate(item.lastCompletedSessionAt)}
             </span>
           ) : null}
           {item.nextExpectedSessionDate ? (
-            <span className="rounded-full border bg-background px-2.5 py-1">
+            <span className="rounded-full border border-border/55 bg-background px-2.5 py-1">
               Proxima esperada: {formatDisplayDate(item.nextExpectedSessionDate)}
             </span>
           ) : null}
@@ -455,7 +455,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
 
 function NextStepCard({ item }: { item: ChecklistItem }) {
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-[0_10px_30px_rgba(21,23,26,0.04)] dark:shadow-none">
+    <section className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-primary">
@@ -491,7 +491,7 @@ function QuickLink({
 }) {
   return (
     <Link
-      className="group flex items-center gap-3 rounded-2xl border bg-card p-4 transition-[background,border-color,transform] hover:-translate-y-0.5 hover:border-primary/25 hover:bg-secondary/50"
+      className="group flex items-center gap-3 rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] transition-[background,box-shadow,transform] hover:-translate-y-0.5 hover:bg-secondary/50 hover:shadow-[0_0_0_1px_rgba(217,95,73,0.22),0_14px_34px_rgba(217,95,73,0.07)]"
       href={href}
     >
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
@@ -518,7 +518,7 @@ function SmallStat({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border bg-background p-3">
+    <div className="rounded-2xl border !border-transparent bg-background p-3 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-center justify-between gap-2">
         <div className={cn("flex size-8 items-center justify-center rounded-lg", statToneStyles[tone])}>
           {icon}
@@ -597,7 +597,7 @@ function OnboardingChecklist({
 
 function DashboardEmptyState() {
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <section className="rounded-2xl border !border-transparent bg-card p-5 shadow-[var(--surface-shadow)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-primary">
@@ -634,7 +634,7 @@ function DashboardErrorState({
 }) {
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-2xl border border-destructive/25 bg-destructive/5 p-8 text-center text-destructive">
+      <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-2xl border border-destructive/25 bg-destructive/5 p-8 text-center text-destructive shadow-[var(--surface-shadow-soft)]">
         <div className="flex size-12 items-center justify-center rounded-2xl bg-destructive/10">
           <AlertTriangleIcon className="size-5" />
         </div>
@@ -670,7 +670,7 @@ function DashboardSkeleton() {
           <PanelSkeleton rows={1} titleWidth="w-48" />
           <div className="grid gap-3 sm:grid-cols-3">
             {[0, 1, 2].map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl border bg-card p-4">
+              <div key={item} className="flex items-center gap-3 rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
                 <div className="size-10 animate-pulse rounded-xl bg-muted" />
                 <div className="min-w-0 flex-1">
                   <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
@@ -695,7 +695,7 @@ function DashboardMetricGridSkeleton() {
   return (
     <section className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
       {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="rounded-2xl border bg-card p-4">
+        <div key={index} className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
           <div className="flex items-start justify-between gap-3">
             <div className="size-10 animate-pulse rounded-xl bg-muted" />
             <div className="h-5 w-24 animate-pulse rounded-full bg-muted" />

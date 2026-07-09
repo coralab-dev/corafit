@@ -92,7 +92,7 @@ function ClientMetricCard({
   value: number;
 }) {
   return (
-    <article className="rounded-2xl border bg-card p-3">
+    <article className="rounded-2xl border !border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <span className={cn("flex size-8 items-center justify-center rounded-xl", metricToneStyles[tone])}>
@@ -119,14 +119,14 @@ function formatRatio(value: number, total: number) {
 
 export function ClientActivityPanel() {
   return (
-    <aside className="flex min-h-full flex-col p-5">
+    <aside className="flex min-h-full flex-col p-4 xl:pl-2 xl:pr-5">
       <WorkspacePanel
         description="Historial operativo del workspace."
         icon={<ClockIcon className="size-4" />}
         title="Actividad reciente"
       >
         <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-          <div className="flex size-11 items-center justify-center rounded-full border bg-background text-muted-foreground">
+          <div className="flex size-11 items-center justify-center rounded-full border border-border/60 bg-background text-muted-foreground">
             <ActivityIcon className="size-5" />
           </div>
           <div>
@@ -155,7 +155,7 @@ export function ClientDetailLoadingCard() {
 
 export function ClientActivitySkeletonPanel() {
   return (
-    <aside className="flex min-h-full flex-col p-5">
+    <aside className="flex min-h-full flex-col p-4 xl:pl-2 xl:pr-5">
       <PanelSkeleton rows={4} titleWidth="w-36" />
     </aside>
   );

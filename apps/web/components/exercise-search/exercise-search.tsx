@@ -142,6 +142,7 @@ export function ExerciseSearch({
           ? caughtError.message
           : "No se pudo crear el ejercicio",
       );
+      throw caughtError;
     } finally {
       setIsCreating(false);
     }

@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { isValidExternalUrl } from "@/lib/external-url";
 import { cn } from "@/lib/utils";
 import type {
   CreateExerciseInput,
@@ -55,7 +56,13 @@ const exerciseCreateSchema = z.object({
   instructions: z.string().trim().optional(),
   secondaryMuscles: z.string().trim().optional(),
   recommendations: z.string().trim().optional(),
-  videoUrl: z.string().trim().url("URL inválida").optional().or(z.literal("")),
+  videoUrl: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || isValidExternalUrl(value),
+      "Ingresa una URL HTTP o HTTPS válida",
+    ),
 });
 
 type ExerciseCreateValues = z.infer<typeof exerciseCreateSchema>;
@@ -98,21 +105,25 @@ export function ExerciseCreateDialog({
   }
 
   async function submit(values: ExerciseCreateValues) {
-    await onCreate({
-      name: values.name.trim(),
-      primaryMuscle: values.primaryMuscle,
-      equipment: values.equipment,
-      instructions: values.instructions?.trim(),
-      recommendations: values.recommendations?.trim(),
-      secondaryMuscles: values.secondaryMuscles
-        ?.split(",")
-        .map((value) => value.trim())
-        .filter(Boolean),
-      imageFile,
-      videoUrl: values.videoUrl?.trim(),
-    });
-    updateImageFile(null);
-    form.reset(defaultValues);
+    try {
+      await onCreate({
+        name: values.name.trim(),
+        primaryMuscle: values.primaryMuscle,
+        equipment: values.equipment,
+        instructions: values.instructions?.trim(),
+        recommendations: values.recommendations?.trim(),
+        secondaryMuscles: values.secondaryMuscles
+          ?.split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        imageFile,
+        videoUrl: values.videoUrl?.trim(),
+      });
+      updateImageFile(null);
+      form.reset(defaultValues);
+    } catch {
+      // ExerciseSearch already notifies the user. Preserve the form values on failure.
+    }
   }
 
   return (

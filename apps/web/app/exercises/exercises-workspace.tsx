@@ -14,6 +14,7 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { notify } from "@/lib/notify";
+import { isValidExternalUrl } from "@/lib/external-url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
@@ -41,6 +42,7 @@ import {
   type Equipment,
   type Exercise,
   type PrimaryMuscle,
+  type UpdateExerciseInput,
   useExerciseActions,
   useExerciseMediaActions,
 } from "@/hooks/use-exercises";
@@ -86,17 +88,7 @@ export function ExercisesWorkspace() {
     setReloadToken((current) => current + 1);
   }
 
-  async function handleUpdate(input: {
-    equipment: Equipment;
-    instructions: string | null;
-    mediaType?: Exercise["mediaType"];
-    mediaUrl?: string | null;
-    name: string;
-    primaryMuscle: PrimaryMuscle;
-    recommendations?: string | null;
-    secondaryMuscles?: string[];
-    videoUrl?: string | null;
-  }) {
+  async function handleUpdate(input: UpdateExerciseInput) {
     if (!editingExercise) {
       return;
     }
@@ -465,17 +457,7 @@ function ExerciseEditDialog({
   exercise: Exercise;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdate: (input: {
-    equipment: Equipment;
-    instructions: string | null;
-    mediaType?: Exercise["mediaType"];
-    mediaUrl?: string | null;
-    name: string;
-    primaryMuscle: PrimaryMuscle;
-    recommendations?: string | null;
-    secondaryMuscles?: string[];
-    videoUrl?: string | null;
-  }) => Promise<void>;
+  onUpdate: (input: UpdateExerciseInput) => Promise<void>;
 }) {
   const [equipment, setEquipment] = useState<Equipment>(exercise.equipment);
   const [instructions, setInstructions] = useState(exercise.instructions ?? "");
@@ -498,8 +480,8 @@ function ExerciseEditDialog({
     }
 
     const trimmedVideoUrl = videoUrl.trim();
-    if (trimmedVideoUrl && !isValidUrl(trimmedVideoUrl)) {
-      notify.error("La URL de video no es válida");
+    if (trimmedVideoUrl && !isValidExternalUrl(trimmedVideoUrl)) {
+      notify.error("Ingresa una URL HTTP o HTTPS válida");
       return;
     }
 
@@ -714,13 +696,4 @@ function EditSelectField({
       </select>
     </label>
   );
-}
-
-function isValidUrl(value: string) {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
 }

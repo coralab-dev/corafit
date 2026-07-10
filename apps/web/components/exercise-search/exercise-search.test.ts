@@ -4,6 +4,7 @@ import {
   buildExerciseSearchParams,
   filterSelectableExercises,
   getExercisePageCount,
+  isExerciseSelectionDisabled,
   shouldShowExcludedPageMessage,
 } from "./exercise-search-utils.ts";
 import { createLatestRequestController } from "../../hooks/latest-request-controller.ts";
@@ -56,4 +57,9 @@ test("aborts stale exercise requests and keeps only the latest request current",
   controller.invalidate();
   assert.equal(second.signal.aborted, true);
   assert.equal(controller.isCurrent(second.id), false);
+});
+
+test("marks exercise actions as disabled while results are updating", () => {
+  assert.equal(isExerciseSelectionDisabled(true), true);
+  assert.equal(isExerciseSelectionDisabled(false), false);
 });

@@ -38,6 +38,7 @@ import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-se
 import {
   filterSelectableExercises,
   getExercisePageCount,
+  isExerciseSelectionDisabled,
   shouldShowExcludedPageMessage,
 } from "./exercise-search-utils";
 
@@ -100,6 +101,7 @@ export function ExerciseSearch({
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
   const isRefreshingExercises = isLoading && items.length > 0;
+  const isSelectionDisabled = isExerciseSelectionDisabled(isRefreshingExercises);
   const selectableItems = useMemo(
     () => filterSelectableExercises(items, excludedExerciseIds),
     [excludedExerciseIds, items],
@@ -321,17 +323,19 @@ export function ExerciseSearch({
             {presentation === "table" ? (
               <ExerciseTable
                 exercises={visibleItems}
+                isDisabled={isSelectionDisabled}
                 selectionMode={selectionMode}
                 selectedId={selectedId}
-                onSelect={isRefreshingExercises ? undefined : onSelect}
+                onSelect={isSelectionDisabled ? undefined : onSelect}
               />
             ) : (
               visibleItems.map((exercise) => (
                 <ExerciseSearchItem
                   key={exercise.id}
                   exercise={exercise}
+                  isDisabled={isSelectionDisabled}
                   isSelected={selectedId === exercise.id}
-                  onSelect={isRefreshingExercises ? undefined : onSelect}
+                  onSelect={isSelectionDisabled ? undefined : onSelect}
                   selectionMode={selectionMode}
                 />
               ))
@@ -365,11 +369,13 @@ export function ExerciseSearch({
 
 function ExerciseTable({
   exercises,
+  isDisabled,
   onSelect,
   selectionMode,
   selectedId,
 }: {
   exercises: Exercise[];
+  isDisabled: boolean;
   onSelect?: (exercise: Exercise) => void;
   selectionMode: "card" | "explicit";
   selectedId?: string;
@@ -396,6 +402,7 @@ function ExerciseTable({
               <ExerciseTableRow
                 key={exercise.id}
                 exercise={exercise}
+                isDisabled={isDisabled}
                 isSelected={selectedId === exercise.id}
                 onSelect={onSelect}
                 selectionMode={selectionMode}
@@ -409,6 +416,7 @@ function ExerciseTable({
           <ExerciseMobileCard
             key={exercise.id}
             exercise={exercise}
+            isDisabled={isDisabled}
             isSelected={selectedId === exercise.id}
             onSelect={onSelect}
             selectionMode={selectionMode}
@@ -421,11 +429,13 @@ function ExerciseTable({
 
 function ExerciseTableRow({
   exercise,
+  isDisabled,
   isSelected,
   onSelect,
   selectionMode,
 }: {
   exercise: Exercise;
+  isDisabled: boolean;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
   selectionMode: "card" | "explicit";
@@ -456,6 +466,7 @@ function ExerciseTableRow({
         ) : (
           <button
             className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={isDisabled}
             type="button"
             onClick={() => onSelect?.(exercise)}
           >
@@ -491,13 +502,18 @@ function ExerciseTableRow({
       <td className="px-4 py-3">
         {isExplicit ? (
           <div className="flex justify-end">
-            <Button size="sm" type="button" onClick={() => onSelect?.(exercise)}>
+            <Button
+              disabled={isDisabled}
+              size="sm"
+              type="button"
+              onClick={() => onSelect?.(exercise)}
+            >
               <PlusIcon data-icon="inline-start" />
               Agregar
             </Button>
           </div>
         ) : (
-          <ExerciseActions exercise={exercise} onSelect={onSelect} />
+          <ExerciseActions exercise={exercise} isDisabled={isDisabled} onSelect={onSelect} />
         )}
       </td>
     </tr>
@@ -506,11 +522,13 @@ function ExerciseTableRow({
 
 function ExerciseMobileCard({
   exercise,
+  isDisabled,
   isSelected,
   onSelect,
   selectionMode,
 }: {
   exercise: Exercise;
+  isDisabled: boolean;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
   selectionMode: "card" | "explicit";
@@ -539,6 +557,7 @@ function ExerciseMobileCard({
             ) : (
               <button
                 className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                disabled={isDisabled}
                 type="button"
                 onClick={() => onSelect?.(exercise)}
               >
@@ -561,7 +580,13 @@ function ExerciseMobileCard({
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             {isExplicit ? (
-              <Button className="w-full" size="sm" type="button" onClick={() => onSelect?.(exercise)}>
+              <Button
+                className="w-full"
+                disabled={isDisabled}
+                size="sm"
+                type="button"
+                onClick={() => onSelect?.(exercise)}
+              >
                 <PlusIcon data-icon="inline-start" />
                 Agregar
               </Button>
@@ -570,7 +595,12 @@ function ExerciseMobileCard({
                 <span className="text-xs text-muted-foreground">
                   Creado {formatDate(exercise.createdAt)}
                 </span>
-                <ExerciseActions exercise={exercise} onSelect={onSelect} compact />
+                <ExerciseActions
+                  exercise={exercise}
+                  isDisabled={isDisabled}
+                  onSelect={onSelect}
+                  compact
+                />
               </>
             )}
           </div>
@@ -619,10 +649,12 @@ function StatusPill({ status }: { status: string }) {
 function ExerciseActions({
   compact,
   exercise,
+  isDisabled,
   onSelect,
 }: {
   compact?: boolean;
   exercise: Exercise;
+  isDisabled: boolean;
   onSelect?: (exercise: Exercise) => void;
 }) {
   return (
@@ -633,6 +665,7 @@ function ExerciseActions({
           compact && "size-9",
         )}
         aria-label="Ver detalle"
+        disabled={isDisabled}
         size="sm"
         type="button"
         variant="ghost"
@@ -646,6 +679,7 @@ function ExerciseActions({
           <Button
             aria-label="Más acciones"
             className="size-9 rounded-xl bg-muted/35 shadow-none hover:bg-accent hover:text-primary"
+            disabled={isDisabled}
             size="icon"
             type="button"
             variant="ghost"
@@ -654,7 +688,7 @@ function ExerciseActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]">
-          <DropdownMenuItem onClick={() => onSelect?.(exercise)}>
+          <DropdownMenuItem disabled={isDisabled} onClick={() => onSelect?.(exercise)}>
             <InfoIcon className="size-4" />
             Abrir detalle
           </DropdownMenuItem>

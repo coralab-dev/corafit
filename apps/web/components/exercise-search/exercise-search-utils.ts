@@ -41,3 +41,7 @@ export function getExercisePageCount(total: number, pageSize: number) {
 export function shouldShowExcludedPageMessage<T>(total: number, visibleItems: T[]) {
   return total > 0 && visibleItems.length === 0;
 }
+
+export function isExerciseSelectionDisabled(isUpdating: boolean) {
+  return isUpdating;
+}

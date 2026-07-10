@@ -55,6 +55,8 @@ export type CreateExerciseInput = {
   primaryMuscle: PrimaryMuscle;
   equipment: Equipment;
   instructions?: string;
+  recommendations?: string;
+  secondaryMuscles?: string[];
   imageFile?: File | null;
   videoUrl?: string;
 };
@@ -64,6 +66,8 @@ export type UpdateExerciseInput = {
   primaryMuscle?: PrimaryMuscle;
   equipment?: Equipment;
   instructions?: string | null;
+  recommendations?: string | null;
+  secondaryMuscles?: string[];
   mediaUrl?: string | null;
   mediaType?: ExerciseMediaType | null;
   videoUrl?: string | null;
@@ -164,6 +168,8 @@ export function useExercises(filters: ExerciseFilters) {
             primaryMuscle: input.primaryMuscle,
             equipment: input.equipment,
             instructions: input.instructions?.trim() || undefined,
+            recommendations: input.recommendations?.trim() || undefined,
+            secondaryMuscles: input.secondaryMuscles,
             videoUrl: input.videoUrl?.trim() || undefined,
           }),
         },

@@ -101,6 +101,20 @@ type PlansResponse = {
   total: number;
 };
 
+export type TrainingPlanMetrics = {
+  total: number | null;
+  active: number | null;
+  draft: number | null;
+  archived: number | null;
+};
+
+const emptyTrainingPlanMetrics: TrainingPlanMetrics = {
+  total: null,
+  active: null,
+  draft: null,
+  archived: null,
+};
+
 export type PlanListFilters = {
   search?: string;
   status?: TrainingPlanStatus | "all";
@@ -188,6 +202,72 @@ export function useTrainingPlans(filters: PlanListFilters) {
   }
 
   return { createPlan, error, isApiReady, isLoading, items, refresh: loadPlans, total };
+}
+
+export function useTrainingPlanMetrics() {
+  const { profile, session, status: authStatus } = useAuth();
+  const [metrics, setMetrics] = useState<TrainingPlanMetrics>(emptyTrainingPlanMetrics);
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const organizationId = profile?.organization?.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const isLoading = authStatus === "loading" || isRequestLoading;
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
+
+  const loadMetrics = useCallback(async () => {
+    if (!isApiReady) {
+      setMetrics(emptyTrainingPlanMetrics);
+      setError(
+        authStatus === "loading"
+          ? ""
+          : "Inicia sesión y selecciona una organización para ver las métricas de tus planes.",
+      );
+      return;
+    }
+
+    setIsRequestLoading(true);
+    setError("");
+
+    try {
+      const responses = await Promise.all(
+        (["all", "active", "draft", "archived"] as const).map(async (status) => {
+          const searchParams = new URLSearchParams({ page: "1", limit: "1" });
+          if (status !== "all") {
+            searchParams.set("status", status);
+          }
+
+          return request<PlansResponse>(
+            `/training-plans?${searchParams.toString()}`,
+            { method: "GET" },
+          );
+        }),
+      );
+
+      setMetrics({
+        total: responses[0].total,
+        active: responses[1].total,
+        draft: responses[2].total,
+        archived: responses[3].total,
+      });
+    } catch (caughtError) {
+      setMetrics(emptyTrainingPlanMetrics);
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsRequestLoading(false);
+    }
+  }, [authStatus, isApiReady, request]);
+
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
+
+  return { error, isLoading, metrics, refresh: loadMetrics };
 }
 
 export function useTrainingPlanEditor(planId: string) {

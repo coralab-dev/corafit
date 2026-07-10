@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import type { Exercise } from "@/hooks/use-exercises";
 import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
+import { dayOfWeekValues } from "@/components/training-plans/training-plan-days";
+import { mergeSessionExerciseUpdate } from "@/components/training-plans/training-plan-editor-utils";
 
 export type TrainingPlanStatus = "draft" | "active" | "archived";
 export type TrainingPlanType = "template" | "assigned_copy";
@@ -17,16 +19,6 @@ export type DayOfWeek =
   | "friday"
   | "saturday"
   | "sunday";
-
-const dayOfWeekValues: DayOfWeek[] = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
 
 export type SessionExerciseAlternative = {
   id: string;
@@ -337,7 +329,10 @@ export function useTrainingPlanEditor(planId: string) {
     });
   }, []);
 
-  const replaceSessionExercise = useCallback((updatedExercise: SessionExercise) => {
+  const replaceSessionExercise = useCallback((
+    updatedExercise: SessionExercise,
+    requestedFields?: Partial<SessionExercise>,
+  ) => {
     const normalizedExercise = normalizeSessionExercise(updatedExercise);
 
     setPlan((currentPlan) => {
@@ -359,7 +354,11 @@ export function useTrainingPlanEditor(planId: string) {
               session: {
                 ...day.session,
                 exercises: day.session.exercises.map((exercise) =>
-                  exercise.id === normalizedExercise.id ? normalizedExercise : exercise,
+                  exercise.id === normalizedExercise.id
+                    ? requestedFields
+                      ? mergeSessionExerciseUpdate(exercise, normalizedExercise, requestedFields)
+                      : normalizedExercise
+                    : exercise,
                 ),
               },
             };
@@ -719,7 +718,7 @@ export function useTrainingPlanEditor(planId: string) {
         `/session-exercises/${sessionExerciseId}`,
         { method: "PATCH", body: JSON.stringify(body) },
       );
-      replaceSessionExercise(updatedExercise);
+      replaceSessionExercise(updatedExercise, body);
       return updatedExercise;
     },
     createWeek: async (body: { weekNumber?: number; notes?: string }) => {

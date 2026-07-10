@@ -39,18 +39,7 @@ import type {
 import type { Exercise } from "@/hooks/use-exercises";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { TrainingSessionExerciseRow } from "./training-session-exercise-row";
-
-const dayLabels: Record<DayOfWeek, string> = {
-  friday: "Viernes",
-  monday: "Lunes",
-  saturday: "Sábado",
-  sunday: "Domingo",
-  thursday: "Jueves",
-  tuesday: "Martes",
-  wednesday: "Miércoles",
-};
-
-const dayOfWeekValues = Object.keys(dayLabels) as DayOfWeek[];
+import { dayLabels, dayOfWeekValues } from "./training-plan-days";
 type SessionDraft = Pick<TrainingSession, "name" | "description" | "coachNote">;
 type ExerciseUpdate = Partial<
   Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
@@ -58,7 +47,10 @@ type ExerciseUpdate = Partial<
 
 export function TrainingSessionEditor({
   day,
+  isBusy,
   isReadOnly,
+  onDraftChange,
+  onDraftCommit,
   onAddAlternative,
   onAddExercise,
   onDeleteAlternative,
@@ -74,7 +66,10 @@ export function TrainingSessionEditor({
   usedDays,
 }: {
   day: TrainingPlanDay;
+  isBusy: boolean;
   isReadOnly: boolean;
+  onDraftChange: () => void;
+  onDraftCommit: () => void;
   onAddAlternative: (sessionExerciseId: string, exercise: Exercise) => Promise<boolean>;
   onAddExercise: (exercise: Exercise) => Promise<string | null>;
   onDeleteAlternative: (alternativeId: string) => void;
@@ -115,7 +110,7 @@ export function TrainingSessionEditor({
           </div>
           {!isReadOnly ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={() => setIsAddingExercise(true)}>
+              <Button disabled={isBusy} type="button" onClick={() => setIsAddingExercise(true)}>
                 <PlusIcon data-icon="inline-start" />
                 Agregar ejercicio
               </Button>
@@ -132,20 +127,21 @@ export function TrainingSessionEditor({
                   className="w-60 rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuItem onSelect={() => setIsEditingInformation(true)}>
+                    <DropdownMenuItem disabled={isBusy} onSelect={() => setIsEditingInformation(true)}>
                       <EditIcon data-icon="inline-start" />
                       Editar información de sesión
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDayDialogMode("copy")}>
+                    <DropdownMenuItem disabled={isBusy} onSelect={() => setDayDialogMode("copy")}>
                       <CopyIcon data-icon="inline-start" />
                       Duplicar día
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDayDialogMode("move")}>
+                    <DropdownMenuItem disabled={isBusy} onSelect={() => setDayDialogMode("move")}>
                       <CalendarDaysIcon data-icon="inline-start" />
                       Cambiar día
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
+                      disabled={isBusy}
                       onSelect={() => setIsConfirmingDelete(true)}
                     >
                       <Trash2Icon data-icon="inline-start" />
@@ -186,7 +182,10 @@ export function TrainingSessionEditor({
                       exercise={exercise}
                       isFirst={index === 0}
                       isLast={index === sortedExercises.length - 1}
+                      isBusy={isBusy}
                       isReadOnly={isReadOnly}
+                      onDraftChange={onDraftChange}
+                      onDraftCommit={onDraftCommit}
                       presentation="table"
                       sessionName={session.name}
                       onAddAlternative={(alternative) => onAddAlternative(exercise.id, alternative)}
@@ -208,7 +207,10 @@ export function TrainingSessionEditor({
                   exercise={exercise}
                   isFirst={index === 0}
                   isLast={index === sortedExercises.length - 1}
+                  isBusy={isBusy}
                   isReadOnly={isReadOnly}
+                  onDraftChange={onDraftChange}
+                  onDraftCommit={onDraftCommit}
                   presentation="card"
                   sessionName={session.name}
                   onAddAlternative={(alternative) => onAddAlternative(exercise.id, alternative)}
@@ -234,7 +236,7 @@ export function TrainingSessionEditor({
               </p>
             </div>
             {!isReadOnly ? (
-              <Button type="button" onClick={() => setIsAddingExercise(true)}>
+              <Button disabled={isBusy} type="button" onClick={() => setIsAddingExercise(true)}>
                 <PlusIcon data-icon="inline-start" />
                 Agregar ejercicio
               </Button>

@@ -14,12 +14,14 @@ import type { Exercise } from "@/hooks/use-exercises";
 import { cn } from "@/lib/utils";
 
 export function ExercisePickerDialog({
+  excludedExerciseIds,
   mode = "exercise",
   onOpenChange,
   onSelect,
   open,
   sessionName,
 }: {
+  excludedExerciseIds?: string[];
   mode?: "exercise" | "alternative";
   onOpenChange: (open: boolean) => void;
   onSelect: (exercise: Exercise) => Promise<boolean>;
@@ -43,8 +45,8 @@ export function ExercisePickerDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-5xl">
-        <DialogHeader className="border-b px-5 py-5 pr-14">
+      <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[56rem] flex-col gap-0 overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-5xl">
+        <DialogHeader className="shrink-0 border-b px-5 py-5 pr-14">
           <div className="flex items-center gap-3">
             <DialogTitle>Biblioteca de ejercicios</DialogTitle>
             {isSelecting ? (
@@ -63,11 +65,12 @@ export function ExercisePickerDialog({
         <div
           aria-busy={isSelecting}
           className={cn(
-            "min-h-0 overflow-y-auto p-3 transition-opacity sm:p-4",
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 transition-opacity sm:p-4",
             isSelecting && "pointer-events-none opacity-70",
           )}
         >
           <ExerciseSearch
+            excludedExerciseIds={excludedExerciseIds}
             presentation="table"
             selectedId={selectedId}
             selectionMode="explicit"

@@ -43,6 +43,7 @@ const statusLabels = {
 
 export function TrainingPlanEditorHeader({
   exerciseCount,
+  isBusy,
   onArchivePlan,
   onDuplicatePlan,
   onEditInformation,
@@ -55,6 +56,7 @@ export function TrainingPlanEditorHeader({
   sessionCount,
 }: {
   exerciseCount: number;
+  isBusy: boolean;
   onArchivePlan: () => void;
   onDuplicatePlan: () => void;
   onEditInformation: () => void;
@@ -136,9 +138,9 @@ export function TrainingPlanEditorHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-          <SaveStatusChip state={saveState} />
+          {context.isReadOnly ? <Badge variant="muted">Sólo lectura</Badge> : <SaveStatusChip state={saveState} />}
           <Button
-            disabled={isPublishing}
+            disabled={isBusy}
             type="button"
             variant={primaryAction.variant}
             onClick={primaryAction.onClick}
@@ -150,9 +152,9 @@ export function TrainingPlanEditorHeader({
             )}
             {primaryAction.label}
           </Button>
-          <Button type="button" variant="outline" onClick={onEditInformation}>
+          <Button disabled={isBusy && !context.isReadOnly} type="button" variant="outline" onClick={onEditInformation}>
             <EditIcon data-icon="inline-start" />
-            Editar información
+            {context.isReadOnly ? "Ver información" : "Editar información"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -167,10 +169,10 @@ export function TrainingPlanEditorHeader({
               <DropdownMenuGroup>
                 <DropdownMenuItem onSelect={onEditInformation}>
                   <EditIcon data-icon="inline-start" />
-                  Editar información
+                  {context.isReadOnly ? "Ver información" : "Editar información"}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={context.isReadOnly || isSaving}
+                {!context.isReadOnly ? <DropdownMenuItem
+                  disabled={isBusy || isSaving}
                   onSelect={onSave}
                 >
                   {isSaving ? (
@@ -179,15 +181,15 @@ export function TrainingPlanEditorHeader({
                     <SaveIcon data-icon="inline-start" />
                   )}
                   Guardar ahora
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={isPublishing} onSelect={onDuplicatePlan}>
+                </DropdownMenuItem> : null}
+                <DropdownMenuItem disabled={isBusy} onSelect={onDuplicatePlan}>
                   <CopyIcon data-icon="inline-start" />
                   Duplicar plan
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  disabled={Boolean(plan.isSystemTemplate) || plan.status === "archived" || isPublishing}
+                  disabled={Boolean(plan.isSystemTemplate) || plan.status === "archived" || isBusy}
                   onSelect={onArchivePlan}
                 >
                   <ArchiveIcon data-icon="inline-start" />

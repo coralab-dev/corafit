@@ -20,6 +20,7 @@ import { WorkspaceFrame, WorkspacePanel } from "@/components/layout/workspace-sh
 import { PlanTree } from "@/components/training-plans/training-plan-tree";
 import { TrainingPlanEditorHeader } from "@/components/training-plans/training-plan-editor-header";
 import { TrainingSessionEditor } from "@/components/training-plans/training-session-editor";
+import { dayLabels } from "@/components/training-plans/training-plan-days";
 import {
   getEditorContext,
   getPublicationChecklist,
@@ -43,7 +44,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type {
-  DayOfWeek,
   TrainingPlan,
   TrainingPlanDay,
   TrainingPlanWeek,
@@ -65,16 +65,6 @@ const levelLabels: Record<string, string> = {
   intermediate: "Intermedio",
 };
 
-const dayLabels: Record<DayOfWeek, string> = {
-  friday: "Viernes",
-  monday: "Lunes",
-  saturday: "Sábado",
-  sunday: "Domingo",
-  thursday: "Jueves",
-  tuesday: "Martes",
-  wednesday: "Miércoles",
-};
-
 export function TrainingPlanEditorWorkspace() {
   const params = useParams<{ planId: string }>();
   const router = useRouter();
@@ -93,6 +83,13 @@ export function TrainingPlanEditorWorkspace() {
   const planDraftVersionRef = useRef(0);
   const planRef = useRef<TrainingPlan | null>(null);
   const planSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const sessionDraftVersionRef = useRef(0);
+  const mutationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const structureMutationRef = useRef<Promise<unknown> | null>(null);
+  const globalActionInFlightRef = useRef(false);
+  const exerciseMutationQueuesRef = useRef(new Map<string, Promise<unknown>>());
+  const exerciseMutationErrorsRef = useRef(new Map<string, Set<string>>());
+  const [pendingMutationCount, setPendingMutationCount] = useState(0);
 
   const plan = editor.plan;
   planRef.current = plan;
@@ -111,8 +108,71 @@ export function TrainingPlanEditorWorkspace() {
   );
   const context = plan ? getEditorContext(plan) : null;
   const isReadOnly = context?.isReadOnly ?? true;
-  const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
+  const saveState = pendingMutationCount > 0
+    ? "saving"
+    : getCombinedSaveState(planSaveState, sessionSaveState);
   const publicationChecklist = plan ? getPublicationChecklist(plan) : null;
+  const isBusy =
+    pendingMutationCount > 0 ||
+    planSaveState === "saving" ||
+    sessionSaveState === "saving" ||
+    publishState === "saving";
+
+  async function enqueueMutation<T>(action: () => Promise<T>): Promise<T> {
+    setPendingMutationCount((count) => count + 1);
+    const operation = mutationQueueRef.current.then(action);
+    mutationQueueRef.current = operation.catch(() => undefined);
+
+    try {
+      return await operation;
+    } finally {
+      setPendingMutationCount((count) => Math.max(0, count - 1));
+    }
+  }
+
+  function enqueueStructureMutation<T>(action: () => Promise<T>): Promise<T> {
+    if (structureMutationRef.current) {
+      return structureMutationRef.current as Promise<T>;
+    }
+
+    const operation = enqueueMutation(action);
+    structureMutationRef.current = operation;
+    const clearOperation = () => {
+      if (structureMutationRef.current === operation) {
+        structureMutationRef.current = null;
+      }
+    };
+    void operation.then(clearOperation, clearOperation);
+    return operation;
+  }
+
+  function enqueueExerciseUpdate(
+    exerciseId: string,
+    action: () => Promise<unknown>,
+  ) {
+    const previous = exerciseMutationQueuesRef.current.get(exerciseId) ?? Promise.resolve();
+    const current = previous.then(() => enqueueMutation(action));
+    exerciseMutationQueuesRef.current.set(exerciseId, current.catch(() => undefined));
+    return current;
+  }
+
+  const treeEditor = {
+    ...editor,
+    copyDay: (dayId: string, body: { dayOfWeek: string }) =>
+      enqueueStructureMutation(() => editor.copyDay(dayId, body)),
+    createDay: (weekId: string, body: { dayOfWeek: string; dayType?: string; dayOrder?: number }) =>
+      enqueueStructureMutation(() => editor.createDay(weekId, body)),
+    createSession: (dayId: string, body: { name: string; description?: string | null; coachNote?: string | null }) =>
+      enqueueStructureMutation(() => editor.createSession(dayId, body)),
+    createWeek: (body: { weekNumber?: number; notes?: string }) =>
+      enqueueStructureMutation(() => editor.createWeek(body)),
+    deleteDay: (dayId: string) => enqueueStructureMutation(() => editor.deleteDay(dayId)),
+    deleteSession: (sessionId: string) => enqueueStructureMutation(() => editor.deleteSession(sessionId)),
+    deleteWeek: (weekId: string) => enqueueStructureMutation(() => editor.deleteWeek(weekId)),
+    duplicateWeek: (weekId: string) => enqueueStructureMutation(() => editor.duplicateWeek(weekId)),
+    updateDay: (dayId: string, body: { dayOfWeek: string }) =>
+      enqueueStructureMutation(() => editor.updateDay(dayId, body)),
+  };
 
   useEffect(() => {
     if (!plan) {
@@ -224,7 +284,7 @@ export function TrainingPlanEditorWorkspace() {
 
     setSessionSaveState("saving");
     try {
-      await editor.updateSession(sessionId, draft);
+      await enqueueMutation(() => editor.updateSession(sessionId, draft));
       setSessionSaveState("saved");
       return true;
     } catch (error) {
@@ -241,7 +301,7 @@ export function TrainingPlanEditorWorkspace() {
 
     setSessionSaveState("saving");
     try {
-      const result = await action();
+      const result = await enqueueStructureMutation(action);
       setSessionSaveState("saved");
       notify.success(success);
       return result;
@@ -252,17 +312,36 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
-  async function mutateExercise(action: () => Promise<unknown>) {
+  async function mutateExercise(
+    exerciseId: string,
+    body: Record<string, unknown>,
+    action: () => Promise<unknown>,
+  ) {
     if (isReadOnly) {
       return false;
     }
 
+    const versionAtStart = sessionDraftVersionRef.current;
     setSessionSaveState("saving");
     try {
-      await action();
-      setSessionSaveState("saved");
+      await enqueueExerciseUpdate(exerciseId, action);
+      const exerciseErrors = exerciseMutationErrorsRef.current.get(exerciseId);
+      for (const field of Object.keys(body)) {
+        exerciseErrors?.delete(field);
+      }
+      if (exerciseErrors?.size === 0) {
+        exerciseMutationErrorsRef.current.delete(exerciseId);
+      }
+      setSessionSaveState(exerciseMutationErrorsRef.current.size > 0
+        ? "error"
+        : sessionDraftVersionRef.current === versionAtStart ? "saved" : "dirty");
       return true;
     } catch (error) {
+      const exerciseErrors = exerciseMutationErrorsRef.current.get(exerciseId) ?? new Set();
+      for (const field of Object.keys(body)) {
+        exerciseErrors.add(field);
+      }
+      exerciseMutationErrorsRef.current.set(exerciseId, exerciseErrors);
       setSessionSaveState("error");
       notify.error(getErrorMessage(error));
       return false;
@@ -270,16 +349,20 @@ export function TrainingPlanEditorWorkspace() {
   }
 
   async function publishPlan() {
-    if (!plan || !publicationChecklist?.canPublish || publishState === "saving") {
+    if (!plan || !publicationChecklist?.canPublish || isBusy || globalActionInFlightRef.current) {
       return;
     }
 
+    globalActionInFlightRef.current = true;
     setPublishState("saving");
     const didSave = await saveAllDrafts();
     if (!didSave) {
       setPublishState("error");
+      globalActionInFlightRef.current = false;
       return;
     }
+
+    await mutationQueueRef.current;
 
     try {
       await editor.updatePlanStatus("active");
@@ -290,14 +373,17 @@ export function TrainingPlanEditorWorkspace() {
     } catch (error) {
       setPublishState("error");
       notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
     }
   }
 
   async function unpublishPlan() {
-    if (!plan || publishState === "saving") {
+    if (!plan || isBusy || globalActionInFlightRef.current) {
       return;
     }
 
+    globalActionInFlightRef.current = true;
     setPublishState("saving");
     try {
       await editor.updatePlanStatus("draft");
@@ -307,15 +393,26 @@ export function TrainingPlanEditorWorkspace() {
     } catch (error) {
       setPublishState("error");
       notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
     }
   }
 
   async function duplicateForEditing() {
-    if (!plan || publishState === "saving") {
+    if (!plan || isBusy || globalActionInFlightRef.current) {
       return;
     }
 
+    globalActionInFlightRef.current = true;
     setPublishState("saving");
+    const didSave = await saveAllDrafts();
+    if (!didSave) {
+      setPublishState("error");
+      globalActionInFlightRef.current = false;
+      return;
+    }
+
+    await mutationQueueRef.current;
     try {
       const copy = await editor.duplicatePlan();
       notify.success("Copia creada para editar");
@@ -323,14 +420,17 @@ export function TrainingPlanEditorWorkspace() {
     } catch (error) {
       setPublishState("error");
       notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
     }
   }
 
   async function archivePlan() {
-    if (!plan || plan.isSystemTemplate || plan.status === "archived") {
+    if (!plan || plan.isSystemTemplate || plan.status === "archived" || isBusy || globalActionInFlightRef.current) {
       return false;
     }
 
+    globalActionInFlightRef.current = true;
     setIsArchiving(true);
     setPublishState("saving");
     try {
@@ -344,6 +444,7 @@ export function TrainingPlanEditorWorkspace() {
       notify.error(getErrorMessage(error));
       return false;
     } finally {
+      globalActionInFlightRef.current = false;
       setIsArchiving(false);
     }
   }
@@ -378,6 +479,7 @@ export function TrainingPlanEditorWorkspace() {
         <TrainingPlanEditorHeader
           exerciseCount={totalExercises}
           plan={plan}
+          isBusy={isBusy}
           publishState={publishState}
           saveState={saveState}
           sessionCount={sessions.length}
@@ -414,7 +516,8 @@ export function TrainingPlanEditorWorkspace() {
           <div className="hidden lg:block">
             <PlanTree
               className="sticky top-4"
-              editor={editor}
+              editor={treeEditor}
+              isBusy={isBusy}
               isReadOnly={isReadOnly}
               plan={plan}
               selectedSessionId={selectedSession?.id}
@@ -426,7 +529,17 @@ export function TrainingPlanEditorWorkspace() {
           {selectedSession && selectedLocation ? (
             <TrainingSessionEditor
               day={selectedLocation.day}
+              isBusy={isBusy}
               isReadOnly={isReadOnly}
+              onDraftChange={() => {
+                sessionDraftVersionRef.current += 1;
+                setSessionSaveState("dirty");
+              }}
+              onDraftCommit={() => {
+                if (pendingMutationCount === 0 && exerciseMutationErrorsRef.current.size === 0) {
+                  setSessionSaveState("saved");
+                }
+              }}
               session={selectedSession}
               usedDays={selectedLocation.week.days.map((day) => day.dayOfWeek)}
               onAddExercise={async (exercise: Exercise) => {
@@ -531,7 +644,9 @@ export function TrainingPlanEditorWorkspace() {
               }}
               onSaveSessionInfo={saveSessionInfo}
               onUpdateExercise={(sessionExerciseId, body) =>
-                mutateExercise(() => editor.updateSessionExercise(sessionExerciseId, body))
+                mutateExercise(sessionExerciseId, body, () =>
+                  editor.updateSessionExercise(sessionExerciseId, body),
+                )
               }
             />
           ) : (
@@ -552,7 +667,8 @@ export function TrainingPlanEditorWorkspace() {
           </SheetHeader>
           <PlanTree
             className="h-full max-h-none rounded-none shadow-none"
-            editor={editor}
+            editor={treeEditor}
+            isBusy={isBusy}
             isReadOnly={isReadOnly}
             plan={plan}
             selectedSessionId={selectedSession?.id}
@@ -588,7 +704,7 @@ export function TrainingPlanEditorWorkspace() {
       {publicationChecklist ? (
         <PublishPlanDialog
           checklist={publicationChecklist}
-          isLoading={publishState === "saving"}
+          isLoading={isBusy}
           open={isPublishDialogOpen}
           onOpenChange={setIsPublishDialogOpen}
           onPublish={() => void publishPlan()}

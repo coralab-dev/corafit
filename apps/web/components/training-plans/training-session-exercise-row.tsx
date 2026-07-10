@@ -51,7 +51,10 @@ export type TrainingSessionExerciseRowProps = {
   exercise: SessionExercise;
   isFirst: boolean;
   isLast: boolean;
+  isBusy: boolean;
   isReadOnly: boolean;
+  onDraftChange: () => void;
+  onDraftCommit: () => void;
   onAddAlternative: (exercise: Exercise) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
   onDeleteAlternative: (alternativeId: string) => void;
@@ -67,7 +70,10 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
   exercise,
   isFirst,
   isLast,
+  isBusy,
   isReadOnly,
+  onDraftChange,
+  onDraftCommit,
   onAddAlternative,
   onDelete,
   onDeleteAlternative,
@@ -130,10 +136,16 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
 
     setErrors((current) => ({ ...current, [field]: undefined }));
     if (!result.changed) {
+      onDraftCommit();
       return;
     }
 
     await onUpdate({ [field]: result.value } as ExerciseUpdate);
+  }
+
+  function updateDraft(field: PrescriptionField, value: string) {
+    setDraft((current) => ({ ...current, [field]: value }));
+    onDraftChange();
   }
 
   async function saveNote() {
@@ -178,7 +190,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             inputMode="numeric"
             value={draft.sets}
             onBlur={() => void commitField("sets")}
-            onChange={(value) => setDraft((current) => ({ ...current, sets: value }))}
+            onChange={(value) => updateDraft("sets", value)}
           />
         </td>
         <td className="w-32 px-3 py-4 align-top">
@@ -188,7 +200,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             error={errors.reps}
             value={draft.reps}
             onBlur={() => void commitField("reps")}
-            onChange={(value) => setDraft((current) => ({ ...current, reps: value }))}
+            onChange={(value) => updateDraft("reps", value)}
           />
         </td>
         <td className="w-28 px-3 py-4 align-top">
@@ -199,14 +211,16 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             inputMode="numeric"
             value={draft.restSeconds}
             onBlur={() => void commitField("restSeconds")}
-            onChange={(value) => setDraft((current) => ({ ...current, restSeconds: value }))}
+            onChange={(value) => updateDraft("restSeconds", value)}
           />
         </td>
         <td className="w-14 px-3 py-4 align-top">
           <ExerciseActions
             isFirst={isFirst}
             isLast={isLast}
+            isBusy={isBusy}
             isReadOnly={isReadOnly}
+            alternativesCount={alternatives.length}
             onAddAlternative={() => setIsAlternativePickerOpen(true)}
             onDelete={() => setIsConfirmingDelete(true)}
             onDuplicate={onDuplicate}
@@ -233,7 +247,9 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
               <ExerciseActions
                 isFirst={isFirst}
                 isLast={isLast}
+                isBusy={isBusy}
                 isReadOnly={isReadOnly}
+                alternativesCount={alternatives.length}
                 onAddAlternative={() => setIsAlternativePickerOpen(true)}
                 onDelete={() => setIsConfirmingDelete(true)}
                 onDuplicate={onDuplicate}
@@ -254,7 +270,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
               inputMode="numeric"
               value={draft.sets}
               onBlur={() => void commitField("sets")}
-              onChange={(value) => setDraft((current) => ({ ...current, sets: value }))}
+              onChange={(value) => updateDraft("sets", value)}
             />
           </MobilePrescriptionField>
           <MobilePrescriptionField label="Reps" error={errors.reps}>
@@ -264,7 +280,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
               error={errors.reps}
               value={draft.reps}
               onBlur={() => void commitField("reps")}
-              onChange={(value) => setDraft((current) => ({ ...current, reps: value }))}
+              onChange={(value) => updateDraft("reps", value)}
             />
           </MobilePrescriptionField>
           <MobilePrescriptionField label="Descanso" error={errors.restSeconds}>
@@ -275,7 +291,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
               inputMode="numeric"
               value={draft.restSeconds}
               onBlur={() => void commitField("restSeconds")}
-              onChange={(value) => setDraft((current) => ({ ...current, restSeconds: value }))}
+              onChange={(value) => updateDraft("restSeconds", value)}
             />
           </MobilePrescriptionField>
         </div>
@@ -314,7 +330,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             />
           </label>
           <DialogFooter>
-            <Button disabled={isReadOnly} type="button" onClick={() => void saveNote()}>
+            <Button disabled={isReadOnly || isBusy} type="button" onClick={() => void saveNote()}>
               <SaveIcon data-icon="inline-start" />
               Guardar nota
             </Button>
@@ -323,6 +339,10 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
       </Dialog>
 
       <ExercisePickerDialog
+        excludedExerciseIds={[
+          exercise.exerciseId,
+          ...alternatives.map((alternative) => alternative.alternativeExerciseId),
+        ]}
         mode="alternative"
         open={isAlternativePickerOpen}
         sessionName={sessionName}
@@ -437,7 +457,9 @@ function ExerciseIndicators({
 }
 
 function ExerciseActions({
+  alternativesCount,
   isFirst,
+  isBusy,
   isLast,
   isReadOnly,
   onAddAlternative,
@@ -447,7 +469,9 @@ function ExerciseActions({
   onMoveDown,
   onMoveUp,
 }: {
+  alternativesCount: number;
   isFirst: boolean;
+  isBusy: boolean;
   isLast: boolean;
   isReadOnly: boolean;
   onAddAlternative: () => void;
@@ -469,29 +493,32 @@ function ExerciseActions({
         className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]"
       >
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled={isReadOnly || isFirst} onSelect={onMoveUp}>
+          <DropdownMenuItem disabled={isReadOnly || isBusy || isFirst} onSelect={onMoveUp}>
             <ArrowUpIcon data-icon="inline-start" />
             Subir
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isReadOnly || isLast} onSelect={onMoveDown}>
+          <DropdownMenuItem disabled={isReadOnly || isBusy || isLast} onSelect={onMoveDown}>
             <ArrowDownIcon data-icon="inline-start" />
             Bajar
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isReadOnly} onSelect={onDuplicate}>
+          <DropdownMenuItem disabled={isReadOnly || isBusy} onSelect={onDuplicate}>
             <CopyIcon data-icon="inline-start" />
             Duplicar
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isReadOnly} onSelect={onEditNote}>
+          <DropdownMenuItem disabled={isReadOnly || isBusy} onSelect={onEditNote}>
             <EditIcon data-icon="inline-start" />
             Editar nota
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isReadOnly} onSelect={onAddAlternative}>
+          <DropdownMenuItem
+            disabled={isReadOnly || isBusy || alternativesCount >= 3}
+            onSelect={onAddAlternative}
+          >
             <PlusIcon data-icon="inline-start" />
-            Agregar alternativa
+            {alternativesCount >= 3 ? "Máximo de 3 alternativas" : "Agregar alternativa"}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isBusy}
             onSelect={onDelete}
           >
             <Trash2Icon data-icon="inline-start" />

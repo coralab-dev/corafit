@@ -36,6 +36,7 @@ import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-se
 
 export interface ExerciseSearchProps {
   createDialogOpen?: boolean;
+  excludedExerciseIds?: string[];
   onSelect?: (exercise: Exercise) => void;
   onCreateDialogOpenChange?: (open: boolean) => void;
   presentation?: "list" | "table";
@@ -50,6 +51,7 @@ const exercisePageSize = 8;
 
 export function ExerciseSearch({
   createDialogOpen,
+  excludedExerciseIds = [],
   onSelect,
   onCreateDialogOpenChange,
   presentation = "list",
@@ -89,15 +91,20 @@ export function ExerciseSearch({
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
   const isRefreshingExercises = isLoading && items.length > 0;
-  const pageCount = Math.max(1, Math.ceil(items.length / exercisePageSize));
+  const selectableItems = useMemo(
+    () => items.filter((exercise) => !excludedExerciseIds.includes(exercise.id)),
+    [excludedExerciseIds, items],
+  );
+  const selectableTotal = excludedExerciseIds.length > 0 ? selectableItems.length : total;
+  const pageCount = Math.max(1, Math.ceil(selectableItems.length / exercisePageSize));
   const safePage = Math.min(page, pageCount);
   const visibleItems = useMemo(
     () =>
-      items.slice(
+      selectableItems.slice(
         (safePage - 1) * exercisePageSize,
         safePage * exercisePageSize,
       ),
-    [items, safePage],
+    [safePage, selectableItems],
   );
 
   useEffect(() => {
@@ -279,12 +286,12 @@ export function ExerciseSearch({
       <div className="flex flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            {items.length
+            {selectableItems.length
               ? `Mostrando ${(safePage - 1) * exercisePageSize + 1}-${Math.min(
                   safePage * exercisePageSize,
-                  items.length,
-                )} de ${total} resultados`
-              : `${total} resultados`}
+                  selectableItems.length,
+                )} de ${selectableTotal} resultados`
+              : `${selectableTotal} resultados`}
           </span>
         </div>
 
@@ -292,7 +299,7 @@ export function ExerciseSearch({
 
         {!error && isLoading && items.length === 0 ? (
           <ExerciseSkeletonList presentation={presentation} />
-        ) : !error && items.length ? (
+        ) : !error && selectableItems.length ? (
           <div className="flex flex-col">
             {presentation === "table" ? (
               <ExerciseTable

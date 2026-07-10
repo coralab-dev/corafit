@@ -10,7 +10,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { Button } from "@/components/ui/button";
@@ -39,23 +39,14 @@ import {
 } from "@/hooks/use-training-plans";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { dayLabels, dayOfWeekValues } from "./training-plan-days";
 
-const dayLabels: Record<DayOfWeek, string> = {
-  friday: "Viernes",
-  monday: "Lunes",
-  saturday: "Sábado",
-  sunday: "Domingo",
-  thursday: "Jueves",
-  tuesday: "Martes",
-  wednesday: "Miércoles",
-};
-
-const dayOfWeekValues = Object.keys(dayLabels) as DayOfWeek[];
 type MutationState = "saving" | "saved" | "error";
 
 export function PlanTree({
   className,
   editor,
+  isBusy,
   isReadOnly,
   onMutationStateChange,
   onSelectSession,
@@ -64,6 +55,7 @@ export function PlanTree({
 }: {
   className?: string;
   editor: ReturnType<typeof useTrainingPlanEditor>;
+  isBusy: boolean;
   isReadOnly: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onSelectSession: (sessionId: string) => void;
@@ -81,9 +73,16 @@ export function PlanTree({
   const [expandedWeekIds, setExpandedWeekIds] = useState<Set<string>>(
     () => new Set(weeks[0] ? [weeks[0].id] : []),
   );
-  const [manuallyClosedWeekIds, setManuallyClosedWeekIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const previousSelectedWeekIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedWeekId || selectedWeekId === previousSelectedWeekIdRef.current) {
+      return;
+    }
+
+    previousSelectedWeekIdRef.current = selectedWeekId;
+    setExpandedWeekIds((current) => new Set(current).add(selectedWeekId));
+  }, [selectedWeekId]);
 
   function setWeekOpen(weekId: string, open: boolean) {
     setExpandedWeekIds((current) => {
@@ -92,15 +91,6 @@ export function PlanTree({
         next.add(weekId);
       } else {
         next.delete(weekId);
-      }
-      return next;
-    });
-    setManuallyClosedWeekIds((current) => {
-      const next = new Set(current);
-      if (open) {
-        next.delete(weekId);
-      } else {
-        next.add(weekId);
       }
       return next;
     });
@@ -136,27 +126,14 @@ export function PlanTree({
 
       <div className="plan-tree-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
         {weeks.map((week) => {
-          const isOpen =
-            selectedWeekId === week.id ||
-            (expandedWeekIds.has(week.id) && !manuallyClosedWeekIds.has(week.id));
+          const isOpen = expandedWeekIds.has(week.id);
 
           return (
             <details
               key={week.id}
               className="group rounded-xl bg-background"
               open={isOpen}
-              onToggle={(event) => {
-                const nextOpen = event.currentTarget.open;
-                if (selectedWeekId === week.id && !nextOpen) {
-                  setManuallyClosedWeekIds((current) => new Set(current).add(week.id));
-                  event.currentTarget.open = true;
-                  return;
-                }
-                if (selectedWeekId === week.id) {
-                  return;
-                }
-                setWeekOpen(week.id, nextOpen);
-              }}
+              onToggle={(event) => setWeekOpen(week.id, event.currentTarget.open)}
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 py-3 text-sm hover:bg-muted/40">
                 <span className="flex min-w-0 items-center gap-2">
@@ -174,6 +151,7 @@ export function PlanTree({
                 {!isReadOnly ? (
                   <WeekActions
                     editor={editor}
+                    isBusy={isBusy}
                     week={week}
                     onDuplicated={expandWeek}
                     onMutationStateChange={onMutationStateChange}
@@ -187,6 +165,7 @@ export function PlanTree({
                     day={day}
                     editor={editor}
                     isReadOnly={isReadOnly}
+                    isBusy={isBusy}
                     isSelected={day.session?.id === selectedSessionId}
                     usedDays={week.days.map((item) => item.dayOfWeek)}
                     onMutationStateChange={onMutationStateChange}
@@ -196,6 +175,7 @@ export function PlanTree({
                 {!isReadOnly ? (
                   <AddDayDialog
                     editor={editor}
+                    isBusy={isBusy}
                     onMutationStateChange={onMutationStateChange}
                     usedDays={week.days.map((day) => day.dayOfWeek)}
                     weekId={week.id}
@@ -223,6 +203,7 @@ export function PlanTree({
         <div className="sticky bottom-0 shrink-0 border-t bg-card p-3">
           <Button
             className="w-full border-primary/35 text-primary hover:bg-primary/10"
+            disabled={isBusy}
             type="button"
             variant="outline"
             onClick={() => {
@@ -251,11 +232,13 @@ export function PlanTree({
 
 function WeekActions({
   editor,
+  isBusy,
   onDuplicated,
   onMutationStateChange,
   week,
 }: {
   editor: ReturnType<typeof useTrainingPlanEditor>;
+  isBusy: boolean;
   onDuplicated: (weekId: string) => void;
   onMutationStateChange: (state: MutationState) => void;
   week: TrainingPlanWeek;
@@ -284,6 +267,7 @@ function WeekActions({
         >
           <DropdownMenuGroup>
             <DropdownMenuItem
+              disabled={isBusy}
               onSelect={() => {
                 onMutationStateChange("saving");
                 void editor
@@ -304,6 +288,7 @@ function WeekActions({
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
+              disabled={isBusy}
               onSelect={() => setIsConfirmingDelete(true)}
             >
               <Trash2Icon data-icon="inline-start" />
@@ -345,6 +330,7 @@ function DayNode({
   day,
   editor,
   isReadOnly,
+  isBusy,
   isSelected,
   onMutationStateChange,
   onSelectSession,
@@ -353,6 +339,7 @@ function DayNode({
   day: TrainingPlanDay;
   editor: ReturnType<typeof useTrainingPlanEditor>;
   isReadOnly: boolean;
+  isBusy: boolean;
   isSelected: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onSelectSession: (sessionId: string) => void;
@@ -385,6 +372,7 @@ function DayNode({
           {!isReadOnly && day.dayType === "training" ? (
             <Button
               className="mt-2 h-7 px-2 text-xs"
+              disabled={isBusy}
               type="button"
               variant="ghost"
               onClick={() => {
@@ -412,6 +400,7 @@ function DayNode({
         <DayActions
           day={day}
           editor={editor}
+          isBusy={isBusy}
           onMutationStateChange={onMutationStateChange}
           usedDays={usedDays}
           onSelectSession={onSelectSession}
@@ -424,12 +413,14 @@ function DayNode({
 function DayActions({
   day,
   editor,
+  isBusy,
   onMutationStateChange,
   onSelectSession,
   usedDays,
 }: {
   day: TrainingPlanDay;
   editor: ReturnType<typeof useTrainingPlanEditor>;
+  isBusy: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onSelectSession: (sessionId: string) => void;
   usedDays: DayOfWeek[];
@@ -448,15 +439,15 @@ function DayActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]">
           <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setDialogMode("move")}>
+            <DropdownMenuItem disabled={isBusy} onSelect={() => setDialogMode("move")}>
               <CalendarDaysIcon data-icon="inline-start" />
               Cambiar día
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setDialogMode("copy")}>
+            <DropdownMenuItem disabled={isBusy} onSelect={() => setDialogMode("copy")}>
               <CopyIcon data-icon="inline-start" />
               Duplicar día
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setIsConfirmingDelete(true)}>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" disabled={isBusy} onSelect={() => setIsConfirmingDelete(true)}>
               <Trash2Icon data-icon="inline-start" />
               Eliminar día
             </DropdownMenuItem>
@@ -522,12 +513,14 @@ function DayActions({
 
 function AddDayDialog({
   editor,
+  isBusy,
   onMutationStateChange,
   onCreated,
   usedDays,
   weekId,
 }: {
   editor: ReturnType<typeof useTrainingPlanEditor>;
+  isBusy: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onCreated: (sessionId?: string) => void;
   usedDays: DayOfWeek[];
@@ -544,7 +537,7 @@ function AddDayDialog({
     <>
       <Button
         className="mt-1 w-full justify-start text-muted-foreground"
-        disabled={availableDays.length === 0}
+        disabled={availableDays.length === 0 || isBusy}
         size="sm"
         type="button"
         variant="ghost"
@@ -627,13 +620,17 @@ function AddDayDialog({
                         onCreated(session.id);
                         onMutationStateChange("saved");
                       } catch (error) {
-                        onCreated();
                         onMutationStateChange("error");
-                        setIsOpen(false);
-                        notify.error(
-                          `El día se creó, pero la sesión no pudo configurarse: ${getErrorMessage(error)}`,
-                        );
-                        return;
+                        try {
+                          await editor.deleteDay(day.id);
+                        } catch {
+                          notify.error(
+                            "La sesión no pudo crearse y el día quedó agregado. Elimínalo o configura una sesión manualmente.",
+                          );
+                          throw error;
+                        }
+
+                        throw error;
                       }
                     } else {
                       onCreated();

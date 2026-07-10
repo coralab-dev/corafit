@@ -8,6 +8,20 @@ export type EditorPrimaryAction =
   | "duplicate-archived";
 export type PrescriptionField = "sets" | "reps" | "restSeconds";
 
+export function mergeSessionExerciseUpdate<T extends object>(
+  current: T,
+  response: T,
+  requestedFields: Partial<T>,
+): T {
+  const merged = { ...current };
+
+  for (const key of Object.keys(requestedFields) as Array<keyof T>) {
+    merged[key] = response[key];
+  }
+
+  return merged;
+}
+
 type EditorContextPlan = {
   isSystemTemplate?: boolean;
   status: TrainingPlanStatus;

@@ -4,6 +4,7 @@ import {
   getEditorContext,
   getPublicationChecklist,
   getSaveStateLabel,
+  mergeSessionExerciseUpdate,
   parsePrescriptionUpdate,
 } from "./training-plan-editor-utils.ts";
 
@@ -103,4 +104,24 @@ test("validates prescription values and avoids unchanged patches", () => {
     error: null,
     value: "8-10",
   });
+});
+
+test("merges an exercise response without replacing newer local fields", () => {
+  const current = {
+    alternatives: [],
+    coachNote: null,
+    exerciseId: "exercise-1",
+    id: "row-1",
+    orderIndex: 0,
+    reps: "8-10",
+    restSeconds: 60,
+    sets: 4,
+    trainingSessionId: "session-1",
+  };
+  const staleResponse = { ...current, reps: "10-12", restSeconds: 90, sets: 3 };
+
+  assert.deepEqual(
+    mergeSessionExerciseUpdate(current, staleResponse, { sets: 3 }),
+    { ...current, sets: 3 },
+  );
 });

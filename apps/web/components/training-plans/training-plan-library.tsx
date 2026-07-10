@@ -85,7 +85,7 @@ export function TrainingPlanLibrary({
           <Input
             aria-label="Buscar planes"
             className="h-10 bg-background pl-10"
-            placeholder="Buscar por nombre, objetivo o notas"
+            placeholder="Buscar planes por nombre"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
           />

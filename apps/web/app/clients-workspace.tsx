@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { notify } from "@/lib/notify";
@@ -14,10 +14,18 @@ import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCa
 import { useAuth } from "@/components/providers/auth-provider";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { PanelSkeleton } from "@/components/shared/skeletons";
-import { authenticatedRequest } from "@/lib/api/authenticated-request";
+import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
-import type { Client, ClientsResponse, CurrentPlanAssignment, OperationalStatus } from "@/lib/clients/types";
+import { normalizeClient, resolveClientDetailState } from "@/components/clients/client-detail-state";
+import type {
+  Client,
+  ClientAccess,
+  ClientDetailResponse,
+  ClientsResponse,
+  CurrentPlanAssignment,
+  OperationalStatus,
+} from "@/lib/clients/types";
 
 interface ClientsWorkspaceProps {
   mode?: "list" | "detail";
@@ -34,6 +42,11 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
   const [isListLoading, setIsListLoading] = useState(false);
+  const [detailClient, setDetailClient] = useState<Client | null>(null);
+  const [detailAssignment, setDetailAssignment] = useState<CurrentPlanAssignment | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const detailRequestRef = useRef(0);
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -68,6 +81,15 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const selectedAssignment = selectedClient
     ? visibleAssignmentsByClient[selectedClient.id]
     : null;
+  const currentDetailClient = detailClient?.id === selectedClientId ? detailClient : null;
+  const actionClient = mode === "detail" ? currentDetailClient : selectedClient;
+  const actionAssignment = mode === "detail"
+    ? currentDetailClient
+      ? detailAssignment
+      : null
+    : selectedAssignment;
+  const isDetailNavigationLoading =
+    mode === "detail" && Boolean(selectedClientId) && !currentDetailClient;
   const isInitialLoading =
     (authStatus === "loading" && !hasLoadedClients) ||
     (isListLoading && !hasLoadedClients);
@@ -98,6 +120,75 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       return assignment;
     },
     [clientsRequest, isApiReady],
+  );
+
+  const loadClientDetail = useCallback(
+    async (clientId: string, requestId: number) => {
+      const isCurrentRequest = () => detailRequestRef.current === requestId;
+
+      if (!clientId || !isCurrentRequest()) {
+        return;
+      }
+
+      try {
+        const [clientResponse, access, assignment] = await Promise.all([
+          clientsRequest<ClientDetailResponse>(`/clients/${clientId}`, { method: "GET" }),
+          clientsRequest<ClientAccess | null>(`/clients/${clientId}/access`, { method: "GET" }),
+          clientsRequest<CurrentPlanAssignment | null>(
+            `/clients/${clientId}/plan-assignment/current`,
+            { method: "GET" },
+          ),
+        ]);
+
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        const state = resolveClientDetailState(clientId, {
+          requestedClientId: clientId,
+          client: clientResponse,
+          access,
+          assignment,
+        });
+
+        if (!state) {
+          return;
+        }
+
+        if (state.status === "ready") {
+          setDetailClient(state.client);
+          setDetailAssignment(state.assignment);
+        } else if (state.status === "error") {
+          setDetailError(state.error);
+        }
+      } catch (caughtError) {
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        const isNotFound = caughtError instanceof CoraFitApiError && caughtError.status === 404;
+        const state = resolveClientDetailState(clientId, {
+          requestedClientId: clientId,
+          client: null,
+          access: null,
+          assignment: null,
+          error: isNotFound ? undefined : getErrorMessage(caughtError),
+          notFound: isNotFound,
+        });
+
+        if (state?.status === "not-found") {
+          setDetailClient(null);
+          setDetailAssignment(null);
+        } else if (state?.status === "error") {
+          setDetailError(state.error);
+        }
+      } finally {
+        if (isCurrentRequest()) {
+          setIsDetailLoading(false);
+        }
+      }
+    },
+    [clientsRequest],
   );
 
   const loadClients = useCallback(async () => {
@@ -153,12 +244,56 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }, [authStatus, clientsRequest, isApiReady, organizationId, selectedFromQuery]);
 
   useEffect(() => {
+    if (mode !== "list") {
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       void loadClients();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadClients]);
+  }, [loadClients, mode]);
+
+  useEffect(() => {
+    if (mode !== "detail") {
+      return;
+    }
+
+    const requestId = ++detailRequestRef.current;
+    const requestedClientId = selectedClientId ?? "";
+    const timer = window.setTimeout(() => {
+      if (detailRequestRef.current !== requestId) {
+        return;
+      }
+
+      setDetailClient(null);
+      setDetailAssignment(null);
+      setDetailError("");
+      setError("");
+
+      if (!requestedClientId) {
+        setIsDetailLoading(false);
+        return;
+      }
+
+      if (!isApiReady) {
+        setIsDetailLoading(authStatus === "loading");
+        setDetailError(authStatus === "loading" ? "" : "Inicia sesiÃ³n para leer tus clientes.");
+        return;
+      }
+
+      setIsDetailLoading(true);
+      void loadClientDetail(requestedClientId, requestId);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (detailRequestRef.current === requestId) {
+        detailRequestRef.current += 1;
+      }
+    };
+  }, [authStatus, isApiReady, loadClientDetail, mode, selectedClientId]);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -177,6 +312,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }, [isRefreshing]);
 
   useEffect(() => {
+    if (mode !== "list") {
+      return;
+    }
+
     if (!selectedId || !isApiReady) {
       return;
     }
@@ -195,7 +334,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [isApiReady, loadCurrentPlanAssignment, selectedId]);
+  }, [isApiReady, loadCurrentPlanAssignment, mode, selectedId]);
 
   const displayClients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -257,25 +396,30 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       const payload = normalizeFormValues(values);
 
       if (editingClient) {
-        const updatedClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
+        const updatedClient = await clientsRequest<ClientDetailResponse>(
           `/clients/${editingClient.id}`,
           { method: "PATCH", body: JSON.stringify(payload) },
         );
         setAllClients((current) =>
           current.map((client) =>
             client.id === editingClient.id
-              ? { ...updatedClient, access: client.access, currentAssignment: client.currentAssignment }
+              ? normalizeClient(updatedClient, client.access, client.currentAssignment)
               : client,
           ),
         );
+        setDetailClient((current) =>
+          current?.id === editingClient.id
+            ? normalizeClient(updatedClient, current.access, current.currentAssignment)
+            : current,
+        );
         notify.success("Cliente actualizado");
       } else {
-        const createdClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
+        const createdClient = await clientsRequest<ClientDetailResponse>(
           "/clients",
           { method: "POST", body: JSON.stringify(payload) },
         );
         setAllClients((current) => [
-          { ...createdClient, access: { status: "none" }, currentAssignment: null },
+          normalizeClient(createdClient, null, null),
           ...current,
         ]);
         setAssignmentsByClient((current) => ({ ...current, [createdClient.id]: null }));
@@ -294,16 +438,21 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   async function updateStatus(clientId: string, status: OperationalStatus) {
     setError("");
     try {
-      const updatedClient = await clientsRequest<Omit<Client, "access" | "currentAssignment">>(
+      const updatedClient = await clientsRequest<ClientDetailResponse>(
         `/clients/${clientId}/status`,
         { method: "PATCH", body: JSON.stringify({ status }) },
       );
       setAllClients((current) =>
         current.map((client) =>
           client.id === clientId
-            ? { ...updatedClient, access: client.access, currentAssignment: client.currentAssignment }
+            ? normalizeClient(updatedClient, client.access, client.currentAssignment)
             : client,
         ),
+      );
+      setDetailClient((current) =>
+        current?.id === clientId
+          ? normalizeClient(updatedClient, current.access, current.currentAssignment)
+          : current,
       );
       notify.success(`Cliente ${statusLabels[status].toLowerCase()}`);
     } catch (caughtError) {
@@ -312,7 +461,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }
 
   async function endCurrentPlanForSelectedClient() {
-    if (!selectedClient) {
+    if (!actionClient) {
       return;
     }
 
@@ -320,10 +469,18 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     setError("");
     try {
       await clientsRequest(
-        `/clients/${selectedClient.id}/plan-assignment/current/end`,
+        `/clients/${actionClient.id}/plan-assignment/current/end`,
         { method: "POST" },
       );
-      await loadCurrentPlanAssignment(selectedClient.id);
+      if (mode === "detail") {
+        const assignment = await clientsRequest<CurrentPlanAssignment | null>(
+          `/clients/${actionClient.id}/plan-assignment/current`,
+          { method: "GET" },
+        );
+        setDetailAssignment(assignment);
+      } else {
+        await loadCurrentPlanAssignment(actionClient.id);
+      }
       setIsEndPlanOpen(false);
       notify.success("Plan finalizado");
     } catch (caughtError) {
@@ -344,7 +501,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         onSubmit={submitClient}
       />
       <EndPlanDialog
-        assignment={selectedAssignment}
+        assignment={actionAssignment}
         isEnding={isEndingPlan}
         isOpen={isEndPlanOpen}
         onConfirm={endCurrentPlanForSelectedClient}
@@ -358,8 +515,8 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       <WorkspaceFrame
         header={
           <WorkspaceHeader
-            description={selectedClient?.mainGoal ?? "Datos operativos, acceso y plan actual del cliente."}
-            title={selectedClient?.name ?? "Ficha de cliente"}
+            description={currentDetailClient?.mainGoal ?? "Datos operativos, acceso y plan actual del cliente."}
+            title={currentDetailClient?.name ?? "Ficha de cliente"}
             actions={
               <Button asChild className="shadow-none" variant="outline">
                 <Link href="/clients">Volver a clientes</Link>
@@ -371,15 +528,15 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         <WorkspaceSplit
           main={
             <div className="flex flex-col gap-5 bg-background p-6">
-              {error ? <ClientErrorCard error={error} /> : null}
+              {detailError || error ? <ClientErrorCard error={detailError || error} /> : null}
 
-              {isInitialLoading && !selectedClient ? (
+              {(isDetailLoading || isDetailNavigationLoading) && !currentDetailClient ? (
                 <ClientDetailLoadingCard />
-              ) : selectedClient ? (
+              ) : currentDetailClient ? (
                 <ClientDetail
-                  assignment={selectedAssignment}
-                  client={selectedClient}
-                  isPlanLoading={assignmentLoadingId === selectedClient.id}
+                  assignment={detailAssignment}
+                  client={currentDetailClient}
+                  isPlanLoading={isDetailLoading}
                   variant="page"
                   onEndPlan={() => setIsEndPlanOpen(true)}
                   onEdit={openEditForm}
@@ -392,14 +549,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           }
           side={
             <div className="p-5">
-              {selectedClient ? (
+              {currentDetailClient ? (
                 <ClientQuickPanel
-                  assignment={selectedAssignment}
-                  client={selectedClient}
-                  onEdit={() => openEditForm(selectedClient)}
+                  assignment={detailAssignment}
+                  client={currentDetailClient}
+                  onEdit={() => openEditForm(currentDetailClient)}
                   onEndPlan={() => setIsEndPlanOpen(true)}
                 />
-              ) : isInitialLoading ? (
+              ) : isDetailLoading || isDetailNavigationLoading ? (
                 <PanelSkeleton rows={4} titleWidth="w-32" />
               ) : null}
             </div>

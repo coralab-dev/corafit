@@ -17,7 +17,13 @@ import { PanelSkeleton } from "@/components/shared/skeletons";
 import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
-import { normalizeClient, resolveClientDetailState } from "@/components/clients/client-detail-state";
+import {
+  idleClientDetailState,
+  loadingClientDetailState,
+  normalizeClient,
+  reduceClientDetailState,
+  resolveClientDetailState,
+} from "@/components/clients/client-detail-state";
 import type {
   Client,
   ClientAccess,
@@ -42,10 +48,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
   const [isListLoading, setIsListLoading] = useState(false);
-  const [detailClient, setDetailClient] = useState<Client | null>(null);
-  const [detailAssignment, setDetailAssignment] = useState<CurrentPlanAssignment | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
+  const [detailState, setDetailState] = useState(idleClientDetailState);
   const detailRequestRef = useRef(0);
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [error, setError] = useState("");
@@ -81,15 +84,17 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const selectedAssignment = selectedClient
     ? visibleAssignmentsByClient[selectedClient.id]
     : null;
-  const currentDetailClient = detailClient?.id === selectedClientId ? detailClient : null;
+  const currentDetailClient =
+    detailState.status === "ready" && detailState.client.id === selectedClientId
+      ? detailState.client
+      : null;
+  const currentDetailAssignment = currentDetailClient ? detailState.assignment : null;
   const actionClient = mode === "detail" ? currentDetailClient : selectedClient;
   const actionAssignment = mode === "detail"
     ? currentDetailClient
-      ? detailAssignment
+      ? currentDetailAssignment
       : null
     : selectedAssignment;
-  const isDetailNavigationLoading =
-    mode === "detail" && Boolean(selectedClientId) && !currentDetailClient;
   const isInitialLoading =
     (authStatus === "loading" && !hasLoadedClients) ||
     (isListLoading && !hasLoadedClients);
@@ -144,23 +149,15 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           return;
         }
 
-        const state = resolveClientDetailState(clientId, {
-          requestedClientId: clientId,
-          client: clientResponse,
-          access,
-          assignment,
-        });
+        setDetailState((current) =>
+          reduceClientDetailState(current, clientId, {
+            requestedClientId: clientId,
+            client: clientResponse,
+            access,
+            assignment,
+          }),
+        );
 
-        if (!state) {
-          return;
-        }
-
-        if (state.status === "ready") {
-          setDetailClient(state.client);
-          setDetailAssignment(state.assignment);
-        } else if (state.status === "error") {
-          setDetailError(state.error);
-        }
       } catch (caughtError) {
         if (!isCurrentRequest()) {
           return;
@@ -176,16 +173,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           notFound: isNotFound,
         });
 
-        if (state?.status === "not-found") {
-          setDetailClient(null);
-          setDetailAssignment(null);
-        } else if (state?.status === "error") {
-          setDetailError(state.error);
-        }
-      } finally {
-        if (isCurrentRequest()) {
-          setIsDetailLoading(false);
-        }
+        setDetailState((current) => state ?? current);
       }
     },
     [clientsRequest],
@@ -267,23 +255,28 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         return;
       }
 
-      setDetailClient(null);
-      setDetailAssignment(null);
-      setDetailError("");
+      setDetailState(idleClientDetailState);
       setError("");
 
       if (!requestedClientId) {
-        setIsDetailLoading(false);
         return;
       }
 
       if (!isApiReady) {
-        setIsDetailLoading(authStatus === "loading");
-        setDetailError(authStatus === "loading" ? "" : "Inicia sesiÃ³n para leer tus clientes.");
+        setDetailState(
+          authStatus === "loading"
+            ? loadingClientDetailState
+            : {
+                status: "error",
+                client: null,
+                assignment: null,
+                error: "Inicia sesiÃ³n para leer tus clientes.",
+              },
+        );
         return;
       }
 
-      setIsDetailLoading(true);
+      setDetailState(loadingClientDetailState);
       void loadClientDetail(requestedClientId, requestId);
     }, 0);
 
@@ -407,9 +400,16 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
               : client,
           ),
         );
-        setDetailClient((current) =>
-          current?.id === editingClient.id
-            ? normalizeClient(updatedClient, current.access, current.currentAssignment)
+        setDetailState((current) =>
+          current.status === "ready" && current.client.id === editingClient.id
+            ? {
+                ...current,
+                client: normalizeClient(
+                  updatedClient,
+                  current.client.access,
+                  current.client.currentAssignment,
+                ),
+              }
             : current,
         );
         notify.success("Cliente actualizado");
@@ -449,9 +449,16 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             : client,
         ),
       );
-      setDetailClient((current) =>
-        current?.id === clientId
-          ? normalizeClient(updatedClient, current.access, current.currentAssignment)
+      setDetailState((current) =>
+        current.status === "ready" && current.client.id === clientId
+          ? {
+              ...current,
+              client: normalizeClient(
+                updatedClient,
+                current.client.access,
+                current.client.currentAssignment,
+              ),
+            }
           : current,
       );
       notify.success(`Cliente ${statusLabels[status].toLowerCase()}`);
@@ -477,7 +484,18 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           `/clients/${actionClient.id}/plan-assignment/current`,
           { method: "GET" },
         );
-        setDetailAssignment(assignment);
+        setDetailState((current) =>
+          current.status === "ready" && current.client.id === actionClient.id
+            ? {
+                ...current,
+                assignment,
+                client: {
+                  ...current.client,
+                  currentAssignment: assignment,
+                },
+              }
+            : current,
+        );
       } else {
         await loadCurrentPlanAssignment(actionClient.id);
       }
@@ -528,22 +546,28 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         <WorkspaceSplit
           main={
             <div className="flex flex-col gap-5 bg-background p-6">
-              {detailError || error ? <ClientErrorCard error={detailError || error} /> : null}
+              {detailState.status === "error" || error ? (
+                <ClientErrorCard
+                  error={detailState.status === "error" ? detailState.error : error}
+                />
+              ) : null}
 
-              {(isDetailLoading || isDetailNavigationLoading) && !currentDetailClient ? (
+              {detailState.status === "loading" ? (
                 <ClientDetailLoadingCard />
-              ) : currentDetailClient ? (
+              ) : detailState.status === "ready" && currentDetailClient ? (
                 <ClientDetail
-                  assignment={detailAssignment}
+                  assignment={currentDetailAssignment}
                   client={currentDetailClient}
-                  isPlanLoading={isDetailLoading}
+                  isPlanLoading={false}
                   variant="page"
                   onEndPlan={() => setIsEndPlanOpen(true)}
                   onEdit={openEditForm}
                   onStatusChange={updateStatus}
                 />
-              ) : (
+              ) : detailState.status === "not-found" ? (
                 <ClientNotFoundCard />
+              ) : (
+                null
               )}
             </div>
           }
@@ -551,12 +575,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             <div className="p-5">
               {currentDetailClient ? (
                 <ClientQuickPanel
-                  assignment={detailAssignment}
+                  assignment={currentDetailAssignment}
                   client={currentDetailClient}
                   onEdit={() => openEditForm(currentDetailClient)}
                   onEndPlan={() => setIsEndPlanOpen(true)}
                 />
-              ) : isDetailLoading || isDetailNavigationLoading ? (
+              ) : detailState.status === "loading" ? (
                 <PanelSkeleton rows={4} titleWidth="w-32" />
               ) : null}
             </div>

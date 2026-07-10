@@ -16,6 +16,18 @@ export type ClientDetailLoadResult = {
 
 export type ClientDetailState =
   | {
+      status: "idle";
+      client: null;
+      assignment: null;
+      error: null;
+    }
+  | {
+      status: "loading";
+      client: null;
+      assignment: null;
+      error: null;
+    }
+  | {
       status: "ready";
       client: Client;
       assignment: CurrentPlanAssignment | null;
@@ -33,6 +45,20 @@ export type ClientDetailState =
       assignment: null;
       error: string;
     };
+
+export const idleClientDetailState: ClientDetailState = {
+  status: "idle",
+  client: null,
+  assignment: null,
+  error: null,
+};
+
+export const loadingClientDetailState: ClientDetailState = {
+  status: "loading",
+  client: null,
+  assignment: null,
+  error: null,
+};
 
 export function normalizeClient(
   response: ClientDetailResponse,
@@ -88,4 +114,12 @@ export function resolveClientDetailState(
     assignment: result.assignment ?? null,
     error: null,
   };
+}
+
+export function reduceClientDetailState(
+  currentState: ClientDetailState,
+  requestedClientId: string,
+  result: ClientDetailLoadResult,
+): ClientDetailState {
+  return resolveClientDetailState(requestedClientId, result) ?? currentState;
 }

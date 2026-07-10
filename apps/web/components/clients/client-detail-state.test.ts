@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  loadingClientDetailState,
+  reduceClientDetailState,
   resolveClientDetailState,
   type ClientDetailLoadResult,
 } from "./client-detail-state.ts";
@@ -73,6 +75,39 @@ test("returns not-found when the requested client does not exist", () => {
   });
 });
 
+test("keeps not-found as a terminal state", () => {
+  const state = reduceClientDetailState(
+    loadingClientDetailState,
+    "missing-client",
+    createResult({
+      requestedClientId: "missing-client",
+      client: null,
+      notFound: true,
+    }),
+  );
+
+  assert.equal(state.status, "not-found");
+  assert.equal(state.client, null);
+});
+
+test("keeps errors terminal instead of converting them to loading", () => {
+  const state = reduceClientDetailState(
+    loadingClientDetailState,
+    "client-1",
+    createResult({
+      client: null,
+      error: "No se pudo cargar la ficha.",
+    }),
+  );
+
+  assert.deepEqual(state, {
+    status: "error",
+    client: null,
+    assignment: null,
+    error: "No se pudo cargar la ficha.",
+  });
+});
+
 test("normalizes and keeps an archived client returned by the direct endpoint", () => {
   const state = resolveClientDetailState(
     "archived-client",
@@ -101,4 +136,35 @@ test("ignores a response from an older navigation", () => {
   );
 
   assert.equal(state, null);
+});
+
+test("does not let an obsolete response alter the current state", () => {
+  const currentState = {
+    status: "loading" as const,
+    client: null,
+    assignment: null,
+    error: null,
+  };
+
+  const state = reduceClientDetailState(
+    currentState,
+    "new-client",
+    createResult({
+      requestedClientId: "old-client",
+      client: { ...baseClient, id: "old-client" },
+    }),
+  );
+
+  assert.equal(state, currentState);
+});
+
+test("transitions from loading to ready", () => {
+  const state = reduceClientDetailState(
+    loadingClientDetailState,
+    "client-1",
+    createResult(),
+  );
+
+  assert.equal(state.status, "ready");
+  assert.equal(state.client?.id, "client-1");
 });

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import {
   AlertCircleIcon,
   DumbbellIcon,
@@ -33,6 +35,11 @@ import {
 } from "@/hooks/use-exercises";
 import { ExerciseCreateDialog } from "./exercise-create-dialog";
 import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-search-item";
+import {
+  filterSelectableExercises,
+  getExercisePageCount,
+  shouldShowExcludedPageMessage,
+} from "./exercise-search-utils";
 
 export interface ExerciseSearchProps {
   createDialogOpen?: boolean;
@@ -82,30 +89,34 @@ export function ExerciseSearch({
   const filters = useMemo(
     () => ({
       equipment,
+      limit: exercisePageSize,
+      page,
       primaryMuscle,
       search: debouncedQuery,
       type,
     }),
-    [debouncedQuery, equipment, primaryMuscle, type],
+    [debouncedQuery, equipment, page, primaryMuscle, type],
   );
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
   const isRefreshingExercises = isLoading && items.length > 0;
   const selectableItems = useMemo(
-    () => items.filter((exercise) => !excludedExerciseIds.includes(exercise.id)),
+    () => filterSelectableExercises(items, excludedExerciseIds),
     [excludedExerciseIds, items],
   );
-  const selectableTotal = excludedExerciseIds.length > 0 ? selectableItems.length : total;
-  const pageCount = Math.max(1, Math.ceil(selectableItems.length / exercisePageSize));
+  const pageCount = getExercisePageCount(total, exercisePageSize);
   const safePage = Math.min(page, pageCount);
-  const visibleItems = useMemo(
-    () =>
-      selectableItems.slice(
-        (safePage - 1) * exercisePageSize,
-        safePage * exercisePageSize,
-      ),
-    [safePage, selectableItems],
-  );
+  const visibleItems = selectableItems;
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectionMode]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(1);
+    }
+  }, [excludedExerciseIds, page, pageCount]);
 
   useEffect(() => {
     if (reloadToken === undefined) {
@@ -140,6 +151,11 @@ export function ExerciseSearch({
     setIsCreating(true);
     try {
       const exercise = await createExercise(input);
+      const shouldRefreshCurrentPage = page === 1;
+      setPage(1);
+      if (shouldRefreshCurrentPage) {
+        await refresh();
+      }
       setCreateOpen(false);
       onSelect?.(exercise);
       notify.success("Ejercicio creado");
@@ -285,21 +301,14 @@ export function ExerciseSearch({
       </div>
       <div className="flex flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>
-            {selectableItems.length
-              ? `Mostrando ${(safePage - 1) * exercisePageSize + 1}-${Math.min(
-                  safePage * exercisePageSize,
-                  selectableItems.length,
-                )} de ${selectableTotal} resultados`
-              : `${selectableTotal} resultados`}
-          </span>
+          <span>{`Página ${safePage} de ${pageCount} · ${total} ejercicios disponibles`}</span>
         </div>
 
         {error ? <ErrorState message={error} /> : null}
 
         {!error && isLoading && items.length === 0 ? (
           <ExerciseSkeletonList presentation={presentation} />
-        ) : !error && selectableItems.length ? (
+        ) : !error && visibleItems.length ? (
           <div className="flex flex-col">
             {presentation === "table" ? (
               <ExerciseTable
@@ -319,16 +328,20 @@ export function ExerciseSearch({
                 />
               ))
             )}
-            {pageCount > 1 ? (
-              <ExercisePagination
-                page={safePage}
-                pageCount={pageCount}
-                onPageChange={setPage}
-              />
-            ) : null}
+          </div>
+        ) : !error && shouldShowExcludedPageMessage(total, visibleItems) ? (
+          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Los ejercicios de esta página ya fueron agregados. Prueba otra página o ajusta los filtros.
           </div>
         ) : !error ? (
           <EmptyState onCreate={() => setCreateOpen(true)} />
+        ) : null}
+        {!error && pageCount > 1 ? (
+          <ExercisePagination
+            page={safePage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+          />
         ) : null}
       </div>
       <ExerciseCreateDialog

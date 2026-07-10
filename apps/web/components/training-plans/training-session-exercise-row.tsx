@@ -178,6 +178,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             exercise={exercise}
             exerciseMeta={exerciseMeta}
             exerciseName={exerciseName}
+            isBusy={isBusy}
             isReadOnly={isReadOnly}
             onDeleteAlternative={onDeleteAlternative}
           />
@@ -301,6 +302,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
               <AlternativeChip
                 key={alternative.id}
                 alternative={alternative}
+                isBusy={isBusy}
                 isReadOnly={isReadOnly}
                 onDelete={() => onDeleteAlternative(alternative.id)}
               />
@@ -374,6 +376,7 @@ function ExerciseIdentity({
   exercise,
   exerciseMeta,
   exerciseName,
+  isBusy,
   isReadOnly,
   onDeleteAlternative,
 }: {
@@ -381,6 +384,7 @@ function ExerciseIdentity({
   exercise: SessionExercise;
   exerciseMeta: string;
   exerciseName: string;
+  isBusy: boolean;
   isReadOnly: boolean;
   onDeleteAlternative: (alternativeId: string) => void;
 }) {
@@ -397,6 +401,7 @@ function ExerciseIdentity({
               <AlternativeChip
                 key={alternative.id}
                 alternative={alternative}
+                isBusy={isBusy}
                 isReadOnly={isReadOnly}
                 onDelete={() => onDeleteAlternative(alternative.id)}
               />
@@ -584,20 +589,25 @@ function MobilePrescriptionField({
 
 function AlternativeChip({
   alternative,
+  isBusy,
   isReadOnly,
   onDelete,
 }: {
   alternative: SessionExerciseAlternative;
+  isBusy: boolean;
   isReadOnly: boolean;
   onDelete: () => void;
 }) {
+  const alternativeName = alternative.alternativeExercise?.name ?? "Alternativa";
+
   return (
     <Badge className="gap-1" variant="info">
-      {alternative.alternativeExercise?.name ?? "Alternativa"}
+      {alternativeName}
       {!isReadOnly ? (
         <button
-          aria-label="Eliminar alternativa"
+          aria-label={`Eliminar alternativa ${alternativeName}`}
           className="ml-1 inline-flex size-5 items-center justify-center rounded-full hover:bg-black/10"
+          disabled={isBusy}
           type="button"
           onClick={onDelete}
         >

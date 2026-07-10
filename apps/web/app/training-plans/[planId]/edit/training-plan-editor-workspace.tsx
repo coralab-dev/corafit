@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { WorkspaceFrame, WorkspacePanel } from "@/components/layout/workspace-shell";
+import { archiveTrainingPlan } from "@/components/training-plans/training-plan-editor-actions";
 import { PlanTree } from "@/components/training-plans/training-plan-tree";
 import { TrainingPlanEditorHeader } from "@/components/training-plans/training-plan-editor-header";
 import { TrainingSessionEditor } from "@/components/training-plans/training-session-editor";
@@ -26,6 +27,10 @@ import {
   getPublicationChecklist,
   type SaveState,
 } from "@/components/training-plans/training-plan-editor-utils";
+import {
+  createMutationQueue,
+  type MutationQueue,
+} from "@/components/training-plans/training-plan-mutation-queue";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,12 +89,16 @@ export function TrainingPlanEditorWorkspace() {
   const planRef = useRef<TrainingPlan | null>(null);
   const planSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const sessionDraftVersionRef = useRef(0);
-  const mutationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const structureMutationRef = useRef<Promise<unknown> | null>(null);
+  const mutationQueueRef = useRef<MutationQueue | null>(null);
   const globalActionInFlightRef = useRef(false);
   const exerciseMutationQueuesRef = useRef(new Map<string, Promise<unknown>>());
   const exerciseMutationErrorsRef = useRef(new Map<string, Set<string>>());
   const [pendingMutationCount, setPendingMutationCount] = useState(0);
+
+  if (mutationQueueRef.current === null) {
+    mutationQueueRef.current = createMutationQueue(setPendingMutationCount);
+  }
+  const mutationQueue = mutationQueueRef.current;
 
   const plan = editor.plan;
   planRef.current = plan;
@@ -119,31 +128,11 @@ export function TrainingPlanEditorWorkspace() {
     publishState === "saving";
 
   async function enqueueMutation<T>(action: () => Promise<T>): Promise<T> {
-    setPendingMutationCount((count) => count + 1);
-    const operation = mutationQueueRef.current.then(action);
-    mutationQueueRef.current = operation.catch(() => undefined);
-
-    try {
-      return await operation;
-    } finally {
-      setPendingMutationCount((count) => Math.max(0, count - 1));
-    }
+    return mutationQueue.enqueue(action);
   }
 
   function enqueueStructureMutation<T>(action: () => Promise<T>): Promise<T> {
-    if (structureMutationRef.current) {
-      return structureMutationRef.current as Promise<T>;
-    }
-
-    const operation = enqueueMutation(action);
-    structureMutationRef.current = operation;
-    const clearOperation = () => {
-      if (structureMutationRef.current === operation) {
-        structureMutationRef.current = null;
-      }
-    };
-    void operation.then(clearOperation, clearOperation);
-    return operation;
+    return enqueueMutation(action);
   }
 
   function enqueueExerciseUpdate(
@@ -362,7 +351,7 @@ export function TrainingPlanEditorWorkspace() {
       return;
     }
 
-    await mutationQueueRef.current;
+    await mutationQueue.waitForIdle();
 
     try {
       await editor.updatePlanStatus("active");
@@ -412,7 +401,7 @@ export function TrainingPlanEditorWorkspace() {
       return;
     }
 
-    await mutationQueueRef.current;
+    await mutationQueue.waitForIdle();
     try {
       const copy = await editor.duplicatePlan();
       notify.success("Copia creada para editar");
@@ -425,28 +414,32 @@ export function TrainingPlanEditorWorkspace() {
     }
   }
 
-  async function archivePlan() {
-    if (!plan || plan.isSystemTemplate || plan.status === "archived" || isBusy || globalActionInFlightRef.current) {
-      return false;
+  function blurActiveEditorField() {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
     }
+  }
 
-    globalActionInFlightRef.current = true;
-    setIsArchiving(true);
-    setPublishState("saving");
-    try {
-      await editor.updatePlanStatus("archived");
-      setPublishState("saved");
-      notify.success("Plan archivado");
-      router.push("/training-plans");
-      return true;
-    } catch (error) {
-      setPublishState("error");
-      notify.error(getErrorMessage(error));
-      return false;
-    } finally {
-      globalActionInFlightRef.current = false;
-      setIsArchiving(false);
-    }
+  async function waitForAllMutations() {
+    await mutationQueue.waitForIdle();
+    await Promise.all(exerciseMutationQueuesRef.current.values());
+  }
+
+  async function archivePlan() {
+    return archiveTrainingPlan({
+      blurActiveEditorField,
+      globalActionInFlightRef,
+      isBusy,
+      notifyError: (error) => notify.error(getErrorMessage(error)),
+      notifySuccess: () => notify.success("Plan archivado"),
+      plan,
+      redirect: () => router.push("/training-plans"),
+      saveAllDrafts,
+      setIsArchiving,
+      setPublishState,
+      updatePlanStatus: () => editor.updatePlanStatus("archived"),
+      waitForMutations: waitForAllMutations,
+    });
   }
 
   if (editor.isLoading && !plan) {

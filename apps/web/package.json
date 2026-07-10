@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
+    "test": "node --experimental-strip-types --test components/**/*.test.mjs components/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

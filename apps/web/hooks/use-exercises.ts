@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { buildExerciseSearchParams } from "@/components/exercise-search/exercise-search-utils";
 import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 
 export type PrimaryMuscle =
@@ -44,9 +45,11 @@ export type Exercise = {
 };
 
 export type ExerciseFilters = {
-  search?: string;
-  primaryMuscle?: PrimaryMuscle | "all";
   equipment?: Equipment | "all";
+  limit?: number;
+  page?: number;
+  primaryMuscle?: PrimaryMuscle | "all";
+  search?: string;
   type?: ExerciseType;
 };
 
@@ -75,8 +78,8 @@ export type UpdateExerciseInput = {
 
 type ExercisesResponse = {
   items: Exercise[];
-  page: number;
-  limit: number;
+  page?: number;
+  limit?: number;
   total: number;
 };
 
@@ -85,6 +88,8 @@ type ExerciseRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
 export function useExercises(filters: ExerciseFilters) {
   const { profile, session, status: authStatus } = useAuth();
   const [items, setItems] = useState<Exercise[]>([]);
+  const [responseLimit, setResponseLimit] = useState(filters.limit ?? 20);
+  const [responsePage, setResponsePage] = useState(filters.page ?? 1);
   const [total, setTotal] = useState(0);
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
@@ -102,6 +107,8 @@ export function useExercises(filters: ExerciseFilters) {
   const loadExercises = useCallback(async () => {
     if (!isApiReady) {
       setItems([]);
+      setResponseLimit(filters.limit ?? 20);
+      setResponsePage(filters.page ?? 1);
       setTotal(0);
       setError(
         authStatus === "loading"
@@ -115,21 +122,14 @@ export function useExercises(filters: ExerciseFilters) {
     setError("");
 
     try {
-      const searchParams = new URLSearchParams({
-        limit: "50",
-        page: "1",
-        type: filters.type ?? "all",
+      const searchParams = buildExerciseSearchParams({
+        equipment: filters.equipment,
+        limit: filters.limit,
+        page: filters.page,
+        primaryMuscle: filters.primaryMuscle,
+        search: filters.search,
+        type: filters.type,
       });
-
-      if (filters.search?.trim()) {
-        searchParams.set("search", filters.search.trim());
-      }
-      if (filters.primaryMuscle && filters.primaryMuscle !== "all") {
-        searchParams.set("primaryMuscle", filters.primaryMuscle);
-      }
-      if (filters.equipment && filters.equipment !== "all") {
-        searchParams.set("equipment", filters.equipment);
-      }
 
       const response = await request<ExercisesResponse>(
         `/exercises?${searchParams.toString()}`,
@@ -137,13 +137,15 @@ export function useExercises(filters: ExerciseFilters) {
       );
 
       setItems(response.items);
+      setResponsePage(response.page ?? filters.page ?? 1);
+      setResponseLimit(response.limit ?? filters.limit ?? 20);
       setTotal(response.total);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
       setIsRequestLoading(false);
     }
-  }, [authStatus, filters.equipment, filters.primaryMuscle, filters.search, filters.type, isApiReady, request]);
+  }, [authStatus, filters.equipment, filters.limit, filters.page, filters.primaryMuscle, filters.search, filters.type, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -196,6 +198,8 @@ export function useExercises(filters: ExerciseFilters) {
     isApiReady,
     isLoading,
     items,
+    limit: responseLimit,
+    page: responsePage,
     refresh: loadExercises,
     total,
   };

@@ -297,6 +297,7 @@ export function ExerciseSearch({
             {presentation === "table" ? (
               <ExerciseTable
                 exercises={visibleItems}
+                selectionMode={selectionMode}
                 selectedId={selectedId}
                 onSelect={onSelect}
               />
@@ -336,25 +337,29 @@ export function ExerciseSearch({
 function ExerciseTable({
   exercises,
   onSelect,
+  selectionMode,
   selectedId,
 }: {
   exercises: Exercise[];
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
   selectedId?: string;
 }) {
+  const isExplicit = selectionMode === "explicit";
+
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow-soft)] lg:block">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table className={cn("w-full border-collapse text-left text-sm", !isExplicit && "min-w-[900px]")}>
           <thead>
             <tr className="border-b border-border/55 text-[11px] font-semibold uppercase text-muted-foreground">
               <th className="px-4 py-3">Ejercicio</th>
               <th className="px-4 py-3">Músculo principal</th>
               <th className="px-4 py-3">Equipo</th>
-              <th className="px-4 py-3">Origen</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Creado el</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              {!isExplicit ? <th className="px-4 py-3">Origen</th> : null}
+              {!isExplicit ? <th className="px-4 py-3">Estado</th> : null}
+              {!isExplicit ? <th className="px-4 py-3">Creado el</th> : null}
+              <th className="px-4 py-3 text-right">{isExplicit ? "Acción" : "Acciones"}</th>
             </tr>
           </thead>
           <tbody>
@@ -364,6 +369,7 @@ function ExerciseTable({
                 exercise={exercise}
                 isSelected={selectedId === exercise.id}
                 onSelect={onSelect}
+                selectionMode={selectionMode}
               />
             ))}
           </tbody>
@@ -376,6 +382,7 @@ function ExerciseTable({
             exercise={exercise}
             isSelected={selectedId === exercise.id}
             onSelect={onSelect}
+            selectionMode={selectionMode}
           />
         ))}
       </div>
@@ -387,12 +394,15 @@ function ExerciseTableRow({
   exercise,
   isSelected,
   onSelect,
+  selectionMode,
 }: {
   exercise: Exercise;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
 }) {
   const isCustom = Boolean(exercise.organizationId);
+  const isExplicit = selectionMode === "explicit";
 
   return (
     <tr
@@ -402,21 +412,35 @@ function ExerciseTableRow({
       )}
     >
       <td className="px-4 py-3">
-        <button
-          className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-          type="button"
-          onClick={() => onSelect?.(exercise)}
-        >
-          <ExerciseThumb exercise={exercise} />
-          <span className="min-w-0">
-            <span className="block max-w-[190px] truncate font-semibold">
-              {exercise.name}
+        {isExplicit ? (
+          <div className="flex min-w-0 items-center gap-3 text-left">
+            <ExerciseThumb exercise={exercise} />
+            <span className="min-w-0">
+              <span className="block max-w-[190px] truncate font-semibold">
+                {exercise.name}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+              </span>
             </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+          </div>
+        ) : (
+          <button
+            className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            type="button"
+            onClick={() => onSelect?.(exercise)}
+          >
+            <ExerciseThumb exercise={exercise} />
+            <span className="min-w-0">
+              <span className="block max-w-[190px] truncate font-semibold">
+                {exercise.name}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+        )}
       </td>
       <td className="px-4 py-3">
         <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
@@ -424,19 +448,28 @@ function ExerciseTableRow({
       <td className="px-4 py-3">
         <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
       </td>
-      <td className="px-4 py-3">
+      {!isExplicit ? <td className="px-4 py-3">
         <Badge variant={isCustom ? "info" : "outline"}>
           {isCustom ? "Personalizado" : "Global"}
         </Badge>
-      </td>
-      <td className="px-4 py-3">
+      </td> : null}
+      {!isExplicit ? <td className="px-4 py-3">
         <StatusPill status={exercise.status} />
-      </td>
-      <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
+      </td> : null}
+      {!isExplicit ? <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
         {formatDate(exercise.createdAt)}
-      </td>
+      </td> : null}
       <td className="px-4 py-3">
-        <ExerciseActions exercise={exercise} onSelect={onSelect} />
+        {isExplicit ? (
+          <div className="flex justify-end">
+            <Button size="sm" type="button" onClick={() => onSelect?.(exercise)}>
+              <PlusIcon data-icon="inline-start" />
+              Agregar
+            </Button>
+          </div>
+        ) : (
+          <ExerciseActions exercise={exercise} onSelect={onSelect} />
+        )}
       </td>
     </tr>
   );
@@ -446,12 +479,15 @@ function ExerciseMobileCard({
   exercise,
   isSelected,
   onSelect,
+  selectionMode,
 }: {
   exercise: Exercise;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
 }) {
   const isCustom = Boolean(exercise.organizationId);
+  const isExplicit = selectionMode === "explicit";
 
   return (
     <article
@@ -464,30 +500,50 @@ function ExerciseMobileCard({
         <ExerciseThumb exercise={exercise} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <button
-              className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              type="button"
-              onClick={() => onSelect?.(exercise)}
-            >
-              <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
-              </p>
-            </button>
-            <Badge variant={isCustom ? "info" : "outline"}>
-              {isCustom ? "Personalizado" : "Global"}
-            </Badge>
+            {isExplicit ? (
+              <div className="min-w-0 text-left">
+                <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
+                </p>
+              </div>
+            ) : (
+              <button
+                className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                type="button"
+                onClick={() => onSelect?.(exercise)}
+              >
+                <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
+                </p>
+              </button>
+            )}
+            {!isExplicit ? (
+              <Badge variant={isCustom ? "info" : "outline"}>
+                {isCustom ? "Personalizado" : "Global"}
+              </Badge>
+            ) : null}
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
             <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
-            <StatusPill status={exercise.status} />
+            {!isExplicit ? <StatusPill status={exercise.status} /> : null}
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
-              Creado {formatDate(exercise.createdAt)}
-            </span>
-            <ExerciseActions exercise={exercise} onSelect={onSelect} compact />
+            {isExplicit ? (
+              <Button className="w-full" size="sm" type="button" onClick={() => onSelect?.(exercise)}>
+                <PlusIcon data-icon="inline-start" />
+                Agregar
+              </Button>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  Creado {formatDate(exercise.createdAt)}
+                </span>
+                <ExerciseActions exercise={exercise} onSelect={onSelect} compact />
+              </>
+            )}
           </div>
         </div>
       </div>

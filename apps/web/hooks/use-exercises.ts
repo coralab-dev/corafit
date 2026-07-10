@@ -66,6 +66,8 @@ export type UpdateExerciseInput = {
   primaryMuscle?: PrimaryMuscle;
   equipment?: Equipment;
   instructions?: string | null;
+  recommendations?: string | null;
+  secondaryMuscles?: string[];
   mediaUrl?: string | null;
   mediaType?: ExerciseMediaType | null;
   videoUrl?: string | null;

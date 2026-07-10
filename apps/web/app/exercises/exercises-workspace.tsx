@@ -2,6 +2,7 @@
 
 import {
   ImageIcon,
+  LinkIcon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
@@ -92,6 +93,8 @@ export function ExercisesWorkspace() {
     mediaUrl?: string | null;
     name: string;
     primaryMuscle: PrimaryMuscle;
+    recommendations?: string | null;
+    secondaryMuscles?: string[];
     videoUrl?: string | null;
   }) {
     if (!editingExercise) {
@@ -469,6 +472,8 @@ function ExerciseEditDialog({
     mediaUrl?: string | null;
     name: string;
     primaryMuscle: PrimaryMuscle;
+    recommendations?: string | null;
+    secondaryMuscles?: string[];
     videoUrl?: string | null;
   }) => Promise<void>;
 }) {
@@ -477,6 +482,10 @@ function ExerciseEditDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState(exercise.name);
   const [primaryMuscle, setPrimaryMuscle] = useState<PrimaryMuscle>(exercise.primaryMuscle);
+  const [recommendations, setRecommendations] = useState(exercise.recommendations ?? "");
+  const [secondaryMuscles, setSecondaryMuscles] = useState(
+    exercise.secondaryMuscles.join(", "),
+  );
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? "");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -501,6 +510,11 @@ function ExerciseEditDialog({
         instructions: instructions.trim() || null,
         name: trimmedName,
         primaryMuscle,
+        recommendations: recommendations.trim() || null,
+        secondaryMuscles: secondaryMuscles
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
         videoUrl: trimmedVideoUrl || null,
       });
     } catch (caughtError) {
@@ -516,61 +530,78 @@ function ExerciseEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-xl">
-        <DialogHeader className="border-b border-border/55 bg-card/90 px-5 py-4 pr-14">
-          <DialogTitle>Editar ejercicio</DialogTitle>
-          <DialogDescription>
-            Solo puedes editar ejercicios personalizados de tu organización.
-          </DialogDescription>
-        </DialogHeader>
-        <form className="flex max-h-[calc(100vh-2rem)] flex-col" onSubmit={handleSubmit}>
-          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-5">
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            Nombre
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            Músculo principal
-            <select
-              className="h-10 rounded-xl border bg-card px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              value={primaryMuscle}
-              onChange={(event) => setPrimaryMuscle(event.target.value as PrimaryMuscle)}
-            >
-              {Object.entries(muscleLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            Equipamiento
-            <select
-              className="h-10 rounded-xl border bg-card px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              value={equipment}
-              onChange={(event) => setEquipment(event.target.value as Equipment)}
-            >
-              {Object.entries(equipmentLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            Instrucciones
-            <textarea
-              className="min-h-28 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              value={instructions}
-              onChange={(event) => setInstructions(event.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            URL de video externo
-            <Input value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} />
-          </label>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border !border-transparent bg-background p-0 shadow-[var(--surface-shadow)] sm:max-w-2xl">
+        <form
+          className="flex max-h-[calc(100vh-2rem)] flex-col bg-background"
+          onSubmit={handleSubmit}
+        >
+          <DialogHeader className="relative overflow-hidden border-b border-border/55 bg-card/90 px-5 py-5 pr-14">
+            <div className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+              Biblioteca personalizada
+            </p>
+            <DialogTitle className="mt-1 text-xl font-semibold tracking-tight">
+              Editar ejercicio personalizado
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-muted-foreground">
+              Ajusta los datos del movimiento para mantener tu biblioteca actualizada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+            <EditFormSection title="Datos básicos">
+              <EditTextField label="Nombre" value={name} onChange={setName} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <EditSelectField
+                  label="Músculo principal"
+                  options={Object.entries(muscleLabels)}
+                  value={primaryMuscle}
+                  onChange={(value) => setPrimaryMuscle(value as PrimaryMuscle)}
+                />
+                <EditSelectField
+                  label="Equipamiento"
+                  options={Object.entries(equipmentLabels)}
+                  value={equipment}
+                  onChange={(value) => setEquipment(value as Equipment)}
+                />
+              </div>
+              <EditTextField
+                label="Músculos secundarios"
+                placeholder="Separados por coma"
+                value={secondaryMuscles}
+                onChange={setSecondaryMuscles}
+              />
+            </EditFormSection>
+
+            <EditFormSection title="Guía del ejercicio">
+              <EditTextAreaField
+                label="Instrucciones"
+                value={instructions}
+                onChange={setInstructions}
+              />
+              <EditTextAreaField
+                compact
+                label="Recomendaciones"
+                value={recommendations}
+                onChange={setRecommendations}
+              />
+            </EditFormSection>
+
+            <EditFormSection title="Recursos externos">
+              <div className="rounded-2xl border !border-transparent bg-muted/25 p-3 shadow-[var(--surface-shadow-soft)]">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <LinkIcon className="size-4 text-primary" aria-hidden="true" />
+                  URL de video externo
+                </div>
+                <EditTextField
+                  label="URL de video externo"
+                  value={videoUrl}
+                  onChange={setVideoUrl}
+                />
+              </div>
+            </EditFormSection>
           </div>
-          <DialogFooter className="border-t border-border/55 bg-card/90 px-5 py-4">
+          <DialogFooter className="sticky bottom-0 border-t border-border/55 bg-card/95 px-5 py-4 backdrop-blur">
             <Button
               disabled={isSaving}
               type="button"
@@ -591,6 +622,97 @@ function ExerciseEditDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EditFormSection({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-2xl border !border-transparent bg-card/80 p-4 shadow-[var(--surface-shadow-soft)]">
+      <h3 className="mb-4 text-sm font-semibold">{title}</h3>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function EditTextField({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  value: string;
+}) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-medium">
+      {label}
+      <Input
+        className="h-10 rounded-xl shadow-none"
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function EditTextAreaField({
+  compact = false,
+  label,
+  onChange,
+  value,
+}: {
+  compact?: boolean;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-medium">
+      {label}
+      <textarea
+        className={`${compact ? "min-h-20" : "min-h-28"} w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function EditSelectField({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<[string, string]>;
+  value: string;
+}) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-medium">
+      {label}
+      <select
+        className="h-10 rounded-xl border bg-card px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

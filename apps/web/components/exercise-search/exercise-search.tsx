@@ -302,6 +302,11 @@ export function ExerciseSearch({
       <div className="flex flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>{`Página ${safePage} de ${pageCount} · ${total} ejercicios disponibles`}</span>
+          {isRefreshingExercises ? (
+            <span className="font-medium text-primary" role="status">
+              Actualizando ejercicios…
+            </span>
+          ) : null}
         </div>
 
         {error ? <ErrorState message={error} /> : null}
@@ -309,13 +314,16 @@ export function ExerciseSearch({
         {!error && isLoading && items.length === 0 ? (
           <ExerciseSkeletonList presentation={presentation} />
         ) : !error && visibleItems.length ? (
-          <div className="flex flex-col">
+          <div
+            aria-busy={isRefreshingExercises}
+            className={cn("flex flex-col", isRefreshingExercises && "opacity-60")}
+          >
             {presentation === "table" ? (
               <ExerciseTable
                 exercises={visibleItems}
                 selectionMode={selectionMode}
                 selectedId={selectedId}
-                onSelect={onSelect}
+                onSelect={isRefreshingExercises ? undefined : onSelect}
               />
             ) : (
               visibleItems.map((exercise) => (
@@ -323,7 +331,7 @@ export function ExerciseSearch({
                   key={exercise.id}
                   exercise={exercise}
                   isSelected={selectedId === exercise.id}
-                  onSelect={onSelect}
+                  onSelect={isRefreshingExercises ? undefined : onSelect}
                   selectionMode={selectionMode}
                 />
               ))
@@ -338,6 +346,7 @@ export function ExerciseSearch({
         ) : null}
         {!error && pageCount > 1 ? (
           <ExercisePagination
+            isDisabled={isRefreshingExercises}
             page={safePage}
             pageCount={pageCount}
             onPageChange={setPage}
@@ -656,10 +665,12 @@ function ExerciseActions({
 }
 
 function ExercisePagination({
+  isDisabled,
   onPageChange,
   page,
   pageCount,
 }: {
+  isDisabled: boolean;
   onPageChange: (page: number) => void;
   page: number;
   pageCount: number;
@@ -667,7 +678,7 @@ function ExercisePagination({
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
       <Button
-        disabled={page === 1}
+        disabled={isDisabled || page === 1}
         size="sm"
         type="button"
         variant="outline"
@@ -682,6 +693,7 @@ function ExercisePagination({
               key={pageNumber}
               aria-current={pageNumber === page ? "page" : undefined}
               className="size-8"
+              disabled={isDisabled}
               size="icon"
               type="button"
               variant={pageNumber === page ? "default" : "outline"}
@@ -693,7 +705,7 @@ function ExercisePagination({
         )}
       </div>
       <Button
-        disabled={page === pageCount}
+        disabled={isDisabled || page === pageCount}
         size="sm"
         type="button"
         variant="outline"

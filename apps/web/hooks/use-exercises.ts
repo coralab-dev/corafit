@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { buildExerciseSearchParams } from "@/components/exercise-search/exercise-search-utils";
 import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
+import { createLatestRequestController } from "./latest-request-controller";
 
 export type PrimaryMuscle =
   | "chest"
@@ -93,10 +94,16 @@ export function useExercises(filters: ExerciseFilters) {
   const [total, setTotal] = useState(0);
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestKey = buildExerciseSearchParams(filters).toString();
+  const [completedRequestKey, setCompletedRequestKey] = useState("");
+  const latestRequestControllerRef = useRef(createLatestRequestController());
 
   const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
-  const isLoading = authStatus === "loading" || isRequestLoading;
+  const isLoading =
+    authStatus === "loading" ||
+    isRequestLoading ||
+    completedRequestKey !== requestKey;
 
   const request = useCallback(
     <T,>(path: string, init: RequestInit = {}) =>
@@ -106,10 +113,13 @@ export function useExercises(filters: ExerciseFilters) {
 
   const loadExercises = useCallback(async () => {
     if (!isApiReady) {
+      latestRequestControllerRef.current.invalidate();
       setItems([]);
       setResponseLimit(filters.limit ?? 20);
       setResponsePage(filters.page ?? 1);
       setTotal(0);
+      setIsRequestLoading(false);
+      setCompletedRequestKey(requestKey);
       setError(
         authStatus === "loading"
           ? ""
@@ -118,6 +128,7 @@ export function useExercises(filters: ExerciseFilters) {
       return;
     }
 
+    const latestRequest = latestRequestControllerRef.current.start();
     setIsRequestLoading(true);
     setError("");
 
@@ -133,26 +144,45 @@ export function useExercises(filters: ExerciseFilters) {
 
       const response = await request<ExercisesResponse>(
         `/exercises?${searchParams.toString()}`,
-        { method: "GET" },
+        { method: "GET", signal: latestRequest.signal },
       );
+
+      if (!latestRequestControllerRef.current.isCurrent(latestRequest.id)) {
+        return;
+      }
 
       setItems(response.items);
       setResponsePage(response.page ?? filters.page ?? 1);
       setResponseLimit(response.limit ?? filters.limit ?? 20);
       setTotal(response.total);
+      setCompletedRequestKey(requestKey);
     } catch (caughtError) {
+      if (
+        !latestRequestControllerRef.current.isCurrent(latestRequest.id) ||
+        isAbortError(caughtError)
+      ) {
+        return;
+      }
       setError(getErrorMessage(caughtError));
+      setCompletedRequestKey(requestKey);
     } finally {
-      setIsRequestLoading(false);
+      if (latestRequestControllerRef.current.isCurrent(latestRequest.id)) {
+        setIsRequestLoading(false);
+        latestRequestControllerRef.current.finish(latestRequest.id);
+      }
     }
-  }, [authStatus, filters.equipment, filters.limit, filters.page, filters.primaryMuscle, filters.search, filters.type, isApiReady, request]);
+  }, [authStatus, filters.equipment, filters.limit, filters.page, filters.primaryMuscle, filters.search, filters.type, isApiReady, request, requestKey]);
 
   useEffect(() => {
+    const requestController = latestRequestControllerRef.current;
     const timer = window.setTimeout(() => {
       void loadExercises();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      requestController.invalidate();
+    };
   }, [loadExercises]);
 
   const createExercise = useCallback(
@@ -194,7 +224,7 @@ export function useExercises(filters: ExerciseFilters) {
 
   return {
     createExercise,
-    error,
+    error: completedRequestKey === requestKey ? error : "",
     isApiReady,
     isLoading,
     items,
@@ -300,6 +330,15 @@ async function uploadExerciseImageRequest(
       method: "POST",
       body: formData,
     },
+  );
+}
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
   );
 }
 

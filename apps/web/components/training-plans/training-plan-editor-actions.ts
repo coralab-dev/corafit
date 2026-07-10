@@ -12,7 +12,9 @@ export type ArchivePlanOptions = {
   } | null;
   redirect: () => void;
   saveAllDrafts: () => Promise<boolean>;
+  getErrorMessage?: (error: unknown) => string;
   setIsArchiving: (isArchiving: boolean) => void;
+  setErrorMessage?: (message: string | null) => void;
   setPublishState: (state: SaveState) => void;
   updatePlanStatus: () => Promise<unknown>;
   waitForMutations: () => Promise<void>;
@@ -27,7 +29,9 @@ export async function archiveTrainingPlan({
   plan,
   redirect,
   saveAllDrafts,
+  getErrorMessage,
   setIsArchiving,
+  setErrorMessage,
   setPublishState,
   updatePlanStatus,
   waitForMutations,
@@ -45,6 +49,7 @@ export async function archiveTrainingPlan({
   globalActionInFlightRef.current = true;
   setIsArchiving(true);
   setPublishState("saving");
+  setErrorMessage?.(null);
 
   try {
     blurActiveEditorField();
@@ -52,6 +57,9 @@ export async function archiveTrainingPlan({
     const didSave = await saveAllDrafts();
     if (!didSave) {
       setPublishState("error");
+      setErrorMessage?.(
+        "No se pueden archivar los cambios pendientes. Corrige los campos inválidos y vuelve a intentarlo.",
+      );
       return false;
     }
 
@@ -59,11 +67,13 @@ export async function archiveTrainingPlan({
     await updatePlanStatus();
 
     setPublishState("saved");
+    setErrorMessage?.(null);
     notifySuccess();
     redirect();
     return true;
   } catch (error) {
     setPublishState("error");
+    setErrorMessage?.(getErrorMessage?.(error) ?? "No se pudo archivar el plan.");
     notifyError(error);
     return false;
   } finally {

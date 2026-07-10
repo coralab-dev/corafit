@@ -40,6 +40,7 @@ import type { Exercise } from "@/hooks/use-exercises";
 import { ExercisePickerDialog } from "./exercise-picker-dialog";
 import { TrainingSessionExerciseRow } from "./training-session-exercise-row";
 import { dayLabels, dayOfWeekValues } from "./training-plan-days";
+import type { PrescriptionField } from "./training-plan-editor-utils";
 type SessionDraft = Pick<TrainingSession, "name" | "description" | "coachNote">;
 type ExerciseUpdate = Partial<
   Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
@@ -51,6 +52,7 @@ export function TrainingSessionEditor({
   isReadOnly,
   onDraftChange,
   onDraftCommit,
+  onDraftValidationChange,
   onAddAlternative,
   onAddExercise,
   onDeleteAlternative,
@@ -68,8 +70,13 @@ export function TrainingSessionEditor({
   day: TrainingPlanDay;
   isBusy: boolean;
   isReadOnly: boolean;
-  onDraftChange: () => void;
-  onDraftCommit: () => void;
+  onDraftChange: (sessionExerciseId: string, field: PrescriptionField) => void;
+  onDraftCommit: (sessionExerciseId: string, field: PrescriptionField) => void;
+  onDraftValidationChange: (
+    sessionExerciseId: string,
+    field: PrescriptionField,
+    hasError: boolean,
+  ) => void;
   onAddAlternative: (sessionExerciseId: string, exercise: Exercise) => Promise<boolean>;
   onAddExercise: (exercise: Exercise) => Promise<string | null>;
   onDeleteAlternative: (alternativeId: string) => void;
@@ -184,8 +191,10 @@ export function TrainingSessionEditor({
                       isLast={index === sortedExercises.length - 1}
                       isBusy={isBusy}
                       isReadOnly={isReadOnly}
-                      onDraftChange={onDraftChange}
-                      onDraftCommit={onDraftCommit}
+                      onDraftChange={(field) => onDraftChange(exercise.id, field)}
+                      onDraftCommit={(field) => onDraftCommit(exercise.id, field)}
+                      onDraftValidationChange={(field, hasError) =>
+                        onDraftValidationChange(exercise.id, field, hasError)}
                       presentation="table"
                       sessionName={session.name}
                       onAddAlternative={(alternative) => onAddAlternative(exercise.id, alternative)}
@@ -209,8 +218,10 @@ export function TrainingSessionEditor({
                   isLast={index === sortedExercises.length - 1}
                   isBusy={isBusy}
                   isReadOnly={isReadOnly}
-                  onDraftChange={onDraftChange}
-                  onDraftCommit={onDraftCommit}
+                  onDraftChange={(field) => onDraftChange(exercise.id, field)}
+                  onDraftCommit={(field) => onDraftCommit(exercise.id, field)}
+                  onDraftValidationChange={(field, hasError) =>
+                    onDraftValidationChange(exercise.id, field, hasError)}
                   presentation="card"
                   sessionName={session.name}
                   onAddAlternative={(alternative) => onAddAlternative(exercise.id, alternative)}

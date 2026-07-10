@@ -15,6 +15,7 @@ export function ConfirmActionDialog({
   confirmLabel,
   consequence,
   description,
+  errorMessage,
   isLoading,
   onConfirm,
   onOpenChange,
@@ -24,6 +25,7 @@ export function ConfirmActionDialog({
   confirmLabel: string;
   consequence: string;
   description: string;
+  errorMessage?: string | null;
   isLoading: boolean;
   onConfirm: () => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
@@ -43,6 +45,11 @@ export function ConfirmActionDialog({
         <p className="rounded-xl bg-destructive/5 p-3 text-sm text-destructive">
           {consequence}
         </p>
+        {errorMessage ? (
+          <p className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button
             disabled={isLoading}

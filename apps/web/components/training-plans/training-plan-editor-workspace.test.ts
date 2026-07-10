@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { archiveTrainingPlan } from "./training-plan-editor-actions.ts";
-import { createMutationQueue } from "./training-plan-mutation-queue.ts";
+import { createExerciseDraftTracker } from "./training-plan-editor-draft-state.ts";
+import {
+  createExerciseMutationQueue,
+  createMutationQueue,
+} from "./training-plan-mutation-queue.ts";
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -89,6 +93,61 @@ test("continues with the next mutation when the previous one fails", async () =>
   assert.equal(queue.pendingCount, 0);
 });
 
+test("tracks pending, invalid, and failed exercise draft fields", () => {
+  const tracker = createExerciseDraftTracker();
+  tracker.markDraft("exercise-1", "sets");
+  const revisionAtStart = tracker.currentRevision;
+
+  tracker.markValidationError("exercise-1", "sets", true);
+  assert.equal(tracker.hasPendingDrafts(), true);
+  assert.equal(tracker.hasErrors(), true);
+
+  tracker.markValidationError("exercise-1", "sets", false);
+  tracker.markMutationError("exercise-1", ["sets"], true);
+  assert.equal(tracker.hasErrors(), true);
+
+  tracker.markPersisted("exercise-1", ["sets"], revisionAtStart);
+  assert.equal(tracker.hasPendingDrafts(), false);
+  assert.equal(tracker.hasErrors(), false);
+});
+
+test("does not clear a newer draft when an older exercise mutation finishes", () => {
+  const tracker = createExerciseDraftTracker();
+  tracker.markDraft("exercise-1", "sets");
+  const firstRevision = tracker.currentRevision;
+  tracker.markDraft("exercise-1", "sets");
+
+  tracker.markPersisted("exercise-1", ["sets"], firstRevision);
+  assert.equal(tracker.hasPendingDrafts(), true);
+
+  tracker.markPersisted("exercise-1", ["sets"], tracker.currentRevision);
+  assert.equal(tracker.hasPendingDrafts(), false);
+});
+
+test("cleans a keyed mutation queue only after its latest operation finishes", async () => {
+  const gate = deferred<void>();
+  const calls: string[] = [];
+  const queue = createExerciseMutationQueue((action) => createMutationQueue().enqueue(action));
+
+  const first = queue.enqueue("exercise-1", async () => {
+    calls.push("first");
+    await gate.promise;
+    return "first-result";
+  });
+  const second = queue.enqueue("exercise-1", async () => {
+    calls.push("second");
+    return "second-result";
+  });
+
+  assert.equal(queue.size, 1);
+  gate.resolve();
+  assert.equal(await first, "first-result");
+  assert.equal(queue.size, 1);
+  assert.equal(await second, "second-result");
+  assert.equal(queue.size, 0);
+  assert.deepEqual(calls, ["first", "second"]);
+});
+
 test("saves drafts, waits for pending mutations, and redirects after archiving", async () => {
   const { calls, options } = createArchiveOptions();
 
@@ -153,6 +212,17 @@ test("does not archive or redirect when saving drafts fails", async () => {
   ]);
   assert.equal(calls.includes("archive"), false);
   assert.equal(calls.includes("redirect"), false);
+});
+
+test("exposes the archive validation failure while keeping the dialog open", async () => {
+  const messages: Array<string | null> = [];
+  const { options } = createArchiveOptions({
+    saveAllDrafts: async () => false,
+    setErrorMessage: (message) => messages.push(message),
+  });
+
+  assert.equal(await archiveTrainingPlan(options), false);
+  assert.deepEqual(messages, [null, "No se pueden archivar los cambios pendientes. Corrige los campos inválidos y vuelve a intentarlo."]);
 });
 
 test("allows only one concurrent archive request", async () => {

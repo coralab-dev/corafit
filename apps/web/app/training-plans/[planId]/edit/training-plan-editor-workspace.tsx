@@ -23,12 +23,18 @@ import { TrainingPlanEditorHeader } from "@/components/training-plans/training-p
 import { TrainingSessionEditor } from "@/components/training-plans/training-session-editor";
 import { dayLabels } from "@/components/training-plans/training-plan-days";
 import {
+  createExerciseDraftTracker,
+  type ExerciseDraftTracker,
+} from "@/components/training-plans/training-plan-editor-draft-state";
+import {
   getEditorContext,
   getPublicationChecklist,
   type SaveState,
 } from "@/components/training-plans/training-plan-editor-utils";
 import {
+  createExerciseMutationQueue,
   createMutationQueue,
+  type ExerciseMutationQueue,
   type MutationQueue,
 } from "@/components/training-plans/training-plan-mutation-queue";
 import { Button } from "@/components/ui/button";
@@ -88,17 +94,27 @@ export function TrainingPlanEditorWorkspace() {
   const planDraftVersionRef = useRef(0);
   const planRef = useRef<TrainingPlan | null>(null);
   const planSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const sessionDraftVersionRef = useRef(0);
   const mutationQueueRef = useRef<MutationQueue | null>(null);
   const globalActionInFlightRef = useRef(false);
-  const exerciseMutationQueuesRef = useRef(new Map<string, Promise<unknown>>());
-  const exerciseMutationErrorsRef = useRef(new Map<string, Set<string>>());
+  const exerciseMutationQueuesRef = useRef<ExerciseMutationQueue | null>(null);
+  const exerciseDraftTrackerRef = useRef<ExerciseDraftTracker | null>(null);
   const [pendingMutationCount, setPendingMutationCount] = useState(0);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   if (mutationQueueRef.current === null) {
     mutationQueueRef.current = createMutationQueue(setPendingMutationCount);
   }
   const mutationQueue = mutationQueueRef.current;
+  if (exerciseMutationQueuesRef.current === null) {
+    exerciseMutationQueuesRef.current = createExerciseMutationQueue(
+      <T,>(action: () => Promise<T>) => enqueueMutation(action),
+    );
+  }
+  const exerciseMutationQueue = exerciseMutationQueuesRef.current;
+  if (exerciseDraftTrackerRef.current === null) {
+    exerciseDraftTrackerRef.current = createExerciseDraftTracker();
+  }
+  const exerciseDraftTracker = exerciseDraftTrackerRef.current;
 
   const plan = editor.plan;
   planRef.current = plan;
@@ -137,12 +153,20 @@ export function TrainingPlanEditorWorkspace() {
 
   function enqueueExerciseUpdate(
     exerciseId: string,
+    body: Record<string, unknown>,
+    revisionAtStart: number,
     action: () => Promise<unknown>,
   ) {
-    const previous = exerciseMutationQueuesRef.current.get(exerciseId) ?? Promise.resolve();
-    const current = previous.then(() => enqueueMutation(action));
-    exerciseMutationQueuesRef.current.set(exerciseId, current.catch(() => undefined));
-    return current;
+    return exerciseMutationQueue.enqueue(exerciseId, async () => {
+      try {
+        const result = await action();
+        exerciseDraftTracker.markPersisted(exerciseId, Object.keys(body), revisionAtStart);
+        return result;
+      } catch (error) {
+        exerciseDraftTracker.markMutationError(exerciseId, Object.keys(body), true);
+        throw error;
+      }
+    });
   }
 
   const treeEditor = {
@@ -263,7 +287,13 @@ export function TrainingPlanEditorWorkspace() {
   }
 
   async function saveAllDrafts() {
-    return savePlanDraft();
+    const didSavePlan = await savePlanDraft();
+    if (!didSavePlan) {
+      return false;
+    }
+
+    await waitForAllMutations();
+    return !exerciseDraftTracker.hasPendingDrafts() && !exerciseDraftTracker.hasErrors();
   }
 
   async function saveSessionInfo(sessionId: string, draft: DraftSession) {
@@ -310,27 +340,15 @@ export function TrainingPlanEditorWorkspace() {
       return false;
     }
 
-    const versionAtStart = sessionDraftVersionRef.current;
+    const revisionAtStart = exerciseDraftTracker.currentRevision;
     setSessionSaveState("saving");
     try {
-      await enqueueExerciseUpdate(exerciseId, action);
-      const exerciseErrors = exerciseMutationErrorsRef.current.get(exerciseId);
-      for (const field of Object.keys(body)) {
-        exerciseErrors?.delete(field);
-      }
-      if (exerciseErrors?.size === 0) {
-        exerciseMutationErrorsRef.current.delete(exerciseId);
-      }
-      setSessionSaveState(exerciseMutationErrorsRef.current.size > 0
+      await enqueueExerciseUpdate(exerciseId, body, revisionAtStart, action);
+      setSessionSaveState(exerciseDraftTracker.hasErrors()
         ? "error"
-        : sessionDraftVersionRef.current === versionAtStart ? "saved" : "dirty");
+        : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
       return true;
     } catch (error) {
-      const exerciseErrors = exerciseMutationErrorsRef.current.get(exerciseId) ?? new Set();
-      for (const field of Object.keys(body)) {
-        exerciseErrors.add(field);
-      }
-      exerciseMutationErrorsRef.current.set(exerciseId, exerciseErrors);
       setSessionSaveState("error");
       notify.error(getErrorMessage(error));
       return false;
@@ -422,7 +440,7 @@ export function TrainingPlanEditorWorkspace() {
 
   async function waitForAllMutations() {
     await mutationQueue.waitForIdle();
-    await Promise.all(exerciseMutationQueuesRef.current.values());
+    await exerciseMutationQueue.waitForAll();
   }
 
   async function archivePlan() {
@@ -435,7 +453,9 @@ export function TrainingPlanEditorWorkspace() {
       plan,
       redirect: () => router.push("/training-plans"),
       saveAllDrafts,
+      getErrorMessage,
       setIsArchiving,
+      setErrorMessage: setArchiveError,
       setPublishState,
       updatePlanStatus: () => editor.updatePlanStatus("archived"),
       waitForMutations: waitForAllMutations,
@@ -476,7 +496,10 @@ export function TrainingPlanEditorWorkspace() {
           publishState={publishState}
           saveState={saveState}
           sessionCount={sessions.length}
-          onArchivePlan={() => setIsArchiveDialogOpen(true)}
+           onArchivePlan={() => {
+             setArchiveError(null);
+             setIsArchiveDialogOpen(true);
+           }}
           onDuplicatePlan={() => void duplicateForEditing()}
           onEditInformation={() => setIsPlanInfoOpen(true)}
           onPublish={() => setIsPublishDialogOpen(true)}
@@ -524,15 +547,22 @@ export function TrainingPlanEditorWorkspace() {
               day={selectedLocation.day}
               isBusy={isBusy}
               isReadOnly={isReadOnly}
-              onDraftChange={() => {
-                sessionDraftVersionRef.current += 1;
-                setSessionSaveState("dirty");
-              }}
-              onDraftCommit={() => {
-                if (pendingMutationCount === 0 && exerciseMutationErrorsRef.current.size === 0) {
-                  setSessionSaveState("saved");
-                }
-              }}
+               onDraftChange={(sessionExerciseId, field) => {
+                 exerciseDraftTracker.markDraft(sessionExerciseId, field);
+                 setSessionSaveState("dirty");
+               }}
+               onDraftCommit={(sessionExerciseId, field) => {
+                 exerciseDraftTracker.markUnchanged(sessionExerciseId, field);
+                 setSessionSaveState(exerciseDraftTracker.hasErrors()
+                   ? "error"
+                   : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+               }}
+               onDraftValidationChange={(sessionExerciseId, field, hasError) => {
+                 exerciseDraftTracker.markValidationError(sessionExerciseId, field, hasError);
+                 setSessionSaveState(exerciseDraftTracker.hasErrors()
+                   ? "error"
+                   : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+               }}
               session={selectedSession}
               usedDays={selectedLocation.week.days.map((day) => day.dayOfWeek)}
               onAddExercise={async (exercise: Exercise) => {
@@ -708,6 +738,7 @@ export function TrainingPlanEditorWorkspace() {
         confirmLabel="Archivar plan"
         consequence="El plan dejará de aparecer en la biblioteca principal. Podrás duplicarlo más adelante para volver a editarlo."
         description={plan.name}
+        errorMessage={archiveError}
         isLoading={isArchiving}
         open={isArchiveDialogOpen}
         title={`Archivar ${plan.name}`}

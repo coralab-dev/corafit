@@ -6,6 +6,7 @@ import {
   getExercisePageCount,
   shouldShowExcludedPageMessage,
 } from "./exercise-search-utils.ts";
+import { createLatestRequestController } from "../../hooks/latest-request-controller.ts";
 
 test("builds a remote exercise query with the requested page and limit", () => {
   const params = buildExerciseSearchParams({
@@ -41,4 +42,18 @@ test("keeps an exercise on a later server page selectable", () => {
   const pageTwo = [{ id: "exercise-51" }, { id: "exercise-52" }];
 
   assert.deepEqual(filterSelectableExercises(pageTwo, []), pageTwo);
+});
+
+test("aborts stale exercise requests and keeps only the latest request current", () => {
+  const controller = createLatestRequestController();
+  const first = controller.start();
+  const second = controller.start();
+
+  assert.equal(first.signal.aborted, true);
+  assert.equal(controller.isCurrent(first.id), false);
+  assert.equal(controller.isCurrent(second.id), true);
+
+  controller.invalidate();
+  assert.equal(second.signal.aborted, true);
+  assert.equal(controller.isCurrent(second.id), false);
 });

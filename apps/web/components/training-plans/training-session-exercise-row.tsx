@@ -53,8 +53,9 @@ export type TrainingSessionExerciseRowProps = {
   isLast: boolean;
   isBusy: boolean;
   isReadOnly: boolean;
-  onDraftChange: () => void;
-  onDraftCommit: () => void;
+  onDraftChange: (field: PrescriptionField) => void;
+  onDraftCommit: (field: PrescriptionField) => void;
+  onDraftValidationChange: (field: PrescriptionField, hasError: boolean) => void;
   onAddAlternative: (exercise: Exercise) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
   onDeleteAlternative: (alternativeId: string) => void;
@@ -74,6 +75,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
   isReadOnly,
   onDraftChange,
   onDraftCommit,
+  onDraftValidationChange,
   onAddAlternative,
   onDelete,
   onDeleteAlternative,
@@ -131,12 +133,14 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
 
     if (result.error) {
       setErrors((current) => ({ ...current, [field]: result.error }));
+      onDraftValidationChange(field, true);
       return;
     }
 
     setErrors((current) => ({ ...current, [field]: undefined }));
+    onDraftValidationChange(field, false);
     if (!result.changed) {
-      onDraftCommit();
+      onDraftCommit(field);
       return;
     }
 
@@ -145,7 +149,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
 
   function updateDraft(field: PrescriptionField, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
-    onDraftChange();
+    onDraftChange(field);
   }
 
   async function saveNote() {

@@ -45,6 +45,9 @@ Use this file first. Keep exploration narrow and update `docs/agent-notes.md` du
 - Do not touch unrelated dirty files or product code unless required.
 - Do not add dependencies without explicit instruction.
 - Do not change `model_reasoning_effort` or related reasoning settings.
+- `dev:auth` may read local secrets from ignored env files, but do not run it
+  during automated agent verification. Do not print, persist, or version
+  passwords, JWTs, service keys, or database connection strings.
 
 ## Verification Policy
 - Run the smallest check that proves the touched area.

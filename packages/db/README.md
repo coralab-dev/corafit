@@ -41,7 +41,13 @@ To connect locally:
 6. In Supabase Storage, create a private bucket named `progress-photos`.
 7. Add Storage policies after the auth and ownership model is finalized.
 
-Do not commit `.env` or real Supabase credentials.
+`SUPABASE_SERVICE_ROLE_KEY` is preferred. The legacy `SUPABASE_SERVICE_KEY`
+name is accepted only as a compatibility fallback in older local env files.
+
+Do not commit `.env` or real Supabase credentials. Local helpers may read
+ignored env values, but credentials alone do not authorize mutating a remote
+Supabase or Postgres destination; require an explicit task and matching remote
+target confirmation first.
 
 ## Beta subscription backfill
 

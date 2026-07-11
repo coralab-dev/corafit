@@ -20,6 +20,9 @@ Prisma database package. Treat schema and migrations as the source of truth.
 - Do not run destructive migration/reset commands unless explicitly requested.
 - After schema changes, run `pnpm --filter db generate`.
 - Keep real credentials out of commits.
+- Do not run `dev:auth`, seeds, backfills, migrations, `db:push`, Storage
+  operations, or mutable Supabase/Postgres connections unless the task
+  explicitly authorizes that exact external mutation.
 
 ## Verification
 - Schema-only changes: `pnpm --filter db generate`, then `pnpm --filter db typecheck`.

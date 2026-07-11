@@ -45,16 +45,15 @@ pnpm run dev:auth
 ```
 
 The helper creates or reuses a Supabase Auth user, creates the local user,
-organization, owner membership, and trial subscription, then prints the
-`Supabase JWT` and `Organization ID` for the web `Conexion` dialog. It also
-prints a `localStorage.setItem(...)` command you can paste in the browser
-console to configure the web app directly.
+organization, owner membership, and trial subscription. It does not print
+passwords, Supabase JWTs, service keys, database URLs, or browser
+`localStorage` commands by default.
 
-Defaults are:
+Set these local-only values before running it:
 
 ```text
-DEV_AUTH_EMAIL=corafit.dev.coach@gmail.com
-DEV_AUTH_PASSWORD=CoraFitDev123!
+DEV_AUTH_EMAIL=<local dev email>
+DEV_AUTH_PASSWORD=<local dev password>
 DEV_AUTH_NAME=Coach Demo
 DEV_ORGANIZATION_NAME=CoraFit Demo
 ```
@@ -64,6 +63,23 @@ If the Supabase user already exists with another password, set
 If you already have a real Supabase access token, you can set `DEV_AUTH_JWT`
 and the helper will only create or repair the local database profile and
 membership.
+
+`SUPABASE_SERVICE_ROLE_KEY` is the preferred service-role variable. The legacy
+`SUPABASE_SERVICE_KEY` name remains accepted only as a fallback for older local
+environments.
+
+Remote mutation is locked behind a separate opt-in. If `SUPABASE_URL` or
+`DATABASE_URL` points away from localhost, credentials alone are not enough:
+
+```text
+DEV_AUTH_ALLOW_REMOTE_MUTATION=true
+DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF=<expected Supabase project ref>
+```
+
+The expected project ref must match the configured Supabase destination before
+the helper creates or updates anything. To print the browser session details for
+a one-time local setup, set `DEV_AUTH_PRINT_SESSION=true`; leave it unset or
+`false` for normal runs.
 
 The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the current beta Vercel domain.
 

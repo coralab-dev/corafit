@@ -18,6 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
+import {
+  canSubmitPlanAssignment,
+  isClientAvailableForAssignment,
+} from "@/app/training-plans/assign-plan-state";
 import { cn } from "@/lib/utils";
 import {
   apiRequest,
@@ -71,6 +75,8 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
 
   const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
   const selectedPlan = previewPlan ?? plans.find((plan) => plan.id === selectedPlanId) ?? null;
+  const isClientBlockedForAssignment =
+    client !== null && !isClientAvailableForAssignment(client);
   const filteredPlans = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -106,7 +112,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       setClient(matchedClient ? { ...matchedClient, access: { status: "none" } } : null);
       if (!matchedClient) {
         setError("No se encontro el cliente solicitado.");
-      } else if (matchedClient.currentAssignment?.assignedPlan) {
+      } else if (!isClientAvailableForAssignment(matchedClient)) {
         setError("El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.");
       }
     } catch (caughtError) {
@@ -177,7 +183,10 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
   }, [apiConfig, isApiReady, selectedPlanId]);
 
   async function assignPlan() {
-    if (!selectedPlanId || !client) {
+    if (!client || !canSubmitPlanAssignment(client, selectedPlanId)) {
+      if (client && isClientBlockedForAssignment) {
+        setError("El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.");
+      }
       return;
     }
 
@@ -332,6 +341,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
           <AssignmentSummary
           client={client}
           isLoadingClient={isLoadingClient}
+          isClientBlocked={isClientBlockedForAssignment}
           isSubmitting={isAssigning}
           plan={selectedPlan}
           startDate={startDate}
@@ -504,6 +514,7 @@ function PreviewDay({
 function AssignmentSummary({
   client,
   isLoadingClient,
+  isClientBlocked,
   isSubmitting,
   plan,
   startDate,
@@ -511,6 +522,7 @@ function AssignmentSummary({
 }: {
   client: Client | null;
   isLoadingClient: boolean;
+  isClientBlocked: boolean;
   isSubmitting: boolean;
   plan: TrainingPlan | null;
   startDate: string;
@@ -535,6 +547,11 @@ function AssignmentSummary({
         ) : (
           <p className="text-sm text-muted-foreground">Sin cliente</p>
         )}
+        {isClientBlocked ? (
+          <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-6 border-t pt-6">
@@ -567,7 +584,7 @@ function AssignmentSummary({
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
-        <Button disabled={!client || !plan || isSubmitting} onClick={onAssign}>
+        <Button disabled={!client || !plan || isSubmitting || isClientBlocked} onClick={onAssign}>
           {isSubmitting ? <Loader2Icon data-icon="inline-start" className="animate-spin" /> : null}
           Asignar plan
           {!isSubmitting ? <ArrowRightIcon data-icon="inline-end" /> : null}

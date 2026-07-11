@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  canSubmitPlanAssignment,
   getAssignableClientDialogState,
   getClientsAvailableForAssignment,
+  isClientAvailableForAssignment,
 } from "./assign-plan-state";
 import type { Client } from "@/lib/clients/types";
 
@@ -50,6 +52,12 @@ const assignment = {
 };
 
 describe("assign plan dialog state", () => {
+  it("returns available only when the current assignment is explicitly null", () => {
+    expect(isClientAvailableForAssignment(createClient({ currentAssignment: null }))).toBe(true);
+    expect(isClientAvailableForAssignment(createClient({ currentAssignment: assignment }))).toBe(false);
+    expect(isClientAvailableForAssignment(createClient({ currentAssignment: undefined }))).toBe(false);
+  });
+
   it("only enables clients whose current assignment is known to be empty", () => {
     const clients = [
       createClient({ id: "with-plan", currentAssignment: assignment }),
@@ -87,5 +95,12 @@ describe("assign plan dialog state", () => {
         false,
       ),
     ).toBe("available");
+  });
+
+  it("does not allow assignment submission for blocked clients", () => {
+    expect(canSubmitPlanAssignment(createClient({ currentAssignment: null }), "plan-1")).toBe(true);
+    expect(canSubmitPlanAssignment(createClient({ currentAssignment: assignment }), "plan-1")).toBe(false);
+    expect(canSubmitPlanAssignment(createClient({ currentAssignment: undefined }), "plan-1")).toBe(false);
+    expect(canSubmitPlanAssignment(createClient({ currentAssignment: null }), "")).toBe(false);
   });
 });

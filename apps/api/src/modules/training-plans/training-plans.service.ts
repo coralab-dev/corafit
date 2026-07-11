@@ -1952,7 +1952,7 @@ export class TrainingPlansService {
   }
 
   private ensurePlanIsDraft(plan: { status?: TrainingPlanStatus } | null | undefined) {
-    if (plan?.status !== undefined && plan.status !== TrainingPlanStatus.draft) {
+    if (plan?.status !== TrainingPlanStatus.draft) {
       throw new ConflictException('Only draft plans can be edited');
     }
   }

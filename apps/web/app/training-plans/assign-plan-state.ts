@@ -7,8 +7,19 @@ export type AssignableClientDialogState =
   | "error"
   | "loading";
 
+export function isClientAvailableForAssignment(client: Client): boolean {
+  return client.currentAssignment === null;
+}
+
+export function canSubmitPlanAssignment(
+  client: Client | null,
+  selectedPlanId: string,
+): boolean {
+  return Boolean(selectedPlanId && client && isClientAvailableForAssignment(client));
+}
+
 export function getClientsAvailableForAssignment(clients: Client[]): Client[] {
-  return clients.filter((client) => client.currentAssignment === null);
+  return clients.filter(isClientAvailableForAssignment);
 }
 
 export function getAssignableClientDialogState(

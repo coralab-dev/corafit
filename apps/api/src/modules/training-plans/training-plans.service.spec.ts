@@ -325,6 +325,7 @@ describe('TrainingPlansService', () => {
       prisma.trainingPlan.findFirst.mockResolvedValue({
         id: 'plan-1',
         durationWeeks: 4,
+        status: TrainingPlanStatus.draft,
       });
       prisma.trainingPlanWeek.findFirst
         .mockResolvedValueOnce(null)
@@ -362,6 +363,7 @@ describe('TrainingPlansService', () => {
       prisma.trainingPlan.findFirst.mockResolvedValue({
         id: 'plan-1',
         durationWeeks: 4,
+        status: TrainingPlanStatus.draft,
       });
       prisma.trainingPlanWeek.findFirst.mockResolvedValue({ id: 'week-3' });
 
@@ -375,6 +377,7 @@ describe('TrainingPlansService', () => {
       prisma.trainingPlan.findFirst.mockResolvedValue({
         id: 'plan-1',
         durationWeeks: 4,
+        status: TrainingPlanStatus.draft,
       });
 
       await expect(
@@ -397,7 +400,10 @@ describe('TrainingPlansService', () => {
     });
 
     it('adds an exercise to a visible session with validated prescription fields', async () => {
-      prisma.trainingSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      prisma.trainingSession.findFirst.mockResolvedValue({
+        id: 'session-1',
+        day: { week: { trainingPlan: { status: TrainingPlanStatus.draft } } },
+      });
       prisma.exercise.findFirst.mockResolvedValue({ id: 'ex-1' });
       prisma.sessionExercise.findFirst.mockResolvedValueOnce({ orderIndex: 2 });
       prisma.sessionExercise.findFirst.mockResolvedValueOnce({ id: 'se-1' });
@@ -438,6 +444,7 @@ describe('TrainingPlansService', () => {
         restSeconds: 120,
         coachNote: 'control',
         alternatives: [{ alternativeExerciseId: 'ex-2', note: 'si duele' }],
+        session: { day: { week: { trainingPlan: { status: TrainingPlanStatus.draft } } } },
       });
       prisma.sessionExercise.findFirst.mockResolvedValueOnce({ orderIndex: 4 });
       prisma.sessionExercise.findFirst.mockResolvedValueOnce({ id: 'se-copy' });
@@ -468,8 +475,16 @@ describe('TrainingPlansService', () => {
 
     it('reorders exercises only when all items belong to the same visible session', async () => {
       prisma.sessionExercise.findMany.mockResolvedValue([
-        { id: 'se-1', trainingSessionId: 'session-1' },
-        { id: 'se-2', trainingSessionId: 'session-1' },
+        {
+          id: 'se-1',
+          trainingSessionId: 'session-1',
+          session: { day: { week: { trainingPlan: { status: TrainingPlanStatus.draft } } } },
+        },
+        {
+          id: 'se-2',
+          trainingSessionId: 'session-1',
+          session: { day: { week: { trainingPlan: { status: TrainingPlanStatus.draft } } } },
+        },
       ]);
       prisma.sessionExercise.update.mockResolvedValue({});
 
@@ -625,6 +640,33 @@ describe('TrainingPlansService', () => {
         ).rejects.toThrow(ConflictException);
         expectNoStructuralWrites();
       });
+    });
+
+    it('rejects structural mutations when the parent plan status is missing', async () => {
+      prisma.sessionExercise.findFirst.mockResolvedValue({
+        id: 'se-1',
+        trainingSessionId: 'session-1',
+        exerciseId: 'ex-1',
+        orderIndex: 1,
+        sets: 3,
+        reps: '8',
+        restSeconds: 120,
+        coachNote: null,
+        alternatives: [],
+        session: {
+          day: {
+            week: {
+              trainingPlan: {},
+            },
+          },
+        },
+      });
+
+      await expect(
+        service.updateSessionExercise('se-1', { reps: '10' }, mockMember),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.sessionExercise.update).not.toHaveBeenCalled();
+      expect(prisma.sessionExerciseAlternative.update).not.toHaveBeenCalled();
     });
   });
 
@@ -1013,6 +1055,7 @@ describe('TrainingPlansService', () => {
         weekNumber: 1,
         notes: null,
         days: [],
+        trainingPlan: { status: TrainingPlanStatus.draft },
       });
       prisma.trainingPlanWeek.findFirst.mockResolvedValueOnce({
         id: 'week-max',
@@ -1089,6 +1132,7 @@ describe('TrainingPlansService', () => {
         dayOrder: null,
         dayType: TrainingDayType.training,
         session: null,
+        week: { trainingPlan: { status: TrainingPlanStatus.draft } },
       });
       prisma.trainingPlanDay.findFirst.mockResolvedValueOnce({
         id: 'day-1',
@@ -1097,6 +1141,7 @@ describe('TrainingPlansService', () => {
         dayOrder: null,
         dayType: TrainingDayType.training,
         session: null,
+        week: { trainingPlan: { status: TrainingPlanStatus.draft } },
       });
       prisma.trainingPlanDay.findFirst.mockResolvedValueOnce(null);
       prisma.trainingPlanDay.create.mockResolvedValue({ id: 'day-copy-1' });

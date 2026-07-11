@@ -203,30 +203,23 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
         `/admin/organizations/${organizationId}/${action}`,
         { method: "POST" },
       );
+      const shouldKeep =
+        normalizedFilters.status === "all" ||
+        normalizedFilters.status === organization.status;
 
-      setSelectedOrganization(organization);
-      let nextSelectedId: string | null = null;
-      setItems((current) => {
-        const shouldKeep =
-          normalizedFilters.status === "all" ||
-          normalizedFilters.status === organization.status;
-        const next = shouldKeep
-          ? current.map((item) =>
-              item.id === organization.id ? organization : item,
-            )
-          : current.filter((item) => item.id !== organization.id);
-
-        if (!shouldKeep) {
-          nextSelectedId = next[0]?.id ?? "";
-        }
-
-        return next;
-      });
-      if (nextSelectedId !== null) {
-        const selectedId = nextSelectedId;
-        setSelectedId((currentSelectedId) =>
-          currentSelectedId === organization.id ? selectedId : currentSelectedId,
+      if (shouldKeep) {
+        setItems((current) =>
+          current.map((item) =>
+            item.id === organization.id ? organization : item,
+          ),
         );
+        setSelectedOrganization(organization);
+      } else {
+        setItems((current) =>
+          current.filter((item) => item.id !== organization.id),
+        );
+        setSelectedId("");
+        setSelectedOrganization(null);
       }
 
       return organization;

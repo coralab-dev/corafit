@@ -12,6 +12,7 @@ import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from 
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { useAuth } from "@/components/providers/auth-provider";
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { PanelSkeleton } from "@/components/shared/skeletons";
 import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
@@ -24,6 +25,14 @@ import {
   reduceClientDetailState,
   resolveClientDetailState,
 } from "@/components/clients/client-detail-state";
+import {
+  beginClientStatusMutation,
+  failClientStatusMutation,
+  finishClientStatusMutation,
+  idleClientStatusMutationState,
+  matchesCurrentMutation,
+  type ClientStatusMutationState,
+} from "@/components/clients/client-status-state";
 import type {
   Client,
   ClientAccess,
@@ -60,6 +69,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [assignmentLoadingId, setAssignmentLoadingId] = useState("");
   const [isEndPlanOpen, setIsEndPlanOpen] = useState(false);
   const [isEndingPlan, setIsEndingPlan] = useState(false);
+  const [statusMutation, setStatusMutation] = useState<ClientStatusMutationState>(
+    idleClientStatusMutationState,
+  );
+  const statusMutationRef = useRef<ClientStatusMutationState>(idleClientStatusMutationState);
+  const statusMutationRequestRef = useRef(0);
+  const [archiveCandidate, setArchiveCandidate] = useState<Client | null>(null);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [loadedOrganizationId, setLoadedOrganizationId] = useState<string | null>(null);
 
   const form = useForm<ClientFormValues>({
@@ -95,6 +111,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       ? currentDetailAssignment
       : null
     : selectedAssignment;
+  const archiveError =
+    statusMutation.status === "error" && statusMutation.targetStatus === "archived"
+      ? statusMutation.error
+      : null;
   const isInitialLoading =
     (authStatus === "loading" && !hasLoadedClients) ||
     (isListLoading && !hasLoadedClients);
@@ -381,6 +401,21 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     setIsFormOpen(true);
   }
 
+  function openArchiveDialog(client: Client) {
+    if (statusMutationRef.current.status === "pending") {
+      return;
+    }
+
+    setArchiveCandidate(client);
+    setIsArchiveDialogOpen(true);
+  }
+
+  function getPendingStatus(clientId: string): OperationalStatus | null {
+    return statusMutation.status === "pending" && statusMutation.clientId === clientId
+      ? statusMutation.targetStatus
+      : null;
+  }
+
   async function submitClient(values: ClientFormValues) {
     setIsSubmittingClient(true);
     setError("");
@@ -435,19 +470,62 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     }
   }
 
-  async function updateStatus(clientId: string, status: OperationalStatus) {
+  function setCurrentStatusMutation(nextState: ClientStatusMutationState) {
+    statusMutationRef.current = nextState;
+    setStatusMutation(nextState);
+  }
+
+  async function updateStatus(clientId: string, status: OperationalStatus): Promise<boolean> {
+    const currentClient =
+      (mode === "detail" && currentDetailClient?.id === clientId ? currentDetailClient : null) ??
+      allClients.find((client) => client.id === clientId) ??
+      null;
+
+    if (!currentClient || currentClient.operationalStatus === status) {
+      return false;
+    }
+
+    const requestId = ++statusMutationRequestRef.current;
+    const nextMutation = beginClientStatusMutation(statusMutationRef.current, {
+      requestId,
+      clientId,
+      status,
+      previousStatus: currentClient.operationalStatus,
+    });
+
+    if (!nextMutation.didStart) {
+      return false;
+    }
+
+    setCurrentStatusMutation(nextMutation.state);
     setError("");
+
     try {
       const updatedClient = await clientsRequest<ClientDetailResponse>(
         `/clients/${clientId}/status`,
         { method: "PATCH", body: JSON.stringify({ status }) },
       );
+
+      if (
+        !matchesCurrentMutation(statusMutationRef.current, {
+          requestId,
+          clientId,
+          status,
+        })
+      ) {
+        return false;
+      }
+
+      const nextClient = normalizeClient(
+        updatedClient,
+        currentClient.access,
+        currentClient.currentAssignment,
+      );
+
       setAllClients((current) =>
-        current.map((client) =>
-          client.id === clientId
-            ? normalizeClient(updatedClient, client.access, client.currentAssignment)
-            : client,
-        ),
+        mode === "list" && status === "archived"
+          ? current.filter((client) => client.id !== clientId)
+          : current.map((client) => (client.id === clientId ? nextClient : client)),
       );
       setDetailState((current) =>
         current.status === "ready" && current.client.id === clientId
@@ -461,9 +539,50 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             }
           : current,
       );
+      setAssignmentsByClient((current) =>
+        mode === "list" && status === "archived"
+          ? Object.fromEntries(
+              Object.entries(current).filter(([assignmentClientId]) => assignmentClientId !== clientId),
+            )
+          : current,
+      );
+      if (mode === "list" && status === "archived") {
+        setIsDetailSheetOpen(false);
+        setSelectedId((current) => (current === clientId ? "" : current));
+      }
+      setCurrentStatusMutation(
+        finishClientStatusMutation(statusMutationRef.current, {
+          requestId,
+          clientId,
+          status,
+        }),
+      );
       notify.success(`Cliente ${statusLabels[status].toLowerCase()}`);
+      return true;
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      if (
+        !matchesCurrentMutation(statusMutationRef.current, {
+          requestId,
+          clientId,
+          status,
+        })
+      ) {
+        return false;
+      }
+
+      const message = getErrorMessage(caughtError);
+      setCurrentStatusMutation(
+        failClientStatusMutation(statusMutationRef.current, {
+          requestId,
+          clientId,
+          status,
+          error: message,
+        }),
+      );
+      if (status !== "archived") {
+        setError(message);
+      }
+      return false;
     }
   }
 
@@ -525,6 +644,34 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         onConfirm={endCurrentPlanForSelectedClient}
         onOpenChange={setIsEndPlanOpen}
       />
+      <ConfirmActionDialog
+        confirmLabel="Archivar cliente"
+        consequence="El cliente dejará de aparecer en la lista principal, pero su ficha e historial seguirán disponibles."
+        description={archiveCandidate?.name ?? "Cliente seleccionado"}
+        errorMessage={archiveError}
+        isLoading={
+          statusMutation.status === "pending" &&
+          statusMutation.clientId === archiveCandidate?.id &&
+          statusMutation.targetStatus === "archived"
+        }
+        open={isArchiveDialogOpen}
+        title={
+          archiveCandidate ? `Archivar ${archiveCandidate.name}` : "Archivar cliente"
+        }
+        onOpenChange={(nextOpen) => {
+          setIsArchiveDialogOpen(nextOpen);
+          if (!nextOpen) {
+            setArchiveCandidate(null);
+          }
+        }}
+        onConfirm={async () => {
+          if (!archiveCandidate) {
+            return false;
+          }
+
+          return updateStatus(archiveCandidate.id, "archived");
+        }}
+      />
     </>
   );
 
@@ -559,7 +706,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                   assignment={currentDetailAssignment}
                   client={currentDetailClient}
                   isPlanLoading={false}
+                  isStatusMutationPending={statusMutation.status === "pending"}
+                  pendingStatus={getPendingStatus(currentDetailClient.id)}
                   variant="page"
+                  onArchiveStatusChange={openArchiveDialog}
                   onEndPlan={() => setIsEndPlanOpen(true)}
                   onEdit={openEditForm}
                   onStatusChange={updateStatus}
@@ -665,6 +815,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             assignment={selectedAssignment}
             client={selectedClient}
             isPlanLoading={assignmentLoadingId === selectedClient.id}
+            isStatusMutationPending={statusMutation.status === "pending"}
+            pendingStatus={getPendingStatus(selectedClient.id)}
+            onArchiveStatusChange={openArchiveDialog}
             onEndPlan={() => setIsEndPlanOpen(true)}
             onEdit={openEditForm}
             onStatusChange={updateStatus}

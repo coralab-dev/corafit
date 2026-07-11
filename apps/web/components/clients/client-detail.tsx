@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   ArchiveIcon,
-  CheckCircle2Icon,
   DumbbellIcon,
   EditIcon,
   EyeIcon,
@@ -30,6 +29,7 @@ import type {
   OperationalStatus,
 } from "@/lib/clients/types";
 import { ClientProgressPanel } from "./client-progress-panel";
+import { clientStatusActionsFor } from "./client-status-state";
 
 type ClientDetailTab = "summary" | "plan" | "progress" | "access" | "notes";
 
@@ -45,17 +45,23 @@ export function ClientDetail({
   assignment,
   client,
   isPlanLoading,
+  isStatusMutationPending = false,
   onEndPlan,
   onEdit,
+  onArchiveStatusChange,
   onStatusChange,
+  pendingStatus,
   variant = "drawer",
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
   isPlanLoading: boolean;
+  isStatusMutationPending?: boolean;
   onEndPlan: () => void;
   onEdit: (client: Client) => void;
+  onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  pendingStatus?: OperationalStatus | null;
   variant?: "drawer" | "page";
 }) {
   const isPage = variant === "page";
@@ -123,6 +129,9 @@ export function ClientDetail({
         {activeTab === "summary" ? (
           <OperationalPanel
             client={client}
+            isStatusMutationPending={isStatusMutationPending}
+            pendingStatus={pendingStatus}
+            onArchiveStatusChange={onArchiveStatusChange}
             onStatusChange={onStatusChange}
           />
         ) : null}
@@ -185,7 +194,13 @@ export function ClientDetail({
         />
 
         <AccessPanel client={client} />
-        <OperationalPanel client={client} onStatusChange={onStatusChange} />
+        <OperationalPanel
+          client={client}
+          isStatusMutationPending={isStatusMutationPending}
+          pendingStatus={pendingStatus}
+          onArchiveStatusChange={onArchiveStatusChange}
+          onStatusChange={onStatusChange}
+        />
         <ClientNotesPanel client={client} onEdit={() => onEdit(client)} />
       </div>
     </aside>
@@ -217,11 +232,18 @@ function AccessPanel({ client }: { client: Client }) {
 
 function OperationalPanel({
   client,
+  isStatusMutationPending,
+  pendingStatus,
+  onArchiveStatusChange,
   onStatusChange,
 }: {
   client: Client;
+  isStatusMutationPending: boolean;
+  pendingStatus?: OperationalStatus | null;
+  onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
 }) {
+  const statusActions = clientStatusActionsFor(client.operationalStatus);
   return (
     <WorkspacePanel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -238,35 +260,35 @@ function OperationalPanel({
         <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "active")}
-        >
-          <CheckCircle2Icon className="size-4" />
-          Activar
-        </Button>
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "paused")}
-        >
-          Pausar
-        </Button>
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "archived")}
-        >
-          <ArchiveIcon className="size-4" />
-          Archivar
-        </Button>
+        {statusActions.map((action) => {
+          const isCurrentActionPending = pendingStatus === action.status;
+
+          return (
+            <Button
+              key={action.status}
+              className="shadow-none"
+              disabled={isStatusMutationPending}
+              size="sm"
+              type="button"
+              variant={action.isDestructive ? "destructive" : "outline"}
+              onClick={() => {
+                if (action.requiresConfirmation) {
+                  onArchiveStatusChange(client);
+                  return;
+                }
+
+                onStatusChange(client.id, action.status);
+              }}
+            >
+              {isCurrentActionPending ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : action.status === "archived" ? (
+                <ArchiveIcon className="size-4" />
+              ) : null}
+              {action.label}
+            </Button>
+          );
+        })}
       </div>
     </WorkspacePanel>
   );

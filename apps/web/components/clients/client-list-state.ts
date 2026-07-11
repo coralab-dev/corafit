@@ -62,9 +62,17 @@ export function getOperationalClientMetrics(
         client.operationalStatus === "paused" ||
         client.operationalStatus === "inactive",
     ).length,
-    assignmentCount: metricClients.filter((client) =>
-      Boolean(assignmentsByClient[client.id] ?? client.currentAssignment),
-    ).length,
+    assignmentCount: metricClients.filter((client) => {
+      const hasExplicitAssignment = Object.prototype.hasOwnProperty.call(
+        assignmentsByClient,
+        client.id,
+      );
+      return Boolean(
+        hasExplicitAssignment
+          ? assignmentsByClient[client.id]
+          : client.currentAssignment,
+      );
+    }).length,
     accessCount: metricClients.filter((client) => client.access.status === "active").length,
   };
 }

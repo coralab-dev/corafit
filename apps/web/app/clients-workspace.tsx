@@ -157,6 +157,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         ...current,
         [clientId]: assignment,
       }));
+      setAllClients((current) =>
+        current.map((client) =>
+          client.id === clientId
+            ? { ...client, currentAssignment: assignment }
+            : client,
+        ),
+      );
 
       return assignment;
     },
@@ -641,10 +648,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         { method: "POST" },
       );
       if (mode === "detail") {
-        const assignment = await clientsRequest<CurrentPlanAssignment | null>(
-          `/clients/${actionClient.id}/plan-assignment/current`,
-          { method: "GET" },
-        );
+        const assignment = await loadCurrentPlanAssignment(actionClient.id);
         setDetailState((current) =>
           current.status === "ready" && current.client.id === actionClient.id
             ? {

@@ -7,7 +7,7 @@ NestJS API. Work module-by-module and prefer nearby specs.
 - Lint: `pnpm --filter api lint`
 - Typecheck: `pnpm --filter api typecheck`
 - Full tests: `pnpm --filter api test`
-- Targeted test: `pnpm --filter api test -- <spec-path-or-name>`
+- Targeted Vitest: `pnpm --filter api exec vitest run <spec>`
 
 ## Local map
 - Modules: `src/modules/`

@@ -122,6 +122,8 @@ Linear is used for execution and issue tracking.
 This repository contains source code and only the minimum technical documentation needed to run, test, and deploy the project.
 Do not reintroduce long-form product docs into the repo.
 
+Stable agent context starts at [docs/agent/README.md](docs/agent/README.md).
+
 The old markdown product docs were removed to avoid documentation drift.
 
 ## Deploy Base

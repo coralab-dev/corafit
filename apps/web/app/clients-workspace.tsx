@@ -16,6 +16,7 @@ import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { PanelSkeleton } from "@/components/shared/skeletons";
 import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
+import { fetchAllPages } from "@/lib/pagination";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
 import {
@@ -237,29 +238,32 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     setIsListLoading(true);
     setError("");
     try {
-      const operationalSearchParams = new URLSearchParams({
-        page: "1",
-        limit: "50",
-      });
+      const operationalSearchParams = new URLSearchParams();
       const archivedSearchParams = new URLSearchParams({
-        page: "1",
-        limit: "50",
         status: "archived",
       });
 
-      const [operationalResponse, archivedResponse] = await Promise.all([
-        clientsRequest<ClientsResponse>(
-          `/clients?${operationalSearchParams.toString()}`,
-          { method: "GET" },
-        ),
-        clientsRequest<ClientsResponse>(
-          `/clients?${archivedSearchParams.toString()}`,
-          { method: "GET" },
-        ),
+      const [operationalClients, archivedClients] = await Promise.all([
+        fetchAllPages({
+          params: operationalSearchParams,
+          fetchPage: (pageParams) =>
+            clientsRequest<ClientsResponse>(
+              `/clients?${pageParams.toString()}`,
+              { method: "GET" },
+            ),
+        }),
+        fetchAllPages({
+          params: archivedSearchParams,
+          fetchPage: (pageParams) =>
+            clientsRequest<ClientsResponse>(
+              `/clients?${pageParams.toString()}`,
+              { method: "GET" },
+            ),
+        }),
       ]);
       const nextClients = mergeClientCollections(
-        operationalResponse.items,
-        archivedResponse.items,
+        operationalClients,
+        archivedClients,
       ).map((client) => ({
         ...client,
         access: client.access ?? { status: "none" as const },
@@ -327,7 +331,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                 status: "error",
                 client: null,
                 assignment: null,
-                error: "Inicia sesiÃ³n para leer tus clientes.",
+                error: "Inicia sesión para leer tus clientes.",
               },
         );
         return;
@@ -380,10 +384,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     const timer = window.setTimeout(() => {
       setAssignmentLoadingId(selectedId);
       void loadCurrentPlanAssignment(selectedId).catch((caughtError) => {
-        setAssignmentsByClient((current) => ({
-          ...current,
-          [selectedId]: null,
-        }));
         setError(getErrorMessage(caughtError));
       }).finally(() => {
         setAssignmentLoadingId((current) => (current === selectedId ? "" : current));

@@ -8,6 +8,7 @@ import type { Exercise } from "@/hooks/use-exercises";
 import { authenticatedRequest, CoraFitApiError } from "@/lib/api/authenticated-request";
 import { dayOfWeekValues } from "@/components/training-plans/training-plan-days";
 import { mergeSessionExerciseUpdate } from "@/components/training-plans/training-plan-editor-utils";
+import { fetchAllPages } from "@/lib/pagination";
 
 export type TrainingPlanStatus = "draft" | "active" | "archived";
 export type TrainingPlanType = "template" | "assigned_copy";
@@ -145,7 +146,7 @@ export function useTrainingPlans(filters: PlanListFilters) {
     setError("");
 
     try {
-      const searchParams = new URLSearchParams({ page: "1", limit: "50" });
+      const searchParams = new URLSearchParams();
       if (filters.search?.trim()) {
         searchParams.set("search", filters.search.trim());
       }
@@ -153,12 +154,16 @@ export function useTrainingPlans(filters: PlanListFilters) {
         searchParams.set("status", filters.status);
       }
 
-      const response = await request<PlansResponse>(
-        `/training-plans?${searchParams.toString()}`,
-        { method: "GET" },
-      );
-      setItems(response.items);
-      setTotal(response.total);
+      const allPlans = await fetchAllPages({
+        params: searchParams,
+        fetchPage: (pageParams) =>
+          request<PlansResponse>(
+            `/training-plans?${pageParams.toString()}`,
+            { method: "GET" },
+          ),
+      });
+      setItems(allPlans);
+      setTotal(allPlans.length);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {

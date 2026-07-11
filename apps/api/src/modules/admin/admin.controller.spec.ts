@@ -14,15 +14,35 @@ describe('AdminController', () => {
       AdminController.prototype,
       'getOrganization',
     )?.value as () => unknown;
+    const suspendHandler = Object.getOwnPropertyDescriptor(
+      AdminController.prototype,
+      'suspendOrganization',
+    )?.value as () => unknown;
+    const reactivateHandler = Object.getOwnPropertyDescriptor(
+      AdminController.prototype,
+      'reactivateOrganization',
+    )?.value as () => unknown;
 
     expect(Reflect.getMetadata(PATH_METADATA, listHandler)).toBe('organizations');
     expect(Reflect.getMetadata(PATH_METADATA, getHandler)).toBe(
       'organizations/:organizationId',
     );
+    expect(Reflect.getMetadata(PATH_METADATA, suspendHandler)).toBe(
+      'organizations/:organizationId/suspend',
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, reactivateHandler)).toBe(
+      'organizations/:organizationId/reactivate',
+    );
     expect(Reflect.getMetadata(GUARDS_METADATA, listHandler)).toEqual([
       PlatformAdminGuard,
     ]);
     expect(Reflect.getMetadata(GUARDS_METADATA, getHandler)).toEqual([
+      PlatformAdminGuard,
+    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, suspendHandler)).toEqual([
+      PlatformAdminGuard,
+    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, reactivateHandler)).toEqual([
       PlatformAdminGuard,
     ]);
   });
@@ -33,6 +53,12 @@ describe('AdminController', () => {
       getStatus: vi.fn(),
       listOrganizations: vi.fn().mockResolvedValue([{ id: 'organization-id' }]),
       listSubscriptionPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
+      reactivateOrganization: vi
+        .fn()
+        .mockResolvedValue({ id: 'organization-id', status: 'active' }),
+      suspendOrganization: vi
+        .fn()
+        .mockResolvedValue({ id: 'organization-id', status: 'suspended' }),
       updateOrganizationSubscription: vi
         .fn()
         .mockResolvedValue({ id: 'organization-id', plan: { code: 'pro' } }),
@@ -49,11 +75,23 @@ describe('AdminController', () => {
     await expect(controller.getOrganization('organization-id')).resolves.toEqual({
       id: 'organization-id',
     });
+    await expect(controller.suspendOrganization('organization-id')).resolves.toEqual({
+      id: 'organization-id',
+      status: 'suspended',
+    });
+    await expect(controller.reactivateOrganization('organization-id')).resolves.toEqual({
+      id: 'organization-id',
+      status: 'active',
+    });
     expect(adminService.listOrganizations).toHaveBeenCalledWith({
       search: 'beta',
       status: 'active',
     });
     expect(adminService.getOrganization).toHaveBeenCalledWith('organization-id');
+    expect(adminService.suspendOrganization).toHaveBeenCalledWith('organization-id');
+    expect(adminService.reactivateOrganization).toHaveBeenCalledWith(
+      'organization-id',
+    );
   });
 
   it('delegates protected subscription updates to AdminService', async () => {

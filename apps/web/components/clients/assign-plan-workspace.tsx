@@ -30,6 +30,7 @@ import {
   levelLabels,
   statusLabels,
 } from "@/lib/clients/api";
+import { fetchAllPages } from "@/lib/pagination";
 import type {
   ApiConfig,
   Client,
@@ -93,15 +94,20 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     setIsLoadingClient(true);
     setError("");
     try {
-      const response = await apiRequest<ClientsResponse>(
-        "/clients?page=1&limit=50",
-        { method: "GET" },
-        apiConfig,
-      );
-      const matchedClient = response.items.find((item) => item.id === clientId);
+      const clients = await fetchAllPages({
+        fetchPage: (pageParams) =>
+          apiRequest<ClientsResponse>(
+            `/clients?${pageParams.toString()}`,
+            { method: "GET" },
+            apiConfig,
+          ),
+      });
+      const matchedClient = clients.find((item) => item.id === clientId);
       setClient(matchedClient ? { ...matchedClient, access: { status: "none" } } : null);
       if (!matchedClient) {
         setError("No se encontro el cliente solicitado.");
+      } else if (matchedClient.currentAssignment?.assignedPlan) {
+        setError("El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.");
       }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -119,13 +125,17 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     setIsLoadingPlans(true);
     setError("");
     try {
-      const response = await apiRequest<PlansResponse>(
-        "/training-plans?page=1&limit=50&status=active",
-        { method: "GET" },
-        apiConfig,
-      );
-      setPlans(response.items);
-      setSelectedPlanId(response.items[0]?.id ?? "");
+      const activePlans = await fetchAllPages({
+        params: new URLSearchParams({ status: "active" }),
+        fetchPage: (pageParams) =>
+          apiRequest<PlansResponse>(
+            `/training-plans?${pageParams.toString()}`,
+            { method: "GET" },
+            apiConfig,
+          ),
+      });
+      setPlans(activePlans);
+      setSelectedPlanId(activePlans[0]?.id ?? "");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {

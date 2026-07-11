@@ -34,9 +34,13 @@ import {
 import type {
   Client,
   ClientsResponse,
-  CurrentPlanAssignment,
 } from "@/lib/clients/types";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
+import { fetchAllPages } from "@/lib/pagination";
+import {
+  getAssignableClientDialogState,
+  getClientsAvailableForAssignment,
+} from "./assign-plan-state";
 import {
   type TrainingPlanStatus,
   useTrainingPlanMetrics,
@@ -53,6 +57,7 @@ export function TrainingPlansWorkspace() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [clientQuery, setClientQuery] = useState("");
+  const [assignmentClients, setAssignmentClients] = useState<Client[]>([]);
   const [unassignedClients, setUnassignedClients] = useState<Client[]>([]);
   const [clientsError, setClientsError] = useState("");
   const [isLoadingClients, setIsLoadingClients] = useState(false);
@@ -129,9 +134,15 @@ export function TrainingPlansWorkspace() {
         .some((value) => value.toLowerCase().includes(normalizedQuery)),
     );
   }, [clientQuery, unassignedClients]);
+  const assignDialogState = getAssignableClientDialogState(
+    assignmentClients,
+    clientsError,
+    isLoadingClients,
+  );
 
   async function loadUnassignedClients() {
     if (!isApiReady) {
+      setAssignmentClients([]);
       setUnassignedClients([]);
       setClientsError(
         authStatus === "loading"
@@ -144,32 +155,21 @@ export function TrainingPlansWorkspace() {
     setIsLoadingClients(true);
     setClientsError("");
     try {
-      const response = await request<ClientsResponse>(
-        "/clients?page=1&limit=50",
-        { method: "GET" },
-      );
-      const clients = response.items.map((client) => ({
+      const clients = (await fetchAllPages({
+        fetchPage: (pageParams) =>
+          request<ClientsResponse>(
+            `/clients?${pageParams.toString()}`,
+            { method: "GET" },
+          ),
+      })).map((client) => ({
         ...client,
         access: { status: "none" as const },
       }));
-      const clientsWithAssignments = await Promise.all(
-        clients.map(async (client) => {
-          const assignment = await request<CurrentPlanAssignment | null>(
-            `/clients/${client.id}/plan-assignment/current`,
-            { method: "GET" },
-          ).catch(() => null);
-
-          return { assignment, client };
-        }),
-      );
-
-      setUnassignedClients(
-        clientsWithAssignments
-          .filter(({ assignment }) => !assignment?.assignedPlan)
-          .map(({ client }) => client),
-      );
+      setAssignmentClients(clients);
+      setUnassignedClients(getClientsAvailableForAssignment(clients));
     } catch (caughtError) {
       setClientsError(getClientErrorMessage(caughtError));
+      setAssignmentClients([]);
       setUnassignedClients([]);
     } finally {
       setIsLoadingClients(false);
@@ -318,13 +318,13 @@ export function TrainingPlansWorkspace() {
               />
             </div>
 
-            {clientsError ? (
+            {assignDialogState === "error" ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                 {clientsError}
               </div>
             ) : null}
 
-            {isLoadingClients ? (
+            {assignDialogState === "loading" ? (
               <div className="flex min-h-40 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
                 <Loader2Icon className="mr-2 size-4 animate-spin" />
                 Cargando clientes
@@ -353,7 +353,19 @@ export function TrainingPlansWorkspace() {
                   </button>
                 ))}
               </div>
-            ) : !clientsError ? (
+            ) : assignDialogState === "empty" ? (
+              <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border bg-background p-6 text-center">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <UserRoundIcon className="size-5" />
+                </div>
+                <p className="mt-3 font-semibold">
+                  No existen clientes
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Crea un cliente antes de iniciar una asignacion.
+                </p>
+              </div>
+            ) : assignDialogState === "all-assigned" ? (
               <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border bg-background p-6 text-center">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <UserRoundIcon className="size-5" />

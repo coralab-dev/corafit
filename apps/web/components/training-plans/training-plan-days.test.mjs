@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { assert, test } from "vitest";
 import { dayLabels, dayOfWeekValues } from "./training-plan-days.ts";
 
 test("lists training plan days from Monday through Sunday", () => {

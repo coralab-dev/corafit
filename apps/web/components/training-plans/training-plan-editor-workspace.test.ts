@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { assert, expect, test } from "vitest";
 import { archiveTrainingPlan } from "./training-plan-editor-actions.ts";
 import { createExerciseDraftTracker } from "./training-plan-editor-draft-state.ts";
 import {
@@ -87,7 +86,7 @@ test("continues with the next mutation when the previous one fails", async () =>
     return "result-B";
   });
 
-  await assert.rejects(firstResult, failure);
+  await expect(firstResult).rejects.toThrow(failure);
   assert.equal(await secondResult, "result-B");
   assert.deepEqual(calls, ["A", "B"]);
   assert.equal(queue.pendingCount, 0);

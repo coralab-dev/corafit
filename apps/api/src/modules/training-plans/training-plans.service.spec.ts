@@ -499,6 +499,133 @@ describe('TrainingPlansService', () => {
         ),
       ).rejects.toThrow(ConflictException);
     });
+
+    describe.each([
+      ['active', TrainingPlanStatus.active],
+      ['archived', TrainingPlanStatus.archived],
+    ])('draft-only structural mutations on %s plans', (_label, status) => {
+      function sessionExerciseOnPlan() {
+        return {
+          id: 'se-1',
+          trainingSessionId: 'session-1',
+          exerciseId: 'ex-1',
+          orderIndex: 1,
+          sets: 3,
+          reps: '8',
+          restSeconds: 120,
+          coachNote: 'control',
+          alternatives: [],
+          session: {
+            day: {
+              week: {
+                trainingPlan: { status },
+              },
+            },
+          },
+        };
+      }
+
+      function alternativeOnPlan() {
+        return {
+          id: 'alt-1',
+          sessionExerciseId: 'se-1',
+          alternativeExerciseId: 'ex-2',
+          note: null,
+          sessionExercise: sessionExerciseOnPlan(),
+        };
+      }
+
+      function expectNoStructuralWrites() {
+        expect(prisma.sessionExercise.create).not.toHaveBeenCalled();
+        expect(prisma.sessionExercise.update).not.toHaveBeenCalled();
+        expect(prisma.sessionExercise.delete).not.toHaveBeenCalled();
+        expect(prisma.sessionExerciseAlternative.create).not.toHaveBeenCalled();
+        expect(prisma.sessionExerciseAlternative.update).not.toHaveBeenCalled();
+        expect(prisma.sessionExerciseAlternative.delete).not.toHaveBeenCalled();
+      }
+
+      it('rejects updating a session exercise before writing', async () => {
+        prisma.sessionExercise.findFirst.mockResolvedValue(sessionExerciseOnPlan());
+
+        await expect(
+          service.updateSessionExercise('se-1', { reps: '10' }, mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects deleting a session exercise before writing', async () => {
+        prisma.sessionExercise.findFirst.mockResolvedValue(sessionExerciseOnPlan());
+
+        await expect(
+          service.deleteSessionExercise('se-1', mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects duplicating a session exercise before writing', async () => {
+        prisma.sessionExercise.findFirst.mockResolvedValue(sessionExerciseOnPlan());
+
+        await expect(
+          service.duplicateSessionExercise('se-1', mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects reordering session exercises before temporary writes', async () => {
+        prisma.sessionExercise.findMany.mockResolvedValue([
+          {
+            id: 'se-1',
+            trainingSessionId: 'session-1',
+            session: { day: { week: { trainingPlan: { status } } } },
+          },
+          {
+            id: 'se-2',
+            trainingSessionId: 'session-1',
+            session: { day: { week: { trainingPlan: { status } } } },
+          },
+        ]);
+
+        await expect(
+          service.reorderSessionExercises(
+            {
+              items: [
+                { sessionExerciseId: 'se-2', orderIndex: 0 },
+                { sessionExerciseId: 'se-1', orderIndex: 1 },
+              ],
+            },
+            mockMember,
+          ),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects creating an alternative before writing', async () => {
+        prisma.sessionExercise.findFirst.mockResolvedValue(sessionExerciseOnPlan());
+
+        await expect(
+          service.createAlternative('se-1', { alternativeExerciseId: 'ex-2' }, mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects updating an alternative before writing', async () => {
+        prisma.sessionExerciseAlternative.findFirst.mockResolvedValue(alternativeOnPlan());
+
+        await expect(
+          service.updateAlternative('alt-1', { note: 'otra' }, mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+
+      it('rejects deleting an alternative before writing', async () => {
+        prisma.sessionExerciseAlternative.findFirst.mockResolvedValue(alternativeOnPlan());
+
+        await expect(
+          service.deleteAlternative('alt-1', mockMember),
+        ).rejects.toThrow(ConflictException);
+        expectNoStructuralWrites();
+      });
+    });
   });
 
   describe('list', () => {

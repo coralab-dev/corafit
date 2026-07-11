@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { assert, test } from "vitest";
 import {
   getClientsForStatusFilter,
   getOperationalClientMetrics,
@@ -176,6 +175,21 @@ test("missing assignment key falls back to the client current assignment", () =>
       currentAssignment: assignedPlan,
     }),
   ]);
+
+  assert.equal(metrics.assignmentCount, 1);
+});
+
+test("transient assignment refresh failures keep metrics on the last known assignment", () => {
+  const assignmentsByClient = { "client-1": assignedPlan };
+  const metrics = getOperationalClientMetrics(
+    [
+      createClient({
+        id: "client-1",
+        currentAssignment: assignedPlan,
+      }),
+    ],
+    assignmentsByClient,
+  );
 
   assert.equal(metrics.assignmentCount, 1);
 });

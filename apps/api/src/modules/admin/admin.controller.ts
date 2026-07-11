@@ -65,6 +65,22 @@ export class AdminController {
   }
 
   @UseGuards(PlatformAdminGuard)
+  @Post('organizations/:organizationId/suspend')
+  suspendOrganization(
+    @Param('organizationId') organizationId: string,
+  ): Promise<AdminOrganization> {
+    return this.adminService.suspendOrganization(organizationId);
+  }
+
+  @UseGuards(PlatformAdminGuard)
+  @Post('organizations/:organizationId/reactivate')
+  reactivateOrganization(
+    @Param('organizationId') organizationId: string,
+  ): Promise<AdminOrganization> {
+    return this.adminService.reactivateOrganization(organizationId);
+  }
+
+  @UseGuards(PlatformAdminGuard)
   @Patch('organizations/:organizationId/subscription')
   updateOrganizationSubscription(
     @Param('organizationId') organizationId: string,

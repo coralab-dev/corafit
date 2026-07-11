@@ -34,6 +34,8 @@ export type AdminOrganization = {
   clientsUsed: number;
 };
 
+export type AdminOrganizationStatusAction = "reactivate" | "suspend";
+
 export type AdminSubscriptionPlan = {
   id: string;
   code: string;
@@ -192,6 +194,46 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [adminRequest],
   );
 
+  const updateOrganizationStatus = useCallback(
+    async (
+      organizationId: string,
+      action: AdminOrganizationStatusAction,
+    ) => {
+      const organization = await adminRequest<AdminOrganization>(
+        `/admin/organizations/${organizationId}/${action}`,
+        { method: "POST" },
+      );
+
+      setSelectedOrganization(organization);
+      let nextSelectedId: string | null = null;
+      setItems((current) => {
+        const shouldKeep =
+          normalizedFilters.status === "all" ||
+          normalizedFilters.status === organization.status;
+        const next = shouldKeep
+          ? current.map((item) =>
+              item.id === organization.id ? organization : item,
+            )
+          : current.filter((item) => item.id !== organization.id);
+
+        if (!shouldKeep) {
+          nextSelectedId = next[0]?.id ?? "";
+        }
+
+        return next;
+      });
+      if (nextSelectedId !== null) {
+        const selectedId = nextSelectedId;
+        setSelectedId((currentSelectedId) =>
+          currentSelectedId === organization.id ? selectedId : currentSelectedId,
+        );
+      }
+
+      return organization;
+    },
+    [adminRequest, normalizedFilters.status],
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadOrganizations();
@@ -229,6 +271,7 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     selectedOrganization,
     subscriptionPlans,
     updateOrganizationSubscription,
+    updateOrganizationStatus,
   };
 }
 

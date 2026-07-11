@@ -109,6 +109,17 @@ export class AdminService {
     return this.toAdminOrganization(organization);
   }
 
+  async suspendOrganization(organizationId: string): Promise<AdminOrganization> {
+    return this.updateOrganizationStatus(
+      organizationId,
+      OrganizationStatus.suspended,
+    );
+  }
+
+  async reactivateOrganization(organizationId: string): Promise<AdminOrganization> {
+    return this.updateOrganizationStatus(organizationId, OrganizationStatus.active);
+  }
+
   async listSubscriptionPlans(): Promise<AdminSubscriptionPlan[]> {
     const plans = await this.prismaService.subscriptionPlan.findMany({
       select: {
@@ -182,6 +193,39 @@ export class AdminService {
         cancelledAt: null,
       },
     });
+
+    return this.getOrganization(normalizedOrganizationId);
+  }
+
+  private async updateOrganizationStatus(
+    organizationId: string,
+    status: OrganizationStatus,
+  ): Promise<AdminOrganization> {
+    const normalizedOrganizationId = organizationId.trim();
+
+    if (!normalizedOrganizationId) {
+      throw new BadRequestException('organizationId is required');
+    }
+
+    const organization = await this.prismaService.organization.findUnique({
+      where: { id: normalizedOrganizationId },
+      select: { id: true, status: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization was not found');
+    }
+
+    if (organization.status === OrganizationStatus.cancelled) {
+      throw new BadRequestException('Cancelled organizations cannot change status');
+    }
+
+    if (organization.status !== status) {
+      await this.prismaService.organization.update({
+        where: { id: normalizedOrganizationId },
+        data: { status },
+      });
+    }
 
     return this.getOrganization(normalizedOrganizationId);
   }

@@ -2,12 +2,15 @@
 
 import {
   Building2Icon,
+  BanIcon,
   RefreshCwIcon,
+  RotateCcwIcon,
   SearchIcon,
   ShieldCheckIcon,
   UsersIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { DetailSkeleton, TableSkeleton } from "@/components/shared/skeletons";
@@ -25,6 +28,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import {
   type AdminSubscriptionPlan,
   type AdminOrganization,
+  type AdminOrganizationStatusAction,
   type AdminOrganizationStatus,
   useAdminOrganizations,
 } from "@/hooks/use-admin-organizations";
@@ -70,6 +74,7 @@ export function AdminOrganizationsWorkspace() {
     selectedOrganization,
     subscriptionPlans,
     updateOrganizationSubscription,
+    updateOrganizationStatus,
   } = useAdminOrganizations({ search, status });
 
   const totals = useMemo(
@@ -205,6 +210,7 @@ export function AdminOrganizationsWorkspace() {
             organization={selectedOrganization}
             subscriptionPlans={subscriptionPlans}
             onChangePlan={updateOrganizationSubscription}
+            onChangeStatus={updateOrganizationStatus}
           />
         }
         sideClassName="xl:w-[380px] xl:min-w-[340px]"
@@ -319,6 +325,7 @@ function OrganizationDetail({
   isLoading,
   isPlansLoading,
   onChangePlan,
+  onChangeStatus,
   organization,
   subscriptionPlans,
 }: {
@@ -326,6 +333,10 @@ function OrganizationDetail({
   isLoading: boolean;
   isPlansLoading: boolean;
   onChangePlan: (organizationId: string, planCode: string) => Promise<AdminOrganization>;
+  onChangeStatus: (
+    organizationId: string,
+    action: AdminOrganizationStatusAction,
+  ) => Promise<AdminOrganization>;
   organization: AdminOrganization | null;
   subscriptionPlans: AdminSubscriptionPlan[];
 }) {
@@ -361,7 +372,7 @@ function OrganizationDetail({
     <aside className="space-y-4 p-4">
       <WorkspacePanel
         title="Detalle operativo"
-        description="Solo lectura para soporte beta."
+        description="Acciones administrativas para soporte beta."
         icon={<Building2Icon className="size-4" />}
       >
         <div className="divide-y">
@@ -373,6 +384,11 @@ function OrganizationDetail({
           <DetailRow label="Estado" value={<StatusBadge status={organization.status} />} />
           <DetailRow label="Creada" value={formatDateTime(organization.createdAt)} />
         </div>
+        <OrganizationStatusAction
+          key={`${organization.id}-${organization.status}`}
+          organization={organization}
+          onChangeStatus={onChangeStatus}
+        />
       </WorkspacePanel>
 
       <WorkspacePanel title="Owner" icon={<UsersIcon className="size-4" />}>
@@ -415,6 +431,88 @@ function OrganizationDetail({
         />
       </WorkspacePanel>
     </aside>
+  );
+}
+
+function OrganizationStatusAction({
+  onChangeStatus,
+  organization,
+}: {
+  onChangeStatus: (
+    organizationId: string,
+    action: AdminOrganizationStatusAction,
+  ) => Promise<AdminOrganization>;
+  organization: AdminOrganization;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const action =
+    organization.status === "active"
+      ? {
+          confirmLabel: "Suspender",
+          description:
+            "La organizacion quedara bloqueada hasta que un admin la reactive.",
+          icon: BanIcon,
+          label: "Suspender",
+          nextStatus: "suspended" as const,
+          title: "Suspender organizacion",
+          type: "suspend" as const,
+        }
+      : organization.status === "suspended"
+        ? {
+            confirmLabel: "Reactivar",
+            description:
+              "La organizacion volvera a operar con sus permisos actuales.",
+            icon: RotateCcwIcon,
+            label: "Reactivar",
+            nextStatus: "active" as const,
+            title: "Reactivar organizacion",
+            type: "reactivate" as const,
+          }
+        : null;
+
+  if (!action) {
+    return null;
+  }
+
+  const ActionIcon = action.icon;
+
+  return (
+    <div className="border-t p-4">
+      <Button
+        type="button"
+        variant={action.type === "suspend" ? "destructive" : "outline"}
+        className="w-full shadow-none"
+        disabled={isChangingStatus}
+        onClick={() => setConfirmOpen(true)}
+      >
+        <ActionIcon className="size-4" />
+        {isChangingStatus ? "Actualizando..." : action.label}
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={action.title}
+        description={action.description}
+        confirmLabel={action.confirmLabel}
+        isLoading={isChangingStatus}
+        onConfirm={async () => {
+          setIsChangingStatus(true);
+          try {
+            await onChangeStatus(organization.id, action.type);
+            notify.success(
+              action.nextStatus === "active"
+                ? "Organizacion reactivada"
+                : "Organizacion suspendida",
+            );
+          } catch (caughtError) {
+            notify.error(getErrorMessage(caughtError));
+          } finally {
+            setIsChangingStatus(false);
+          }
+        }}
+      />
+    </div>
   );
 }
 

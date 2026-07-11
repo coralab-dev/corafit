@@ -1,6 +1,18 @@
-import type { Client, OperationalStatus } from "../../lib/clients/types.ts";
+import type {
+  Client,
+  CurrentPlanAssignment,
+  OperationalStatus,
+} from "../../lib/clients/types.ts";
 
 export type ClientStatusFilter = OperationalStatus | "all";
+
+export type ClientOperationalMetrics = {
+  totalCount: number;
+  activeCount: number;
+  pausedInactiveCount: number;
+  assignmentCount: number;
+  accessCount: number;
+};
 
 export function mergeClientCollections(
   operationalClients: Client[],
@@ -32,4 +44,27 @@ export function getClientsForStatusFilter(
 
 export function getMetricClients(clients: Client[]): Client[] {
   return clients.filter((client) => client.operationalStatus !== "archived");
+}
+
+export function getOperationalClientMetrics(
+  clients: Client[],
+  assignmentsByClient: Record<string, CurrentPlanAssignment | null | undefined> = {},
+): ClientOperationalMetrics {
+  const metricClients = getMetricClients(clients);
+
+  return {
+    totalCount: metricClients.length,
+    activeCount: metricClients.filter(
+      (client) => client.operationalStatus === "active",
+    ).length,
+    pausedInactiveCount: metricClients.filter(
+      (client) =>
+        client.operationalStatus === "paused" ||
+        client.operationalStatus === "inactive",
+    ).length,
+    assignmentCount: metricClients.filter((client) =>
+      Boolean(assignmentsByClient[client.id] ?? client.currentAssignment),
+    ).length,
+    accessCount: metricClients.filter((client) => client.access.status === "active").length,
+  };
 }

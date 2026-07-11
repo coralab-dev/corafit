@@ -27,7 +27,7 @@ import {
 } from "@/components/clients/client-detail-state";
 import {
   getClientsForStatusFilter,
-  getMetricClients,
+  getOperationalClientMetrics,
   mergeClientCollections,
   type ClientStatusFilter,
 } from "@/components/clients/client-list-state";
@@ -101,13 +101,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     () => (hasLoadedClients ? allClients : []),
     [allClients, hasLoadedClients],
   );
-  const metricClients = useMemo(
-    () => getMetricClients(visibleClients),
-    [visibleClients],
-  );
   const visibleAssignmentsByClient = useMemo(
     () => (hasLoadedClients ? assignmentsByClient : {}),
     [assignmentsByClient, hasLoadedClients],
+  );
+  const operationalMetrics = useMemo(
+    () => getOperationalClientMetrics(visibleClients, visibleAssignmentsByClient),
+    [visibleAssignmentsByClient, visibleClients],
   );
   const selectedClient = visibleClients.find((client) => client.id === selectedId);
   const selectedAssignment = selectedClient
@@ -399,19 +399,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       return matchesQuery;
     });
   }, [query, statusFilter, visibleClients]);
-
-  const activeCount = metricClients.filter(
-    (client) => client.operationalStatus === "active",
-  ).length;
-  const pausedInactiveCount = metricClients.filter(
-    (client) =>
-      client.operationalStatus === "paused" ||
-      client.operationalStatus === "inactive",
-  ).length;
-  const assignmentCount = metricClients.filter(
-    (client) => Boolean(visibleAssignmentsByClient[client.id]),
-  ).length;
-  const accessCount = metricClients.filter((client) => client.access.status === "active").length;
 
   function openCreateForm() {
     setEditingClient(null);
@@ -830,11 +817,11 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
               <ClientMetricsSkeleton />
             ) : (
               <ClientMetrics
-                accessCount={accessCount}
-                activeCount={activeCount}
-                assignmentCount={assignmentCount}
-                pausedInactiveCount={pausedInactiveCount}
-                totalCount={visibleClients.length}
+                accessCount={operationalMetrics.accessCount}
+                activeCount={operationalMetrics.activeCount}
+                assignmentCount={operationalMetrics.assignmentCount}
+                pausedInactiveCount={operationalMetrics.pausedInactiveCount}
+                totalCount={operationalMetrics.totalCount}
               />
             )}
           </div>

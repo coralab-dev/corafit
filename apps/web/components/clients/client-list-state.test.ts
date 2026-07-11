@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getClientsForStatusFilter,
+  getOperationalClientMetrics,
   getMetricClients,
   mergeClientCollections,
 } from "./client-list-state.ts";
@@ -87,4 +88,68 @@ test("metrics exclude archived clients", () => {
     getMetricClients(clients).map((client) => client.id),
     ["active"],
   );
+});
+
+test("metric total excludes archived clients", () => {
+  const metrics = getOperationalClientMetrics([
+    createClient({ id: "active", operationalStatus: "active" }),
+    createClient({ id: "inactive", operationalStatus: "inactive" }),
+    createClient({ id: "archived", operationalStatus: "archived" }),
+  ]);
+
+  assert.equal(metrics.totalCount, 2);
+});
+
+test("metric percentages share the operational denominator", () => {
+  const activeAssignment = {
+    assignment: {
+      id: "assignment-1",
+      assignedPlanId: "assigned-plan-1",
+      sourceTrainingPlanId: "source-plan-1",
+      startDate: "2026-01-01",
+      endedAt: null,
+      status: "active" as const,
+    },
+    assignedPlan: null,
+    sourcePlan: null,
+  };
+  const archivedAssignment = {
+    assignment: {
+      id: "assignment-2",
+      assignedPlanId: "assigned-plan-2",
+      sourceTrainingPlanId: "source-plan-2",
+      startDate: "2026-01-01",
+      endedAt: null,
+      status: "active" as const,
+    },
+    assignedPlan: null,
+    sourcePlan: null,
+  };
+  const metrics = getOperationalClientMetrics(
+    [
+      createClient({
+        id: "active-with-plan-and-access",
+        operationalStatus: "active",
+        access: { status: "active" },
+      }),
+      createClient({ id: "inactive", operationalStatus: "inactive" }),
+      createClient({
+        id: "archived-with-plan-and-access",
+        operationalStatus: "archived",
+        access: { status: "active" },
+      }),
+    ],
+    {
+      "active-with-plan-and-access": activeAssignment,
+      "archived-with-plan-and-access": archivedAssignment,
+    },
+  );
+
+  assert.deepEqual(metrics, {
+    totalCount: 2,
+    activeCount: 1,
+    pausedInactiveCount: 1,
+    assignmentCount: 1,
+    accessCount: 1,
+  });
 });

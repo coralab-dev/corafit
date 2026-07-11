@@ -42,6 +42,7 @@ export function ClientList({
   onOpenClient,
   onQueryChange,
   onStatusFilterChange,
+  pendingStatusClientId,
   query,
   selectedClientId,
   statusFilter,
@@ -56,6 +57,7 @@ export function ClientList({
   onOpenClient: (clientId: string) => void;
   onQueryChange: (value: string) => void;
   onStatusFilterChange: (value: OperationalStatus | "all") => void;
+  pendingStatusClientId?: string | null;
   query: string;
   selectedClientId: string;
   statusFilter: OperationalStatus | "all";
@@ -109,6 +111,7 @@ export function ClientList({
                 const assignment = assignmentsByClient[client.id];
                 const hasPlan = Boolean(assignment?.assignedPlan);
                 const isSelected = selectedClientId === client.id;
+                const isEditDisabled = pendingStatusClientId === client.id;
 
                 return (
                   <article
@@ -161,6 +164,7 @@ export function ClientList({
                     <div className="mt-4 flex items-center justify-between border-t pt-3">
                       <Button
                         className="h-9 px-3"
+                        disabled={isEditDisabled}
                         size="sm"
                         variant="outline"
                         onClick={() => onEditClient(client)}
@@ -170,6 +174,7 @@ export function ClientList({
                       <ClientActionsMenu
                         client={client}
                         hasPlan={hasPlan}
+                        isEditDisabled={isEditDisabled}
                         onEditClient={onEditClient}
                         onEndPlan={onEndPlan}
                       />
@@ -196,6 +201,7 @@ export function ClientList({
                     const assignment = assignmentsByClient[client.id];
                     const hasPlan = Boolean(assignment?.assignedPlan);
                     const isSelected = selectedClientId === client.id;
+                    const isEditDisabled = pendingStatusClientId === client.id;
 
                     return (
                       <tr
@@ -240,6 +246,7 @@ export function ClientList({
                           <ClientActionsMenu
                             client={client}
                             hasPlan={hasPlan}
+                            isEditDisabled={isEditDisabled}
                             onEditClient={onEditClient}
                             onEndPlan={onEndPlan}
                           />
@@ -285,11 +292,13 @@ function AccessPill({ status }: { status: Client["access"]["status"] }) {
 function ClientActionsMenu({
   client,
   hasPlan,
+  isEditDisabled,
   onEditClient,
   onEndPlan,
 }: {
   client: Client;
   hasPlan: boolean;
+  isEditDisabled: boolean;
   onEditClient: (client: Client) => void;
   onEndPlan: (client: Client) => void;
 }) {
@@ -335,7 +344,10 @@ function ClientActionsMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onEditClient(client)}>
+        <DropdownMenuItem
+          disabled={isEditDisabled}
+          onSelect={() => onEditClient(client)}
+        >
           Editar cliente
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

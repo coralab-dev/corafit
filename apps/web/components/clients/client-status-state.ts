@@ -142,3 +142,33 @@ export function matchesCurrentMutation(
     currentState.targetStatus === target.status
   );
 }
+
+export function isClientStatusMutationPending(
+  currentState: ClientStatusMutationState,
+  clientId: string,
+): boolean {
+  return currentState.status === "pending" && currentState.clientId === clientId;
+}
+
+export function getClientStatusMutationError(
+  currentState: ClientStatusMutationState,
+  clientId: string | null | undefined,
+  status: OperationalStatus,
+): string | null {
+  if (
+    currentState.status !== "error" ||
+    !clientId ||
+    currentState.clientId !== clientId ||
+    currentState.targetStatus !== status
+  ) {
+    return null;
+  }
+
+  return currentState.error;
+}
+
+export function clearClientStatusMutationError(
+  currentState: ClientStatusMutationState,
+): ClientStatusMutationState {
+  return currentState.status === "error" ? idleClientStatusMutationState : currentState;
+}

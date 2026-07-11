@@ -45,6 +45,7 @@ export function ClientDetail({
   assignment,
   client,
   isPlanLoading,
+  isClientEditDisabled = false,
   isStatusMutationPending = false,
   onEndPlan,
   onEdit,
@@ -56,6 +57,7 @@ export function ClientDetail({
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
   isPlanLoading: boolean;
+  isClientEditDisabled?: boolean;
   isStatusMutationPending?: boolean;
   onEndPlan: () => void;
   onEdit: (client: Client) => void;
@@ -99,6 +101,7 @@ export function ClientDetail({
               />
               <Button
                 className="shadow-none"
+                disabled={isClientEditDisabled}
                 type="button"
                 variant="outline"
                 onClick={() => onEdit(client)}
@@ -146,7 +149,13 @@ export function ClientDetail({
         ) : null}
         {activeTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
         {activeTab === "access" ? <AccessPanel client={client} /> : null}
-        {activeTab === "notes" ? <ClientNotesPanel client={client} onEdit={() => onEdit(client)} /> : null}
+        {activeTab === "notes" ? (
+          <ClientNotesPanel
+            client={client}
+            isEditDisabled={isClientEditDisabled}
+            onEdit={() => onEdit(client)}
+          />
+        ) : null}
       </aside>
     );
   }
@@ -175,6 +184,7 @@ export function ClientDetail({
         <Button
           aria-label="Editar cliente"
           className="size-9 shrink-0 shadow-none"
+          disabled={isClientEditDisabled}
           size="icon"
           type="button"
           variant="ghost"
@@ -201,7 +211,11 @@ export function ClientDetail({
           onArchiveStatusChange={onArchiveStatusChange}
           onStatusChange={onStatusChange}
         />
-        <ClientNotesPanel client={client} onEdit={() => onEdit(client)} />
+        <ClientNotesPanel
+          client={client}
+          isEditDisabled={isClientEditDisabled}
+          onEdit={() => onEdit(client)}
+        />
       </div>
     </aside>
   );
@@ -294,7 +308,15 @@ function OperationalPanel({
   );
 }
 
-function ClientNotesPanel({ client, onEdit }: { client: Client; onEdit: () => void }) {
+function ClientNotesPanel({
+  client,
+  isEditDisabled,
+  onEdit,
+}: {
+  client: Client;
+  isEditDisabled: boolean;
+  onEdit: () => void;
+}) {
   return (
     <WorkspacePanel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -313,6 +335,7 @@ function ClientNotesPanel({ client, onEdit }: { client: Client; onEdit: () => vo
       </div>
       <Button
         className="mt-4 w-full shadow-none"
+        disabled={isEditDisabled}
         type="button"
         variant="outline"
         onClick={onEdit}

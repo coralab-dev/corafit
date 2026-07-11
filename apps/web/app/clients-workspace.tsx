@@ -27,9 +27,12 @@ import {
 } from "@/components/clients/client-detail-state";
 import {
   beginClientStatusMutation,
+  clearClientStatusMutationError,
   failClientStatusMutation,
   finishClientStatusMutation,
+  getClientStatusMutationError,
   idleClientStatusMutationState,
+  isClientStatusMutationPending,
   matchesCurrentMutation,
   type ClientStatusMutationState,
 } from "@/components/clients/client-status-state";
@@ -111,10 +114,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       ? currentDetailAssignment
       : null
     : selectedAssignment;
-  const archiveError =
-    statusMutation.status === "error" && statusMutation.targetStatus === "archived"
-      ? statusMutation.error
-      : null;
+  const pendingStatusClientId =
+    statusMutation.status === "pending" ? statusMutation.clientId : null;
+  const archiveError = getClientStatusMutationError(
+    statusMutation,
+    archiveCandidate?.id,
+    "archived",
+  );
   const isInitialLoading =
     (authStatus === "loading" && !hasLoadedClients) ||
     (isListLoading && !hasLoadedClients);
@@ -383,6 +389,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }
 
   function openEditForm(client: Client) {
+    if (isClientStatusMutationPending(statusMutationRef.current, client.id)) {
+      return;
+    }
+
     setEditingClient(client);
     form.reset({
       name: client.name,
@@ -406,6 +416,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       return;
     }
 
+    setCurrentStatusMutation(
+      clearClientStatusMutationError(statusMutationRef.current),
+    );
     setArchiveCandidate(client);
     setIsArchiveDialogOpen(true);
   }
@@ -417,6 +430,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }
 
   async function submitClient(values: ClientFormValues) {
+    if (
+      editingClient &&
+      isClientStatusMutationPending(statusMutationRef.current, editingClient.id)
+    ) {
+      return;
+    }
+
     setIsSubmittingClient(true);
     setError("");
 
@@ -424,23 +444,36 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       const payload = normalizeFormValues(values);
 
       if (editingClient) {
+        const editingClientId = editingClient.id;
         const updatedClient = await clientsRequest<ClientDetailResponse>(
-          `/clients/${editingClient.id}`,
+          `/clients/${editingClientId}`,
           { method: "PATCH", body: JSON.stringify(payload) },
         );
+
+        if (isClientStatusMutationPending(statusMutationRef.current, editingClientId)) {
+          return;
+        }
+
         setAllClients((current) =>
           current.map((client) =>
-            client.id === editingClient.id
-              ? normalizeClient(updatedClient, client.access, client.currentAssignment)
+            client.id === editingClientId
+              ? normalizeClient(
+                  { ...updatedClient, operationalStatus: client.operationalStatus },
+                  client.access,
+                  client.currentAssignment,
+                )
               : client,
           ),
         );
         setDetailState((current) =>
-          current.status === "ready" && current.client.id === editingClient.id
+          current.status === "ready" && current.client.id === editingClientId
             ? {
                 ...current,
                 client: normalizeClient(
-                  updatedClient,
+                  {
+                    ...updatedClient,
+                    operationalStatus: current.client.operationalStatus,
+                  },
                   current.client.access,
                   current.client.currentAssignment,
                 ),
@@ -661,6 +694,9 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         onOpenChange={(nextOpen) => {
           setIsArchiveDialogOpen(nextOpen);
           if (!nextOpen) {
+            setCurrentStatusMutation(
+              clearClientStatusMutationError(statusMutationRef.current),
+            );
             setArchiveCandidate(null);
           }
         }}
@@ -705,8 +741,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                 <ClientDetail
                   assignment={currentDetailAssignment}
                   client={currentDetailClient}
+                  isClientEditDisabled={isClientStatusMutationPending(
+                    statusMutation,
+                    currentDetailClient.id,
+                  )}
                   isPlanLoading={false}
-                  isStatusMutationPending={statusMutation.status === "pending"}
+                  isStatusMutationPending={Boolean(pendingStatusClientId)}
                   pendingStatus={getPendingStatus(currentDetailClient.id)}
                   variant="page"
                   onArchiveStatusChange={openArchiveDialog}
@@ -727,6 +767,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                 <ClientQuickPanel
                   assignment={currentDetailAssignment}
                   client={currentDetailClient}
+                  isEditDisabled={isClientStatusMutationPending(
+                    statusMutation,
+                    currentDetailClient.id,
+                  )}
                   onEdit={() => openEditForm(currentDetailClient)}
                   onEndPlan={() => setIsEndPlanOpen(true)}
                 />
@@ -778,6 +822,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
             clients={displayClients}
             error={error}
             isLoading={isInitialLoading}
+            pendingStatusClientId={pendingStatusClientId}
             query={query}
             selectedClientId={selectedClient?.id ?? ""}
             statusFilter={statusFilter}
@@ -814,8 +859,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
           <ClientDetail
             assignment={selectedAssignment}
             client={selectedClient}
+            isClientEditDisabled={isClientStatusMutationPending(
+              statusMutation,
+              selectedClient.id,
+            )}
             isPlanLoading={assignmentLoadingId === selectedClient.id}
-            isStatusMutationPending={statusMutation.status === "pending"}
+            isStatusMutationPending={Boolean(pendingStatusClientId)}
             pendingStatus={getPendingStatus(selectedClient.id)}
             onArchiveStatusChange={openArchiveDialog}
             onEndPlan={() => setIsEndPlanOpen(true)}
@@ -847,11 +896,13 @@ function ClientMetricsSkeleton() {
 function ClientQuickPanel({
   assignment,
   client,
+  isEditDisabled,
   onEdit,
   onEndPlan,
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
+  isEditDisabled: boolean;
   onEdit: () => void;
   onEndPlan: () => void;
 }) {
@@ -859,7 +910,12 @@ function ClientQuickPanel({
   return (
     <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
       <div className="flex flex-col gap-2 p-4">
-        <Button className="justify-start shadow-none" variant="outline" onClick={onEdit}>
+        <Button
+          className="justify-start shadow-none"
+          disabled={isEditDisabled}
+          variant="outline"
+          onClick={onEdit}
+        >
           Editar cliente
         </Button>
         {hasPlan ? (

@@ -16,6 +16,30 @@ export const idleClientAssignmentState: ClientAssignmentState = {
   requestId: null,
 };
 
+export function resolveClientAssignmentLoadDecision({
+  assignmentsByClient,
+  clientId,
+}: {
+  assignmentsByClient: Record<string, CurrentPlanAssignment | null>;
+  clientId: string;
+}): {
+  shouldFetch: boolean;
+  knownAssignment: CurrentPlanAssignment | null | undefined;
+} {
+  const hasKnownAssignment = Object.prototype.hasOwnProperty.call(
+    assignmentsByClient,
+    clientId,
+  );
+  const knownAssignment = hasKnownAssignment
+    ? assignmentsByClient[clientId]
+    : undefined;
+
+  return {
+    shouldFetch: knownAssignment !== null,
+    knownAssignment,
+  };
+}
+
 export function beginClientAssignmentLoad(
   state: ClientAssignmentState,
   {
@@ -103,6 +127,13 @@ export function invalidateClientAssignmentLoad(
 }
 
 export function confirmClientAssignmentEnded(
+  state: ClientAssignmentState,
+  clientId: string,
+): ClientAssignmentState {
+  return confirmClientAssignmentAbsent(state, clientId);
+}
+
+export function confirmClientAssignmentAbsent(
   state: ClientAssignmentState,
   clientId: string,
 ): ClientAssignmentState {

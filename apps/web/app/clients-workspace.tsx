@@ -22,10 +22,12 @@ import type { ClientFormValues } from "@/lib/clients/api";
 import { createLatestRequestController } from "@/hooks/latest-request-controller";
 import {
   beginClientAssignmentLoad,
+  confirmClientAssignmentAbsent,
   confirmClientAssignmentEnded,
   failClientAssignmentLoad,
   idleClientAssignmentState,
   invalidateClientAssignmentLoad,
+  resolveClientAssignmentLoadDecision,
   resolveClientAssignmentSuccess,
 } from "@/components/clients/client-assignment-state";
 import {
@@ -78,6 +80,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [isListLoading, setIsListLoading] = useState(false);
   const [detailState, setDetailState] = useState(idleClientDetailState);
   const detailRequestRef = useRef(0);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const isDetailSheetOpenRef = useRef(isDetailSheetOpen);
+  isDetailSheetOpenRef.current = isDetailSheetOpen;
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -159,8 +167,11 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   const clientsRequest = useCallback(
     <T,>(path: string, init: RequestInit = {}) =>
-      authenticatedRequest<T>(path, init, { organizationId, session }),
-    [organizationId, session],
+      authenticatedRequest<T>(path, init, {
+        organizationId,
+        session: sessionRef.current,
+      }),
+    [organizationId],
   );
 
   const loadCurrentPlanAssignment = useCallback(
@@ -169,8 +180,20 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         return null;
       }
 
+      const { knownAssignment, shouldFetch } = resolveClientAssignmentLoadDecision({
+        assignmentsByClient: assignmentsByClientRef.current,
+        clientId,
+      });
+
+      if (!shouldFetch) {
+        assignmentRequestRef.current.invalidate();
+        setAssignmentState((current) =>
+          confirmClientAssignmentAbsent(current, clientId),
+        );
+        return null;
+      }
+
       const request = assignmentRequestRef.current.start();
-      const knownAssignment = assignmentsByClientRef.current[clientId];
 
       setAssignmentState((current) =>
         beginClientAssignmentLoad(current, {
@@ -182,8 +205,8 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
       const isCurrentDrawerRequest = () =>
         assignmentRequestRef.current.isCurrent(request.id) &&
-        isDetailSheetOpen &&
-        selectedId === clientId;
+        isDetailSheetOpenRef.current &&
+        selectedIdRef.current === clientId;
 
       try {
         const assignment = await clientsRequest<CurrentPlanAssignment | null>(
@@ -237,7 +260,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         return null;
       } finally {
         if (assignmentRequestRef.current.isCurrent(request.id)) {
-          if (isDetailSheetOpen && selectedId === clientId) {
+          if (
+            isDetailSheetOpenRef.current &&
+            selectedIdRef.current === clientId
+          ) {
             setAssignmentState((current) => {
               if (current.requestId !== request.id) {
                 return current;
@@ -254,7 +280,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         }
       }
     },
-    [clientsRequest, isApiReady, isDetailSheetOpen, selectedId],
+    [clientsRequest, isApiReady],
   );
 
   const loadClientDetail = useCallback(

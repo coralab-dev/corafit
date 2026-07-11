@@ -428,11 +428,6 @@ export function CurrentPlanPanel({
         </Button>
       ) : null}
     </div>
-  ) : isLoading ? (
-    <div className="mb-4 flex items-center gap-2 rounded-xl border border-border/60 bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
-      <Loader2Icon className="size-4 animate-spin" />
-      Actualizando plan actual
-    </div>
   ) : null;
 
   if (!assignment?.assignedPlan) {

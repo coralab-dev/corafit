@@ -6,6 +6,7 @@ import {
   failClientAssignmentLoad,
   idleClientAssignmentState,
   invalidateClientAssignmentLoad,
+  resolveClientAssignmentLoadDecision,
   resolveClientAssignmentSuccess,
   type ClientAssignmentState,
 } from "./client-assignment-state";
@@ -51,6 +52,42 @@ test("starts a loading request for client A", () => {
     assignment: undefined,
     error: null,
     requestId: 1,
+  });
+});
+
+test("treats an existing null assignment key as confirmed absence", () => {
+  const decision = resolveClientAssignmentLoadDecision({
+    assignmentsByClient: { "client-a": null },
+    clientId: "client-a",
+  });
+
+  assert.deepEqual(decision, {
+    shouldFetch: false,
+    knownAssignment: null,
+  });
+});
+
+test("treats a missing assignment key as unknown", () => {
+  const decision = resolveClientAssignmentLoadDecision({
+    assignmentsByClient: {},
+    clientId: "client-a",
+  });
+
+  assert.deepEqual(decision, {
+    shouldFetch: true,
+    knownAssignment: undefined,
+  });
+});
+
+test("uses a known assignment while still allowing a refresh", () => {
+  const decision = resolveClientAssignmentLoadDecision({
+    assignmentsByClient: { "client-a": assignment },
+    clientId: "client-a",
+  });
+
+  assert.deepEqual(decision, {
+    shouldFetch: true,
+    knownAssignment: assignment,
   });
 });
 

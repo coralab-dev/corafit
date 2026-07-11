@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import {
   AlertCircleIcon,
   DumbbellIcon,
@@ -33,9 +35,16 @@ import {
 } from "@/hooks/use-exercises";
 import { ExerciseCreateDialog } from "./exercise-create-dialog";
 import { ExerciseSearchItem, equipmentLabels, muscleLabels } from "./exercise-search-item";
+import {
+  filterSelectableExercises,
+  getExercisePageCount,
+  isExerciseSelectionDisabled,
+  shouldShowExcludedPageMessage,
+} from "./exercise-search-utils";
 
 export interface ExerciseSearchProps {
   createDialogOpen?: boolean;
+  excludedExerciseIds?: string[];
   onSelect?: (exercise: Exercise) => void;
   onCreateDialogOpenChange?: (open: boolean) => void;
   presentation?: "list" | "table";
@@ -50,6 +59,7 @@ const exercisePageSize = 8;
 
 export function ExerciseSearch({
   createDialogOpen,
+  excludedExerciseIds = [],
   onSelect,
   onCreateDialogOpenChange,
   presentation = "list",
@@ -80,25 +90,35 @@ export function ExerciseSearch({
   const filters = useMemo(
     () => ({
       equipment,
+      limit: exercisePageSize,
+      page,
       primaryMuscle,
       search: debouncedQuery,
       type,
     }),
-    [debouncedQuery, equipment, primaryMuscle, type],
+    [debouncedQuery, equipment, page, primaryMuscle, type],
   );
 
   const { createExercise, error, isLoading, items, refresh, total } = useExercises(filters);
   const isRefreshingExercises = isLoading && items.length > 0;
-  const pageCount = Math.max(1, Math.ceil(items.length / exercisePageSize));
-  const safePage = Math.min(page, pageCount);
-  const visibleItems = useMemo(
-    () =>
-      items.slice(
-        (safePage - 1) * exercisePageSize,
-        safePage * exercisePageSize,
-      ),
-    [items, safePage],
+  const isSelectionDisabled = isExerciseSelectionDisabled(isRefreshingExercises);
+  const selectableItems = useMemo(
+    () => filterSelectableExercises(items, excludedExerciseIds),
+    [excludedExerciseIds, items],
   );
+  const pageCount = getExercisePageCount(total, exercisePageSize);
+  const safePage = Math.min(page, pageCount);
+  const visibleItems = selectableItems;
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectionMode]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(1);
+    }
+  }, [excludedExerciseIds, page, pageCount]);
 
   useEffect(() => {
     if (reloadToken === undefined) {
@@ -133,6 +153,11 @@ export function ExerciseSearch({
     setIsCreating(true);
     try {
       const exercise = await createExercise(input);
+      const shouldRefreshCurrentPage = page === 1;
+      setPage(1);
+      if (shouldRefreshCurrentPage) {
+        await refresh();
+      }
       setCreateOpen(false);
       onSelect?.(exercise);
       notify.success("Ejercicio creado");
@@ -278,49 +303,58 @@ export function ExerciseSearch({
       </div>
       <div className="flex flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>
-            {items.length
-              ? `Mostrando ${(safePage - 1) * exercisePageSize + 1}-${Math.min(
-                  safePage * exercisePageSize,
-                  items.length,
-                )} de ${total} resultados`
-              : `${total} resultados`}
-          </span>
+          <span>{`Página ${safePage} de ${pageCount} · ${total} ejercicios disponibles`}</span>
+          {isRefreshingExercises ? (
+            <span className="font-medium text-primary" role="status">
+              Actualizando ejercicios…
+            </span>
+          ) : null}
         </div>
 
         {error ? <ErrorState message={error} /> : null}
 
         {!error && isLoading && items.length === 0 ? (
           <ExerciseSkeletonList presentation={presentation} />
-        ) : !error && items.length ? (
-          <div className="flex flex-col">
+        ) : !error && visibleItems.length ? (
+          <div
+            aria-busy={isRefreshingExercises}
+            className={cn("flex flex-col", isRefreshingExercises && "opacity-60")}
+          >
             {presentation === "table" ? (
               <ExerciseTable
                 exercises={visibleItems}
+                isDisabled={isSelectionDisabled}
+                selectionMode={selectionMode}
                 selectedId={selectedId}
-                onSelect={onSelect}
+                onSelect={isSelectionDisabled ? undefined : onSelect}
               />
             ) : (
               visibleItems.map((exercise) => (
                 <ExerciseSearchItem
                   key={exercise.id}
                   exercise={exercise}
+                  isDisabled={isSelectionDisabled}
                   isSelected={selectedId === exercise.id}
-                  onSelect={onSelect}
+                  onSelect={isSelectionDisabled ? undefined : onSelect}
                   selectionMode={selectionMode}
                 />
               ))
             )}
-            {pageCount > 1 ? (
-              <ExercisePagination
-                page={safePage}
-                pageCount={pageCount}
-                onPageChange={setPage}
-              />
-            ) : null}
+          </div>
+        ) : !error && shouldShowExcludedPageMessage(total, visibleItems) ? (
+          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Los ejercicios de esta página ya fueron agregados. Prueba otra página o ajusta los filtros.
           </div>
         ) : !error ? (
           <EmptyState onCreate={() => setCreateOpen(true)} />
+        ) : null}
+        {!error && pageCount > 1 ? (
+          <ExercisePagination
+            isDisabled={isRefreshingExercises}
+            page={safePage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+          />
         ) : null}
       </div>
       <ExerciseCreateDialog
@@ -335,26 +369,32 @@ export function ExerciseSearch({
 
 function ExerciseTable({
   exercises,
+  isDisabled,
   onSelect,
+  selectionMode,
   selectedId,
 }: {
   exercises: Exercise[];
+  isDisabled: boolean;
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
   selectedId?: string;
 }) {
+  const isExplicit = selectionMode === "explicit";
+
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border !border-transparent bg-card shadow-[var(--surface-shadow-soft)] lg:block">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table className={cn("w-full border-collapse text-left text-sm", !isExplicit && "min-w-[900px]")}>
           <thead>
             <tr className="border-b border-border/55 text-[11px] font-semibold uppercase text-muted-foreground">
               <th className="px-4 py-3">Ejercicio</th>
               <th className="px-4 py-3">Músculo principal</th>
               <th className="px-4 py-3">Equipo</th>
-              <th className="px-4 py-3">Origen</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Creado el</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              {!isExplicit ? <th className="px-4 py-3">Origen</th> : null}
+              {!isExplicit ? <th className="px-4 py-3">Estado</th> : null}
+              {!isExplicit ? <th className="px-4 py-3">Creado el</th> : null}
+              <th className="px-4 py-3 text-right">{isExplicit ? "Acción" : "Acciones"}</th>
             </tr>
           </thead>
           <tbody>
@@ -362,8 +402,10 @@ function ExerciseTable({
               <ExerciseTableRow
                 key={exercise.id}
                 exercise={exercise}
+                isDisabled={isDisabled}
                 isSelected={selectedId === exercise.id}
                 onSelect={onSelect}
+                selectionMode={selectionMode}
               />
             ))}
           </tbody>
@@ -374,8 +416,10 @@ function ExerciseTable({
           <ExerciseMobileCard
             key={exercise.id}
             exercise={exercise}
+            isDisabled={isDisabled}
             isSelected={selectedId === exercise.id}
             onSelect={onSelect}
+            selectionMode={selectionMode}
           />
         ))}
       </div>
@@ -385,14 +429,19 @@ function ExerciseTable({
 
 function ExerciseTableRow({
   exercise,
+  isDisabled,
   isSelected,
   onSelect,
+  selectionMode,
 }: {
   exercise: Exercise;
+  isDisabled: boolean;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
 }) {
   const isCustom = Boolean(exercise.organizationId);
+  const isExplicit = selectionMode === "explicit";
 
   return (
     <tr
@@ -402,21 +451,36 @@ function ExerciseTableRow({
       )}
     >
       <td className="px-4 py-3">
-        <button
-          className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-          type="button"
-          onClick={() => onSelect?.(exercise)}
-        >
-          <ExerciseThumb exercise={exercise} />
-          <span className="min-w-0">
-            <span className="block max-w-[190px] truncate font-semibold">
-              {exercise.name}
+        {isExplicit ? (
+          <div className="flex min-w-0 items-center gap-3 text-left">
+            <ExerciseThumb exercise={exercise} />
+            <span className="min-w-0">
+              <span className="block max-w-[190px] truncate font-semibold">
+                {exercise.name}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+              </span>
             </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+          </div>
+        ) : (
+          <button
+            className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={isDisabled}
+            type="button"
+            onClick={() => onSelect?.(exercise)}
+          >
+            <ExerciseThumb exercise={exercise} />
+            <span className="min-w-0">
+              <span className="block max-w-[190px] truncate font-semibold">
+                {exercise.name}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {exercise.videoUrl ? "Video disponible" : "Biblioteca"}
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+        )}
       </td>
       <td className="px-4 py-3">
         <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
@@ -424,19 +488,33 @@ function ExerciseTableRow({
       <td className="px-4 py-3">
         <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
       </td>
-      <td className="px-4 py-3">
+      {!isExplicit ? <td className="px-4 py-3">
         <Badge variant={isCustom ? "info" : "outline"}>
           {isCustom ? "Personalizado" : "Global"}
         </Badge>
-      </td>
-      <td className="px-4 py-3">
+      </td> : null}
+      {!isExplicit ? <td className="px-4 py-3">
         <StatusPill status={exercise.status} />
-      </td>
-      <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
+      </td> : null}
+      {!isExplicit ? <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
         {formatDate(exercise.createdAt)}
-      </td>
+      </td> : null}
       <td className="px-4 py-3">
-        <ExerciseActions exercise={exercise} onSelect={onSelect} />
+        {isExplicit ? (
+          <div className="flex justify-end">
+            <Button
+              disabled={isDisabled}
+              size="sm"
+              type="button"
+              onClick={() => onSelect?.(exercise)}
+            >
+              <PlusIcon data-icon="inline-start" />
+              Agregar
+            </Button>
+          </div>
+        ) : (
+          <ExerciseActions exercise={exercise} isDisabled={isDisabled} onSelect={onSelect} />
+        )}
       </td>
     </tr>
   );
@@ -444,14 +522,19 @@ function ExerciseTableRow({
 
 function ExerciseMobileCard({
   exercise,
+  isDisabled,
   isSelected,
   onSelect,
+  selectionMode,
 }: {
   exercise: Exercise;
+  isDisabled: boolean;
   isSelected: boolean;
   onSelect?: (exercise: Exercise) => void;
+  selectionMode: "card" | "explicit";
 }) {
   const isCustom = Boolean(exercise.organizationId);
+  const isExplicit = selectionMode === "explicit";
 
   return (
     <article
@@ -464,30 +547,62 @@ function ExerciseMobileCard({
         <ExerciseThumb exercise={exercise} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <button
-              className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              type="button"
-              onClick={() => onSelect?.(exercise)}
-            >
-              <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
-              </p>
-            </button>
-            <Badge variant={isCustom ? "info" : "outline"}>
-              {isCustom ? "Personalizado" : "Global"}
-            </Badge>
+            {isExplicit ? (
+              <div className="min-w-0 text-left">
+                <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
+                </p>
+              </div>
+            ) : (
+              <button
+                className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                disabled={isDisabled}
+                type="button"
+                onClick={() => onSelect?.(exercise)}
+              >
+                <h3 className="truncate text-sm font-semibold">{exercise.name}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {muscleLabels[exercise.primaryMuscle]} / {equipmentLabels[exercise.equipment]}
+                </p>
+              </button>
+            )}
+            {!isExplicit ? (
+              <Badge variant={isCustom ? "info" : "outline"}>
+                {isCustom ? "Personalizado" : "Global"}
+              </Badge>
+            ) : null}
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Badge variant="secondary">{muscleLabels[exercise.primaryMuscle]}</Badge>
             <Badge variant="muted">{equipmentLabels[exercise.equipment]}</Badge>
-            <StatusPill status={exercise.status} />
+            {!isExplicit ? <StatusPill status={exercise.status} /> : null}
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
-              Creado {formatDate(exercise.createdAt)}
-            </span>
-            <ExerciseActions exercise={exercise} onSelect={onSelect} compact />
+            {isExplicit ? (
+              <Button
+                className="w-full"
+                disabled={isDisabled}
+                size="sm"
+                type="button"
+                onClick={() => onSelect?.(exercise)}
+              >
+                <PlusIcon data-icon="inline-start" />
+                Agregar
+              </Button>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  Creado {formatDate(exercise.createdAt)}
+                </span>
+                <ExerciseActions
+                  exercise={exercise}
+                  isDisabled={isDisabled}
+                  onSelect={onSelect}
+                  compact
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -534,10 +649,12 @@ function StatusPill({ status }: { status: string }) {
 function ExerciseActions({
   compact,
   exercise,
+  isDisabled,
   onSelect,
 }: {
   compact?: boolean;
   exercise: Exercise;
+  isDisabled: boolean;
   onSelect?: (exercise: Exercise) => void;
 }) {
   return (
@@ -548,6 +665,7 @@ function ExerciseActions({
           compact && "size-9",
         )}
         aria-label="Ver detalle"
+        disabled={isDisabled}
         size="sm"
         type="button"
         variant="ghost"
@@ -561,6 +679,7 @@ function ExerciseActions({
           <Button
             aria-label="Más acciones"
             className="size-9 rounded-xl bg-muted/35 shadow-none hover:bg-accent hover:text-primary"
+            disabled={isDisabled}
             size="icon"
             type="button"
             variant="ghost"
@@ -569,7 +688,7 @@ function ExerciseActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="rounded-xl border !border-transparent shadow-[var(--surface-shadow-soft)]">
-          <DropdownMenuItem onClick={() => onSelect?.(exercise)}>
+          <DropdownMenuItem disabled={isDisabled} onClick={() => onSelect?.(exercise)}>
             <InfoIcon className="size-4" />
             Abrir detalle
           </DropdownMenuItem>
@@ -580,10 +699,12 @@ function ExerciseActions({
 }
 
 function ExercisePagination({
+  isDisabled,
   onPageChange,
   page,
   pageCount,
 }: {
+  isDisabled: boolean;
   onPageChange: (page: number) => void;
   page: number;
   pageCount: number;
@@ -591,7 +712,7 @@ function ExercisePagination({
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
       <Button
-        disabled={page === 1}
+        disabled={isDisabled || page === 1}
         size="sm"
         type="button"
         variant="outline"
@@ -606,6 +727,7 @@ function ExercisePagination({
               key={pageNumber}
               aria-current={pageNumber === page ? "page" : undefined}
               className="size-8"
+              disabled={isDisabled}
               size="icon"
               type="button"
               variant={pageNumber === page ? "default" : "outline"}
@@ -617,7 +739,7 @@ function ExercisePagination({
         )}
       </div>
       <Button
-        disabled={page === pageCount}
+        disabled={isDisabled || page === pageCount}
         size="sm"
         type="button"
         variant="outline"

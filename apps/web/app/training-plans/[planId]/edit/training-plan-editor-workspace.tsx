@@ -3,35 +3,40 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
+  AlertTriangleIcon,
   CalendarDaysIcon,
-  ChevronLeftIcon,
-  CopyIcon,
-  EditIcon,
-  DumbbellIcon,
-  ImageIcon,
+  CheckCircle2Icon,
   Loader2Icon,
-  MoreVerticalIcon,
-  PlusIcon,
+  MenuIcon,
   SaveIcon,
-  Trash2Icon,
+  XCircleIcon,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import type React from "react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { notify } from "@/lib/notify";
-import { ExerciseSearch } from "@/components/exercise-search";
-import {
-  WorkspaceFrame,
-  WorkspaceHeader,
-  WorkspacePanel,
-} from "@/components/layout/workspace-shell";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { MetricStrip } from "@/components/shared/metric-strip";
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
+import { WorkspaceFrame, WorkspacePanel } from "@/components/layout/workspace-shell";
+import { archiveTrainingPlan } from "@/components/training-plans/training-plan-editor-actions";
 import { PlanTree } from "@/components/training-plans/training-plan-tree";
+import { TrainingPlanEditorHeader } from "@/components/training-plans/training-plan-editor-header";
+import { TrainingSessionEditor } from "@/components/training-plans/training-session-editor";
+import { dayLabels } from "@/components/training-plans/training-plan-days";
+import {
+  createExerciseDraftTracker,
+  type ExerciseDraftTracker,
+} from "@/components/training-plans/training-plan-editor-draft-state";
+import {
+  getEditorContext,
+  getPublicationChecklist,
+  type SaveState,
+} from "@/components/training-plans/training-plan-editor-utils";
+import {
+  createExerciseMutationQueue,
+  createMutationQueue,
+  type ExerciseMutationQueue,
+  type MutationQueue,
+} from "@/components/training-plans/training-plan-mutation-queue";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,24 +46,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
-  type SessionExercise,
-  type SessionExerciseAlternative,
-  type TrainingPlan,
-  type TrainingSession,
-  useTrainingPlanEditor,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import type {
+  TrainingPlan,
+  TrainingPlanDay,
+  TrainingPlanWeek,
+  TrainingSession,
 } from "@/hooks/use-training-plans";
+import { useTrainingPlanEditor } from "@/hooks/use-training-plans";
 import type { Exercise } from "@/hooks/use-exercises";
+import { notify } from "@/lib/notify";
 
-type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type DraftPlan = Pick<
   TrainingPlan,
   "name" | "goal" | "level" | "durationWeeks" | "generalNotes"
@@ -71,100 +76,138 @@ const levelLabels: Record<string, string> = {
   intermediate: "Intermedio",
 };
 
-const muscleLabels: Record<string, string> = {
-  back: "Espalda",
-  biceps: "Biceps",
-  chest: "Pecho",
-  core: "Core",
-  glute: "Gluteo",
-  legs: "Pierna",
-  shoulder: "Hombro",
-  triceps: "Triceps",
-};
-
-const equipmentLabels: Record<string, string> = {
-  barbell: "Barra",
-  bodyweight: "Peso corporal",
-  cable: "Cable",
-  dumbbell: "Mancuernas",
-  machine: "Maquina",
-  other: "Otro",
-};
-
-const statusLabels: Record<string, string> = {
-  active: "Activo",
-  archived: "Archivado",
-  draft: "Draft",
-};
-
 export function TrainingPlanEditorWorkspace() {
   const params = useParams<{ planId: string }>();
   const router = useRouter();
-  const planId = params.planId;
-  const editor = useTrainingPlanEditor(planId);
+  const editor = useTrainingPlanEditor(params.planId);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [planSaveState, setPlanSaveState] = useState<SaveState>("idle");
   const [sessionSaveState, setSessionSaveState] = useState<SaveState>("idle");
   const [publishState, setPublishState] = useState<SaveState>("idle");
   const [planDraft, setPlanDraft] = useState<DraftPlan | null>(null);
-  const [sessionDraft, setSessionDraft] = useState<DraftSession | null>(null);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [isPlanInfoOpen, setIsPlanInfoOpen] = useState(false);
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [isStructureOpen, setIsStructureOpen] = useState(false);
+  const planDraftRef = useRef<DraftPlan | null>(null);
+  const planDraftVersionRef = useRef(0);
+  const planRef = useRef<TrainingPlan | null>(null);
+  const planSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const mutationQueueRef = useRef<MutationQueue | null>(null);
+  const globalActionInFlightRef = useRef(false);
+  const exerciseMutationQueuesRef = useRef<ExerciseMutationQueue | null>(null);
+  const exerciseDraftTrackerRef = useRef<ExerciseDraftTracker | null>(null);
+  const [pendingMutationCount, setPendingMutationCount] = useState(0);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  if (mutationQueueRef.current === null) {
+    mutationQueueRef.current = createMutationQueue(setPendingMutationCount);
+  }
+  const mutationQueue = mutationQueueRef.current;
+  if (exerciseMutationQueuesRef.current === null) {
+    exerciseMutationQueuesRef.current = createExerciseMutationQueue(
+      <T,>(action: () => Promise<T>) => enqueueMutation(action),
+    );
+  }
+  const exerciseMutationQueue = exerciseMutationQueuesRef.current;
+  if (exerciseDraftTrackerRef.current === null) {
+    exerciseDraftTrackerRef.current = createExerciseDraftTracker();
+  }
+  const exerciseDraftTracker = exerciseDraftTrackerRef.current;
 
   const plan = editor.plan;
+  planRef.current = plan;
   const sessions = useMemo(() => getSessions(plan), [plan]);
   const selectedSession = useMemo(
-    () =>
-      sessions.find((session) => session.id === selectedSessionId) ??
-      sessions[0],
+    () => sessions.find((session) => session.id === selectedSessionId) ?? sessions[0],
     [selectedSessionId, sessions],
   );
+  const selectedLocation = useMemo(
+    () => findSessionLocation(plan, selectedSession?.id),
+    [plan, selectedSession?.id],
+  );
   const totalExercises = useMemo(
-    () =>
-      sessions.reduce(
-        (total, session) => total + (session.exercises?.length ?? 0),
-        0,
-      ),
+    () => sessions.reduce((total, session) => total + session.exercises.length, 0),
     [sessions],
   );
-  const isSystemTemplate = Boolean(plan?.isSystemTemplate);
-  const isReadOnly = isSystemTemplate || plan?.status !== "draft";
-  const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
-  const handleSelectSession = useCallback((sessionId: string) => {
-    setSelectedSessionId(sessionId);
-  }, []);
+  const context = plan ? getEditorContext(plan) : null;
+  const isReadOnly = context?.isReadOnly ?? true;
+  const saveState = pendingMutationCount > 0
+    ? "saving"
+    : getCombinedSaveState(planSaveState, sessionSaveState);
+  const publicationChecklist = plan ? getPublicationChecklist(plan) : null;
+  const isBusy =
+    pendingMutationCount > 0 ||
+    planSaveState === "saving" ||
+    sessionSaveState === "saving" ||
+    publishState === "saving";
+
+  async function enqueueMutation<T>(action: () => Promise<T>): Promise<T> {
+    return mutationQueue.enqueue(action);
+  }
+
+  function enqueueStructureMutation<T>(action: () => Promise<T>): Promise<T> {
+    return enqueueMutation(action);
+  }
+
+  function enqueueExerciseUpdate(
+    exerciseId: string,
+    body: Record<string, unknown>,
+    revisionAtStart: number,
+    action: () => Promise<unknown>,
+  ) {
+    return exerciseMutationQueue.enqueue(exerciseId, async () => {
+      try {
+        const result = await action();
+        exerciseDraftTracker.markPersisted(exerciseId, Object.keys(body), revisionAtStart);
+        return result;
+      } catch (error) {
+        exerciseDraftTracker.markMutationError(exerciseId, Object.keys(body), true);
+        throw error;
+      }
+    });
+  }
+
+  const treeEditor = {
+    ...editor,
+    copyDay: (dayId: string, body: { dayOfWeek: string }) =>
+      enqueueStructureMutation(() => editor.copyDay(dayId, body)),
+    createDay: (weekId: string, body: { dayOfWeek: string; dayType?: string; dayOrder?: number }) =>
+      enqueueStructureMutation(() => editor.createDay(weekId, body)),
+    createSession: (dayId: string, body: { name: string; description?: string | null; coachNote?: string | null }) =>
+      enqueueStructureMutation(() => editor.createSession(dayId, body)),
+    createWeek: (body: { weekNumber?: number; notes?: string }) =>
+      enqueueStructureMutation(() => editor.createWeek(body)),
+    deleteDay: (dayId: string) => enqueueStructureMutation(() => editor.deleteDay(dayId)),
+    deleteSession: (sessionId: string) => enqueueStructureMutation(() => editor.deleteSession(sessionId)),
+    deleteWeek: (weekId: string) => enqueueStructureMutation(() => editor.deleteWeek(weekId)),
+    duplicateWeek: (weekId: string) => enqueueStructureMutation(() => editor.duplicateWeek(weekId)),
+    updateDay: (dayId: string, body: { dayOfWeek: string }) =>
+      enqueueStructureMutation(() => editor.updateDay(dayId, body)),
+  };
 
   useEffect(() => {
     if (!plan) {
       return;
     }
-    if (planSaveState !== "dirty" && planSaveState !== "saving") {
-      setPlanDraft({
+
+    if (planSaveState === "idle" || planSaveState === "saved") {
+      const nextDraft = {
         durationWeeks: plan.durationWeeks,
         generalNotes: plan.generalNotes,
         goal: plan.goal,
         level: plan.level,
         name: plan.name,
-      });
+      };
+      planDraftRef.current = nextDraft;
+      setPlanDraft(nextDraft);
     }
+
     if (!selectedSessionId && sessions[0]) {
       setSelectedSessionId(sessions[0].id);
     }
   }, [plan, planSaveState, selectedSessionId, sessions]);
-
-  useEffect(() => {
-    if (!selectedSession) {
-      setSessionDraft(null);
-      return;
-    }
-    if (sessionSaveState === "dirty" || sessionSaveState === "saving") {
-      return;
-    }
-    setSessionDraft({
-      coachNote: selectedSession.coachNote,
-      description: selectedSession.description,
-      name: selectedSession.name,
-    });
-  }, [selectedSession, sessionSaveState]);
 
   useEffect(() => {
     if (planSaveState !== "dirty" || isReadOnly || !planDraft) {
@@ -190,230 +233,251 @@ export function TrainingPlanEditorWorkspace() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [planSaveState, sessionSaveState]);
 
-  async function savePlanDraft() {
-    if (!planDraft || isReadOnly) {
-      return;
-    }
-
-    setPlanSaveState("saving");
-    try {
-      await editor.updatePlan(planDraft);
-      setPlanSaveState("saved");
-    } catch (caughtError) {
-      setPlanSaveState("error");
-      notify.error(getErrorMessage(caughtError));
-    }
-  }
-
-  async function saveSessionDraft() {
-    if (!selectedSession || !sessionDraft || isReadOnly) {
-      return;
-    }
-
-    setSessionSaveState("saving");
-    try {
-      const updatedSession = await editor.updateSession(
-        selectedSession.id,
-        sessionDraft,
-      );
-      setSessionDraft({
-        coachNote: updatedSession.coachNote,
-        description: updatedSession.description,
-        name: updatedSession.name,
-      });
-      setSessionSaveState("saved");
-    } catch (caughtError) {
-      setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
-    }
-  }
-
-  async function saveSessionInfo(
-    sessionId: string,
-    draft: DraftSession,
-  ): Promise<boolean> {
-    if (isReadOnly) {
-      return false;
-    }
-
-    setSessionSaveState("saving");
-    try {
-      const updatedSession = await editor.updateSession(sessionId, draft);
-      if (selectedSession?.id === sessionId) {
-        setSessionDraft({
-          coachNote: updatedSession.coachNote,
-          description: updatedSession.description,
-          name: updatedSession.name,
-        });
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
+        return;
       }
-      setSessionSaveState("saved");
-      notify.success("Sesion actualizada");
-      return true;
-    } catch (caughtError) {
-      setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
-      return false;
-    }
+      if (isReadOnly) {
+        return;
+      }
+
+      event.preventDefault();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      window.setTimeout(() => {
+        void saveAllDrafts();
+      }, 0);
+    };
+
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [isReadOnly, planSaveState, sessionSaveState, planDraft]);
+
+  async function savePlanDraft() {
+    const operation = planSaveQueueRef.current.then(async () => {
+      const draftToSave = planDraftRef.current;
+      const currentPlan = planRef.current;
+      if (!draftToSave || isReadOnly || !currentPlan) {
+        return true;
+      }
+      if (!hasPlanDraftChanged(draftToSave, currentPlan)) {
+        setPlanSaveState("saved");
+        return true;
+      }
+
+      const versionAtStart = planDraftVersionRef.current;
+      setPlanSaveState("saving");
+      try {
+        await editor.updatePlan(draftToSave);
+        setPlanSaveState(
+          planDraftVersionRef.current === versionAtStart ? "saved" : "dirty",
+        );
+        return true;
+      } catch (error) {
+        setPlanSaveState("error");
+        notify.error(getErrorMessage(error));
+        return false;
+      }
+    });
+
+    planSaveQueueRef.current = operation.catch(() => false);
+    return operation;
   }
 
   async function saveAllDrafts() {
-    await Promise.all([savePlanDraft(), saveSessionDraft()]);
+    const didSavePlan = await savePlanDraft();
+    if (!didSavePlan) {
+      return false;
+    }
+
+    await waitForAllMutations();
+    return !exerciseDraftTracker.hasPendingDrafts() && !exerciseDraftTracker.hasErrors();
   }
 
-  async function mutateStructure(
-    action: () => Promise<unknown>,
-    success: string,
-  ) {
+  async function saveSessionInfo(sessionId: string, draft: DraftSession) {
     if (isReadOnly) {
-      return;
+      return false;
     }
 
     setSessionSaveState("saving");
     try {
-      await action();
+      await enqueueMutation(() => editor.updateSession(sessionId, draft));
+      setSessionSaveState("saved");
+      return true;
+    } catch (error) {
+      setSessionSaveState("error");
+      notify.error(getErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function mutateStructure<T>(action: () => Promise<T>, success: string) {
+    if (isReadOnly) {
+      return null;
+    }
+
+    setSessionSaveState("saving");
+    try {
+      const result = await enqueueStructureMutation(action);
       setSessionSaveState("saved");
       notify.success(success);
-    } catch (caughtError) {
+      return result;
+    } catch (error) {
       setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+      return null;
     }
   }
 
   async function mutateExercise(
+    exerciseId: string,
+    body: Record<string, unknown>,
     action: () => Promise<unknown>,
-    success: string,
   ) {
     if (isReadOnly) {
-      return;
+      return false;
     }
 
+    const revisionAtStart = exerciseDraftTracker.currentRevision;
     setSessionSaveState("saving");
     try {
-      await action();
-      setSessionSaveState("saved");
-      notify.success(success);
-    } catch (caughtError) {
+      await enqueueExerciseUpdate(exerciseId, body, revisionAtStart, action);
+      setSessionSaveState(exerciseDraftTracker.hasErrors()
+        ? "error"
+        : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+      return true;
+    } catch (error) {
       setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+      return false;
     }
   }
 
-  async function deleteSelectedSession() {
-    if (!selectedSession || isReadOnly) {
+  async function publishPlan() {
+    if (!plan || !publicationChecklist?.canPublish || isBusy || globalActionInFlightRef.current) {
       return;
     }
 
-    if (!window.confirm("Eliminar esta sesion y todos sus ejercicios?")) {
-      return;
-    }
-
-    setSessionSaveState("saving");
-    try {
-      await editor.deleteSession(selectedSession.id);
-      setSessionSaveState("saved");
-      setSelectedSessionId("");
-      notify.success("Sesion eliminada");
-    } catch (caughtError) {
-      setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
-    }
-  }
-
-  async function togglePlanPublication() {
-    if (
-      !plan ||
-      plan.isSystemTemplate ||
-      plan.status === "archived" ||
-      publishState === "saving"
-    ) {
-      return;
-    }
-
+    globalActionInFlightRef.current = true;
     setPublishState("saving");
-    try {
-      if (plan.status === "active") {
-        await editor.updatePlanStatus("draft");
-        await editor.loadPlan();
-        setPublishState("saved");
-        notify.success("Plan despublicado");
-        return;
-      }
+    const didSave = await saveAllDrafts();
+    if (!didSave) {
+      setPublishState("error");
+      globalActionInFlightRef.current = false;
+      return;
+    }
 
-      if (planSaveState === "dirty" && planDraft) {
-        setPlanSaveState("saving");
-        await editor.updatePlan(planDraft);
-        setPlanSaveState("saved");
-      }
-      if (sessionSaveState === "dirty" && selectedSession && sessionDraft) {
-        setSessionSaveState("saving");
-        await editor.updateSession(selectedSession.id, sessionDraft);
-        setSessionSaveState("saved");
-      }
+    await mutationQueue.waitForIdle();
+
+    try {
       await editor.updatePlanStatus("active");
       await editor.loadPlan();
       setPublishState("saved");
+      setIsPublishDialogOpen(false);
       notify.success("Plan publicado");
-    } catch (caughtError) {
+    } catch (error) {
       setPublishState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
+    }
+  }
+
+  async function unpublishPlan() {
+    if (!plan || isBusy || globalActionInFlightRef.current) {
+      return;
+    }
+
+    globalActionInFlightRef.current = true;
+    setPublishState("saving");
+    try {
+      await editor.updatePlanStatus("draft");
+      await editor.loadPlan();
+      setPublishState("saved");
+      notify.success("Plan despublicado");
+    } catch (error) {
+      setPublishState("error");
+      notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
     }
   }
 
   async function duplicateForEditing() {
-    if (!plan || publishState === "saving") {
+    if (!plan || isBusy || globalActionInFlightRef.current) {
       return;
     }
 
+    globalActionInFlightRef.current = true;
     setPublishState("saving");
+    const didSave = await saveAllDrafts();
+    if (!didSave) {
+      setPublishState("error");
+      globalActionInFlightRef.current = false;
+      return;
+    }
+
+    await mutationQueue.waitForIdle();
     try {
       const copy = await editor.duplicatePlan();
       notify.success("Copia creada para editar");
       router.push(`/training-plans/${copy.id}/edit`);
-    } catch (caughtError) {
+    } catch (error) {
       setPublishState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+    } finally {
+      globalActionInFlightRef.current = false;
     }
   }
 
+  function blurActiveEditorField() {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
+
+  async function waitForAllMutations() {
+    await mutationQueue.waitForIdle();
+    await exerciseMutationQueue.waitForAll();
+  }
+
   async function archivePlan() {
-    if (!plan || plan.isSystemTemplate || publishState === "saving") {
-      return;
-    }
-
-    if (!window.confirm("Eliminar este plan? Se archivara y dejara de aparecer en la lista principal.")) {
-      return;
-    }
-
-    setPublishState("saving");
-    try {
-      await editor.updatePlanStatus("archived");
-      setPublishState("saved");
-      notify.success("Plan eliminado");
-      router.push("/training-plans");
-    } catch (caughtError) {
-      setPublishState("error");
-      notify.error(getErrorMessage(caughtError));
-    }
+    return archiveTrainingPlan({
+      blurActiveEditorField,
+      globalActionInFlightRef,
+      isBusy,
+      notifyError: (error) => notify.error(getErrorMessage(error)),
+      notifySuccess: () => notify.success("Plan archivado"),
+      plan,
+      redirect: () => router.push("/training-plans"),
+      saveAllDrafts,
+      getErrorMessage,
+      setIsArchiving,
+      setErrorMessage: setArchiveError,
+      setPublishState,
+      updatePlanStatus: () => editor.updatePlanStatus("archived"),
+      waitForMutations: waitForAllMutations,
+    });
   }
 
   if (editor.isLoading && !plan) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
         <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2Icon className="size-4 animate-spin" />
+          <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
           Cargando plan
         </span>
       </main>
     );
   }
 
-  if (editor.error || !plan || !planDraft) {
+  if (editor.error || !plan || !planDraft || !context) {
     return (
       <main className="min-h-screen bg-background p-4 text-foreground">
-        <div className="mx-auto max-w-3xl rounded-lg border bg-card p-6">
-          <p className="text-sm text-destructive">
-            {editor.error || "Plan no disponible."}
-          </p>
+        <div className="mx-auto max-w-3xl rounded-2xl border !border-transparent bg-card p-6 shadow-[var(--surface-shadow)]">
+          <p className="text-sm text-destructive">{editor.error || "Plan no disponible."}</p>
           <Button asChild className="mt-4" variant="outline">
             <Link href="/training-plans">Volver a planes</Link>
           </Button>
@@ -425,120 +489,162 @@ export function TrainingPlanEditorWorkspace() {
   return (
     <WorkspaceFrame
       header={
-        <EditorHeader
-          isReadOnly={isReadOnly}
-          isSystemTemplate={isSystemTemplate}
+        <TrainingPlanEditorHeader
+          exerciseCount={totalExercises}
           plan={plan}
+          isBusy={isBusy}
           publishState={publishState}
           saveState={saveState}
-          onArchivePlan={() => void archivePlan()}
-          onDuplicateForEditing={() => void duplicateForEditing()}
+          sessionCount={sessions.length}
+           onArchivePlan={() => {
+             setArchiveError(null);
+             setIsArchiveDialogOpen(true);
+           }}
+          onDuplicatePlan={() => void duplicateForEditing()}
           onEditInformation={() => setIsPlanInfoOpen(true)}
+          onPublish={() => setIsPublishDialogOpen(true)}
           onSave={() => void saveAllDrafts()}
-          onTogglePublication={() => void togglePlanPublication()}
+          onUnpublish={() => void unpublishPlan()}
         />
       }
     >
-      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
-        <MetricStrip
-          items={[
-            {
-              helper: plan.goal || "Sin objetivo",
-              icon: <DumbbellIcon className="size-4" />,
-              label: "Objetivo",
-              value: levelLabels[plan.level ?? ""] ?? "Sin nivel",
-            },
-            {
-              helper: `${sessions.length} sesiones configuradas`,
-              icon: <CalendarDaysIcon className="size-4" />,
-              label: "Duracion",
-              value: `${plan.durationWeeks} sem.`,
-            },
-            {
-              helper: "Dentro de la estructura",
-              icon: <DumbbellIcon className="size-4" />,
-              label: "Ejercicios",
-              tone: "green",
-              value: totalExercises,
-            },
-            {
-              helper: isReadOnly ? "Copia para editar" : "Editable",
-              icon: <SaveIcon className="size-4" />,
-              label: "Estado",
-              tone: plan.status === "active" ? "green" : "amber",
-              value: statusLabels[plan.status] ?? plan.status,
-            },
-          ]}
-        />
+      <div className="flex flex-1 flex-col gap-3 bg-background p-3 sm:p-4 md:p-5">
+        <button
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border !border-transparent bg-card px-4 py-3 text-left shadow-[var(--surface-shadow-soft)] lg:hidden"
+          type="button"
+          onClick={() => setIsStructureOpen(true)}
+        >
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-muted-foreground">Estructura</span>
+            <span className="mt-1 block truncate text-sm font-semibold">
+              {selectedLocation
+                ? `Semana ${selectedLocation.week.weekNumber} / ${dayLabels[selectedLocation.day.dayOfWeek]} — ${selectedSession?.name}`
+                : "Selecciona una sesión"}
+            </span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary">
+            <MenuIcon className="size-4" aria-hidden="true" />
+            Abrir
+          </span>
+        </button>
 
-        <div className="grid w-full gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <PlanTree
-            editor={editor}
-            isReadOnly={isReadOnly}
-            plan={plan}
-            selectedSessionId={selectedSession?.id}
-            onSaveSessionInfo={saveSessionInfo}
-            onSelectSession={handleSelectSession}
-          />
-
-          {selectedSession ? (
-            <SessionEditor
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="hidden lg:block">
+            <PlanTree
+              className="sticky top-4"
+              editor={treeEditor}
+              isBusy={isBusy}
               isReadOnly={isReadOnly}
+              plan={plan}
+              selectedSessionId={selectedSession?.id}
+              onMutationStateChange={setSessionSaveState}
+              onSelectSession={setSelectedSessionId}
+            />
+          </div>
+
+          {selectedSession && selectedLocation ? (
+            <TrainingSessionEditor
+              day={selectedLocation.day}
+              isBusy={isBusy}
+              isReadOnly={isReadOnly}
+               onDraftChange={(sessionExerciseId, field) => {
+                 exerciseDraftTracker.markDraft(sessionExerciseId, field);
+                 setSessionSaveState("dirty");
+               }}
+               onDraftCommit={(sessionExerciseId, field) => {
+                 exerciseDraftTracker.markUnchanged(sessionExerciseId, field);
+                 setSessionSaveState(exerciseDraftTracker.hasErrors()
+                   ? "error"
+                   : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+               }}
+               onDraftValidationChange={(sessionExerciseId, field, hasError) => {
+                 exerciseDraftTracker.markValidationError(sessionExerciseId, field, hasError);
+                 setSessionSaveState(exerciseDraftTracker.hasErrors()
+                   ? "error"
+                   : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+               }}
               session={selectedSession}
-              onAddExercise={(exercise) =>
-                mutateStructure(
+              usedDays={selectedLocation.week.days.map((day) => day.dayOfWeek)}
+              onAddExercise={async (exercise: Exercise) => {
+                const created = await mutateStructure(
                   () =>
                     editor.addSessionExercise(
                       selectedSession.id,
-                      {
-                        exerciseId: exercise.id,
-                        reps: "10-12",
-                        sets: 3,
-                      },
+                      { exerciseId: exercise.id, reps: "10-12", sets: 3 },
                       exercise,
                     ),
                   "Ejercicio agregado",
+                );
+                return created?.id ?? null;
+              }}
+              onAddAlternative={async (sessionExerciseId, exercise) =>
+                Boolean(
+                  await mutateStructure(
+                    () =>
+                      editor.addAlternative(
+                        sessionExerciseId,
+                        { alternativeExerciseId: exercise.id },
+                        exercise,
+                      ),
+                    "Alternativa agregada",
+                  ),
                 )
               }
-              onAddAlternative={(sessionExerciseId, exercise) =>
-                mutateStructure(
-                  () =>
-                    editor.addAlternative(
-                      sessionExerciseId,
-                      {
-                        alternativeExerciseId: exercise.id,
-                      },
-                      exercise,
-                    ),
-                  "Alternativa agregada",
-                )
-              }
-              onDeleteExercise={(sessionExerciseId) =>
-                mutateStructure(
-                  () => editor.deleteSessionExercise(sessionExerciseId),
-                  "Ejercicio eliminado",
-                )
-              }
-              onDeleteSession={() => void deleteSelectedSession()}
-              onDeleteAlternative={(alternativeId) =>
-                mutateStructure(
+              onDeleteAlternative={(alternativeId) => {
+                void mutateStructure(
                   () => editor.deleteAlternative(alternativeId),
                   "Alternativa eliminada",
+                );
+              }}
+              onDeleteExercise={async (sessionExerciseId) =>
+                Boolean(
+                  await mutateStructure(
+                    () => editor.deleteSessionExercise(sessionExerciseId),
+                    "Ejercicio eliminado",
+                  ),
                 )
               }
-              onDuplicateExercise={(sessionExerciseId) =>
-                mutateStructure(
+              onDeleteSession={async () => {
+                const didDelete = Boolean(
+                  await mutateStructure(
+                    () => editor.deleteSession(selectedSession.id),
+                    "Sesión eliminada",
+                  ),
+                );
+                if (didDelete) {
+                  setSelectedSessionId("");
+                }
+                return didDelete;
+              }}
+              onDuplicateDay={async (targetDay) => {
+                const copiedDay = await mutateStructure(
+                  () => editor.copyDay(selectedLocation.day.id, { dayOfWeek: targetDay }),
+                  "Día duplicado",
+                );
+                if (copiedDay?.session) {
+                  setSelectedSessionId(copiedDay.session.id);
+                }
+                return Boolean(copiedDay);
+              }}
+              onDuplicateExercise={(sessionExerciseId) => {
+                void mutateStructure(
                   () => editor.duplicateSessionExercise(sessionExerciseId),
                   "Ejercicio duplicado",
+                );
+              }}
+              onMoveDay={async (targetDay) =>
+                Boolean(
+                  await mutateStructure(
+                    () => editor.updateDay(selectedLocation.day.id, { dayOfWeek: targetDay }),
+                    "Día actualizado",
+                  ),
                 )
               }
               onMoveExercise={(sessionExercise, direction) => {
                 const exercises = [...selectedSession.exercises].sort(
                   (first, second) => first.orderIndex - second.orderIndex,
                 );
-                const index = exercises.findIndex(
-                  (item) => item.id === sessionExercise.id,
-                );
+                const index = exercises.findIndex((item) => item.id === sessionExercise.id);
                 const swapIndex = direction === "up" ? index - 1 : index + 1;
                 if (swapIndex < 0 || swapIndex >= exercises.length) {
                   return;
@@ -559,30 +665,49 @@ export function TrainingPlanEditorWorkspace() {
                   "Orden actualizado",
                 );
               }}
+              onSaveSessionInfo={saveSessionInfo}
               onUpdateExercise={(sessionExerciseId, body) =>
-                mutateExercise(
-                  () => editor.updateSessionExercise(sessionExerciseId, body),
-                  "Ejercicio actualizado",
+                mutateExercise(sessionExerciseId, body, () =>
+                  editor.updateSessionExercise(sessionExerciseId, body),
                 )
               }
             />
           ) : (
-            <WorkspacePanel
-              className="min-h-72"
-              description="Selecciona una sesion desde la estructura para editarla."
-              title="Sesion"
-            >
-              <div className="p-4 text-sm text-muted-foreground">
-                No hay una sesion activa.
+            <WorkspacePanel className="min-h-72">
+              <div className="flex min-h-72 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                Crea o selecciona una sesión desde la estructura.
               </div>
             </WorkspacePanel>
           )}
         </div>
       </div>
+
+      <Sheet open={isStructureOpen} onOpenChange={setIsStructureOpen}>
+        <SheetContent side="left" className="flex w-[92vw] flex-col gap-0 border-none bg-background p-0 sm:max-w-md">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Estructura del plan</SheetTitle>
+            <SheetDescription>Semanas, días y sesiones del plan.</SheetDescription>
+          </SheetHeader>
+          <PlanTree
+            className="h-full max-h-none rounded-none shadow-none"
+            editor={treeEditor}
+            isBusy={isBusy}
+            isReadOnly={isReadOnly}
+            plan={plan}
+            selectedSessionId={selectedSession?.id}
+            onMutationStateChange={setSessionSaveState}
+            onSelectSession={(sessionId) => {
+              setSelectedSessionId(sessionId);
+              setIsStructureOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
       <DetailDrawer
         description="Nombre, objetivo, nivel y notas del plan."
         open={isPlanInfoOpen}
-        title="Informacion general"
+        title="Información general"
         onOpenChange={setIsPlanInfoOpen}
       >
         <PlanDetails
@@ -590,233 +715,161 @@ export function TrainingPlanEditorWorkspace() {
           isReadOnly={isReadOnly}
           saveState={planSaveState}
           onChange={(draft) => {
+            planDraftVersionRef.current += 1;
+            planDraftRef.current = draft;
             setPlanDraft(draft);
             setPlanSaveState("dirty");
           }}
           onSave={() => void savePlanDraft()}
         />
       </DetailDrawer>
+
+      {publicationChecklist ? (
+        <PublishPlanDialog
+          checklist={publicationChecklist}
+          isLoading={isBusy}
+          open={isPublishDialogOpen}
+          onOpenChange={setIsPublishDialogOpen}
+          onPublish={() => void publishPlan()}
+        />
+      ) : null}
+
+      <ConfirmActionDialog
+        confirmLabel="Archivar plan"
+        consequence="El plan dejará de aparecer en la biblioteca principal. Podrás duplicarlo más adelante para volver a editarlo."
+        description={plan.name}
+        errorMessage={archiveError}
+        isLoading={isArchiving}
+        open={isArchiveDialogOpen}
+        title={`Archivar ${plan.name}`}
+        onOpenChange={setIsArchiveDialogOpen}
+        onConfirm={archivePlan}
+      />
     </WorkspaceFrame>
   );
 }
 
-function EditorHeader({
-  isReadOnly,
-  isSystemTemplate,
-  onArchivePlan,
-  onDuplicateForEditing,
-  onEditInformation,
-  onSave,
-  onTogglePublication,
-  plan,
-  saveState,
-  publishState,
+function PublishPlanDialog({
+  checklist,
+  isLoading,
+  onOpenChange,
+  onPublish,
+  open,
 }: {
-  isReadOnly: boolean;
-  isSystemTemplate: boolean;
-  onArchivePlan: () => void;
-  onDuplicateForEditing: () => void;
-  onEditInformation: () => void;
-  onSave: () => void;
-  onTogglePublication: () => void;
-  plan: TrainingPlan;
-  saveState: SaveState;
-  publishState: SaveState;
+  checklist: ReturnType<typeof getPublicationChecklist>;
+  isLoading: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPublish: () => void;
+  open: boolean;
 }) {
-  const isSaving = saveState === "saving";
-  const isPublishing = publishState === "saving";
-  const canTogglePublication =
-    plan.status === "draft" || plan.status === "active";
-  const publicationLabel =
-    plan.status === "active" ? "Despublicar" : "Publicar";
-  const primaryAction = isSystemTemplate ? (
-    <Button
-      disabled={isPublishing}
-      size="sm"
-      type="button"
-      onClick={onDuplicateForEditing}
-    >
-      {isPublishing ? (
-        <Loader2Icon className="animate-spin" data-icon="inline-start" />
-      ) : (
-        <CopyIcon data-icon="inline-start" />
-      )}
-      Copiar para editar
-    </Button>
-  ) : (
-    <Button
-      disabled={!canTogglePublication || isPublishing}
-      size="sm"
-      type="button"
-      variant={plan.status === "active" ? "outline" : "default"}
-      onClick={onTogglePublication}
-    >
-      {isPublishing ? (
-        <Loader2Icon className="animate-spin" data-icon="inline-start" />
-      ) : null}
-      {publicationLabel}
-    </Button>
-  );
-
   return (
-    <WorkspaceHeader
-      description={`${plan.goal || "Sin objetivo"} / ${
-        plan.level ? (levelLabels[plan.level] ?? plan.level) : "Sin nivel"
-      } / ${plan.durationWeeks} semanas`}
-      title={plan.name}
-      actions={
-        <>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/training-plans">
-              <ChevronLeftIcon data-icon="inline-start" />
-              Planes
-            </Link>
+    <Dialog open={open} onOpenChange={(nextOpen) => !isLoading && onOpenChange(nextOpen)}>
+      <DialogContent className="rounded-2xl border !border-transparent shadow-[var(--surface-shadow)] sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Publicar plan</DialogTitle>
+          <DialogDescription>
+            Revisa la estructura antes de hacer visible este plan.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          <ChecklistItem
+            complete={checklist.hasWeeks}
+            label={checklist.hasWeeks ? "El plan tiene semanas" : "Agrega al menos una semana"}
+          />
+          <ChecklistItem
+            complete={checklist.hasSessions}
+            label={checklist.hasSessions ? "Existe al menos una sesión" : "Agrega al menos una sesión"}
+          />
+          {checklist.emptySessionCount > 0 ? (
+            <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/45 dark:text-amber-200">
+              <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>
+                {checklist.emptySessionCount} sesiones todavía no tienen ejercicios. Puedes publicar de todas formas.
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button disabled={isLoading} type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
           </Button>
-          {primaryAction}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label="Mas acciones del plan" size="icon" type="button" variant="outline">
-                <MoreVerticalIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={onEditInformation}>
-                  <EditIcon data-icon="inline-start" />
-                  Editar informacion
-                </DropdownMenuItem>
-                {!isSystemTemplate ? (
-                  <DropdownMenuItem disabled={isReadOnly || isSaving} onSelect={onSave}>
-                    {isSaving ? (
-                      <Loader2Icon className="animate-spin" data-icon="inline-start" />
-                    ) : (
-                      <SaveIcon data-icon="inline-start" />
-                    )}
-                    Guardar cambios
-                  </DropdownMenuItem>
-                ) : null}
-                {!isSystemTemplate ? (
-                  <DropdownMenuItem disabled={isPublishing} onSelect={onArchivePlan}>
-                    <Trash2Icon data-icon="inline-start" />
-                    Eliminar plan
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      }
-    />
+          <Button disabled={!checklist.canPublish || isLoading} type="button" onClick={onPublish}>
+            {isLoading ? <Loader2Icon className="animate-spin" data-icon="inline-start" /> : null}
+            Publicar plan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChecklistItem({ complete, label }: { complete: boolean; label: string }) {
+  const Icon = complete ? CheckCircle2Icon : XCircleIcon;
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-3 text-sm">
+      <Icon className={complete ? "size-4 text-emerald-600 dark:text-emerald-300" : "size-4 text-destructive"} aria-hidden="true" />
+      <span>{label}</span>
+    </div>
   );
 }
 
 function PlanDetails({
   draft,
   isReadOnly,
-  saveState,
   onChange,
   onSave,
+  saveState,
 }: {
   draft: DraftPlan;
   isReadOnly: boolean;
-  saveState: SaveState;
   onChange: (draft: DraftPlan) => void;
   onSave: () => void;
+  saveState: SaveState;
 }) {
   return (
     <aside className="flex min-h-0 flex-1 flex-col">
       <div className="border-b bg-card px-5 py-5 pr-16">
-        <div>
-          <h2 className="text-lg font-semibold">Informacion general</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Nombre, objetivo, nivel y notas del plan.
-          </p>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {!isReadOnly ? <SaveStatus state={saveState} /> : null}
-        </div>
+        <h2 className="text-lg font-semibold">Información general</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Nombre, objetivo, nivel y notas del plan.
+        </p>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-background px-5 py-5">
-        <section className="grid gap-4">
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
-              Identidad
-            </p>
-            <div className="grid gap-4">
-              <Field label="Nombre">
-                <Input
-                  disabled={isReadOnly}
-                  value={draft.name}
-                  onChange={(event) =>
-                    onChange({ ...draft, name: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Objetivo">
-                <Input
-                  disabled={isReadOnly}
-                  value={draft.goal ?? ""}
-                  onChange={(event) =>
-                    onChange({ ...draft, goal: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 border-t pt-4">
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
-              Clasificacion
-            </p>
-            <Field label="Nivel">
-              <select
-                className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-                disabled={isReadOnly}
-                value={draft.level ?? ""}
-                onChange={(event) =>
-                  onChange({ ...draft, level: event.target.value || null })
-                }
-              >
-                <option value="">Sin nivel</option>
-                <option value="beginner">{levelLabels.beginner}</option>
-                <option value="intermediate">{levelLabels.intermediate}</option>
-                <option value="advanced">{levelLabels.advanced}</option>
-              </select>
-            </Field>
-          </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-background px-5 py-5">
+        <div className="grid gap-4">
+          <Field label="Nombre">
+            <Input disabled={isReadOnly} value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />
+          </Field>
+          <Field label="Objetivo">
+            <Input disabled={isReadOnly} value={draft.goal ?? ""} onChange={(event) => onChange({ ...draft, goal: event.target.value || null })} />
+          </Field>
+          <Field label="Nivel">
+            <select
+              className="h-10 rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              disabled={isReadOnly}
+              value={draft.level ?? ""}
+              onChange={(event) => onChange({ ...draft, level: event.target.value || null })}
+            >
+              <option value="">Sin nivel</option>
+              <option value="beginner">{levelLabels.beginner}</option>
+              <option value="intermediate">{levelLabels.intermediate}</option>
+              <option value="advanced">{levelLabels.advanced}</option>
+            </select>
+          </Field>
           <DurationSummary weeks={draft.durationWeeks} />
-        </section>
-
-        <section className="border-t pt-4">
-          <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
-            Notas internas
-          </p>
           <Field label="Notas generales">
             <textarea
-              className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              className="min-h-28 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
               disabled={isReadOnly}
               value={draft.generalNotes ?? ""}
-              onChange={(event) =>
-                onChange({ ...draft, generalNotes: event.target.value })
-              }
+              onChange={(event) => onChange({ ...draft, generalNotes: event.target.value || null })}
             />
           </Field>
-        </section>
+        </div>
       </div>
       {!isReadOnly ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-card px-5 py-4">
-          <p className="text-sm text-muted-foreground">
-            El autosave guarda cambios cada 2 segundos.
-          </p>
-          <Button
-            disabled={saveState === "saving"}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={onSave}
-          >
+          <p className="text-sm text-muted-foreground">Autosave cada 2 segundos · Ctrl/Cmd + S</p>
+          <Button disabled={saveState === "saving"} type="button" variant="outline" onClick={onSave}>
             {saveState === "saving" ? (
               <Loader2Icon className="animate-spin" data-icon="inline-start" />
             ) : (
@@ -830,554 +883,75 @@ function PlanDetails({
   );
 }
 
-function SaveStatus({ state }: { state: SaveState }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-      {state === "saving" ? (
-        <Loader2Icon className="animate-spin" />
-      ) : (
-        <SaveIcon />
-      )}
-      {getSaveStateLabel(state)}
-    </span>
-  );
-}
-
 function DurationSummary({ weeks }: { weeks: number }) {
   return (
-    <div className="flex min-h-20 items-center justify-between gap-4 rounded-md border bg-background p-3">
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/35 p-3">
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <CalendarDaysIcon />
-        </div>
-        <div>
-          <p className="text-sm font-medium">Duracion calculada</p>
-          <p className="text-xs text-muted-foreground">
-            Se actualiza desde Estructura.
-          </p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-2xl font-semibold leading-none">{weeks}</p>
-        <p className="text-xs text-muted-foreground">semanas</p>
-      </div>
-    </div>
-  );
-}
-
-function SessionEditor({
-  isReadOnly,
-  onAddExercise,
-  onAddAlternative,
-  onDeleteAlternative,
-  onDeleteExercise,
-  onDeleteSession,
-  onDuplicateExercise,
-  onMoveExercise,
-  onUpdateExercise,
-  session,
-}: {
-  isReadOnly: boolean;
-  onAddExercise: (exercise: Exercise) => void;
-  onAddAlternative: (sessionExerciseId: string, exercise: Exercise) => void;
-  onDeleteAlternative: (alternativeId: string) => void;
-  onDeleteExercise: (sessionExerciseId: string) => void;
-  onDeleteSession: () => void;
-  onDuplicateExercise: (sessionExerciseId: string) => void;
-  onMoveExercise: (exercise: SessionExercise, direction: "up" | "down") => void;
-  onUpdateExercise: (
-    sessionExerciseId: string,
-    body: Partial<
-      Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
-    >,
-  ) => void;
-  session: TrainingSession;
-}) {
-  const [isAdding, setIsAdding] = useState(false);
-  const sortedExercises = useMemo(
-    () =>
-      [...session.exercises].sort(
-        (first, second) => first.orderIndex - second.orderIndex,
-      ),
-    [session.exercises],
-  );
-
-  return (
-    <WorkspacePanel className="overflow-hidden">
-      <div className="gap-3 border-b p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">{session.name}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {session.description ||
-                "Ejercicios, cargas prescritas y notas del coach."}
-            </p>
-          </div>
-          {!isReadOnly ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={onDeleteSession}
-              >
-                <Trash2Icon data-icon="inline-start" />
-                Eliminar sesion
-              </Button>
-              <Button
-                size="sm"
-                type="button"
-                onClick={() => setIsAdding((value) => !value)}
-              >
-                <PlusIcon data-icon="inline-start" />
-                Agregar ejercicio
-              </Button>
-            </div>
-          ) : null}
-        </div>
-        {session.coachNote ? (
-          <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            {session.coachNote}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex flex-col gap-4 p-4">
-        {isAdding && !isReadOnly ? (
-          <div className="border-b bg-background">
-            <ExerciseSearch
-              selectionMode="explicit"
-              onSelect={(exercise) => {
-                onAddExercise(exercise);
-                setIsAdding(false);
-              }}
-            />
-          </div>
-        ) : null}
-        <section>
-          <div className="overflow-hidden rounded-md border">
-            {sortedExercises.map((exercise, index) => (
-              <SessionExerciseRow
-                key={exercise.id}
-                exercise={exercise}
-                isFirst={index === 0}
-                isLast={index === sortedExercises.length - 1}
-                isReadOnly={isReadOnly}
-                onDelete={() => onDeleteExercise(exercise.id)}
-                onDeleteAlternative={onDeleteAlternative}
-                onDuplicate={() => onDuplicateExercise(exercise.id)}
-                onMoveDown={() => onMoveExercise(exercise, "down")}
-                onMoveUp={() => onMoveExercise(exercise, "up")}
-                onAddAlternative={(alternative) =>
-                  onAddAlternative(exercise.id, alternative)
-                }
-                onUpdate={(body) => onUpdateExercise(exercise.id, body)}
-              />
-            ))}
-            {session.exercises.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                Esta sesion todavia no tiene ejercicios.
-              </div>
-            ) : null}
-          </div>
-        </section>
-      </div>
-    </WorkspacePanel>
-  );
-}
-
-type SessionExerciseRowProps = {
-  exercise: SessionExercise;
-  isFirst: boolean;
-  isLast: boolean;
-  isReadOnly: boolean;
-  onDelete: () => void;
-  onDeleteAlternative: (alternativeId: string) => void;
-  onDuplicate: () => void;
-  onMoveDown: () => void;
-  onMoveUp: () => void;
-  onAddAlternative: (exercise: Exercise) => void;
-  onUpdate: (
-    body: Partial<
-      Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
-    >,
-  ) => void;
-};
-
-const SessionExerciseRow = memo(function SessionExerciseRow({
-  exercise,
-  isFirst,
-  isLast,
-  isReadOnly,
-  onDelete,
-  onDeleteAlternative,
-  onDuplicate,
-  onMoveDown,
-  onMoveUp,
-  onAddAlternative,
-  onUpdate,
-}: SessionExerciseRowProps) {
-  const alternatives = exercise.alternatives ?? [];
-  const [draft, setDraft] = useState({
-    coachNote: exercise.coachNote ?? "",
-    reps: exercise.reps,
-    restSeconds: exercise.restSeconds ?? "",
-    sets: exercise.sets ?? "",
-  });
-  const [isAddingAlternative, setIsAddingAlternative] = useState(false);
-  const [isAlternativesOpen, setIsAlternativesOpen] = useState(false);
-  const [isEditingNote, setIsEditingNote] = useState(false);
-
-  useEffect(() => {
-    setDraft({
-      coachNote: exercise.coachNote ?? "",
-      reps: exercise.reps,
-      restSeconds: exercise.restSeconds ?? "",
-      sets: exercise.sets ?? "",
-    });
-  }, [exercise]);
-
-  return (
-    <div className="border-b bg-card last:border-b-0">
-      <div className="grid gap-2 p-3 transition-colors hover:bg-background lg:grid-cols-[minmax(0,1fr)_76px_112px_88px_36px] lg:items-center">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
-            {exercise.orderIndex + 1}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {exercise.exercise?.name ?? `Ejercicio ${exercise.exerciseId}`}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {exercise.exercise?.primaryMuscle
-                ? (muscleLabels[exercise.exercise.primaryMuscle] ??
-                  exercise.exercise.primaryMuscle)
-                : "Ejercicio"}{" "}
-              /{" "}
-              {exercise.exercise?.equipment
-                ? (equipmentLabels[exercise.exercise.equipment] ??
-                  exercise.exercise.equipment)
-                : "Sin equipo"}
-            </p>
-            {exercise.coachNote ? (
-              <p className="mt-1 text-xs font-medium text-muted-foreground">
-                Nota agregada
-              </p>
-            ) : null}
-            {alternatives.length ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {alternatives.length} alternativa
-                {alternatives.length === 1 ? "" : "s"}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <CompactField label="Series">
-          <Input
-            disabled={isReadOnly}
-            min={1}
-            type="number"
-            value={draft.sets}
-            onChange={(event) =>
-              setDraft({ ...draft, sets: event.target.value })
-            }
-            onBlur={() =>
-              onUpdate({ sets: draft.sets === "" ? null : Number(draft.sets) })
-            }
-          />
-        </CompactField>
-        <CompactField label="Repeticiones">
-          <Input
-            disabled={isReadOnly}
-            value={draft.reps}
-            onChange={(event) =>
-              setDraft({ ...draft, reps: event.target.value })
-            }
-            onBlur={() => onUpdate({ reps: draft.reps })}
-          />
-        </CompactField>
-        <CompactField label="Descanso">
-          <Input
-            disabled={isReadOnly}
-            min={1}
-            type="number"
-            value={draft.restSeconds}
-            onChange={(event) =>
-              setDraft({ ...draft, restSeconds: event.target.value })
-            }
-            onBlur={() =>
-              onUpdate({
-                restSeconds:
-                  draft.restSeconds === "" ? null : Number(draft.restSeconds),
-              })
-            }
-          />
-        </CompactField>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label="Acciones de ejercicio"
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <MoreVerticalIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                disabled={isReadOnly || isFirst}
-                onSelect={onMoveUp}
-              >
-                <ArrowUpIcon data-icon="inline-start" />
-                Subir
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isReadOnly || isLast}
-                onSelect={onMoveDown}
-              >
-                <ArrowDownIcon data-icon="inline-start" />
-                Bajar
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={isReadOnly} onSelect={onDuplicate}>
-                <CopyIcon data-icon="inline-start" />
-                Duplicar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isReadOnly}
-                onSelect={() => setIsEditingNote(true)}
-              >
-                <EditIcon data-icon="inline-start" />
-                Editar nota
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  setIsAlternativesOpen((value) => !value);
-                  setIsAddingAlternative(false);
-                }}
-              >
-                <PlusIcon data-icon="inline-start" />
-                Alternativas
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={isReadOnly} onSelect={onDelete}>
-                <Trash2Icon data-icon="inline-start" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <Dialog open={isEditingNote} onOpenChange={setIsEditingNote}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar nota del ejercicio</DialogTitle>
-            <DialogDescription>
-              Esta nota queda asociada solo a este ejercicio dentro de la sesion.
-            </DialogDescription>
-          </DialogHeader>
-          <Field label="Nota">
-            <textarea
-              className="min-h-28 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-              disabled={isReadOnly}
-              value={draft.coachNote}
-              onChange={(event) =>
-                setDraft({ ...draft, coachNote: event.target.value })
-              }
-            />
-          </Field>
-          <DialogFooter>
-            <Button
-              disabled={isReadOnly}
-              type="button"
-              onClick={() => {
-                onUpdate({ coachNote: draft.coachNote });
-                setIsEditingNote(false);
-              }}
-            >
-              <SaveIcon data-icon="inline-start" />
-              Guardar nota
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {isAlternativesOpen ? (
-        <div className="grid gap-3 border-t bg-muted/20 px-3 py-2.5 lg:grid-cols-[minmax(0,1fr)_36px]">
-          <div className="flex min-w-0 flex-wrap gap-2">
-            {alternatives.length ? (
-              alternatives.map((alternative) => (
-                <AlternativeChip
-                  key={alternative.id}
-                  alternative={alternative}
-                  isReadOnly={isReadOnly}
-                  onDelete={() => onDeleteAlternative(alternative.id)}
-                />
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                Sin alternativas
-              </span>
-            )}
-          </div>
-          <Button
-            aria-label="Agregar alternativa"
-            className="justify-self-start lg:justify-self-end"
-            disabled={isReadOnly || alternatives.length >= 3}
-            size="icon"
-            type="button"
-            variant="outline"
-            onClick={() => setIsAddingAlternative((value) => !value)}
-          >
-            <PlusIcon />
-          </Button>
-        </div>
-      ) : null}
-      {isAlternativesOpen && isAddingAlternative && !isReadOnly ? (
-        <div className="mt-3">
-          <ExerciseSearch
-            selectionMode="explicit"
-            onSelect={(alternative) => {
-              onAddAlternative(alternative);
-              setIsAddingAlternative(false);
-            }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}, areSessionExerciseRowPropsEqual);
-
-function AlternativeChip({
-  alternative,
-  isReadOnly,
-  onDelete,
-}: {
-  alternative: SessionExerciseAlternative;
-  isReadOnly: boolean;
-  onDelete: () => void;
-}) {
-  const exercise = alternative.alternativeExercise;
-
-  return (
-    <span className="inline-flex max-w-full items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs">
-      <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted text-muted-foreground">
-        {exercise?.mediaUrl && exercise.mediaType === "image" ? (
-          <Image
-            alt=""
-            className="size-full object-cover"
-            height={32}
-            loading="lazy"
-            src={exercise.mediaUrl}
-            unoptimized
-            width={32}
-          />
-        ) : (
-          <ImageIcon className="size-4" aria-hidden="true" />
-        )}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate font-medium">
-          {exercise?.name ?? alternative.alternativeExerciseId}
+        <span className="flex size-9 items-center justify-center rounded-xl bg-card text-muted-foreground">
+          <CalendarDaysIcon className="size-4" aria-hidden="true" />
         </span>
-        <span className="block text-muted-foreground">Alternativa</span>
-      </span>
-      <button
-        aria-label="Quitar alternativa"
-        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        disabled={isReadOnly}
-        type="button"
-        onClick={onDelete}
-      >
-        <Trash2Icon className="size-4" />
-      </button>
-    </span>
+        <div>
+          <p className="text-sm font-medium">Duración calculada</p>
+          <p className="text-xs text-muted-foreground">Se actualiza desde Estructura.</p>
+        </div>
+      </div>
+      <p className="text-right text-sm font-semibold">{weeks} semanas</p>
+    </div>
   );
 }
 
-function areSessionExerciseRowPropsEqual(
-  previous: SessionExerciseRowProps,
-  next: SessionExerciseRowProps,
-) {
+function Field({ children, label }: { children: React.ReactNode; label: string }) {
   return (
-    previous.exercise === next.exercise &&
-    previous.isFirst === next.isFirst &&
-    previous.isLast === next.isLast &&
-    previous.isReadOnly === next.isReadOnly
-  );
-}
-
-function Field({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
+    <label className="grid gap-2 text-sm font-medium">
       {label}
       {children}
     </label>
   );
-}
-
-function CompactField({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
-      {label}
-      {children}
-    </label>
-  );
-}
-
-function getSaveStateLabel(state: SaveState) {
-  const labels: Record<SaveState, string> = {
-    dirty: "Cambios pendientes de guardar.",
-    error: "No se pudo guardar el ultimo cambio.",
-    idle: "Sin cambios pendientes.",
-    saved: "Cambios guardados.",
-    saving: "Guardando cambios...",
-  };
-
-  return labels[state];
-}
-
-function getCombinedSaveState(
-  planState: SaveState,
-  sessionState: SaveState,
-): SaveState {
-  if (planState === "saving" || sessionState === "saving") {
-    return "saving";
-  }
-  if (planState === "error" || sessionState === "error") {
-    return "error";
-  }
-  if (planState === "dirty" || sessionState === "dirty") {
-    return "dirty";
-  }
-  if (planState === "saved" || sessionState === "saved") {
-    return "saved";
-  }
-  return "idle";
 }
 
 function getSessions(plan: TrainingPlan | null) {
-  if (!plan?.weeks) {
-    return [];
-  }
-
-  return plan.weeks.flatMap((week) =>
-    week.days.flatMap((day) => (day.session ? [day.session] : [])),
+  return (
+    plan?.weeks?.flatMap((week) =>
+      week.days.flatMap((day) => (day.session ? [day.session] : [])),
+    ) ?? []
   );
 }
 
+function findSessionLocation(
+  plan: TrainingPlan | null,
+  sessionId?: string,
+): { day: TrainingPlanDay; week: TrainingPlanWeek } | null {
+  if (!plan || !sessionId) {
+    return null;
+  }
+
+  for (const week of plan.weeks ?? []) {
+    const day = week.days.find((item) => item.session?.id === sessionId);
+    if (day) {
+      return { day, week };
+    }
+  }
+  return null;
+}
+
+function hasPlanDraftChanged(draft: DraftPlan, plan: TrainingPlan) {
+  return (
+    draft.name !== plan.name ||
+    draft.goal !== plan.goal ||
+    draft.level !== plan.level ||
+    draft.durationWeeks !== plan.durationWeeks ||
+    draft.generalNotes !== plan.generalNotes
+  );
+}
+
+function getCombinedSaveState(planState: SaveState, sessionState: SaveState): SaveState {
+  if (planState === "error" || sessionState === "error") return "error";
+  if (planState === "saving" || sessionState === "saving") return "saving";
+  if (planState === "dirty" || sessionState === "dirty") return "dirty";
+  if (planState === "saved" || sessionState === "saved") return "saved";
+  return "idle";
+}
+
 function getErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "No se pudo guardar el cambio";
+  return error instanceof Error ? error.message : "Ocurrió un error inesperado";
 }

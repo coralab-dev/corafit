@@ -1,0 +1,64 @@
+import { assert, test } from "vitest";
+import {
+  buildExerciseSearchParams,
+  filterSelectableExercises,
+  getExercisePageCount,
+  isExerciseSelectionDisabled,
+  shouldShowExcludedPageMessage,
+} from "./exercise-search-utils.ts";
+import { createLatestRequestController } from "../../hooks/latest-request-controller.ts";
+
+test("builds a remote exercise query with the requested page and limit", () => {
+  const params = buildExerciseSearchParams({
+    equipment: "barbell",
+    limit: 8,
+    page: 2,
+    primaryMuscle: "legs",
+    search: "sentadilla",
+    type: "custom",
+  });
+
+  assert.equal(
+    params.toString(),
+    "page=2&limit=8&type=custom&search=sentadilla&primaryMuscle=legs&equipment=barbell",
+  );
+});
+
+test("keeps server totals independent from excluded exercises", () => {
+  const items = [{ id: "exercise-50" }, { id: "exercise-51" }];
+
+  assert.deepEqual(filterSelectableExercises(items, ["exercise-50"]), [
+    { id: "exercise-51" },
+  ]);
+  assert.equal(getExercisePageCount(63, 8), 8);
+});
+
+test("recognizes a fully excluded page without treating the library as empty", () => {
+  assert.equal(shouldShowExcludedPageMessage(63, []), true);
+  assert.equal(shouldShowExcludedPageMessage(0, []), false);
+});
+
+test("keeps an exercise on a later server page selectable", () => {
+  const pageTwo = [{ id: "exercise-51" }, { id: "exercise-52" }];
+
+  assert.deepEqual(filterSelectableExercises(pageTwo, []), pageTwo);
+});
+
+test("aborts stale exercise requests and keeps only the latest request current", () => {
+  const controller = createLatestRequestController();
+  const first = controller.start();
+  const second = controller.start();
+
+  assert.equal(first.signal.aborted, true);
+  assert.equal(controller.isCurrent(first.id), false);
+  assert.equal(controller.isCurrent(second.id), true);
+
+  controller.invalidate();
+  assert.equal(second.signal.aborted, true);
+  assert.equal(controller.isCurrent(second.id), false);
+});
+
+test("marks exercise actions as disabled while results are updating", () => {
+  assert.equal(isExerciseSelectionDisabled(true), true);
+  assert.equal(isExerciseSelectionDisabled(false), false);
+});

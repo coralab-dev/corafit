@@ -29,6 +29,7 @@ const filterOptions: Array<{ label: string; value: OperationalStatus | "all" }> 
   { label: "Activos", value: "active" },
   { label: "En pausa", value: "paused" },
   { label: "Inactivos", value: "inactive" },
+  { label: "Archivados", value: "archived" },
 ];
 
 export function ClientList({
@@ -42,6 +43,7 @@ export function ClientList({
   onOpenClient,
   onQueryChange,
   onStatusFilterChange,
+  pendingStatusClientId,
   query,
   selectedClientId,
   statusFilter,
@@ -56,6 +58,7 @@ export function ClientList({
   onOpenClient: (clientId: string) => void;
   onQueryChange: (value: string) => void;
   onStatusFilterChange: (value: OperationalStatus | "all") => void;
+  pendingStatusClientId?: string | null;
   query: string;
   selectedClientId: string;
   statusFilter: OperationalStatus | "all";
@@ -109,6 +112,7 @@ export function ClientList({
                 const assignment = assignmentsByClient[client.id];
                 const hasPlan = Boolean(assignment?.assignedPlan);
                 const isSelected = selectedClientId === client.id;
+                const isEditDisabled = pendingStatusClientId === client.id;
 
                 return (
                   <article
@@ -161,6 +165,7 @@ export function ClientList({
                     <div className="mt-4 flex items-center justify-between border-t pt-3">
                       <Button
                         className="h-9 px-3"
+                        disabled={isEditDisabled}
                         size="sm"
                         variant="outline"
                         onClick={() => onEditClient(client)}
@@ -170,6 +175,7 @@ export function ClientList({
                       <ClientActionsMenu
                         client={client}
                         hasPlan={hasPlan}
+                        isEditDisabled={isEditDisabled}
                         onEditClient={onEditClient}
                         onEndPlan={onEndPlan}
                       />
@@ -196,6 +202,7 @@ export function ClientList({
                     const assignment = assignmentsByClient[client.id];
                     const hasPlan = Boolean(assignment?.assignedPlan);
                     const isSelected = selectedClientId === client.id;
+                    const isEditDisabled = pendingStatusClientId === client.id;
 
                     return (
                       <tr
@@ -240,6 +247,7 @@ export function ClientList({
                           <ClientActionsMenu
                             client={client}
                             hasPlan={hasPlan}
+                            isEditDisabled={isEditDisabled}
                             onEditClient={onEditClient}
                             onEndPlan={onEndPlan}
                           />
@@ -253,12 +261,21 @@ export function ClientList({
             </div>
             </>
           ) : (
-            <EmptyState
-              actionLabel="Nuevo cliente"
-              description="Ajusta la busqueda o crea un nuevo cliente."
-              title="No hay clientes con ese filtro"
-              onAction={onCreateClient}
-            />
+            statusFilter === "archived" ? (
+              <EmptyState
+                actionLabel="Nuevo cliente"
+                description="Los clientes archivados apareceran aqui cuando conserves su historial fuera de la cartera operativa."
+                title="No hay clientes archivados"
+                onAction={onCreateClient}
+              />
+            ) : (
+              <EmptyState
+                actionLabel="Nuevo cliente"
+                description="Ajusta la busqueda o crea un nuevo cliente."
+                title="No hay clientes con ese filtro"
+                onAction={onCreateClient}
+              />
+            )
           )}
         </div>
       </div>
@@ -285,11 +302,13 @@ function AccessPill({ status }: { status: Client["access"]["status"] }) {
 function ClientActionsMenu({
   client,
   hasPlan,
+  isEditDisabled,
   onEditClient,
   onEndPlan,
 }: {
   client: Client;
   hasPlan: boolean;
+  isEditDisabled: boolean;
   onEditClient: (client: Client) => void;
   onEndPlan: (client: Client) => void;
 }) {
@@ -335,7 +354,10 @@ function ClientActionsMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onEditClient(client)}>
+        <DropdownMenuItem
+          disabled={isEditDisabled}
+          onSelect={() => onEditClient(client)}
+        >
           Editar cliente
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

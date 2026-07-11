@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   ArchiveIcon,
-  CheckCircle2Icon,
   DumbbellIcon,
   EditIcon,
   EyeIcon,
@@ -30,6 +29,7 @@ import type {
   OperationalStatus,
 } from "@/lib/clients/types";
 import { ClientProgressPanel } from "./client-progress-panel";
+import { clientStatusActionsFor } from "./client-status-state";
 
 type ClientDetailTab = "summary" | "plan" | "progress" | "access" | "notes";
 
@@ -45,17 +45,25 @@ export function ClientDetail({
   assignment,
   client,
   isPlanLoading,
+  isClientEditDisabled = false,
+  isStatusMutationPending = false,
   onEndPlan,
   onEdit,
+  onArchiveStatusChange,
   onStatusChange,
+  pendingStatus,
   variant = "drawer",
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
   isPlanLoading: boolean;
+  isClientEditDisabled?: boolean;
+  isStatusMutationPending?: boolean;
   onEndPlan: () => void;
   onEdit: (client: Client) => void;
+  onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  pendingStatus?: OperationalStatus | null;
   variant?: "drawer" | "page";
 }) {
   const isPage = variant === "page";
@@ -93,6 +101,7 @@ export function ClientDetail({
               />
               <Button
                 className="shadow-none"
+                disabled={isClientEditDisabled}
                 type="button"
                 variant="outline"
                 onClick={() => onEdit(client)}
@@ -123,6 +132,9 @@ export function ClientDetail({
         {activeTab === "summary" ? (
           <OperationalPanel
             client={client}
+            isStatusMutationPending={isStatusMutationPending}
+            pendingStatus={pendingStatus}
+            onArchiveStatusChange={onArchiveStatusChange}
             onStatusChange={onStatusChange}
           />
         ) : null}
@@ -137,7 +149,13 @@ export function ClientDetail({
         ) : null}
         {activeTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
         {activeTab === "access" ? <AccessPanel client={client} /> : null}
-        {activeTab === "notes" ? <ClientNotesPanel client={client} onEdit={() => onEdit(client)} /> : null}
+        {activeTab === "notes" ? (
+          <ClientNotesPanel
+            client={client}
+            isEditDisabled={isClientEditDisabled}
+            onEdit={() => onEdit(client)}
+          />
+        ) : null}
       </aside>
     );
   }
@@ -166,6 +184,7 @@ export function ClientDetail({
         <Button
           aria-label="Editar cliente"
           className="size-9 shrink-0 shadow-none"
+          disabled={isClientEditDisabled}
           size="icon"
           type="button"
           variant="ghost"
@@ -185,8 +204,18 @@ export function ClientDetail({
         />
 
         <AccessPanel client={client} />
-        <OperationalPanel client={client} onStatusChange={onStatusChange} />
-        <ClientNotesPanel client={client} onEdit={() => onEdit(client)} />
+        <OperationalPanel
+          client={client}
+          isStatusMutationPending={isStatusMutationPending}
+          pendingStatus={pendingStatus}
+          onArchiveStatusChange={onArchiveStatusChange}
+          onStatusChange={onStatusChange}
+        />
+        <ClientNotesPanel
+          client={client}
+          isEditDisabled={isClientEditDisabled}
+          onEdit={() => onEdit(client)}
+        />
       </div>
     </aside>
   );
@@ -217,11 +246,18 @@ function AccessPanel({ client }: { client: Client }) {
 
 function OperationalPanel({
   client,
+  isStatusMutationPending,
+  pendingStatus,
+  onArchiveStatusChange,
   onStatusChange,
 }: {
   client: Client;
+  isStatusMutationPending: boolean;
+  pendingStatus?: OperationalStatus | null;
+  onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
 }) {
+  const statusActions = clientStatusActionsFor(client.operationalStatus);
   return (
     <WorkspacePanel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -238,41 +274,49 @@ function OperationalPanel({
         <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "active")}
-        >
-          <CheckCircle2Icon className="size-4" />
-          Activar
-        </Button>
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "paused")}
-        >
-          Pausar
-        </Button>
-        <Button
-          className="shadow-none"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => onStatusChange(client.id, "archived")}
-        >
-          <ArchiveIcon className="size-4" />
-          Archivar
-        </Button>
+        {statusActions.map((action) => {
+          const isCurrentActionPending = pendingStatus === action.status;
+
+          return (
+            <Button
+              key={action.status}
+              className="shadow-none"
+              disabled={isStatusMutationPending}
+              size="sm"
+              type="button"
+              variant={action.isDestructive ? "destructive" : "outline"}
+              onClick={() => {
+                if (action.requiresConfirmation) {
+                  onArchiveStatusChange(client);
+                  return;
+                }
+
+                onStatusChange(client.id, action.status);
+              }}
+            >
+              {isCurrentActionPending ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : action.status === "archived" ? (
+                <ArchiveIcon className="size-4" />
+              ) : null}
+              {action.label}
+            </Button>
+          );
+        })}
       </div>
     </WorkspacePanel>
   );
 }
 
-function ClientNotesPanel({ client, onEdit }: { client: Client; onEdit: () => void }) {
+function ClientNotesPanel({
+  client,
+  isEditDisabled,
+  onEdit,
+}: {
+  client: Client;
+  isEditDisabled: boolean;
+  onEdit: () => void;
+}) {
   return (
     <WorkspacePanel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -291,6 +335,7 @@ function ClientNotesPanel({ client, onEdit }: { client: Client; onEdit: () => vo
       </div>
       <Button
         className="mt-4 w-full shadow-none"
+        disabled={isEditDisabled}
         type="button"
         variant="outline"
         onClick={onEdit}

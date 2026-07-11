@@ -17,22 +17,25 @@ type Env = Record<string, string | undefined>;
 type Destination =
   | {
       kind: 'local';
-      supabaseProjectRef: string | null;
-      databaseHost: string | null;
+      host: string;
     }
   | {
       kind: 'remote';
-      supabaseProjectRef: string | null;
-      databaseHost: string | null;
+      host: string;
     };
+
+type SupabaseDestination = Destination & {
+  projectRef: string | null;
+};
 
 type DevSessionConfig = {
   supabaseUrl: string;
   supabaseServiceKey: string;
   serviceKeySource: 'SUPABASE_SERVICE_ROLE_KEY' | 'SUPABASE_SERVICE_KEY';
   supabaseAnonKey: string;
-  devEmail: string;
-  devPassword: string;
+  authFlow: 'password' | 'jwt';
+  devEmail: string | null;
+  devPassword: string | null;
   devName: string;
   devOrganizationName: string;
   devAuthJwt: string | null;
@@ -40,7 +43,9 @@ type DevSessionConfig = {
   printSession: boolean;
   allowRemoteMutation: boolean;
   expectedSupabaseProjectRef: string | null;
-  destination: Destination;
+  expectedPostgresHost: string | null;
+  supabaseDestination: SupabaseDestination;
+  postgresDestination: Destination | null;
 };
 
 type SupabaseUser = {
@@ -73,8 +78,8 @@ async function main() {
   let sessionResult = config.devAuthJwt
     ? null
     : await publicSupabase.auth.signInWithPassword({
-        email: config.devEmail,
-        password: config.devPassword,
+        email: requirePasswordFlowEmail(config),
+        password: requirePasswordFlowPassword(config),
       });
 
   if (jwtUserResult?.error) {
@@ -85,8 +90,8 @@ async function main() {
 
   if (sessionResult?.error) {
     const createResult = await adminSupabase.auth.admin.createUser({
-      email: config.devEmail,
-      password: config.devPassword,
+      email: requirePasswordFlowEmail(config),
+      password: requirePasswordFlowPassword(config),
       email_confirm: true,
       user_metadata: {
         name: config.devName,
@@ -95,8 +100,8 @@ async function main() {
 
     if (createResult.error && !isAlreadyRegistered(createResult.error.message)) {
       const signUpResult = await publicSupabase.auth.signUp({
-        email: config.devEmail,
-        password: config.devPassword,
+        email: requirePasswordFlowEmail(config),
+        password: requirePasswordFlowPassword(config),
         options: {
           data: {
             name: config.devName,
@@ -116,8 +121,8 @@ async function main() {
     }
 
     sessionResult = await publicSupabase.auth.signInWithPassword({
-      email: config.devEmail,
-      password: config.devPassword,
+      email: requirePasswordFlowEmail(config),
+      password: requirePasswordFlowPassword(config),
     });
   }
 
@@ -127,7 +132,7 @@ async function main() {
   ) {
     throw new Error(
       [
-        `Could not sign in ${config.devEmail}.`,
+        `Could not sign in ${requirePasswordFlowEmail(config)}.`,
         'If this Supabase user already exists, set DEV_AUTH_PASSWORD to its real password or reset it in Supabase.',
         'If email confirmation is enabled, confirm the user in Supabase Auth before running this again.',
         sessionResult?.error ? `Supabase error: ${sessionResult.error.message}` : '',
@@ -148,7 +153,10 @@ async function main() {
   const supabaseUser: SupabaseUser = config.devAuthJwt
     ? jwtUserResult.data.user
     : sessionResult.data.user;
-  const email = supabaseUser.email?.toLowerCase() ?? config.devEmail;
+  const email = resolveDevAuthEmail({
+    configuredEmail: config.devEmail,
+    resolvedUserEmail: supabaseUser.email,
+  });
   const prisma = createPrismaClient();
 
   try {
@@ -285,6 +293,14 @@ export function buildDevSessionConfig(env: Env): DevSessionConfig {
     supabaseUrl,
     env.DATABASE_URL?.trim() ?? null,
   );
+  const devAuthJwt = env.DEV_AUTH_JWT?.trim() || null;
+  const authFlow = devAuthJwt ? 'jwt' : 'password';
+  const devEmail =
+    authFlow === 'password'
+      ? requireEnv(env, 'DEV_AUTH_EMAIL').toLowerCase()
+      : env.DEV_AUTH_EMAIL?.trim().toLowerCase() || null;
+  const devPassword =
+    authFlow === 'password' ? requireEnv(env, 'DEV_AUTH_PASSWORD') : null;
 
   return {
     supabaseUrl,
@@ -293,27 +309,38 @@ export function buildDevSessionConfig(env: Env): DevSessionConfig {
       ? 'SUPABASE_SERVICE_ROLE_KEY'
       : 'SUPABASE_SERVICE_KEY',
     supabaseAnonKey: requireEnv(env, 'SUPABASE_ANON_KEY'),
-    devEmail: requireEnv(env, 'DEV_AUTH_EMAIL').toLowerCase(),
-    devPassword: requireEnv(env, 'DEV_AUTH_PASSWORD'),
+    authFlow,
+    devEmail,
+    devPassword,
     devName: env.DEV_AUTH_NAME?.trim() || 'Coach Demo',
     devOrganizationName: env.DEV_ORGANIZATION_NAME?.trim() || 'CoraFit Demo',
-    devAuthJwt: env.DEV_AUTH_JWT?.trim() || null,
+    devAuthJwt,
     apiUrl: env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:4000',
     printSession: env.DEV_AUTH_PRINT_SESSION === 'true',
     allowRemoteMutation: env.DEV_AUTH_ALLOW_REMOTE_MUTATION === 'true',
     expectedSupabaseProjectRef:
       env.DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF?.trim() || null,
-    destination,
+    expectedPostgresHost: env.DEV_AUTH_EXPECTED_POSTGRES_HOST?.trim() || null,
+    supabaseDestination: destination.supabase,
+    postgresDestination: destination.postgres,
   };
 }
 
 export function validateRemoteMutationAuthorization(
   config: Pick<
     DevSessionConfig,
-    'allowRemoteMutation' | 'expectedSupabaseProjectRef' | 'destination'
+    | 'allowRemoteMutation'
+    | 'expectedSupabaseProjectRef'
+    | 'expectedPostgresHost'
+    | 'supabaseDestination'
+    | 'postgresDestination'
   >,
 ) {
-  if (config.destination.kind === 'local') {
+  const hasRemoteDestination =
+    config.supabaseDestination.kind === 'remote' ||
+    config.postgresDestination?.kind === 'remote';
+
+  if (!hasRemoteDestination) {
     return;
   }
 
@@ -323,19 +350,55 @@ export function validateRemoteMutationAuthorization(
     );
   }
 
-  if (!config.expectedSupabaseProjectRef) {
+  if (config.supabaseDestination.kind === 'remote') {
+    if (!config.expectedSupabaseProjectRef) {
+      throw new Error(
+        'DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF is required before dev:auth can mutate a remote Supabase destination.',
+      );
+    }
+
+    if (
+      config.supabaseDestination.projectRef !==
+      config.expectedSupabaseProjectRef
+    ) {
+      throw new Error(
+        'DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF does not match configured Supabase destination.',
+      );
+    }
+  }
+
+  if (config.postgresDestination?.kind !== 'remote') {
+    return;
+  }
+
+  if (!config.expectedPostgresHost) {
     throw new Error(
-      'DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF is required before dev:auth can mutate a remote destination.',
+      'DEV_AUTH_EXPECTED_POSTGRES_HOST is required before dev:auth can mutate a remote Postgres destination.',
     );
   }
 
-  if (
-    config.destination.supabaseProjectRef !== config.expectedSupabaseProjectRef
-  ) {
+  if (config.postgresDestination.host !== config.expectedPostgresHost) {
     throw new Error(
-      `DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF does not match configured Supabase destination.`,
+      'DEV_AUTH_EXPECTED_POSTGRES_HOST does not match configured Postgres destination.',
     );
   }
+}
+
+export function resolveDevAuthEmail(input: {
+  configuredEmail: string | null;
+  resolvedUserEmail: string | undefined;
+}) {
+  const email =
+    input.resolvedUserEmail?.trim().toLowerCase() ??
+    input.configuredEmail?.trim().toLowerCase();
+
+  if (!email) {
+    throw new Error(
+      'DEV_AUTH_JWT resolved user has no email; set DEV_AUTH_EMAIL before running dev:auth.',
+    );
+  }
+
+  return email;
 }
 
 function requireSessionAccessToken(session: { access_token?: string } | null | undefined) {
@@ -355,7 +418,7 @@ export function buildDevSessionOutput(input: {
     '',
     'CoraFit dev auth ready',
     '',
-    `Email: ${input.config.devEmail}`,
+    `Email: ${input.config.devEmail ?? '(resolved from token)'}`,
     `Organization ID: ${input.organizationId}`,
   ];
 
@@ -411,20 +474,44 @@ function requireEnv(env: Env, name: string) {
 function detectDestination(
   supabaseUrl: string,
   databaseUrl: string | null,
-): Destination {
+): {
+  supabase: SupabaseDestination;
+  postgres: Destination | null;
+} {
   const supabaseHost = parseHost(supabaseUrl);
   const databaseHost = databaseUrl ? parseHost(databaseUrl) : null;
-  const supabaseProjectRef = getSupabaseProjectRef(supabaseHost);
-  const hosts = [supabaseHost, databaseHost].filter(
-    (host): host is string => Boolean(host),
-  );
-  const isLocal = hosts.every(isLocalHost);
 
   return {
-    kind: isLocal ? 'local' : 'remote',
-    supabaseProjectRef,
-    databaseHost,
+    supabase: {
+      kind: isLocalHost(supabaseHost) ? 'local' : 'remote',
+      host: supabaseHost,
+      projectRef: getSupabaseProjectRef(supabaseHost),
+    },
+    postgres: databaseHost
+      ? {
+          kind: isLocalHost(databaseHost) ? 'local' : 'remote',
+          host: databaseHost,
+        }
+      : null,
   };
+}
+
+function requirePasswordFlowEmail(config: Pick<DevSessionConfig, 'devEmail'>) {
+  if (!config.devEmail) {
+    throw new Error('DEV_AUTH_EMAIL is required for password auth.');
+  }
+
+  return config.devEmail;
+}
+
+function requirePasswordFlowPassword(
+  config: Pick<DevSessionConfig, 'devPassword'>,
+) {
+  if (!config.devPassword) {
+    throw new Error('DEV_AUTH_PASSWORD is required for password auth.');
+  }
+
+  return config.devPassword;
 }
 
 function parseHost(url: string) {

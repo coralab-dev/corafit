@@ -23,8 +23,9 @@ NestJS API. Work module-by-module and prefer nearby specs.
 - Do not run `pnpm --filter api dev:auth` during agent verification. The helper
   can use local secrets from ignored env files, but remote mutation requires
   explicit `DEV_AUTH_ALLOW_REMOTE_MUTATION=true` and a matching
-  `DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF`; never print or commit passwords,
-  JWTs, service keys, or connection strings.
+  `DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF` plus
+  `DEV_AUTH_EXPECTED_POSTGRES_HOST`; never print or commit passwords, JWTs,
+  service keys, or connection strings.
 
 ## Verification
 - Prefer the nearest `*.spec.ts` for the module touched.

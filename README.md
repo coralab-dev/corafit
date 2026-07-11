@@ -61,8 +61,9 @@ DEV_ORGANIZATION_NAME=CoraFit Demo
 If the Supabase user already exists with another password, set
 `DEV_AUTH_PASSWORD` to the real password or reset that user in Supabase.
 If you already have a real Supabase access token, you can set `DEV_AUTH_JWT`
-and the helper will only create or repair the local database profile and
-membership.
+and omit `DEV_AUTH_PASSWORD`; the helper resolves the user from the token and
+uses the token email when available. If the token has no email, set
+`DEV_AUTH_EMAIL` so the helper can fail safely before mutating Postgres.
 
 `SUPABASE_SERVICE_ROLE_KEY` is the preferred service-role variable. The legacy
 `SUPABASE_SERVICE_KEY` name remains accepted only as a fallback for older local
@@ -74,12 +75,13 @@ Remote mutation is locked behind a separate opt-in. If `SUPABASE_URL` or
 ```text
 DEV_AUTH_ALLOW_REMOTE_MUTATION=true
 DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF=<expected Supabase project ref>
+DEV_AUTH_EXPECTED_POSTGRES_HOST=<expected Postgres hostname>
 ```
 
-The expected project ref must match the configured Supabase destination before
-the helper creates or updates anything. To print the browser session details for
-a one-time local setup, set `DEV_AUTH_PRINT_SESSION=true`; leave it unset or
-`false` for normal runs.
+The expected Supabase project ref and expected Postgres hostname are checked
+independently before the helper creates or updates anything. To print the
+browser session details for a one-time local setup, set
+`DEV_AUTH_PRINT_SESSION=true`; leave it unset or `false` for normal runs.
 
 The API reads root `.env` from `apps/api` and enables CORS for the comma-separated origins in `CORS_ALLOWED_ORIGINS`. The default example allows local Next.js and the current beta Vercel domain.
 
@@ -105,7 +107,8 @@ physically deletes only unreferenced non-canonical global exercises. Cleanup is
 limited to global exercise rows (`organizationId` null) and seed-org templates;
 exercises and plans from real organizations are not touched.
 
-Run the seed:
+Run the seed only against a verified local database, or when a task explicitly
+authorizes the target database and this mutation:
 
 ```bash
 pnpm --filter db seed

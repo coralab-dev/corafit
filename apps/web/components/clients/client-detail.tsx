@@ -45,6 +45,8 @@ export function ClientDetail({
   assignment,
   client,
   isPlanLoading,
+  onRetryPlan,
+  planError,
   isClientEditDisabled = false,
   isStatusMutationPending = false,
   onEndPlan,
@@ -57,6 +59,8 @@ export function ClientDetail({
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
   isPlanLoading: boolean;
+  onRetryPlan?: () => void;
+  planError?: string | null;
   isClientEditDisabled?: boolean;
   isStatusMutationPending?: boolean;
   onEndPlan: () => void;
@@ -144,6 +148,8 @@ export function ClientDetail({
             clientId={client.id}
             isLoading={isPlanLoading}
             onEndPlan={onEndPlan}
+            onRetry={onRetryPlan}
+            error={planError}
             variant={variant}
           />
         ) : null}
@@ -200,6 +206,8 @@ export function ClientDetail({
           clientId={client.id}
           isLoading={isPlanLoading}
           onEndPlan={onEndPlan}
+          onRetry={onRetryPlan}
+          error={planError}
           variant={variant}
         />
 
@@ -350,17 +358,23 @@ function ClientNotesPanel({
 export function CurrentPlanPanel({
   assignment,
   clientId,
+  error,
   isLoading,
   onEndPlan,
+  onRetry,
   variant = "drawer",
 }: {
   assignment: CurrentPlanAssignment | null | undefined;
   clientId: string;
+  error?: string | null;
   isLoading: boolean;
   onEndPlan: () => void;
+  onRetry?: () => void;
   variant?: "drawer" | "page";
 }) {
-  if (isLoading) {
+  const hasKnownAssignment = assignment !== undefined;
+
+  if (isLoading && !hasKnownAssignment) {
     return (
       <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
         <Loader2Icon className="mr-2 size-4 animate-spin" />
@@ -369,9 +383,62 @@ export function CurrentPlanPanel({
     );
   }
 
+  if (!hasKnownAssignment && error) {
+    return (
+      <section
+        aria-live="polite"
+        className="flex min-h-48 flex-col items-center justify-center gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-destructive"
+        role="alert"
+      >
+        <div>
+          <p className="font-semibold">No se pudo cargar el plan actual</p>
+          <p className="mt-1 max-w-72 leading-5">{error}</p>
+        </div>
+        {onRetry ? (
+          <Button className="shadow-none" variant="outline" onClick={onRetry}>
+            Reintentar
+          </Button>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (!hasKnownAssignment) {
+    return (
+      <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
+        <Loader2Icon className="mr-2 size-4 animate-spin" />
+        Cargando plan actual
+      </section>
+    );
+  }
+
+  const planLoadNotice = error ? (
+    <div
+      aria-live="polite"
+      className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive"
+      role="alert"
+    >
+      <div>
+        <p className="font-semibold">La actualización del plan falló</p>
+        <p className="mt-1 leading-5">{error}</p>
+      </div>
+      {onRetry ? (
+        <Button className="shrink-0 shadow-none" size="sm" variant="outline" onClick={onRetry}>
+          Reintentar
+        </Button>
+      ) : null}
+    </div>
+  ) : isLoading ? (
+    <div className="mb-4 flex items-center gap-2 rounded-xl border border-border/60 bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
+      <Loader2Icon className="size-4 animate-spin" />
+      Actualizando plan actual
+    </div>
+  ) : null;
+
   if (!assignment?.assignedPlan) {
     return (
       <WorkspacePanel className="p-4">
+        {planLoadNotice}
         <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border !border-transparent bg-background p-6 text-center shadow-[var(--surface-shadow-soft)]">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
             <UserRoundIcon className="size-5" />
@@ -397,6 +464,7 @@ export function CurrentPlanPanel({
 
   return (
     <WorkspacePanel className="p-4">
+      {planLoadNotice}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Plan actual</p>

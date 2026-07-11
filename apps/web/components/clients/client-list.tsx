@@ -29,6 +29,7 @@ const filterOptions: Array<{ label: string; value: OperationalStatus | "all" }> 
   { label: "Activos", value: "active" },
   { label: "En pausa", value: "paused" },
   { label: "Inactivos", value: "inactive" },
+  { label: "Archivados", value: "archived" },
 ];
 
 export function ClientList({
@@ -260,12 +261,21 @@ export function ClientList({
             </div>
             </>
           ) : (
-            <EmptyState
-              actionLabel="Nuevo cliente"
-              description="Ajusta la busqueda o crea un nuevo cliente."
-              title="No hay clientes con ese filtro"
-              onAction={onCreateClient}
-            />
+            statusFilter === "archived" ? (
+              <EmptyState
+                actionLabel="Nuevo cliente"
+                description="Los clientes archivados apareceran aqui cuando conserves su historial fuera de la cartera operativa."
+                title="No hay clientes archivados"
+                onAction={onCreateClient}
+              />
+            ) : (
+              <EmptyState
+                actionLabel="Nuevo cliente"
+                description="Ajusta la busqueda o crea un nuevo cliente."
+                title="No hay clientes con ese filtro"
+                onAction={onCreateClient}
+              />
+            )
           )}
         </div>
       </div>

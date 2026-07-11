@@ -26,6 +26,12 @@ import {
   resolveClientDetailState,
 } from "@/components/clients/client-detail-state";
 import {
+  getClientsForStatusFilter,
+  getMetricClients,
+  mergeClientCollections,
+  type ClientStatusFilter,
+} from "@/components/clients/client-list-state";
+import {
   beginClientStatusMutation,
   clearClientStatusMutationError,
   failClientStatusMutation,
@@ -58,7 +64,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [selectedId, setSelectedId] = useState("");
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<OperationalStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>("all");
   const [isListLoading, setIsListLoading] = useState(false);
   const [detailState, setDetailState] = useState(idleClientDetailState);
   const detailRequestRef = useRef(0);
@@ -94,6 +100,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const visibleClients = useMemo(
     () => (hasLoadedClients ? allClients : []),
     [allClients, hasLoadedClients],
+  );
+  const metricClients = useMemo(
+    () => getMetricClients(visibleClients),
+    [visibleClients],
   );
   const visibleAssignmentsByClient = useMemo(
     () => (hasLoadedClients ? assignmentsByClient : {}),
@@ -220,16 +230,30 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     setIsListLoading(true);
     setError("");
     try {
-      const searchParams = new URLSearchParams({
+      const operationalSearchParams = new URLSearchParams({
         page: "1",
         limit: "50",
       });
+      const archivedSearchParams = new URLSearchParams({
+        page: "1",
+        limit: "50",
+        status: "archived",
+      });
 
-      const response = await clientsRequest<ClientsResponse>(
-        `/clients?${searchParams.toString()}`,
-        { method: "GET" },
-      );
-      const nextClients = response.items.map((client) => ({
+      const [operationalResponse, archivedResponse] = await Promise.all([
+        clientsRequest<ClientsResponse>(
+          `/clients?${operationalSearchParams.toString()}`,
+          { method: "GET" },
+        ),
+        clientsRequest<ClientsResponse>(
+          `/clients?${archivedSearchParams.toString()}`,
+          { method: "GET" },
+        ),
+      ]);
+      const nextClients = mergeClientCollections(
+        operationalResponse.items,
+        archivedResponse.items,
+      ).map((client) => ({
         ...client,
         access: client.access ?? { status: "none" as const },
       }));
@@ -339,6 +363,13 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       return;
     }
 
+    const selectedClientForAssignment = visibleClients.find(
+      (client) => client.id === selectedId,
+    );
+    if (selectedClientForAssignment?.operationalStatus === "archived") {
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       setAssignmentLoadingId(selectedId);
       void loadCurrentPlanAssignment(selectedId).catch((caughtError) => {
@@ -353,34 +384,34 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [isApiReady, loadCurrentPlanAssignment, mode, selectedId]);
+  }, [isApiReady, loadCurrentPlanAssignment, mode, selectedId, visibleClients]);
 
   const displayClients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return visibleClients.filter((client) => {
-      const matchesStatus =
-        statusFilter === "all" || client.operationalStatus === statusFilter;
+    return getClientsForStatusFilter(visibleClients, statusFilter).filter((client) => {
       const matchesQuery =
         !normalizedQuery ||
         client.name.toLowerCase().includes(normalizedQuery) ||
         client.phone.toLowerCase().includes(normalizedQuery) ||
         client.mainGoal.toLowerCase().includes(normalizedQuery);
 
-      return matchesStatus && matchesQuery;
+      return matchesQuery;
     });
   }, [query, statusFilter, visibleClients]);
 
-  const activeCount = visibleClients.filter(
+  const activeCount = metricClients.filter(
     (client) => client.operationalStatus === "active",
   ).length;
-  const pausedInactiveCount = visibleClients.filter(
+  const pausedInactiveCount = metricClients.filter(
     (client) =>
       client.operationalStatus === "paused" ||
       client.operationalStatus === "inactive",
   ).length;
-  const assignmentCount = Object.values(visibleAssignmentsByClient).filter(Boolean).length;
-  const accessCount = visibleClients.filter((client) => client.access.status === "active").length;
+  const assignmentCount = metricClients.filter(
+    (client) => Boolean(visibleAssignmentsByClient[client.id]),
+  ).length;
+  const accessCount = metricClients.filter((client) => client.access.status === "active").length;
 
   function openCreateForm() {
     setEditingClient(null);
@@ -556,9 +587,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       );
 
       setAllClients((current) =>
-        mode === "list" && status === "archived"
-          ? current.filter((client) => client.id !== clientId)
-          : current.map((client) => (client.id === clientId ? nextClient : client)),
+        current.map((client) => (client.id === clientId ? nextClient : client)),
       );
       setDetailState((current) =>
         current.status === "ready" && current.client.id === clientId
@@ -570,13 +599,6 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
                 current.client.currentAssignment,
               ),
             }
-          : current,
-      );
-      setAssignmentsByClient((current) =>
-        mode === "list" && status === "archived"
-          ? Object.fromEntries(
-              Object.entries(current).filter(([assignmentClientId]) => assignmentClientId !== clientId),
-            )
           : current,
       );
       if (mode === "list" && status === "archived") {

@@ -23,7 +23,7 @@ Use this as stable orientation before editing. Keep reads targeted and prefer th
 - API shared auth and Prisma code: `apps/api/src/common/`.
 - API config validation: `apps/api/src/config/`.
 - API entry point: `apps/api/src/main.ts`.
-- API specs: `apps/api/src/**/*.spec.ts`.
+- API specs: `*.spec.ts` files near the module or script being checked.
 - Prisma schema: `packages/db/prisma/schema.prisma`.
 - Prisma migrations: `packages/db/prisma/migrations/`.
 - Prisma seed: `packages/db/prisma/seed.ts`.

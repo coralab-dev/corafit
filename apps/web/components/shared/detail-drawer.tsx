@@ -76,7 +76,7 @@ function DrawerSurface({
         aria-labelledby="detail-drawer-title"
         aria-modal="true"
         className={[
-          "absolute inset-y-0 right-0 flex w-[94vw] flex-col overflow-hidden border-l border-border/45 bg-background shadow-[0_0_0_1px_rgba(228,222,213,0.18),-24px_0_60px_rgba(21,23,26,0.12)] transition-transform duration-300 ease-out md:w-[480px] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),-24px_0_60px_rgba(0,0,0,0.55)]",
+          "absolute inset-y-0 right-0 flex h-dvh w-full flex-col overflow-hidden border-l border-border/45 bg-background shadow-[0_0_0_1px_rgba(228,222,213,0.18),-24px_0_60px_rgba(21,23,26,0.12)] transition-transform duration-300 ease-out sm:w-[34rem] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),-24px_0_60px_rgba(0,0,0,0.55)]",
           isClosing || !hasEntered ? "translate-x-full" : "translate-x-0",
         ].join(" ")}
         role="dialog"
@@ -87,7 +87,7 @@ function DrawerSurface({
         </div>
         <button
           aria-label="Cerrar detalle"
-          className="absolute right-4 top-5 z-10 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute right-4 top-5 z-40 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           type="button"
           onClick={onClose}
         >

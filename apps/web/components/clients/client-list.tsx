@@ -313,61 +313,71 @@ function ClientActionsMenu({
   onEndPlan: (client: Client) => void;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={`Abrir acciones de ${client.name}`}
-          className="size-8 text-muted-foreground shadow-none hover:text-foreground"
-          size="icon"
-          variant="ghost"
+    <div
+      className="flex shrink-0"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={`Abrir acciones de ${client.name}`}
+            className="size-8 text-muted-foreground shadow-none hover:text-foreground"
+            size="icon"
+            variant="ghost"
+          >
+            <MoreVerticalIcon className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="min-w-44"
           onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          <MoreVerticalIcon className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-44">
-        <DropdownMenuItem asChild>
-          <Link href={`/clients/${client.id}`}>Ver ficha</Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {hasPlan ? (
-          <>
-            <DropdownMenuItem asChild>
-              <Link href={`/clients/${client.id}/plan-assignment/edit`}>
-                Ver plan actual
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/clients/${client.id}/plan-assignment/edit`}>
-                Editar plan
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onEndPlan(client)}>
-              Finalizar plan actual
-            </DropdownMenuItem>
-          </>
-        ) : (
           <DropdownMenuItem asChild>
-            <Link href={`/clients/${client.id}/plan-assignment`}>
-              Asignar plan
+            <Link href={`/clients/${client.id}`}>Ver ficha</Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {hasPlan ? (
+            <>
+              <DropdownMenuItem asChild>
+                <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                  Ver plan actual
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/clients/${client.id}/plan-assignment/edit`}>
+                  Editar plan
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onEndPlan(client)}>
+                Finalizar plan actual
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <DropdownMenuItem asChild>
+              <Link href={`/clients/${client.id}/plan-assignment`}>
+                Asignar plan
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={isEditDisabled}
+            onSelect={() => onEditClient(client)}
+          >
+            Editar cliente
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/clients/${client.id}/access`}>
+              {client.access?.status === "active"
+                ? "Gestionar acceso"
+                : "Generar acceso"}
             </Link>
           </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={isEditDisabled}
-          onSelect={() => onEditClient(client)}
-        >
-          Editar cliente
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={`/clients/${client.id}/access`}>
-            {client.access?.status === "active"
-              ? "Gestionar acceso"
-              : "Generar acceso"}
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

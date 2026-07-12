@@ -6,19 +6,29 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
+import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { PanelSkeleton } from "@/components/shared/skeletons";
 import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
 import { fetchAllPages } from "@/lib/pagination";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
 import type { ClientFormValues } from "@/lib/clients/api";
+import { createLatestRequestController } from "@/hooks/latest-request-controller";
+import {
+  beginClientAssignmentLoad,
+  confirmClientAssignmentAbsent,
+  confirmClientAssignmentEnded,
+  failClientAssignmentLoad,
+  idleClientAssignmentState,
+  invalidateClientAssignmentLoad,
+  resolveClientAssignmentLoadDecision,
+  resolveClientAssignmentSuccess,
+} from "@/components/clients/client-assignment-state";
 import {
   idleClientDetailState,
   loadingClientDetailState,
@@ -69,6 +79,12 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [isListLoading, setIsListLoading] = useState(false);
   const [detailState, setDetailState] = useState(idleClientDetailState);
   const detailRequestRef = useRef(0);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const isDetailSheetOpenRef = useRef(isDetailSheetOpen);
+  isDetailSheetOpenRef.current = isDetailSheetOpen;
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -76,7 +92,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const [assignmentsByClient, setAssignmentsByClient] = useState<
     Record<string, CurrentPlanAssignment | null>
   >({});
-  const [assignmentLoadingId, setAssignmentLoadingId] = useState("");
+  const assignmentsByClientRef = useRef(assignmentsByClient);
+  assignmentsByClientRef.current = assignmentsByClient;
+  const assignmentRequestRef = useRef(createLatestRequestController());
+  const [assignmentState, setAssignmentState] = useState(idleClientAssignmentState);
   const [isEndPlanOpen, setIsEndPlanOpen] = useState(false);
   const [isEndingPlan, setIsEndingPlan] = useState(false);
   const [statusMutation, setStatusMutation] = useState<ClientStatusMutationState>(
@@ -114,6 +133,14 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   const selectedAssignment = selectedClient
     ? visibleAssignmentsByClient[selectedClient.id]
     : null;
+  const selectedDrawerAssignmentState =
+    assignmentState.clientId === selectedId ? assignmentState : null;
+  const drawerAssignment =
+    selectedDrawerAssignmentState?.assignment !== undefined
+      ? selectedDrawerAssignmentState.assignment
+      : selectedAssignment;
+  const drawerAssignmentError = selectedDrawerAssignmentState?.error ?? null;
+  const isDrawerPlanLoading = selectedDrawerAssignmentState?.status === "loading";
   const currentDetailClient =
     detailState.status === "ready" && detailState.client.id === selectedClientId
       ? detailState.client
@@ -139,8 +166,11 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   const clientsRequest = useCallback(
     <T,>(path: string, init: RequestInit = {}) =>
-      authenticatedRequest<T>(path, init, { organizationId, session }),
-    [organizationId, session],
+      authenticatedRequest<T>(path, init, {
+        organizationId,
+        session: sessionRef.current,
+      }),
+    [organizationId],
   );
 
   const loadCurrentPlanAssignment = useCallback(
@@ -149,24 +179,105 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
         return null;
       }
 
-      const assignment = await clientsRequest<CurrentPlanAssignment | null>(
-        `/clients/${clientId}/plan-assignment/current`,
-        { method: "GET" },
+      const { knownAssignment, shouldFetch } = resolveClientAssignmentLoadDecision({
+        assignmentsByClient: assignmentsByClientRef.current,
+        clientId,
+      });
+
+      if (!shouldFetch) {
+        assignmentRequestRef.current.invalidate();
+        setAssignmentState((current) =>
+          confirmClientAssignmentAbsent(current, clientId),
+        );
+        return null;
+      }
+
+      const request = assignmentRequestRef.current.start();
+
+      setAssignmentState((current) =>
+        beginClientAssignmentLoad(current, {
+          clientId,
+          knownAssignment,
+          requestId: request.id,
+        }),
       );
 
-      setAssignmentsByClient((current) => ({
-        ...current,
-        [clientId]: assignment,
-      }));
-      setAllClients((current) =>
-        current.map((client) =>
-          client.id === clientId
-            ? { ...client, currentAssignment: assignment }
-            : client,
-        ),
-      );
+      const isCurrentDrawerRequest = () =>
+        assignmentRequestRef.current.isCurrent(request.id) &&
+        isDetailSheetOpenRef.current &&
+        selectedIdRef.current === clientId;
 
-      return assignment;
+      try {
+        const assignment = await clientsRequest<CurrentPlanAssignment | null>(
+          `/clients/${clientId}/plan-assignment/current`,
+          { method: "GET", signal: request.signal },
+        );
+
+        if (!isCurrentDrawerRequest()) {
+          return null;
+        }
+
+        setAssignmentsByClient((current) => ({
+          ...current,
+          [clientId]: assignment,
+        }));
+        setAllClients((current) =>
+          current.map((client) =>
+            client.id === clientId
+              ? { ...client, currentAssignment: assignment }
+              : client,
+          ),
+        );
+        setAssignmentState((current) =>
+          resolveClientAssignmentSuccess(current, {
+            assignment,
+            clientId,
+            requestId: request.id,
+          }),
+        );
+
+        return assignment;
+      } catch (caughtError) {
+        if (!isCurrentDrawerRequest()) {
+          return null;
+        }
+
+        const aborted = caughtError instanceof Error && caughtError.name === "AbortError";
+        if (aborted) {
+          assignmentRequestRef.current.invalidate();
+          setAssignmentState(invalidateClientAssignmentLoad());
+          return null;
+        }
+
+        setAssignmentState((current) =>
+          failClientAssignmentLoad(current, {
+            clientId,
+            error: getErrorMessage(caughtError),
+            requestId: request.id,
+          }),
+        );
+        return null;
+      } finally {
+        if (assignmentRequestRef.current.isCurrent(request.id)) {
+          if (
+            isDetailSheetOpenRef.current &&
+            selectedIdRef.current === clientId
+          ) {
+            setAssignmentState((current) => {
+              if (current.requestId !== request.id) {
+                return current;
+              }
+
+              return {
+                ...current,
+                requestId: null,
+                status: current.status === "loading" ? "ready" : current.status,
+              };
+            });
+          }
+          assignmentRequestRef.current.finish(request.id);
+        }
+      }
     },
     [clientsRequest, isApiReady],
   );
@@ -366,32 +477,34 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   }, [isRefreshing]);
 
   useEffect(() => {
-    if (mode !== "list") {
+    const assignmentController = assignmentRequestRef.current;
+    assignmentController.invalidate();
+    setAssignmentState(invalidateClientAssignmentLoad());
+
+    if (
+      mode !== "list" ||
+      !isDetailSheetOpen ||
+      !hasLoadedClients ||
+      !selectedId ||
+      !isApiReady
+    ) {
       return;
     }
 
-    if (!selectedId || !isApiReady) {
-      return;
-    }
+    void loadCurrentPlanAssignment(selectedId);
 
-    const selectedClientForAssignment = visibleClients.find(
-      (client) => client.id === selectedId,
-    );
-    if (selectedClientForAssignment?.operationalStatus === "archived") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setAssignmentLoadingId(selectedId);
-      void loadCurrentPlanAssignment(selectedId).catch((caughtError) => {
-        setError(getErrorMessage(caughtError));
-      }).finally(() => {
-        setAssignmentLoadingId((current) => (current === selectedId ? "" : current));
-      });
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [isApiReady, loadCurrentPlanAssignment, mode, selectedId, visibleClients]);
+    return () => {
+      assignmentController.invalidate();
+      setAssignmentState(invalidateClientAssignmentLoad());
+    };
+  }, [
+    hasLoadedClients,
+    isApiReady,
+    isDetailSheetOpen,
+    loadCurrentPlanAssignment,
+    mode,
+    selectedId,
+  ]);
 
   const displayClients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -640,36 +753,95 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       return;
     }
 
+    const endingClient = actionClient;
+    const endingAssignment = actionAssignment;
+    const shouldKeepDrawerState =
+      mode === "list" &&
+      isDetailSheetOpen &&
+      selectedId === endingClient.id;
+
+    assignmentRequestRef.current.invalidate();
+    setAssignmentState(invalidateClientAssignmentLoad());
+    if (mode === "detail") {
+      detailRequestRef.current += 1;
+    }
+
     setIsEndingPlan(true);
     setError("");
     try {
       await clientsRequest(
-        `/clients/${actionClient.id}/plan-assignment/current/end`,
+        `/clients/${endingClient.id}/plan-assignment/current/end`,
         { method: "POST" },
       );
-      if (mode === "detail") {
-        const assignment = await loadCurrentPlanAssignment(actionClient.id);
-        setDetailState((current) =>
-          current.status === "ready" && current.client.id === actionClient.id
-            ? {
-                ...current,
-                assignment,
-                client: {
-                  ...current.client,
-                  currentAssignment: assignment,
-                },
-              }
-            : current,
+
+      setAssignmentsByClient((current) => ({
+        ...current,
+        [endingClient.id]: null,
+      }));
+      setAllClients((current) =>
+        current.map((client) =>
+          client.id === endingClient.id
+            ? { ...client, currentAssignment: null }
+            : client,
+        ),
+      );
+      setDetailState((current) =>
+        current.status === "ready" && current.client.id === endingClient.id
+          ? {
+              ...current,
+              assignment: null,
+              client: {
+                ...current.client,
+                currentAssignment: null,
+              },
+            }
+          : current,
+      );
+      if (shouldKeepDrawerState) {
+        setAssignmentState((current) =>
+          confirmClientAssignmentEnded(current, endingClient.id),
         );
-      } else {
-        await loadCurrentPlanAssignment(actionClient.id);
       }
       setIsEndPlanOpen(false);
       notify.success("Plan finalizado");
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const message = getErrorMessage(caughtError);
+      if (shouldKeepDrawerState) {
+        setAssignmentState((current) => {
+          if (current.clientId && current.clientId !== endingClient.id) {
+            return current;
+          }
+
+          return {
+            status: "error",
+            clientId: endingClient.id,
+            assignment:
+              current.clientId === endingClient.id
+                ? current.assignment
+                : endingAssignment,
+            error: message,
+            requestId: null,
+          };
+        });
+      } else {
+        setError(message);
+      }
     } finally {
       setIsEndingPlan(false);
+    }
+  }
+
+  function invalidateDrawerAssignmentRequest() {
+    assignmentRequestRef.current.invalidate();
+    setAssignmentState(invalidateClientAssignmentLoad());
+  }
+
+  function handleDrawerCloseIntent(event: { target: EventTarget | null }) {
+    if (
+      event.target instanceof Element &&
+      event.target.closest('button[aria-label="Cerrar detalle"]')
+    ) {
+      invalidateDrawerAssignmentRequest();
     }
   }
 
@@ -726,73 +898,53 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   if (mode === "detail") {
     return (
-      <WorkspaceFrame
-        header={
-          <WorkspaceHeader
-            description={currentDetailClient?.mainGoal ?? "Datos operativos, acceso y plan actual del cliente."}
-            title={currentDetailClient?.name ?? "Ficha de cliente"}
-            actions={
-              <Button asChild className="shadow-none" variant="outline">
-                <Link href="/clients">Volver a clientes</Link>
-              </Button>
-            }
-          />
-        }
-      >
-        <WorkspaceSplit
-          main={
-            <div className="flex flex-col gap-5 bg-background p-6">
-              {detailState.status === "error" || error ? (
-                <ClientErrorCard
-                  error={detailState.status === "error" ? detailState.error : error}
-                />
-              ) : null}
+      <WorkspaceFrame>
+        <nav
+          aria-label="Navegación de clientes"
+          className="border-b bg-background/80 px-4 py-3 backdrop-blur sm:px-6"
+        >
+          <div className="mx-auto flex w-full max-w-7xl items-center">
+            <Button asChild className="shadow-none" variant="ghost">
+              <Link href="/clients">
+                <ArrowLeftIcon className="size-4" />
+                Volver a clientes
+              </Link>
+            </Button>
+          </div>
+        </nav>
 
-              {detailState.status === "loading" ? (
-                <ClientDetailLoadingCard />
-              ) : detailState.status === "ready" && currentDetailClient ? (
-                <ClientDetail
-                  assignment={currentDetailAssignment}
-                  client={currentDetailClient}
-                  isClientEditDisabled={isClientStatusMutationPending(
-                    statusMutation,
-                    currentDetailClient.id,
-                  )}
-                  isPlanLoading={false}
-                  isStatusMutationPending={Boolean(pendingStatusClientId)}
-                  pendingStatus={getPendingStatus(currentDetailClient.id)}
-                  variant="page"
-                  onArchiveStatusChange={openArchiveDialog}
-                  onEndPlan={() => setIsEndPlanOpen(true)}
-                  onEdit={openEditForm}
-                  onStatusChange={updateStatus}
-                />
-              ) : detailState.status === "not-found" ? (
-                <ClientNotFoundCard />
-              ) : (
-                null
-              )}
-            </div>
-          }
-          side={
-            <div className="p-5">
-              {currentDetailClient ? (
-                <ClientQuickPanel
-                  assignment={currentDetailAssignment}
-                  client={currentDetailClient}
-                  isEditDisabled={isClientStatusMutationPending(
-                    statusMutation,
-                    currentDetailClient.id,
-                  )}
-                  onEdit={() => openEditForm(currentDetailClient)}
-                  onEndPlan={() => setIsEndPlanOpen(true)}
-                />
-              ) : detailState.status === "loading" ? (
-                <PanelSkeleton rows={4} titleWidth="w-32" />
-              ) : null}
-            </div>
-          }
-        />
+        <main className="flex-1 bg-background px-4 py-5 sm:px-6 lg:py-6">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+            {detailState.status === "error" || error ? (
+              <ClientErrorCard
+                error={detailState.status === "error" ? detailState.error : error}
+              />
+            ) : null}
+
+            {detailState.status === "loading" ? (
+              <ClientDetailLoadingCard />
+            ) : detailState.status === "ready" && currentDetailClient ? (
+              <ClientDetail
+                assignment={currentDetailAssignment}
+                client={currentDetailClient}
+                isClientEditDisabled={isClientStatusMutationPending(
+                  statusMutation,
+                  currentDetailClient.id,
+                )}
+                isPlanLoading={false}
+                isStatusMutationPending={Boolean(pendingStatusClientId)}
+                pendingStatus={getPendingStatus(currentDetailClient.id)}
+                variant="page"
+                onArchiveStatusChange={openArchiveDialog}
+                onEndPlan={() => setIsEndPlanOpen(true)}
+                onEdit={openEditForm}
+                onStatusChange={updateStatus}
+              />
+            ) : detailState.status === "not-found" ? (
+              <ClientNotFoundCard />
+            ) : null}
+          </div>
+        </main>
 
         {sharedDialogs}
       </WorkspaceFrame>
@@ -863,28 +1015,44 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
       </div>
 
       {isDetailSheetOpen && selectedClient ? (
-        <DetailDrawer
-          description="Ficha operativa, plan actual, acceso y notas del cliente seleccionado."
-          open={isDetailSheetOpen}
-          title="Detalle de cliente"
-          onOpenChange={setIsDetailSheetOpen}
+        <div
+          onClick={handleDrawerCloseIntent}
+          onPointerDown={handleDrawerCloseIntent}
         >
-          <ClientDetail
-            assignment={selectedAssignment}
-            client={selectedClient}
-            isClientEditDisabled={isClientStatusMutationPending(
-              statusMutation,
-              selectedClient.id,
-            )}
-            isPlanLoading={assignmentLoadingId === selectedClient.id}
-            isStatusMutationPending={Boolean(pendingStatusClientId)}
-            pendingStatus={getPendingStatus(selectedClient.id)}
-            onArchiveStatusChange={openArchiveDialog}
-            onEndPlan={() => setIsEndPlanOpen(true)}
-            onEdit={openEditForm}
-            onStatusChange={updateStatus}
-          />
-        </DetailDrawer>
+          <DetailDrawer
+            description="Ficha operativa, plan actual, acceso y notas del cliente seleccionado."
+            open={isDetailSheetOpen}
+            title="Detalle de cliente"
+            onOpenChange={(open) => {
+              if (!open) {
+                invalidateDrawerAssignmentRequest();
+              }
+              setIsDetailSheetOpen(open);
+            }}
+          >
+            <ClientDetail
+              assignment={drawerAssignment}
+              client={selectedClient}
+              isClientEditDisabled={isClientStatusMutationPending(
+                statusMutation,
+                selectedClient.id,
+              )}
+              isPlanLoading={isDrawerPlanLoading}
+              planError={drawerAssignmentError}
+              isStatusMutationPending={Boolean(pendingStatusClientId)}
+              pendingStatus={getPendingStatus(selectedClient.id)}
+              onArchiveStatusChange={openArchiveDialog}
+              onEndPlan={() => setIsEndPlanOpen(true)}
+              onEdit={openEditForm}
+              onStatusChange={updateStatus}
+              onRetryPlan={() => {
+                if (isDetailSheetOpen && selectedId === selectedClient.id) {
+                  void loadCurrentPlanAssignment(selectedClient.id);
+                }
+              }}
+            />
+          </DetailDrawer>
+        </div>
       ) : null}
 
       {sharedDialogs}
@@ -903,52 +1071,5 @@ function ClientMetricsSkeleton() {
         </div>
       ))}
     </div>
-  );
-}
-
-function ClientQuickPanel({
-  assignment,
-  client,
-  isEditDisabled,
-  onEdit,
-  onEndPlan,
-}: {
-  assignment: CurrentPlanAssignment | null | undefined;
-  client: Client;
-  isEditDisabled: boolean;
-  onEdit: () => void;
-  onEndPlan: () => void;
-}) {
-  const hasPlan = Boolean(assignment?.assignedPlan);
-  return (
-    <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
-      <div className="flex flex-col gap-2 p-4">
-        <Button
-          className="justify-start shadow-none"
-          disabled={isEditDisabled}
-          variant="outline"
-          onClick={onEdit}
-        >
-          Editar cliente
-        </Button>
-        {hasPlan ? (
-          <>
-            <Button asChild className="justify-start shadow-none" variant="outline">
-              <Link href={`/clients/${client.id}/plan-assignment/edit`}>Editar plan actual</Link>
-            </Button>
-            <Button className="justify-start shadow-none" variant="outline" onClick={onEndPlan}>
-              Finalizar plan actual
-            </Button>
-          </>
-        ) : (
-          <Button asChild className="justify-start shadow-none">
-            <Link href={`/clients/${client.id}/plan-assignment`}>Asignar plan</Link>
-          </Button>
-        )}
-        <Button asChild className="justify-start shadow-none" variant="outline">
-          <Link href={`/clients/${client.id}/access`}>Gestionar acceso</Link>
-        </Button>
-      </div>
-    </WorkspacePanel>
   );
 }

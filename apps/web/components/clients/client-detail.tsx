@@ -255,9 +255,7 @@ function ClientDetailContent({
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-background">
-      <div
-        className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border/60 bg-card/95 px-5 py-6 pr-14 backdrop-blur sm:px-6"
-      >
+      <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border/60 bg-card/95 px-5 py-6 pr-28 backdrop-blur sm:px-6 sm:pr-28">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-primary shadow-[var(--surface-shadow-soft)]">
             {initials(client.name)}
@@ -276,7 +274,7 @@ function ClientDetailContent({
         </div>
         <Button
           aria-label="Editar cliente"
-          className="size-9 shrink-0 shadow-none"
+          className="absolute right-16 top-5 z-30 size-9 shrink-0 shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           disabled={isClientEditDisabled}
           size="icon"
           type="button"
@@ -389,6 +387,10 @@ function SummaryPanel({
                 <p className="font-medium">No se pudo cargar el plan actual</p>
                 <p className="mt-1 leading-5">{planError}</p>
               </div>
+            ) : !hasKnownAssignment ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Plan todavia no disponible.
+              </p>
             ) : hasPlan && assignment?.assignedPlan ? (
               <>
                 <h3 className="mt-2 truncate text-base font-semibold">
@@ -646,9 +648,8 @@ export function CurrentPlanPanel({
 
   if (!hasKnownAssignment) {
     return (
-      <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
-        <Loader2Icon className="mr-2 size-4 animate-spin" />
-        Cargando plan actual
+      <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-center text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
+        Plan todavia no disponible.
       </section>
     );
   }

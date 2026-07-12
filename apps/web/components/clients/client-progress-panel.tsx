@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type InputHTMLAttributes,
   type ReactNode,
@@ -41,7 +42,7 @@ const tabs: Array<{ key: ProgressTab; label: string; cta: string }> = [
   { key: "weight", label: "Peso", cta: "Registrar peso" },
   { key: "measurements", label: "Medidas", cta: "Registrar medidas" },
   { key: "photos", label: "Fotos", cta: "Subir foto" },
-  { key: "notes", label: "Notas", cta: "Anadir nota" },
+  { key: "notes", label: "Notas", cta: "Añadir nota" },
 ];
 
 const photoTypeLabels: Record<ProgressPhotoType, string> = {
@@ -75,10 +76,26 @@ export function ClientProgressPanel({
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [notes, setNotes] = useState<FollowUpNote[]>([]);
   const [loadedTabs, setLoadedTabs] = useState<Set<ProgressTab>>(() => new Set());
-  const [loading, setLoading] = useState<ProgressTab | null>(null);
+  const [loadingTabs, setLoadingTabs] = useState<Record<ProgressTab, boolean>>({
+    measurements: false,
+    notes: false,
+    photos: false,
+    weight: false,
+  });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<ProgressTab, string | null>>({
+    measurements: null,
+    notes: null,
+    photos: null,
+    weight: null,
+  });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const requestIdsRef = useRef<Record<ProgressTab, number>>({
+    measurements: 0,
+    notes: 0,
+    photos: 0,
+    weight: 0,
+  });
   const [openForms, setOpenForms] = useState<Record<ProgressTab, boolean>>({
     measurements: !isDrawer,
     notes: !isDrawer,
@@ -88,51 +105,69 @@ export function ClientProgressPanel({
 
   const activeTabConfig = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
   const isFormOpen = openForms[activeTab];
+  const isActiveTabLoaded = loadedTabs.has(activeTab);
+  const isActiveTabLoading = loadingTabs[activeTab];
+  const activeError = errors[activeTab];
 
   const loadTab = useCallback(
     async (tab: ProgressTab, force = false) => {
       if (!force && loadedTabs.has(tab)) return;
-      setLoading(tab);
-      setError(null);
+      const requestId = requestIdsRef.current[tab] + 1;
+      requestIdsRef.current[tab] = requestId;
+      setLoadingTabs((current) => ({ ...current, [tab]: true }));
+      setErrors((current) => ({ ...current, [tab]: null }));
       try {
+        let nextData:
+          | WeightLog[]
+          | BodyMeasurementLog[]
+          | ProgressPhoto[]
+          | FollowUpNote[];
+
         if (tab === "weight") {
-          setWeightLogs(
-            await progressRequest(
-              `/progress/clients/${clientId}/weight-logs`,
-              { method: "GET" },
-              config,
-            ),
+          nextData = await progressRequest(
+            `/progress/clients/${clientId}/weight-logs`,
+            { method: "GET" },
+            config,
           );
         } else if (tab === "measurements") {
-          setMeasurements(
-            await progressRequest(
-              `/progress/clients/${clientId}/body-measurements`,
-              { method: "GET" },
-              config,
-            ),
+          nextData = await progressRequest(
+            `/progress/clients/${clientId}/body-measurements`,
+            { method: "GET" },
+            config,
           );
         } else if (tab === "photos") {
-          setPhotos(
-            await progressRequest(
-              `/progress/clients/${clientId}/photos`,
-              { method: "GET" },
-              config,
-            ),
+          nextData = await progressRequest(
+            `/progress/clients/${clientId}/photos`,
+            { method: "GET" },
+            config,
           );
         } else {
-          setNotes(
-            await progressRequest(
-              `/progress/clients/${clientId}/notes`,
-              { method: "GET" },
-              config,
-            ),
+          nextData = await progressRequest(
+            `/progress/clients/${clientId}/notes`,
+            { method: "GET" },
+            config,
           );
+        }
+
+        if (requestIdsRef.current[tab] !== requestId) return;
+
+        if (tab === "weight") {
+          setWeightLogs(nextData as WeightLog[]);
+        } else if (tab === "measurements") {
+          setMeasurements(nextData as BodyMeasurementLog[]);
+        } else if (tab === "photos") {
+          setPhotos(nextData as ProgressPhoto[]);
+        } else {
+          setNotes(nextData as FollowUpNote[]);
         }
         setLoadedTabs((current) => new Set(current).add(tab));
       } catch (caught) {
-        setError(getProgressErrorMessage(caught));
+        if (requestIdsRef.current[tab] !== requestId) return;
+        setErrors((current) => ({ ...current, [tab]: getProgressErrorMessage(caught) }));
       } finally {
-        setLoading(null);
+        if (requestIdsRef.current[tab] === requestId) {
+          setLoadingTabs((current) => ({ ...current, [tab]: false }));
+        }
       }
     },
     [clientId, config, loadedTabs],
@@ -156,7 +191,7 @@ export function ClientProgressPanel({
   async function deleteSelected() {
     if (!deleteTarget) return;
     setSaving(true);
-    setError(null);
+    setErrors((current) => ({ ...current, [activeTab]: null }));
     try {
       const base = `/progress/clients/${clientId}`;
       const path =
@@ -170,7 +205,7 @@ export function ClientProgressPanel({
       await progressRequest(path, { method: "DELETE" }, config);
       await loadTab(activeTab, true);
     } catch (caught) {
-      setError(getProgressErrorMessage(caught));
+      setErrors((current) => ({ ...current, [activeTab]: getProgressErrorMessage(caught) }));
     } finally {
       setSaving(false);
     }
@@ -190,14 +225,20 @@ export function ClientProgressPanel({
             Historial de peso, medidas, fotos y seguimiento.
           </p>
         </div>
-        <div className="grid grid-flow-col auto-cols-[minmax(4.75rem,1fr)] overflow-x-auto rounded-md border bg-muted/30 p-1 text-sm">
+        <div
+          className="grid grid-flow-col auto-cols-[minmax(4.75rem,1fr)] overflow-x-auto rounded-xl border bg-muted/30 p-1 text-sm"
+          role="tablist"
+          aria-label="Progreso del cliente"
+        >
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              aria-selected={activeTab === tab.key}
               className={cn(
-                "rounded px-3 py-1.5 transition",
+                "rounded-xl px-3 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 activeTab === tab.key && "bg-background shadow-sm",
               )}
+              role="tab"
               type="button"
               onClick={() => setActiveTab(tab.key)}
             >
@@ -214,18 +255,21 @@ export function ClientProgressPanel({
         </Button>
       ) : null}
 
-      {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {error}
+      {activeError ? (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          {activeError}
         </p>
       ) : null}
-      {loading === activeTab ? (
+      {isActiveTabLoading && !isActiveTabLoaded ? (
         <div className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
           <Loader2Icon className="mr-2 size-4 animate-spin" />
           Cargando progreso
         </div>
       ) : null}
-      {loading !== activeTab ? renderActiveSection() : null}
+      {isActiveTabLoading && isActiveTabLoaded ? (
+        <p className="text-xs text-muted-foreground">Actualizando progreso...</p>
+      ) : null}
+      {isActiveTabLoaded || !isActiveTabLoading ? renderActiveSection() : null}
 
       <ConfirmDialog
         confirmLabel="Borrar"
@@ -252,7 +296,7 @@ export function ClientProgressPanel({
           onOpenForm={() => openForm("weight")}
           onSave={async (input, id) => {
             setSaving(true);
-            setError(null);
+            setErrors((current) => ({ ...current, weight: null }));
             try {
               await progressRequest(
                 `/progress/clients/${clientId}/weight-logs${id ? `/${id}` : ""}`,
@@ -260,8 +304,10 @@ export function ClientProgressPanel({
                 config,
               );
               await loadTab("weight", true);
+              return true;
             } catch (caught) {
-              setError(getProgressErrorMessage(caught));
+              setErrors((current) => ({ ...current, weight: getProgressErrorMessage(caught) }));
+              return false;
             } finally {
               setSaving(false);
             }
@@ -282,7 +328,7 @@ export function ClientProgressPanel({
           onOpenForm={() => openForm("measurements")}
           onSave={async (input, id) => {
             setSaving(true);
-            setError(null);
+            setErrors((current) => ({ ...current, measurements: null }));
             try {
               await progressRequest(
                 `/progress/clients/${clientId}/body-measurements${id ? `/${id}` : ""}`,
@@ -290,8 +336,10 @@ export function ClientProgressPanel({
                 config,
               );
               await loadTab("measurements", true);
+              return true;
             } catch (caught) {
-              setError(getProgressErrorMessage(caught));
+              setErrors((current) => ({ ...current, measurements: getProgressErrorMessage(caught) }));
+              return false;
             } finally {
               setSaving(false);
             }
@@ -312,12 +360,17 @@ export function ClientProgressPanel({
           onOpenForm={() => openForm("photos")}
           onUpload={async (formData) => {
             setSaving(true);
-            setError(null);
+            setErrors((current) => ({ ...current, photos: null }));
             try {
               await progressFormDataRequest(`/progress/clients/${clientId}/photos`, formData, config);
               await loadTab("photos", true);
+              return true;
             } catch (caught) {
-              setError(getProgressErrorMessage(caught, "No pudimos subir la foto."));
+              setErrors((current) => ({
+                ...current,
+                photos: getProgressErrorMessage(caught, "No pudimos subir la foto."),
+              }));
+              return false;
             } finally {
               setSaving(false);
             }
@@ -337,7 +390,7 @@ export function ClientProgressPanel({
         onOpenForm={() => openForm("notes")}
         onSave={async (input, id) => {
           setSaving(true);
-          setError(null);
+          setErrors((current) => ({ ...current, notes: null }));
           try {
             await progressRequest(
               `/progress/clients/${clientId}/notes${id ? `/${id}` : ""}`,
@@ -345,8 +398,10 @@ export function ClientProgressPanel({
               config,
             );
             await loadTab("notes", true);
+            return true;
           } catch (caught) {
-            setError(getProgressErrorMessage(caught));
+            setErrors((current) => ({ ...current, notes: getProgressErrorMessage(caught) }));
+            return false;
           } finally {
             setSaving(false);
           }
@@ -373,7 +428,7 @@ function WeightSection({
   onCloseForm: () => void;
   onDelete: (id: string) => void;
   onOpenForm: () => void;
-  onSave: (input: WeightLogInput, id?: string) => Promise<void>;
+  onSave: (input: WeightLogInput, id?: string) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -386,12 +441,15 @@ function WeightSection({
       variant={variant}
       onCancel={() => {
         setEditing(null);
-        onCloseForm();
+        if (variant === "drawer") onCloseForm();
       }}
       onSave={async (input) => {
-        await onSave(input, editing?.id);
-        setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        const didSave = await onSave(input, editing?.id);
+        if (didSave) {
+          setEditing(null);
+          if (variant === "drawer") onCloseForm();
+        }
+        return didSave;
       }}
     />
   ) : null;
@@ -413,7 +471,7 @@ function WeightSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{variant === "drawer" ? <>{list}{form}</> : <>{form}{list}</>}</div>;
+  return <div className="space-y-4">{form}{list}</div>;
 }
 
 function WeightForm({
@@ -425,7 +483,7 @@ function WeightForm({
 }: {
   item: WeightLog | null;
   onCancel: () => void;
-  onSave: (input: WeightLogInput) => Promise<void>;
+  onSave: (input: WeightLogInput) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -435,20 +493,31 @@ function WeightForm({
   return (
     <form
       className={cn(
-        "grid gap-3 rounded-md border bg-muted/20 p-3",
+        "grid gap-3 rounded-xl border bg-muted/20 p-3",
         variant === "page" && "md:grid-cols-[1fr_1fr_2fr_auto]",
       )}
       onSubmit={async (event) => {
         event.preventDefault();
-        await onSave({ weightKg: Number(weightKg), recordedAt, note: note.trim() || null });
-        setWeightKg("");
-        setNote("");
+        const didSave = await onSave({
+          weightKg: Number(weightKg),
+          recordedAt,
+          note: note.trim() || null,
+        });
+        if (didSave) {
+          setWeightKg("");
+          setNote("");
+        }
       }}
     >
       <Input label="Kg" min="1" step="0.1" type="number" value={weightKg} onChange={setWeightKg} />
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
       <Input label="Nota" value={note} onChange={setNote} />
-      <FormActions editing={Boolean(item)} saving={saving} onCancel={onCancel} />
+      <FormActions
+        editing={Boolean(item)}
+        saving={saving}
+        variant={variant}
+        onCancel={onCancel}
+      />
     </form>
   );
 }
@@ -468,7 +537,7 @@ function MeasurementsSection({
   onCloseForm: () => void;
   onDelete: (id: string) => void;
   onOpenForm: () => void;
-  onSave: (input: BodyMeasurementInput, id?: string) => Promise<void>;
+  onSave: (input: BodyMeasurementInput, id?: string) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -481,12 +550,15 @@ function MeasurementsSection({
       variant={variant}
       onCancel={() => {
         setEditing(null);
-        onCloseForm();
+        if (variant === "drawer") onCloseForm();
       }}
       onSave={async (input) => {
-        await onSave(input, editing?.id);
-        setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        const didSave = await onSave(input, editing?.id);
+        if (didSave) {
+          setEditing(null);
+          if (variant === "drawer") onCloseForm();
+        }
+        return didSave;
       }}
     />
   ) : null;
@@ -510,7 +582,7 @@ function MeasurementsSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{variant === "drawer" ? <>{list}{form}</> : <>{form}{list}</>}</div>;
+  return <div className="space-y-4">{form}{list}</div>;
 }
 
 function MeasurementsForm({
@@ -522,7 +594,7 @@ function MeasurementsForm({
 }: {
   item: BodyMeasurementLog | null;
   onCancel: () => void;
-  onSave: (input: BodyMeasurementInput) => Promise<void>;
+  onSave: (input: BodyMeasurementInput) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -534,7 +606,7 @@ function MeasurementsForm({
   const [note, setNote] = useState(item?.note ?? "");
   return (
     <form
-      className="rounded-md border bg-muted/20 p-3"
+      className="rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         const input: BodyMeasurementInput = {
@@ -570,7 +642,12 @@ function MeasurementsForm({
         </label>
       </div>
       <div className="mt-3 flex justify-end">
-        <FormActions editing={Boolean(item)} saving={saving} onCancel={onCancel} />
+        <FormActions
+          editing={Boolean(item)}
+          saving={saving}
+          variant={variant}
+          onCancel={onCancel}
+        />
       </div>
     </form>
   );
@@ -591,7 +668,7 @@ function PhotosSection({
   onCloseForm: () => void;
   onDelete: (id: string) => void;
   onOpenForm: () => void;
-  onUpload: (formData: FormData) => Promise<void>;
+  onUpload: (formData: FormData) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -601,8 +678,9 @@ function PhotosSection({
       variant={variant}
       onCancel={onCloseForm}
       onUpload={async (formData) => {
-        await onUpload(formData);
-        if (variant === "drawer") onCloseForm();
+        const didUpload = await onUpload(formData);
+        if (didUpload && variant === "drawer") onCloseForm();
+        return didUpload;
       }}
     />
   ) : null;
@@ -612,7 +690,7 @@ function PhotosSection({
     ) : (
       <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-2")}>
         {items.map((item) => (
-          <div key={item.id} className="overflow-hidden rounded-md border bg-background">
+          <div key={item.id} className="overflow-hidden rounded-xl border bg-background">
             <div className="relative aspect-[4/3] w-full">
               <Image
                 alt={`Foto de progreso ${photoTypeLabels[item.photoType]}`}
@@ -636,7 +714,7 @@ function PhotosSection({
 
   return (
     <div className="space-y-4">
-      {variant === "drawer" ? <>{list}{form}</> : <>{form}{list}</>}
+      {form}{list}
       {variant === "page" && !isFormOpen ? (
         <Button className="shadow-none" type="button" onClick={onOpenForm}>
           <CameraIcon className="size-4" />
@@ -654,7 +732,7 @@ function PhotoForm({
   variant,
 }: {
   onCancel: () => void;
-  onUpload: (formData: FormData) => Promise<void>;
+  onUpload: (formData: FormData) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -664,7 +742,7 @@ function PhotoForm({
   return (
     <form
       className={cn(
-        "grid gap-3 rounded-md border bg-muted/20 p-3",
+        "grid gap-3 rounded-xl border bg-muted/20 p-3",
         variant === "page" && "md:grid-cols-[1fr_1fr_2fr_auto]",
       )}
       onSubmit={async (event) => {
@@ -674,8 +752,8 @@ function PhotoForm({
         formData.append("photoType", photoType);
         formData.append("recordedAt", recordedAt);
         formData.append("photo", file);
-        await onUpload(formData);
-        setFile(null);
+        const didUpload = await onUpload(formData);
+        if (didUpload) setFile(null);
       }}
     >
       <Select
@@ -689,16 +767,18 @@ function PhotoForm({
         Foto
         <input
           accept="image/jpeg,image/png,image/webp"
-          className="rounded-md border bg-background px-3 py-2 text-sm"
+          className="rounded-xl border bg-background px-3 py-2 text-sm"
           required
           type="file"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
       </label>
       <div className="flex gap-2 self-end">
-        <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
+        {variant === "drawer" ? (
+          <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
+            Cancelar
+          </Button>
+        ) : null}
         <Button className="shadow-none" disabled={saving || !file} type="submit">
           <CameraIcon className="size-4" />
           Subir
@@ -723,7 +803,7 @@ function NotesSection({
   onCloseForm: () => void;
   onDelete: (id: string) => void;
   onOpenForm: () => void;
-  onSave: (input: FollowUpNoteInput, id?: string) => Promise<void>;
+  onSave: (input: FollowUpNoteInput, id?: string) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -736,12 +816,15 @@ function NotesSection({
       variant={variant}
       onCancel={() => {
         setEditing(null);
-        onCloseForm();
+        if (variant === "drawer") onCloseForm();
       }}
       onSave={async (input) => {
-        await onSave(input, editing?.id);
-        setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        const didSave = await onSave(input, editing?.id);
+        if (didSave) {
+          setEditing(null);
+          if (variant === "drawer") onCloseForm();
+        }
+        return didSave;
       }}
     />
   ) : null;
@@ -764,7 +847,7 @@ function NotesSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{variant === "drawer" ? <>{list}{form}</> : <>{form}{list}</>}</div>;
+  return <div className="space-y-4">{form}{list}</div>;
 }
 
 function NoteForm({
@@ -776,7 +859,7 @@ function NoteForm({
 }: {
   item: FollowUpNote | null;
   onCancel: () => void;
-  onSave: (input: FollowUpNoteInput) => Promise<void>;
+  onSave: (input: FollowUpNoteInput) => Promise<boolean>;
   saving: boolean;
   variant: ProgressVariant;
 }) {
@@ -784,15 +867,15 @@ function NoteForm({
   const [visibility, setVisibility] = useState(item?.visibility ?? "private");
   return (
     <form
-      className="grid gap-3 rounded-md border bg-muted/20 p-3"
+      className="grid gap-3 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
-        await onSave({ text, visibility });
-        setText("");
+        const didSave = await onSave({ text, visibility });
+        if (didSave) setText("");
       }}
     >
       <textarea
-        className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
+        className="min-h-24 rounded-xl border bg-background px-3 py-2 text-sm"
         placeholder="Nota de seguimiento"
         required
         value={text}
@@ -805,7 +888,12 @@ function NoteForm({
           options={{ private: "Privada", visible_to_client: "Visible para cliente" }}
           onChange={(value) => setVisibility(value as FollowUpNoteInput["visibility"])}
         />
-        <FormActions editing={Boolean(item)} saving={saving} onCancel={onCancel} />
+        <FormActions
+          editing={Boolean(item)}
+          saving={saving}
+          variant={variant}
+          onCancel={onCancel}
+        />
       </div>
     </form>
   );
@@ -838,9 +926,9 @@ function RecordRow({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 rounded-md border bg-background p-3",
-        tone === "private" && "border-amber-200 bg-amber-50/40",
-        tone === "visible" && "border-emerald-200 bg-emerald-50/40",
+        "flex items-start justify-between gap-3 rounded-xl border bg-background p-3",
+        tone === "private" && "bg-muted/25",
+        tone === "visible" && "border-primary/20 bg-primary/5",
       )}
     >
       <div className="min-w-0">
@@ -864,16 +952,22 @@ function FormActions({
   editing,
   onCancel,
   saving,
+  variant,
 }: {
   editing: boolean;
   onCancel: () => void;
   saving: boolean;
+  variant: ProgressVariant;
 }) {
+  const showCancel = variant === "drawer" || editing;
+
   return (
     <div className="flex gap-2 self-end">
-      <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
-        Cancelar
-      </Button>
+      {showCancel ? (
+        <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      ) : null}
       <Button className="shadow-none" disabled={saving} type="submit">
         <PlusIcon className="size-4" />
         {editing ? "Guardar" : "Crear"}
@@ -896,7 +990,7 @@ function Input({
     <label className="grid gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-md border bg-background px-3 py-2 text-sm"
+        className="rounded-xl border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         {...props}
@@ -920,7 +1014,7 @@ function Select({
     <label className="grid gap-1 text-sm font-medium">
       {label}
       <select
-        className="rounded-md border bg-background px-3 py-2 text-sm"
+        className="rounded-xl border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -958,7 +1052,7 @@ function IconButton({
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">{text}</p>;
+  return <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">{text}</p>;
 }
 
 function toDateInput(value?: string) {

@@ -26,6 +26,35 @@ type AssignedSessionExercise = Partial<SessionExercise> & {
   alternatives?: SessionExerciseAlternative[];
 };
 
+type CurrentAssignmentShape = {
+  assignment: {
+    id: string;
+    assignedPlanId: string;
+    sourceTrainingPlanId: string;
+    startDate: string;
+    endedAt: string | null;
+    status: "active" | "finished" | "removed";
+  };
+  sourcePlan: { id: string; name: string } | null;
+  assignedPlan: TrainingPlan | null;
+};
+
+type PartialCurrentAssignmentShape = Partial<
+  Omit<CurrentAssignmentShape, "assignedPlan" | "assignment">
+> & {
+  assignedPlan?: AssignedTrainingPlan | null;
+  assignment?: Partial<CurrentAssignmentShape["assignment"]>;
+};
+
+export class AssignmentRefreshRequiredError extends Error {
+  constructor(entityLabel: string) {
+    super(
+      `La ${entityLabel} se guardo, pero no se pudo actualizar la vista. Recarga antes de repetir la accion.`,
+    );
+    this.name = "AssignmentRefreshRequiredError";
+  }
+}
+
 export function normalizeAssignedPlan(plan: AssignedTrainingPlan): TrainingPlan {
   return {
     ...plan,
@@ -41,13 +70,95 @@ export function normalizeAssignedPlan(plan: AssignedTrainingPlan): TrainingPlan 
 
 export function replaceAssignedSession(
   plan: TrainingPlan,
-  updatedSession: TrainingSession,
+  updatedSession: Partial<TrainingSession> & { id: string },
 ): TrainingPlan {
   return updateAssignedPlanSessions(plan, (session) =>
     session.id === updatedSession.id
-      ? normalizeAssignedSession(updatedSession)
+      ? normalizeAssignedSession({
+          ...session,
+          ...updatedSession,
+          exercises: updatedSession.exercises ?? session.exercises,
+        })
       : session,
   );
+}
+
+export function mergeCurrentAssignmentUpdate(
+  current: CurrentAssignmentShape | null,
+  update: PartialCurrentAssignmentShape | null,
+): CurrentAssignmentShape | null {
+  if (!update) {
+    return current;
+  }
+
+  if (!current) {
+    if (!update.assignment || update.assignedPlan === undefined) {
+      return null;
+    }
+
+    return {
+      assignment: update.assignment as CurrentAssignmentShape["assignment"],
+      assignedPlan: update.assignedPlan ? normalizeAssignedPlan(update.assignedPlan) : null,
+      sourcePlan: update.sourcePlan ?? null,
+    };
+  }
+
+  const nextAssignedPlan =
+    update.assignedPlan === undefined
+      ? current.assignedPlan
+      : update.assignedPlan
+        ? normalizeAssignedPlan({
+            ...current.assignedPlan,
+            ...update.assignedPlan,
+            weeks: update.assignedPlan.weeks ?? current.assignedPlan?.weeks,
+          } as AssignedTrainingPlan)
+        : null;
+
+  return {
+    assignment: {
+      ...current.assignment,
+      ...(update.assignment ?? {}),
+    },
+    assignedPlan: nextAssignedPlan,
+    sourcePlan: update.sourcePlan === undefined ? current.sourcePlan : update.sourcePlan,
+  };
+}
+
+export function findAssignedWeek(
+  plan: TrainingPlan | null,
+  weekId: string,
+): TrainingPlanWeek | null {
+  return plan?.weeks?.find((week) => week.id === weekId) ?? null;
+}
+
+export function findAssignedDay(
+  plan: TrainingPlan | null,
+  dayId: string,
+): TrainingPlanDay | null {
+  return plan?.weeks
+    ?.flatMap((week) => week.days)
+    .find((day) => day.id === dayId) ?? null;
+}
+
+export function findAssignedSessionExercise(
+  plan: TrainingPlan | null,
+  sessionExerciseId: string,
+): SessionExercise | null {
+  return plan?.weeks
+    ?.flatMap((week) => week.days)
+    .flatMap((day) => day.session?.exercises ?? [])
+    .find((exercise) => exercise.id === sessionExerciseId) ?? null;
+}
+
+export function requireHydratedMutationResult<T>(
+  result: T | null | undefined,
+  entityLabel: string,
+): T {
+  if (!result) {
+    throw new AssignmentRefreshRequiredError(entityLabel);
+  }
+
+  return result;
 }
 
 export function appendAssignedSessionExercise(
@@ -76,8 +187,12 @@ export function replaceAssignedSessionExercise(
   plan: TrainingPlan,
   updatedExercise: SessionExercise,
   requestedFields?: Partial<SessionExercise>,
+  exerciseSnapshot?: Exercise,
 ): TrainingPlan {
-  const normalizedExercise = normalizeAssignedSessionExercise(updatedExercise);
+  const normalizedExercise = normalizeAssignedSessionExercise(
+    updatedExercise,
+    exerciseSnapshot,
+  );
 
   return updateAssignedPlanSessions(plan, (session) =>
     session.id === normalizedExercise.trainingSessionId
@@ -86,11 +201,17 @@ export function replaceAssignedSessionExercise(
           exercises: session.exercises.map((exercise) =>
             exercise.id === normalizedExercise.id
               ? requestedFields
-                ? mergeSessionExerciseUpdate(
-                    exercise,
-                    normalizedExercise,
-                    requestedFields,
-                  )
+                ? {
+                    ...mergeSessionExerciseUpdate(
+                      exercise,
+                      normalizedExercise,
+                      requestedFields,
+                    ),
+                    exercise:
+                      requestedFields.exerciseId && exerciseSnapshot
+                        ? exerciseSnapshot
+                        : exercise.exercise,
+                  }
                 : normalizedExercise
               : exercise,
           ),

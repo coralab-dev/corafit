@@ -63,7 +63,7 @@ type DraftPlan = Pick<
 >;
 type DraftSession = Pick<TrainingSession, "name" | "description" | "coachNote">;
 type ExerciseUpdate = Partial<
-  Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
+  Pick<SessionExercise, "exerciseId" | "sets" | "reps" | "restSeconds" | "coachNote">
 >;
 
 export function AssignedPlanEditorWorkspace() {
@@ -524,6 +524,15 @@ export function AssignedPlanEditorWorkspace() {
                 );
               }}
               onSaveSessionInfo={saveSessionInfo}
+              onReplaceExercise={(sessionExerciseId, replacement) =>
+                mutateExercise(sessionExerciseId, { exerciseId: replacement.id }, () =>
+                  editor.updateSessionExercise(
+                    sessionExerciseId,
+                    { exerciseId: replacement.id },
+                    replacement,
+                  ),
+                )
+              }
               onUpdateExercise={(sessionExerciseId, body) =>
                 mutateExercise(sessionExerciseId, body, () =>
                   editor.updateSessionExercise(sessionExerciseId, body),

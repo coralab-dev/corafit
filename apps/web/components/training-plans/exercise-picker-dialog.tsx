@@ -22,7 +22,7 @@ export function ExercisePickerDialog({
   sessionName,
 }: {
   excludedExerciseIds?: string[];
-  mode?: "exercise" | "alternative";
+  mode?: "exercise" | "alternative" | "replace";
   onOpenChange: (open: boolean) => void;
   onSelect: (exercise: Exercise) => Promise<boolean>;
   open: boolean;
@@ -52,14 +52,16 @@ export function ExercisePickerDialog({
             {isSelecting ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
                 <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
-                Agregando
+                {mode === "replace" ? "Reemplazando" : "Agregando"}
               </span>
             ) : null}
           </div>
           <DialogDescription>
             {mode === "alternative"
               ? `Agregar alternativa en ${sessionName}. Busca un ejercicio global o personalizado.`
-              : `Agregar ejercicio a ${sessionName}. Busca un ejercicio global o personalizado.`}
+              : mode === "replace"
+                ? `Reemplazar ejercicio en ${sessionName}. Busca un ejercicio global o personalizado.`
+                : `Agregar ejercicio a ${sessionName}. Busca un ejercicio global o personalizado.`}
           </DialogDescription>
         </DialogHeader>
         <div

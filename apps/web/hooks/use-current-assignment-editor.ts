@@ -17,6 +17,10 @@ import {
   appendAssignedDay,
   appendAssignedSessionExercise,
   appendAssignedWeek,
+  findAssignedDay,
+  findAssignedSessionExercise,
+  findAssignedWeek,
+  mergeCurrentAssignmentUpdate,
   normalizeAssignedPlan,
   removeAssignedAlternative,
   removeAssignedDay,
@@ -27,6 +31,7 @@ import {
   replaceAssignedDaySession,
   replaceAssignedSession,
   replaceAssignedSessionExercise,
+  requireHydratedMutationResult,
 } from "./current-assignment-editor-state";
 
 type CurrentPlanAssignment = {
@@ -153,7 +158,10 @@ export function useCurrentAssignmentEditor(clientId: string) {
         { method: "POST", body: JSON.stringify(body) },
       );
       const refreshedAssignment = await loadAssignment();
-      return findDay(refreshedAssignment?.assignedPlan ?? null, copiedDay.id) ?? copiedDay;
+      return requireHydratedMutationResult(
+        findAssignedDay(refreshedAssignment?.assignedPlan ?? null, copiedDay.id),
+        "dia duplicado",
+      );
     },
     createDay: async (weekId: string, body: { dayOfWeek: string; dayType?: string; dayOrder?: number }) => {
       const createdDay = await request<TrainingPlanDay>(
@@ -224,16 +232,22 @@ export function useCurrentAssignmentEditor(clientId: string) {
         `${basePath}/exercises/${sessionExerciseId}/duplicate`,
         { method: "POST" },
       );
-      setAssignmentPlan((plan) => appendAssignedSessionExercise(plan, duplicatedExercise));
-      return duplicatedExercise;
+      const refreshedAssignment = await loadAssignment();
+      return requireHydratedMutationResult(
+        findAssignedSessionExercise(refreshedAssignment?.assignedPlan ?? null, duplicatedExercise.id),
+        "ejercicio duplicado",
+      );
     },
     duplicateWeek: async (weekId: string) => {
       const duplicatedWeek = await request<TrainingPlanWeek>(
         `${basePath}/weeks/${weekId}/duplicate`,
         { method: "POST" },
       );
-      setAssignmentPlan((plan) => appendAssignedWeek(plan, duplicatedWeek));
-      return duplicatedWeek;
+      const refreshedAssignment = await loadAssignment();
+      return requireHydratedMutationResult(
+        findAssignedWeek(refreshedAssignment?.assignedPlan ?? null, duplicatedWeek.id),
+        "semana duplicada",
+      );
     },
     error,
     isApiReady,
@@ -263,20 +277,22 @@ export function useCurrentAssignmentEditor(clientId: string) {
         { method: "DELETE" },
       );
       const refreshedAssignment = await loadAssignment();
-      return findDay(refreshedAssignment?.assignedPlan ?? null, copiedDay.id) ?? copiedDay;
+      return requireHydratedMutationResult(
+        findAssignedDay(refreshedAssignment?.assignedPlan ?? null, copiedDay.id),
+        "dia actualizado",
+      );
     },
     updatePlan: async (body: Partial<Pick<TrainingPlan, "name" | "goal" | "level" | "durationWeeks" | "generalNotes">>) => {
-      const updatedAssignment = await request<CurrentPlanAssignment>(
+      const updatedAssignment = await request<Partial<CurrentPlanAssignment>>(
         basePath,
         { method: "PATCH", body: JSON.stringify(body) },
       );
-      setAssignment({
-        ...updatedAssignment,
-        assignedPlan: updatedAssignment.assignedPlan
-          ? normalizeAssignedPlan(updatedAssignment.assignedPlan)
-          : null,
+      let mergedAssignment: CurrentPlanAssignment | null = null;
+      setAssignment((current) => {
+        mergedAssignment = mergeCurrentAssignmentUpdate(current, updatedAssignment);
+        return mergedAssignment;
       });
-      return updatedAssignment;
+      return mergedAssignment ?? updatedAssignment;
     },
     updateSession: async (sessionId: string, body: Partial<Pick<TrainingSession, "name" | "description" | "coachNote">>) => {
       const updatedSession = await request<TrainingSession>(
@@ -289,12 +305,13 @@ export function useCurrentAssignmentEditor(clientId: string) {
     updateSessionExercise: (
       sessionExerciseId: string,
       body: Partial<Pick<SessionExercise, "exerciseId" | "orderIndex" | "sets" | "reps" | "restSeconds" | "coachNote">>,
+      exerciseSnapshot?: Exercise,
     ) => request<SessionExercise>(
         `${basePath}/exercises/${sessionExerciseId}`,
         { method: "PATCH", body: JSON.stringify(body) },
       ).then((updatedExercise) => {
         setAssignmentPlan((plan) =>
-          replaceAssignedSessionExercise(plan, updatedExercise, body),
+          replaceAssignedSessionExercise(plan, updatedExercise, body, exerciseSnapshot),
         );
         return updatedExercise;
       }),
@@ -314,12 +331,6 @@ function normalizeAssignment(
       ? normalizeAssignedPlan(assignment.assignedPlan)
       : null,
   };
-}
-
-function findDay(plan: TrainingPlan | null, dayId: string) {
-  return plan?.weeks
-    ?.flatMap((week) => week.days)
-    .find((day) => day.id === dayId);
 }
 
 function getErrorMessage(error: unknown) {

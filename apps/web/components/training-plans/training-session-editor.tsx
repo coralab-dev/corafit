@@ -62,6 +62,7 @@ export function TrainingSessionEditor({
   onDuplicateExercise,
   onMoveDay,
   onMoveExercise,
+  onReplaceExercise,
   onSaveSessionInfo,
   onUpdateExercise,
   session,
@@ -86,6 +87,10 @@ export function TrainingSessionEditor({
   onDuplicateExercise: (sessionExerciseId: string) => void;
   onMoveDay: (targetDay: DayOfWeek) => Promise<boolean>;
   onMoveExercise: (exercise: SessionExercise, direction: "up" | "down") => void;
+  onReplaceExercise?: (
+    sessionExerciseId: string,
+    replacement: Exercise,
+  ) => Promise<boolean>;
   onSaveSessionInfo: (sessionId: string, draft: SessionDraft) => Promise<boolean>;
   onUpdateExercise: (sessionExerciseId: string, body: ExerciseUpdate) => Promise<boolean>;
   session: TrainingSession;
@@ -203,6 +208,11 @@ export function TrainingSessionEditor({
                       onDuplicate={() => onDuplicateExercise(exercise.id)}
                       onMoveDown={() => onMoveExercise(exercise, "down")}
                       onMoveUp={() => onMoveExercise(exercise, "up")}
+                      onReplace={
+                        onReplaceExercise
+                          ? (replacement) => onReplaceExercise(exercise.id, replacement)
+                          : undefined
+                      }
                       onUpdate={(body) => onUpdateExercise(exercise.id, body)}
                     />
                   ))}
@@ -230,6 +240,11 @@ export function TrainingSessionEditor({
                   onDuplicate={() => onDuplicateExercise(exercise.id)}
                   onMoveDown={() => onMoveExercise(exercise, "down")}
                   onMoveUp={() => onMoveExercise(exercise, "up")}
+                  onReplace={
+                    onReplaceExercise
+                      ? (replacement) => onReplaceExercise(exercise.id, replacement)
+                      : undefined
+                  }
                   onUpdate={(body) => onUpdateExercise(exercise.id, body)}
                 />
               ))}

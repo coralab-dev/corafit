@@ -1,108 +1,202 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CalendarDaysIcon,
+  AlertCircleIcon,
+  CheckCircle2Icon,
   ChevronLeftIcon,
-  CopyIcon,
-  DumbbellIcon,
   EditIcon,
   Loader2Icon,
-  MoreVerticalIcon,
-  PlusIcon,
+  MenuIcon,
   SaveIcon,
-  Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
-import { notify } from "@/lib/notify";
-import { ExerciseSearch } from "@/components/exercise-search";
-import { PlanTree } from "@/components/training-plans/assigned-plan-tree";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { WorkspaceFrame, WorkspacePanel } from "@/components/layout/workspace-shell";
+import { PlanTree, type PlanTreeEditor } from "@/components/training-plans/training-plan-tree";
+import { TrainingSessionEditor } from "@/components/training-plans/training-session-editor";
+import { dayLabels } from "@/components/training-plans/training-plan-days";
+import {
+  createExerciseDraftTracker,
+  type ExerciseDraftTracker,
+} from "@/components/training-plans/training-plan-editor-draft-state";
+import {
+  getSaveStateLabel,
+  type SaveState,
+} from "@/components/training-plans/training-plan-editor-utils";
+import {
+  createExerciseMutationQueue,
+  createMutationQueue,
+  type ExerciseMutationQueue,
+  type MutationQueue,
+} from "@/components/training-plans/training-plan-mutation-queue";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  WorkspaceFrame,
-  WorkspaceHeader,
-  WorkspacePanel,
-} from "@/components/layout/workspace-shell";
-import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { MetricStrip } from "@/components/shared/metric-strip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useCurrentAssignmentEditor, type CurrentAssignmentEditor } from "@/hooks/use-current-assignment-editor";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useCurrentAssignmentEditor } from "@/hooks/use-current-assignment-editor";
 import type { Exercise } from "@/hooks/use-exercises";
+import type {
+  SessionExercise,
+  TrainingPlan,
+  TrainingPlanDay,
+  TrainingPlanWeek,
+  TrainingSession,
+} from "@/hooks/use-training-plans";
 import { levelLabels } from "@/lib/clients/api";
-import type { SessionExercise, TrainingPlan, TrainingSession } from "@/lib/clients/types";
+import { notify } from "@/lib/notify";
+import { cn } from "@/lib/utils";
 
-type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
-type DraftPlan = Pick<TrainingPlan, "name" | "goal" | "level" | "durationWeeks" | "generalNotes">;
+type DraftPlan = Pick<
+  TrainingPlan,
+  "name" | "goal" | "level" | "durationWeeks" | "generalNotes"
+>;
 type DraftSession = Pick<TrainingSession, "name" | "description" | "coachNote">;
+type ExerciseUpdate = Partial<
+  Pick<SessionExercise, "sets" | "reps" | "restSeconds" | "coachNote">
+>;
 
 export function AssignedPlanEditorWorkspace() {
   const params = useParams<{ clientId: string }>();
   const clientId = params.clientId;
   const editor = useCurrentAssignmentEditor(clientId);
-  const plan = editor.plan;
-  const sessions = useMemo(() => getSessions(plan), [plan]);
   const [selectedSessionId, setSelectedSessionId] = useState("");
-  const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? sessions[0];
-  const [planDraft, setPlanDraft] = useState<DraftPlan | null>(null);
-  const [sessionDraft, setSessionDraft] = useState<DraftSession | null>(null);
   const [planSaveState, setPlanSaveState] = useState<SaveState>("idle");
   const [sessionSaveState, setSessionSaveState] = useState<SaveState>("idle");
+  const [planDraft, setPlanDraft] = useState<DraftPlan | null>(null);
   const [isPlanInfoOpen, setIsPlanInfoOpen] = useState(false);
-  const isDirty = planSaveState === "dirty" || sessionSaveState === "dirty";
-  const saveState = getCombinedSaveState(planSaveState, sessionSaveState);
+  const [isStructureOpen, setIsStructureOpen] = useState(false);
+  const [pendingMutationCount, setPendingMutationCount] = useState(0);
+  const planDraftRef = useRef<DraftPlan | null>(null);
+  const planDraftVersionRef = useRef(0);
+  const planRef = useRef<TrainingPlan | null>(null);
+  const planSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const mutationQueueRef = useRef<MutationQueue | null>(null);
+  const exerciseMutationQueuesRef = useRef<ExerciseMutationQueue | null>(null);
+  const exerciseDraftTrackerRef = useRef<ExerciseDraftTracker | null>(null);
+
+  if (mutationQueueRef.current === null) {
+    mutationQueueRef.current = createMutationQueue(setPendingMutationCount);
+  }
+  const mutationQueue = mutationQueueRef.current;
+  if (exerciseMutationQueuesRef.current === null) {
+    exerciseMutationQueuesRef.current = createExerciseMutationQueue(
+      <T,>(action: () => Promise<T>) => enqueueMutation(action),
+    );
+  }
+  const exerciseMutationQueue = exerciseMutationQueuesRef.current;
+  if (exerciseDraftTrackerRef.current === null) {
+    exerciseDraftTrackerRef.current = createExerciseDraftTracker();
+  }
+  const exerciseDraftTracker = exerciseDraftTrackerRef.current;
+
+  const plan = editor.plan;
+  planRef.current = plan;
+  const sessions = useMemo(() => getSessions(plan), [plan]);
+  const selectedSession = useMemo(
+    () => sessions.find((session) => session.id === selectedSessionId) ?? sessions[0],
+    [selectedSessionId, sessions],
+  );
+  const selectedLocation = useMemo(
+    () => findSessionLocation(plan, selectedSession?.id),
+    [plan, selectedSession?.id],
+  );
   const totalExercises = useMemo(
-    () => sessions.reduce((total, session) => total + (session.exercises?.length ?? 0), 0),
+    () => sessions.reduce((total, session) => total + session.exercises.length, 0),
     [sessions],
   );
+  const saveState = pendingMutationCount > 0
+    ? "saving"
+    : getCombinedSaveState(planSaveState, sessionSaveState);
+  const isBusy =
+    pendingMutationCount > 0 ||
+    planSaveState === "saving" ||
+    sessionSaveState === "saving";
+
+  async function enqueueMutation<T>(action: () => Promise<T>): Promise<T> {
+    return mutationQueue.enqueue(action);
+  }
+
+  function enqueueStructureMutation<T>(action: () => Promise<T>): Promise<T> {
+    return enqueueMutation(action);
+  }
+
+  function enqueueExerciseUpdate(
+    exerciseId: string,
+    body: Record<string, unknown>,
+    revisionAtStart: number,
+    action: () => Promise<unknown>,
+  ) {
+    return exerciseMutationQueue.enqueue(exerciseId, async () => {
+      try {
+        const result = await action();
+        exerciseDraftTracker.markPersisted(exerciseId, Object.keys(body), revisionAtStart);
+        return result;
+      } catch (error) {
+        exerciseDraftTracker.markMutationError(exerciseId, Object.keys(body), true);
+        throw error;
+      }
+    });
+  }
+
+  const treeEditor: PlanTreeEditor = {
+    copyDay: (dayId, body) => enqueueStructureMutation(() => editor.copyDay(dayId, body)),
+    createDay: (weekId, body) => enqueueStructureMutation(() => editor.createDay(weekId, body)),
+    createSession: (dayId, body) => enqueueStructureMutation(() => editor.createSession(dayId, body)),
+    createWeek: (body) => enqueueStructureMutation(() => editor.createWeek(body)),
+    deleteDay: (dayId) => enqueueStructureMutation(() => editor.deleteDay(dayId)),
+    deleteSession: (sessionId) => enqueueStructureMutation(() => editor.deleteSession(sessionId)),
+    deleteWeek: (weekId) => enqueueStructureMutation(() => editor.deleteWeek(weekId)),
+    duplicateWeek: (weekId) => enqueueStructureMutation(() => editor.duplicateWeek(weekId)),
+    updateDay: (dayId, body) => enqueueStructureMutation(() => editor.updateDay(dayId, body)),
+  };
 
   useEffect(() => {
     if (!plan) {
       return;
     }
-    if (planSaveState !== "dirty" && planSaveState !== "saving") {
-      setPlanDraft({
+
+    if (planSaveState === "idle" || planSaveState === "saved") {
+      const nextDraft = {
         durationWeeks: plan.durationWeeks,
         generalNotes: plan.generalNotes,
         goal: plan.goal,
         level: plan.level,
         name: plan.name,
-      });
+      };
+      planDraftRef.current = nextDraft;
+      setPlanDraft(nextDraft);
     }
+
     if (!selectedSessionId && sessions[0]) {
       setSelectedSessionId(sessions[0].id);
     }
   }, [plan, planSaveState, selectedSessionId, sessions]);
 
   useEffect(() => {
-    if (!selectedSession) {
-      setSessionDraft(null);
+    if (planSaveState !== "dirty" || !planDraft) {
       return;
     }
-    if (sessionSaveState === "dirty" || sessionSaveState === "saving") {
-      return;
-    }
-    setSessionDraft({
-      coachNote: selectedSession.coachNote,
-      description: selectedSession.description,
-      name: selectedSession.name,
-    });
-  }, [selectedSession, sessionSaveState]);
+
+    const timer = window.setTimeout(() => {
+      void savePlanDraft();
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [planDraft, planSaveState]);
 
   useEffect(() => {
-    if (!isDirty) {
+    if (planSaveState !== "dirty" && sessionSaveState !== "dirty") {
       return;
     }
 
@@ -111,183 +205,364 @@ export function AssignedPlanEditorWorkspace() {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
+  }, [planSaveState, sessionSaveState]);
+
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
+        return;
+      }
+
+      event.preventDefault();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      window.setTimeout(() => {
+        void saveAllDrafts();
+      }, 0);
+    };
+
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [planSaveState, sessionSaveState, planDraft]);
 
   async function savePlanDraft() {
-    if (!planDraft) {
-      return;
-    }
+    const operation = planSaveQueueRef.current.then(async () => {
+      const draftToSave = planDraftRef.current;
+      const currentPlan = planRef.current;
+      if (!draftToSave || !currentPlan) {
+        return true;
+      }
+      if (!hasPlanDraftChanged(draftToSave, currentPlan)) {
+        setPlanSaveState("saved");
+        return true;
+      }
 
-    setPlanSaveState("saving");
-    try {
-      await editor.updatePlan(planDraft);
-      await editor.loadAssignment();
-      setPlanSaveState("saved");
-      notify.success("Plan asignado actualizado");
-    } catch (caughtError) {
-      setPlanSaveState("error");
-      notify.error(getErrorMessage(caughtError));
-    }
+      const versionAtStart = planDraftVersionRef.current;
+      setPlanSaveState("saving");
+      try {
+        await editor.updatePlan(draftToSave);
+        setPlanSaveState(
+          planDraftVersionRef.current === versionAtStart ? "saved" : "dirty",
+        );
+        return true;
+      } catch (error) {
+        setPlanSaveState("error");
+        notify.error(getErrorMessage(error));
+        return false;
+      }
+    });
+
+    planSaveQueueRef.current = operation.catch(() => false);
+    return operation;
   }
 
-  async function saveSessionDraft() {
-    if (!selectedSession || !sessionDraft) {
-      return;
+  async function saveAllDrafts() {
+    const didSavePlan = await savePlanDraft();
+    if (!didSavePlan) {
+      return false;
     }
 
+    await mutationQueue.waitForIdle();
+    await exerciseMutationQueue.waitForAll();
+    return !exerciseDraftTracker.hasPendingDrafts() && !exerciseDraftTracker.hasErrors();
+  }
+
+  async function saveSessionInfo(sessionId: string, draft: DraftSession) {
     setSessionSaveState("saving");
     try {
-      await editor.updateSession(selectedSession.id, sessionDraft);
-      await editor.loadAssignment();
+      await enqueueMutation(() => editor.updateSession(sessionId, draft));
       setSessionSaveState("saved");
-      notify.success("Sesion actualizada");
-    } catch (caughtError) {
+      return true;
+    } catch (error) {
       setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+      return false;
     }
   }
 
-  async function mutateStructure(action: () => Promise<unknown>, success: string) {
+  async function mutateStructure<T>(action: () => Promise<T>, success: string) {
     setSessionSaveState("saving");
     try {
-      await action();
-      await editor.loadAssignment();
+      const result = await enqueueStructureMutation(action);
       setSessionSaveState("saved");
       notify.success(success);
-    } catch (caughtError) {
+      return result;
+    } catch (error) {
       setSessionSaveState("error");
-      notify.error(getErrorMessage(caughtError));
+      notify.error(getErrorMessage(error));
+      return null;
     }
   }
 
-  const isSaving = planSaveState === "saving" || sessionSaveState === "saving";
+  async function mutateExercise(
+    exerciseId: string,
+    body: ExerciseUpdate,
+    action: () => Promise<unknown>,
+  ) {
+    const revisionAtStart = exerciseDraftTracker.currentRevision;
+    setSessionSaveState("saving");
+    try {
+      await enqueueExerciseUpdate(exerciseId, body, revisionAtStart, action);
+      setSessionSaveState(exerciseDraftTracker.hasErrors()
+        ? "error"
+        : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+      return true;
+    } catch (error) {
+      setSessionSaveState("error");
+      notify.error(getErrorMessage(error));
+      return false;
+    }
+  }
 
   if (editor.isLoading && !plan) {
     return (
-      <WorkspaceFrame
-        header={<WorkspaceHeader title="Editar plan asignado" />}
-      >
-        <div className="flex min-h-96 items-center justify-center">
-          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="size-4 animate-spin" />
-            Cargando plan asignado
-          </span>
-        </div>
-      </WorkspaceFrame>
+      <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+          Cargando plan asignado
+        </span>
+      </main>
     );
   }
 
   if (editor.error || !editor.assignment?.assignedPlan || !plan || !planDraft) {
     return (
-      <WorkspaceFrame
-        header={<WorkspaceHeader title="Editar plan asignado" />}
-      >
-        <div className="p-6">
-          <div className="mx-auto max-w-3xl rounded-lg border bg-card p-6">
-            <p className="text-sm font-semibold">Sin asignacion activa</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {editor.error || "Este cliente no tiene un plan activo para editar."}
-            </p>
-            <Button asChild className="mt-4" variant="outline">
-              <Link href="/clients">Volver a clientes</Link>
-            </Button>
-          </div>
+      <main className="min-h-screen bg-background p-4 text-foreground">
+        <div className="mx-auto max-w-3xl rounded-2xl border !border-transparent bg-card p-6 shadow-[var(--surface-shadow)]">
+          <p className="text-sm font-semibold">
+            {editor.error ? "No se pudo cargar el plan asignado" : "Sin asignacion activa"}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {editor.error || "Este cliente no tiene un plan activo para editar."}
+          </p>
+          <Button asChild className="mt-4" variant="outline">
+            <Link href={`/clients/${clientId}`}>
+              <ChevronLeftIcon data-icon="inline-start" />
+              Volver al cliente
+            </Link>
+          </Button>
         </div>
-      </WorkspaceFrame>
+      </main>
     );
   }
 
   return (
     <WorkspaceFrame
       header={
-        <EditorHeader
+        <AssignedPlanEditorHeader
           clientId={clientId}
-          isSaving={isSaving}
+          exerciseCount={totalExercises}
+          isBusy={isBusy}
           plan={plan}
           saveState={saveState}
+          sessionCount={sessions.length}
+          sourcePlanName={editor.assignment.sourcePlan?.name ?? null}
           onEditInformation={() => setIsPlanInfoOpen(true)}
-          onSave={() => {
-            void savePlanDraft();
-            void saveSessionDraft();
-          }}
+          onSave={() => void saveAllDrafts()}
         />
       }
     >
-      <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
-        <MetricStrip
-          items={[
-            {
-              helper: plan.goal || "Sin objetivo",
-              icon: <DumbbellIcon className="size-4" />,
-              label: "Objetivo",
-              value: levelLabels[plan.level ?? ""] ?? "Sin nivel",
-            },
-            {
-              helper: `${sessions.length} sesiones configuradas`,
-              icon: <CalendarDaysIcon className="size-4" />,
-              label: "Duracion",
-              value: `${plan.durationWeeks} sem.`,
-            },
-            {
-              helper: "Solo en esta asignacion",
-              icon: <DumbbellIcon className="size-4" />,
-              label: "Ejercicios",
-              tone: "green",
-              value: totalExercises,
-            },
-            {
-              helper: "Copia asignada editable",
-              icon: <SaveIcon className="size-4" />,
-              label: "Estado",
-              tone: saveState === "error" ? "amber" : "green",
-              value: getSaveStateLabel(saveState),
-            },
-          ]}
-        />
+      <div className="flex flex-1 flex-col gap-3 bg-background p-3 sm:p-4 md:p-5">
+        <button
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border !border-transparent bg-card px-4 py-3 text-left shadow-[var(--surface-shadow-soft)] lg:hidden"
+          type="button"
+          onClick={() => setIsStructureOpen(true)}
+        >
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-muted-foreground">Estructura</span>
+            <span className="mt-1 block truncate text-sm font-semibold">
+              {selectedLocation
+                ? `Semana ${selectedLocation.week.weekNumber} / ${dayLabels[selectedLocation.day.dayOfWeek]} - ${selectedSession?.name}`
+                : "Selecciona una sesion"}
+            </span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary">
+            <MenuIcon className="size-4" aria-hidden="true" />
+            Abrir
+          </span>
+        </button>
 
-        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <PlanTree
-            editor={editor}
-            plan={plan}
-            selectedSessionId={selectedSession?.id}
-            onMutate={mutateStructure}
-            onSaveSessionInfo={async (sessionId, draft) => {
-              setSessionSaveState("saving");
-              try {
-                await editor.updateSession(sessionId, draft);
-                await editor.loadAssignment();
-                setSessionSaveState("saved");
-                notify.success("Sesion actualizada");
-                return true;
-              } catch (caughtError) {
-                setSessionSaveState("error");
-                notify.error(getErrorMessage(caughtError));
-                return false;
-              }
-            }}
-            onSelectSession={setSelectedSessionId}
-          />
-          <div className="min-w-0">
-            {selectedSession && sessionDraft ? (
-              <SessionEditor
-                editor={editor}
-                session={selectedSession}
-                onMutate={mutateStructure}
-              />
-            ) : (
-              <WorkspacePanel
-                className="min-h-72"
-                description="Selecciona una sesion o crea una desde el arbol."
-                title="Sesion"
-              >
-                <div className="p-4 text-sm text-muted-foreground">
-                  No hay una sesion activa.
-                </div>
-              </WorkspacePanel>
-            )}
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="hidden lg:block">
+            <PlanTree
+              className="sticky top-4"
+              editor={treeEditor}
+              isBusy={isBusy}
+              isReadOnly={false}
+              plan={plan}
+              scopeDescription="Estos cambios solo aplican a este cliente. La plantilla original no se modifica."
+              selectedSessionId={selectedSession?.id}
+              onMutationStateChange={setSessionSaveState}
+              onSelectSession={setSelectedSessionId}
+            />
           </div>
+
+          {selectedSession && selectedLocation ? (
+            <TrainingSessionEditor
+              day={selectedLocation.day}
+              isBusy={isBusy}
+              isReadOnly={false}
+              session={selectedSession}
+              usedDays={selectedLocation.week.days.map((day) => day.dayOfWeek)}
+              onDraftChange={(sessionExerciseId, field) => {
+                exerciseDraftTracker.markDraft(sessionExerciseId, field);
+                setSessionSaveState("dirty");
+              }}
+              onDraftCommit={(sessionExerciseId, field) => {
+                exerciseDraftTracker.markUnchanged(sessionExerciseId, field);
+                setSessionSaveState(exerciseDraftTracker.hasErrors()
+                  ? "error"
+                  : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+              }}
+              onDraftValidationChange={(sessionExerciseId, field, hasError) => {
+                exerciseDraftTracker.markValidationError(sessionExerciseId, field, hasError);
+                setSessionSaveState(exerciseDraftTracker.hasErrors()
+                  ? "error"
+                  : exerciseDraftTracker.hasPendingDrafts() ? "dirty" : "saved");
+              }}
+              onAddExercise={async (exercise: Exercise) => {
+                const created = await mutateStructure(
+                  () =>
+                    editor.addSessionExercise(
+                      selectedSession.id,
+                      { exerciseId: exercise.id, reps: "10-12", sets: 3 },
+                      exercise,
+                    ),
+                  "Ejercicio agregado",
+                );
+                return created?.id ?? null;
+              }}
+              onAddAlternative={async (sessionExerciseId, exercise) =>
+                Boolean(
+                  await mutateStructure(
+                    () =>
+                      editor.addAlternative(
+                        sessionExerciseId,
+                        { alternativeExerciseId: exercise.id },
+                        exercise,
+                      ),
+                    "Alternativa agregada",
+                  ),
+                )
+              }
+              onDeleteAlternative={(alternativeId) => {
+                void mutateStructure(
+                  () => editor.deleteAlternative(alternativeId),
+                  "Alternativa eliminada",
+                );
+              }}
+              onDeleteExercise={async (sessionExerciseId) =>
+                Boolean(
+                  await mutateStructure(
+                    () => editor.deleteSessionExercise(sessionExerciseId),
+                    "Ejercicio eliminado",
+                  ),
+                )
+              }
+              onDeleteSession={async () => {
+                const didDelete = Boolean(
+                  await mutateStructure(
+                    () => editor.deleteSession(selectedSession.id),
+                    "Sesion eliminada",
+                  ),
+                );
+                if (didDelete) {
+                  setSelectedSessionId("");
+                }
+                return didDelete;
+              }}
+              onDuplicateDay={async (targetDay) => {
+                const copiedDay = await mutateStructure(
+                  () => editor.copyDay(selectedLocation.day.id, { dayOfWeek: targetDay }),
+                  "Dia duplicado",
+                );
+                if (copiedDay?.session) {
+                  setSelectedSessionId(copiedDay.session.id);
+                }
+                return Boolean(copiedDay);
+              }}
+              onDuplicateExercise={(sessionExerciseId) => {
+                void mutateStructure(
+                  () => editor.duplicateSessionExercise(sessionExerciseId),
+                  "Ejercicio duplicado",
+                );
+              }}
+              onMoveDay={async (targetDay) => {
+                const updatedDay = await mutateStructure(
+                  () => editor.updateDay(selectedLocation.day.id, { dayOfWeek: targetDay }),
+                  "Dia actualizado",
+                );
+                if (updatedDay?.session) {
+                  setSelectedSessionId(updatedDay.session.id);
+                }
+                return Boolean(updatedDay);
+              }}
+              onMoveExercise={(sessionExercise, direction) => {
+                const exercises = [...selectedSession.exercises].sort(
+                  (first, second) => first.orderIndex - second.orderIndex,
+                );
+                const index = exercises.findIndex((item) => item.id === sessionExercise.id);
+                const swapIndex = direction === "up" ? index - 1 : index + 1;
+                if (swapIndex < 0 || swapIndex >= exercises.length) {
+                  return;
+                }
+                const reordered = [...exercises];
+                [reordered[index], reordered[swapIndex]] = [
+                  reordered[swapIndex],
+                  reordered[index],
+                ];
+                void mutateStructure(
+                  () =>
+                    editor.reorderSessionExercises(
+                      reordered.map((item, orderIndex) => ({
+                        orderIndex,
+                        sessionExerciseId: item.id,
+                      })),
+                    ),
+                  "Orden actualizado",
+                );
+              }}
+              onSaveSessionInfo={saveSessionInfo}
+              onUpdateExercise={(sessionExerciseId, body) =>
+                mutateExercise(sessionExerciseId, body, () =>
+                  editor.updateSessionExercise(sessionExerciseId, body),
+                )
+              }
+            />
+          ) : (
+            <WorkspacePanel className="min-h-72">
+              <div className="flex min-h-72 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                Crea o selecciona una sesion desde la estructura.
+              </div>
+            </WorkspacePanel>
+          )}
         </div>
       </div>
+
+      <Sheet open={isStructureOpen} onOpenChange={setIsStructureOpen}>
+        <SheetContent side="left" className="flex w-[92vw] flex-col gap-0 border-none bg-background p-0 sm:max-w-md">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Estructura del plan asignado</SheetTitle>
+            <SheetDescription>Semanas, dias y sesiones de esta copia asignada.</SheetDescription>
+          </SheetHeader>
+          <PlanTree
+            className="h-full max-h-none rounded-none shadow-none"
+            editor={treeEditor}
+            isBusy={isBusy}
+            isReadOnly={false}
+            plan={plan}
+            scopeDescription="Estos cambios solo aplican a este cliente. La plantilla original no se modifica."
+            selectedSessionId={selectedSession?.id}
+            onMutationStateChange={setSessionSaveState}
+            onSelectSession={(sessionId) => {
+              setSelectedSessionId(sessionId);
+              setIsStructureOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
       <DetailDrawer
         description="Nombre, objetivo, nivel y notas de la copia asignada."
         open={isPlanInfoOpen}
@@ -298,6 +573,8 @@ export function AssignedPlanEditorWorkspace() {
           draft={planDraft}
           saveState={planSaveState}
           onChange={(draft) => {
+            planDraftVersionRef.current += 1;
+            planDraftRef.current = draft;
             setPlanDraft(draft);
             setPlanSaveState("dirty");
           }}
@@ -308,400 +585,184 @@ export function AssignedPlanEditorWorkspace() {
   );
 }
 
-function EditorHeader({
+function AssignedPlanEditorHeader({
   clientId,
-  isSaving,
+  exerciseCount,
+  isBusy,
   onEditInformation,
   onSave,
   plan,
   saveState,
+  sessionCount,
+  sourcePlanName,
 }: {
   clientId: string;
-  isSaving: boolean;
+  exerciseCount: number;
+  isBusy: boolean;
   onEditInformation: () => void;
   onSave: () => void;
   plan: TrainingPlan;
   saveState: SaveState;
+  sessionCount: number;
+  sourcePlanName: string | null;
 }) {
   return (
-    <WorkspaceHeader
-      description={`${plan.goal || "Sin objetivo"} / ${
-        plan.level ? (levelLabels[plan.level] ?? plan.level) : "Sin nivel"
-      } / ${plan.durationWeeks} semanas`}
-      title={plan.name}
-      actions={
-        <>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/clients/${clientId}`}>
-              <ChevronLeftIcon data-icon="inline-start" />
+    <header className="border-b bg-background/90 px-4 py-4 backdrop-blur md:px-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+          <nav aria-label="Migas de pan" className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <Link className="transition-colors hover:text-foreground" href={`/clients/${clientId}`}>
               Cliente
             </Link>
+            <span aria-hidden="true">/</span>
+            <span className="truncate">Plan asignado</span>
+          </nav>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <h1 className="min-w-0 truncate text-2xl font-bold tracking-normal">{plan.name}</h1>
+            <Badge variant="success">Copia asignada editable</Badge>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>{plan.goal || "Sin objetivo"}</span>
+            <span aria-hidden="true">/</span>
+            <span>{plan.level ? (levelLabels[plan.level] ?? plan.level) : "Sin nivel"}</span>
+            <span aria-hidden="true">/</span>
+            <span>{plan.durationWeeks} semanas</span>
+            <span aria-hidden="true">/</span>
+            <span>{sessionCount} sesiones</span>
+            <span aria-hidden="true">/</span>
+            <span>{exerciseCount} ejercicios</span>
+            {sourcePlanName ? (
+              <>
+                <span aria-hidden="true">/</span>
+                <span className="truncate">Origen: {sourcePlanName}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <SaveStatusChip state={saveState} />
+          <Button asChild variant="outline">
+            <Link href={`/clients/${clientId}`}>
+              <ChevronLeftIcon data-icon="inline-start" />
+              Volver al cliente
+            </Link>
           </Button>
-          <Button disabled={isSaving} size="sm" type="button" variant="outline" onClick={onSave}>
-            {isSaving ? (
+          <Button disabled={isBusy} type="button" variant="outline" onClick={onEditInformation}>
+            <EditIcon data-icon="inline-start" />
+            Editar informacion
+          </Button>
+          <Button disabled={isBusy} type="button" onClick={onSave}>
+            {saveState === "saving" ? (
               <Loader2Icon className="animate-spin" data-icon="inline-start" />
             ) : (
               <SaveIcon data-icon="inline-start" />
             )}
-            {saveState === "dirty" ? "Guardar cambios" : "Guardar"}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label="Mas acciones del plan asignado" size="icon" type="button" variant="outline">
-                <MoreVerticalIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={onEditInformation}>
-                  <EditIcon data-icon="inline-start" />
-                  Editar informacion
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      }
-    />
-  );
-}
-
-function PlanDetails({
-  draft,
-  saveState,
-  onChange,
-  onSave,
-}: {
-  draft: DraftPlan;
-  saveState: SaveState;
-  onChange: (draft: DraftPlan) => void;
-  onSave: () => void;
-}) {
-  return (
-    <WorkspacePanel
-      className="h-fit overflow-hidden"
-      description="Guarda cuando termines de ajustar la copia."
-      title="Datos del plan"
-    >
-      <div className="flex flex-col gap-3 p-4">
-        <SaveStatus state={saveState} />
-        <Field label="Nombre">
-          <Input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />
-        </Field>
-        <Field label="Objetivo">
-          <Input value={draft.goal ?? ""} onChange={(event) => onChange({ ...draft, goal: event.target.value })} />
-        </Field>
-        <Field label="Nivel">
-          <select
-            className="h-10 rounded-md border bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            value={draft.level ?? ""}
-            onChange={(event) => onChange({ ...draft, level: event.target.value || null })}
-          >
-            <option value="">Sin nivel</option>
-            <option value="beginner">{levelLabels.beginner}</option>
-            <option value="intermediate">{levelLabels.intermediate}</option>
-            <option value="advanced">{levelLabels.advanced}</option>
-          </select>
-        </Field>
-        <Field label="Semanas">
-          <Input
-            min={1}
-            type="number"
-            value={draft.durationWeeks}
-            onChange={(event) => onChange({ ...draft, durationWeeks: Number(event.target.value) })}
-          />
-        </Field>
-        <Field label="Notas generales">
-          <textarea
-            className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            value={draft.generalNotes ?? ""}
-            onChange={(event) => onChange({ ...draft, generalNotes: event.target.value })}
-          />
-        </Field>
-        <Button type="button" onClick={onSave}>
-          <SaveIcon data-icon="inline-start" />
-          Guardar plan
-        </Button>
-      </div>
-    </WorkspacePanel>
-  );
-}
-
-function SessionEditor({
-  editor,
-  onMutate,
-  session,
-}: {
-  editor: CurrentAssignmentEditor;
-  onMutate: (action: () => Promise<unknown>, success: string) => Promise<void>;
-  session: TrainingSession;
-}) {
-  const [isAdding, setIsAdding] = useState(false);
-  const exercises = [...(session.exercises ?? [])].sort((first, second) => first.orderIndex - second.orderIndex);
-
-  return (
-    <WorkspacePanel className="overflow-hidden">
-      <div className="gap-3 border-b p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">{session.name}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {session.description || "Ejercicios, orden, cargas y notas del coach."}
-            </p>
-          </div>
-          <Button size="sm" type="button" onClick={() => setIsAdding((value) => !value)}>
-            <PlusIcon data-icon="inline-start" />
-            Agregar ejercicio
+            Guardar ahora
           </Button>
         </div>
-        {session.coachNote ? (
-          <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            {session.coachNote}
-          </p>
-        ) : null}
       </div>
-      <div className="flex flex-col gap-4 p-4">
-        {isAdding ? (
-          <div className="border-b bg-background">
-            <ExerciseSearch
-              selectionMode="explicit"
-              onSelect={(exercise) => {
-                void onMutate(
-                  () => editor.addSessionExercise(session.id, { exerciseId: exercise.id, reps: "10-12", sets: 3 }),
-                  "Ejercicio agregado",
-                );
-                setIsAdding(false);
-              }}
-            />
-          </div>
-        ) : null}
-        <section>
-          <div className="overflow-hidden rounded-md border">
-            {exercises.map((exercise, index) => (
-              <SessionExerciseRow
-                key={exercise.id}
-                editor={editor}
-                exercise={exercise}
-                isFirst={index === 0}
-                isLast={index === exercises.length - 1}
-                onMutate={onMutate}
-                onMove={(direction) => {
-                  const swapIndex = direction === "up" ? index - 1 : index + 1;
-                  if (swapIndex < 0 || swapIndex >= exercises.length) {
-                    return;
-                  }
-                  const reordered = [...exercises];
-                  [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
-                  void onMutate(
-                    () =>
-                      editor.reorderSessionExercises(
-                        reordered.map((item, orderIndex) => ({ sessionExerciseId: item.id, orderIndex })),
-                      ),
-                    "Orden actualizado",
-                  );
-                }}
-              />
-            ))}
-            {exercises.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                Esta sesion todavia no tiene ejercicios.
-              </div>
-            ) : null}
-          </div>
-        </section>
-      </div>
-    </WorkspacePanel>
+    </header>
   );
 }
 
-function SessionExerciseRow({
-  editor,
-  exercise,
-  isFirst,
-  isLast,
-  onMove,
-  onMutate,
-}: {
-  editor: CurrentAssignmentEditor;
-  exercise: SessionExercise;
-  isFirst: boolean;
-  isLast: boolean;
-  onMove: (direction: "up" | "down") => void;
-  onMutate: (action: () => Promise<unknown>, success: string) => Promise<void>;
-}) {
-  const [draft, setDraft] = useState({
-    reps: exercise.reps,
-    restSeconds: exercise.restSeconds ?? "",
-    sets: exercise.sets ?? "",
-  });
-  const [isAddingAlternative, setIsAddingAlternative] = useState(false);
-  const [isReplacing, setIsReplacing] = useState(false);
-
-  useEffect(() => {
-    setDraft({
-      reps: exercise.reps,
-      restSeconds: exercise.restSeconds ?? "",
-      sets: exercise.sets ?? "",
-    });
-  }, [exercise]);
+function SaveStatusChip({ state }: { state: SaveState }) {
+  const isError = state === "error";
+  const isPending = state === "dirty";
+  const isSaving = state === "saving";
+  const Icon = isError ? AlertCircleIcon : isSaving ? Loader2Icon : isPending ? SaveIcon : CheckCircle2Icon;
 
   return (
-    <div className="border-b bg-card last:border-b-0">
-      <div className="grid gap-2 p-3 transition-colors hover:bg-background lg:grid-cols-[minmax(0,1fr)_76px_112px_88px_160px] lg:items-center">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-medium text-muted-foreground">
-            {exercise.orderIndex + 1}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{exercise.exercise?.name ?? exercise.exerciseId ?? "Ejercicio"}</p>
-            <p className="text-xs text-muted-foreground">Ejercicio asignado</p>
-          </div>
-        </div>
-        <CompactField label="Series">
-          <Input
-            min={1}
-            type="number"
-            value={draft.sets}
-            onChange={(event) => setDraft({ ...draft, sets: event.target.value })}
-            onBlur={() => void onMutate(() => editor.updateSessionExercise(exercise.id, { sets: draft.sets === "" ? null : Number(draft.sets) }), "Sets actualizados")}
-          />
-        </CompactField>
-        <CompactField label="Repeticiones">
-          <Input
-            value={draft.reps}
-            onChange={(event) => setDraft({ ...draft, reps: event.target.value })}
-            onBlur={() => void onMutate(() => editor.updateSessionExercise(exercise.id, { reps: draft.reps }), "Reps actualizadas")}
-          />
-        </CompactField>
-        <CompactField label="Descanso">
-          <Input
-            min={1}
-            type="number"
-            value={draft.restSeconds}
-            onChange={(event) => setDraft({ ...draft, restSeconds: event.target.value })}
-            onBlur={() => void onMutate(() => editor.updateSessionExercise(exercise.id, { restSeconds: draft.restSeconds === "" ? null : Number(draft.restSeconds) }), "Descanso actualizado")}
-          />
-        </CompactField>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label="Acciones de ejercicio"
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <MoreVerticalIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              <DropdownMenuItem disabled={isFirst} onSelect={() => onMove("up")}>
-                <ArrowUpIcon data-icon="inline-start" />
-                Subir
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={isLast} onSelect={() => onMove("down")}>
-                <ArrowDownIcon data-icon="inline-start" />
-                Bajar
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsReplacing((value) => !value)}>
-                <CopyIcon data-icon="inline-start" />
-                Reemplazar
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void onMutate(() => editor.duplicateSessionExercise(exercise.id), "Ejercicio duplicado")}>
-                <PlusIcon data-icon="inline-start" />
-                Duplicar
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsAddingAlternative((value) => !value)}>
-                <PlusIcon data-icon="inline-start" />
-                Alternativa
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  if (window.confirm("Quitar este ejercicio?")) {
-                    void onMutate(() => editor.deleteSessionExercise(exercise.id), "Ejercicio eliminado");
-                  }
-                }}
-              >
-                <Trash2Icon data-icon="inline-start" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      {isReplacing ? (
-        <div className="mt-3">
-          <ExerciseSearch
-            selectionMode="explicit"
-            onSelect={(replacement) => {
-              void onMutate(
-                () => editor.updateSessionExercise(exercise.id, { exerciseId: replacement.id }),
-                "Ejercicio reemplazado",
-              );
-              setIsReplacing(false);
-            }}
-          />
-        </div>
-      ) : null}
-      {(exercise.alternatives ?? []).length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(exercise.alternatives ?? []).map((alternative) => (
-            <span key={alternative.id} className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs">
-              Alt: {alternative.alternativeExercise?.name ?? alternative.alternativeExerciseId ?? "Alternativa"}
-              <button
-                className="text-muted-foreground hover:text-destructive"
-                type="button"
-                onClick={() => void onMutate(() => editor.deleteAlternative(alternative.id), "Alternativa eliminada")}
-              >
-                Quitar
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {isAddingAlternative ? (
-        <div className="border-t bg-background">
-          <ExerciseSearch
-            selectionMode="explicit"
-            onSelect={(alternative: Exercise) => {
-              void onMutate(
-                () => editor.addAlternative(exercise.id, { alternativeExerciseId: alternative.id }),
-                "Alternativa agregada",
-              );
-              setIsAddingAlternative(false);
-            }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SaveStatus({ state }: { state: SaveState }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-      {state === "saving" ? (
-        <Loader2Icon className="size-3.5 animate-spin" />
-      ) : (
-        <SaveIcon className="size-3.5" />
+    <span
+      aria-atomic="true"
+      aria-live="polite"
+      className={cn(
+        "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold",
+        isError && "border-destructive/25 bg-destructive/5 text-destructive",
+        isPending && "border-amber-500/25 bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300",
+        isSaving && "border-sky-500/25 bg-sky-50 text-sky-700 dark:bg-sky-950/45 dark:text-sky-300",
+        !isError && !isPending && !isSaving && "border-emerald-500/20 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300",
       )}
+    >
+      <Icon className={cn("size-4", isSaving && "animate-spin")} aria-hidden="true" />
       {getSaveStateLabel(state)}
     </span>
   );
 }
 
-function CompactField({ children, label }: { children: React.ReactNode; label: string }) {
+function PlanDetails({
+  draft,
+  onChange,
+  onSave,
+  saveState,
+}: {
+  draft: DraftPlan;
+  onChange: (draft: DraftPlan) => void;
+  onSave: () => void;
+  saveState: SaveState;
+}) {
   return (
-    <label className="grid min-w-0 gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      {children}
-    </label>
+    <aside className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b bg-card px-5 py-5 pr-16">
+        <h2 className="text-lg font-semibold">Informacion general</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Ajusta solo la copia asignada a este cliente.
+        </p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-background px-5 py-5">
+        <div className="grid gap-4">
+          <Field label="Nombre">
+            <Input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />
+          </Field>
+          <Field label="Objetivo">
+            <Input value={draft.goal ?? ""} onChange={(event) => onChange({ ...draft, goal: event.target.value || null })} />
+          </Field>
+          <Field label="Nivel">
+            <select
+              className="h-10 rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={draft.level ?? ""}
+              onChange={(event) => onChange({ ...draft, level: event.target.value || null })}
+            >
+              <option value="">Sin nivel</option>
+              <option value="beginner">{levelLabels.beginner}</option>
+              <option value="intermediate">{levelLabels.intermediate}</option>
+              <option value="advanced">{levelLabels.advanced}</option>
+            </select>
+          </Field>
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/35 p-3">
+            <div>
+              <p className="text-sm font-medium">Duracion calculada</p>
+              <p className="text-xs text-muted-foreground">Se actualiza desde Estructura.</p>
+            </div>
+            <p className="text-right text-sm font-semibold">{draft.durationWeeks} semanas</p>
+          </div>
+          <Field label="Notas generales">
+            <textarea
+              className="min-h-28 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              value={draft.generalNotes ?? ""}
+              onChange={(event) => onChange({ ...draft, generalNotes: event.target.value || null })}
+            />
+          </Field>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-card px-5 py-4">
+        <p className="text-sm text-muted-foreground">Autosave cada 2 segundos / Ctrl/Cmd + S</p>
+        <Button disabled={saveState === "saving"} type="button" variant="outline" onClick={onSave}>
+          {saveState === "saving" ? (
+            <Loader2Icon className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <SaveIcon data-icon="inline-start" />
+          )}
+          Guardar ahora
+        </Button>
+      </div>
+    </aside>
   );
 }
 
 function Field({ children, label }: { children: React.ReactNode; label: string }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
+    <label className="grid gap-2 text-sm font-medium">
       {label}
       {children}
     </label>
@@ -709,32 +770,48 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
 }
 
 function getSessions(plan: TrainingPlan | null) {
-  if (!plan?.weeks) {
-    return [];
+  return (
+    plan?.weeks?.flatMap((week) =>
+      week.days.flatMap((day) => (day.session ? [day.session] : [])),
+    ) ?? []
+  );
+}
+
+function findSessionLocation(
+  plan: TrainingPlan | null,
+  sessionId?: string,
+): { day: TrainingPlanDay; week: TrainingPlanWeek } | null {
+  if (!plan || !sessionId) {
+    return null;
   }
 
-  return plan.weeks.flatMap((week) => (week.days ?? []).flatMap((day) => (day.session ? [day.session] : [])));
+  for (const week of plan.weeks ?? []) {
+    const day = week.days.find((item) => item.session?.id === sessionId);
+    if (day) {
+      return { day, week };
+    }
+  }
+  return null;
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "No se pudo guardar el cambio";
+function hasPlanDraftChanged(draft: DraftPlan, plan: TrainingPlan) {
+  return (
+    draft.name !== plan.name ||
+    draft.goal !== plan.goal ||
+    draft.level !== plan.level ||
+    draft.durationWeeks !== plan.durationWeeks ||
+    draft.generalNotes !== plan.generalNotes
+  );
 }
 
-function getCombinedSaveState(
-  planState: SaveState,
-  sessionState: SaveState,
-): SaveState {
-  if (planState === "saving" || sessionState === "saving") return "saving";
+function getCombinedSaveState(planState: SaveState, sessionState: SaveState): SaveState {
   if (planState === "error" || sessionState === "error") return "error";
+  if (planState === "saving" || sessionState === "saving") return "saving";
   if (planState === "dirty" || sessionState === "dirty") return "dirty";
   if (planState === "saved" || sessionState === "saved") return "saved";
   return "idle";
 }
 
-function getSaveStateLabel(state: SaveState) {
-  if (state === "dirty") return "Cambios sin guardar";
-  if (state === "saving") return "Guardando";
-  if (state === "saved") return "Guardado";
-  if (state === "error") return "Error al guardar";
-  return "Sin cambios";
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "No se pudo guardar el cambio";
 }

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
@@ -108,6 +109,7 @@ export function ClientProgressPanel({
   const isActiveTabLoaded = loadedTabs.has(activeTab);
   const isActiveTabLoading = loadingTabs[activeTab];
   const activeError = errors[activeTab];
+  const activePanelId = `client-progress-${activeTab}-panel`;
 
   const loadTab = useCallback(
     async (tab: ProgressTab, force = false) => {
@@ -188,6 +190,44 @@ export function ClientProgressPanel({
     setOpenForms((current) => ({ ...current, [tab]: false }));
   }
 
+  function selectTab(tab: ProgressTab) {
+    setActiveTab(tab);
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = tabs.findIndex((tab) => tab.key === activeTab);
+    const lastIndex = tabs.length - 1;
+    let nextIndex: number | null = null;
+
+    if (event.key === "ArrowRight") {
+      nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1;
+    }
+
+    if (event.key === "ArrowLeft") {
+      nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1;
+    }
+
+    if (event.key === "Home") {
+      nextIndex = 0;
+    }
+
+    if (event.key === "End") {
+      nextIndex = lastIndex;
+    }
+
+    if (nextIndex === null) {
+      return;
+    }
+
+    const nextTab = tabs[nextIndex].key;
+
+    event.preventDefault();
+    selectTab(nextTab);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`client-progress-${nextTab}-tab`)?.focus();
+    });
+  }
+
   async function deleteSelected() {
     if (!deleteTarget) return;
     setSaving(true);
@@ -233,14 +273,18 @@ export function ClientProgressPanel({
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              aria-controls={`client-progress-${tab.key}-panel`}
               aria-selected={activeTab === tab.key}
               className={cn(
                 "rounded-xl px-3 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 activeTab === tab.key && "bg-background shadow-sm",
               )}
+              id={`client-progress-${tab.key}-tab`}
               role="tab"
+              tabIndex={activeTab === tab.key ? 0 : -1}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => selectTab(tab.key)}
+              onKeyDown={handleTabKeyDown}
             >
               {tab.label}
             </button>
@@ -256,9 +300,19 @@ export function ClientProgressPanel({
       ) : null}
 
       {activeError ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {activeError}
-        </p>
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p>{activeError}</p>
+          <Button
+            className="mt-3 shadow-none"
+            disabled={isActiveTabLoading}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => void loadTab(activeTab, true)}
+          >
+            Reintentar
+          </Button>
+        </div>
       ) : null}
       {isActiveTabLoading && !isActiveTabLoaded ? (
         <div className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
@@ -269,7 +323,13 @@ export function ClientProgressPanel({
       {isActiveTabLoading && isActiveTabLoaded ? (
         <p className="text-xs text-muted-foreground">Actualizando progreso...</p>
       ) : null}
-      {isActiveTabLoaded || !isActiveTabLoading ? renderActiveSection() : null}
+      <div
+        aria-labelledby={`client-progress-${activeTab}-tab`}
+        id={activePanelId}
+        role="tabpanel"
+      >
+        {renderActiveSection()}
+      </div>
 
       <ConfirmDialog
         confirmLabel="Borrar"
@@ -293,6 +353,7 @@ export function ClientProgressPanel({
           isFormOpen={isFormOpen}
           onCloseForm={() => closeForm("weight")}
           onDelete={(id) => setDeleteTarget({ kind: "weight", id })}
+          shouldRenderHistory={isActiveTabLoaded}
           onOpenForm={() => openForm("weight")}
           onSave={async (input, id) => {
             setSaving(true);
@@ -325,6 +386,7 @@ export function ClientProgressPanel({
           isFormOpen={isFormOpen}
           onCloseForm={() => closeForm("measurements")}
           onDelete={(id) => setDeleteTarget({ kind: "measurement", id })}
+          shouldRenderHistory={isActiveTabLoaded}
           onOpenForm={() => openForm("measurements")}
           onSave={async (input, id) => {
             setSaving(true);
@@ -357,6 +419,7 @@ export function ClientProgressPanel({
           isFormOpen={isFormOpen}
           onCloseForm={() => closeForm("photos")}
           onDelete={(id) => setDeleteTarget({ kind: "photo", id })}
+          shouldRenderHistory={isActiveTabLoaded}
           onOpenForm={() => openForm("photos")}
           onUpload={async (formData) => {
             setSaving(true);
@@ -387,6 +450,7 @@ export function ClientProgressPanel({
         isFormOpen={isFormOpen}
         onCloseForm={() => closeForm("notes")}
         onDelete={(id) => setDeleteTarget({ kind: "note", id })}
+        shouldRenderHistory={isActiveTabLoaded}
         onOpenForm={() => openForm("notes")}
         onSave={async (input, id) => {
           setSaving(true);
@@ -421,6 +485,7 @@ function WeightSection({
   onOpenForm,
   onSave,
   saving,
+  shouldRenderHistory,
   variant,
 }: {
   isFormOpen: boolean;
@@ -430,6 +495,7 @@ function WeightSection({
   onOpenForm: () => void;
   onSave: (input: WeightLogInput, id?: string) => Promise<boolean>;
   saving: boolean;
+  shouldRenderHistory: boolean;
   variant: ProgressVariant;
 }) {
   const [editing, setEditing] = useState<WeightLog | null>(null);
@@ -471,7 +537,7 @@ function WeightSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{form}{list}</div>;
+  return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
 function WeightForm({
@@ -530,6 +596,7 @@ function MeasurementsSection({
   onOpenForm,
   onSave,
   saving,
+  shouldRenderHistory,
   variant,
 }: {
   isFormOpen: boolean;
@@ -539,6 +606,7 @@ function MeasurementsSection({
   onOpenForm: () => void;
   onSave: (input: BodyMeasurementInput, id?: string) => Promise<boolean>;
   saving: boolean;
+  shouldRenderHistory: boolean;
   variant: ProgressVariant;
 }) {
   const [editing, setEditing] = useState<BodyMeasurementLog | null>(null);
@@ -582,7 +650,7 @@ function MeasurementsSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{form}{list}</div>;
+  return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
 function MeasurementsForm({
@@ -661,6 +729,7 @@ function PhotosSection({
   onOpenForm,
   onUpload,
   saving,
+  shouldRenderHistory,
   variant,
 }: {
   isFormOpen: boolean;
@@ -670,6 +739,7 @@ function PhotosSection({
   onOpenForm: () => void;
   onUpload: (formData: FormData) => Promise<boolean>;
   saving: boolean;
+  shouldRenderHistory: boolean;
   variant: ProgressVariant;
 }) {
   const form = isFormOpen ? (
@@ -714,7 +784,8 @@ function PhotosSection({
 
   return (
     <div className="space-y-4">
-      {form}{list}
+      {form}
+      {shouldRenderHistory ? list : null}
       {variant === "page" && !isFormOpen ? (
         <Button className="shadow-none" type="button" onClick={onOpenForm}>
           <CameraIcon className="size-4" />
@@ -796,6 +867,7 @@ function NotesSection({
   onOpenForm,
   onSave,
   saving,
+  shouldRenderHistory,
   variant,
 }: {
   isFormOpen: boolean;
@@ -805,6 +877,7 @@ function NotesSection({
   onOpenForm: () => void;
   onSave: (input: FollowUpNoteInput, id?: string) => Promise<boolean>;
   saving: boolean;
+  shouldRenderHistory: boolean;
   variant: ProgressVariant;
 }) {
   const [editing, setEditing] = useState<FollowUpNote | null>(null);
@@ -847,7 +920,7 @@ function NotesSection({
     </RecordList>
   );
 
-  return <div className="space-y-4">{form}{list}</div>;
+  return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
 function NoteForm({

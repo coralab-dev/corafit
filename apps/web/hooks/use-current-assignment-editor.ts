@@ -17,6 +17,7 @@ import {
   appendAssignedDay,
   appendAssignedSessionExercise,
   appendAssignedWeek,
+  AssignmentDayMovePartialFailureError,
   findAssignedDay,
   findAssignedSessionExercise,
   findAssignedWeek,
@@ -272,10 +273,15 @@ export function useCurrentAssignmentEditor(clientId: string) {
         `${basePath}/days/${dayId}/copy`,
         { method: "POST", body: JSON.stringify(body) },
       );
-      await request<{ deleted: boolean }>(
-        `${basePath}/days/${dayId}`,
-        { method: "DELETE" },
-      );
+      try {
+        await request<{ deleted: boolean }>(
+          `${basePath}/days/${dayId}`,
+          { method: "DELETE" },
+        );
+      } catch {
+        await loadAssignment();
+        throw new AssignmentDayMovePartialFailureError();
+      }
       const refreshedAssignment = await loadAssignment();
       return requireHydratedMutationResult(
         findAssignedDay(refreshedAssignment?.assignedPlan ?? null, copiedDay.id),
@@ -287,12 +293,10 @@ export function useCurrentAssignmentEditor(clientId: string) {
         basePath,
         { method: "PATCH", body: JSON.stringify(body) },
       );
-      let mergedAssignment: CurrentPlanAssignment | null = null;
-      setAssignment((current) => {
-        mergedAssignment = mergeCurrentAssignmentUpdate(current, updatedAssignment);
-        return mergedAssignment;
-      });
-      return mergedAssignment ?? updatedAssignment;
+      setAssignment((current) =>
+        mergeCurrentAssignmentUpdate(current, updatedAssignment),
+      );
+      return updatedAssignment;
     },
     updateSession: async (sessionId: string, body: Partial<Pick<TrainingSession, "name" | "description" | "coachNote">>) => {
       const updatedSession = await request<TrainingSession>(

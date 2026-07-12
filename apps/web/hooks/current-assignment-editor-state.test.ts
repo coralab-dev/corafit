@@ -1,6 +1,7 @@
 import { assert, test } from "vitest";
 import {
   appendAssignedSessionExercise,
+  AssignmentDayMovePartialFailureError,
   findAssignedSessionExercise,
   findAssignedWeek,
   mergeCurrentAssignmentUpdate,
@@ -315,5 +316,14 @@ test("reports a saved mutation with a failed refresh as reload-required", () => 
   assert.throws(
     () => requireHydratedMutationResult(null, "semana duplicada"),
     /La semana duplicada se guardo, pero no se pudo actualizar la vista/,
+  );
+});
+
+test("reports copied day with failed delete as a partial move failure", () => {
+  assert.throws(
+    () => {
+      throw new AssignmentDayMovePartialFailureError();
+    },
+    /El dia fue copiado, pero no se pudo eliminar el original/,
   );
 });

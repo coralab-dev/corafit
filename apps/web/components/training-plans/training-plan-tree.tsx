@@ -10,7 +10,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { Button } from "@/components/ui/button";
@@ -82,26 +82,9 @@ export function PlanTree({
   selectedSessionId?: string;
 }) {
   const weeks = useMemo(() => plan.weeks ?? [], [plan.weeks]);
-  const selectedWeekId = useMemo(
-    () =>
-      weeks.find((week) =>
-        week.days.some((day) => day.session?.id === selectedSessionId),
-      )?.id,
-    [selectedSessionId, weeks],
-  );
   const [expandedWeekIds, setExpandedWeekIds] = useState<Set<string>>(
-    () => new Set(weeks[0] ? [weeks[0].id] : []),
+    () => new Set(),
   );
-  const previousSelectedWeekIdRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (!selectedWeekId || selectedWeekId === previousSelectedWeekIdRef.current) {
-      return;
-    }
-
-    previousSelectedWeekIdRef.current = selectedWeekId;
-    setExpandedWeekIds((current) => new Set(current).add(selectedWeekId));
-  }, [selectedWeekId]);
 
   function setWeekOpen(weekId: string, open: boolean) {
     setExpandedWeekIds((current) => {

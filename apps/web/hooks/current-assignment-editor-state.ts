@@ -55,6 +55,15 @@ export class AssignmentRefreshRequiredError extends Error {
   }
 }
 
+export class AssignmentDayMovePartialFailureError extends Error {
+  constructor() {
+    super(
+      "El dia fue copiado, pero no se pudo eliminar el original. Se actualizo la vista; recarga antes de repetir la accion.",
+    );
+    this.name = "AssignmentDayMovePartialFailureError";
+  }
+}
+
 export function normalizeAssignedPlan(plan: AssignedTrainingPlan): TrainingPlan {
   return {
     ...plan,

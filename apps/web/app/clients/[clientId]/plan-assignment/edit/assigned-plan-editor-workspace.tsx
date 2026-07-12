@@ -111,10 +111,6 @@ export function AssignedPlanEditorWorkspace() {
     () => findSessionLocation(plan, selectedSession?.id),
     [plan, selectedSession?.id],
   );
-  const totalExercises = useMemo(
-    () => sessions.reduce((total, session) => total + session.exercises.length, 0),
-    [sessions],
-  );
   const saveState = pendingMutationCount > 0
     ? "saving"
     : getCombinedSaveState(planSaveState, sessionSaveState);
@@ -352,11 +348,9 @@ export function AssignedPlanEditorWorkspace() {
       header={
         <AssignedPlanEditorHeader
           clientId={clientId}
-          exerciseCount={totalExercises}
           isBusy={isBusy}
           plan={plan}
           saveState={saveState}
-          sessionCount={sessions.length}
           sourcePlanName={editor.assignment.sourcePlan?.name ?? null}
           onEditInformation={() => setIsPlanInfoOpen(true)}
           onSave={() => void saveAllDrafts()}
@@ -596,57 +590,34 @@ export function AssignedPlanEditorWorkspace() {
 
 function AssignedPlanEditorHeader({
   clientId,
-  exerciseCount,
   isBusy,
   onEditInformation,
   onSave,
   plan,
   saveState,
-  sessionCount,
   sourcePlanName,
 }: {
   clientId: string;
-  exerciseCount: number;
   isBusy: boolean;
   onEditInformation: () => void;
   onSave: () => void;
   plan: TrainingPlan;
   saveState: SaveState;
-  sessionCount: number;
   sourcePlanName: string | null;
 }) {
   return (
     <header className="border-b bg-background/90 px-4 py-4 backdrop-blur md:px-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <nav aria-label="Migas de pan" className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-            <Link className="transition-colors hover:text-foreground" href={`/clients/${clientId}`}>
-              Cliente
-            </Link>
-            <span aria-hidden="true">/</span>
-            <span className="truncate">Plan asignado</span>
-          </nav>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="min-w-0 truncate text-2xl font-bold tracking-normal">{plan.name}</h1>
             <Badge variant="success">Copia asignada editable</Badge>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            <span>{plan.goal || "Sin objetivo"}</span>
-            <span aria-hidden="true">/</span>
-            <span>{plan.level ? (levelLabels[plan.level] ?? plan.level) : "Sin nivel"}</span>
-            <span aria-hidden="true">/</span>
-            <span>{plan.durationWeeks} semanas</span>
-            <span aria-hidden="true">/</span>
-            <span>{sessionCount} sesiones</span>
-            <span aria-hidden="true">/</span>
-            <span>{exerciseCount} ejercicios</span>
-            {sourcePlanName ? (
-              <>
-                <span aria-hidden="true">/</span>
-                <span className="truncate">Origen: {sourcePlanName}</span>
-              </>
-            ) : null}
-          </div>
+          {sourcePlanName ? (
+            <p className="mt-2 truncate text-sm text-muted-foreground">
+              {sourcePlanName}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">

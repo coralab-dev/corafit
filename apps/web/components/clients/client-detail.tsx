@@ -380,6 +380,8 @@ function AccessPanel({
     );
   }
 
+  const accessSummary = resolveClientPageAccessSummary(client.access.status);
+
   return (
     <WorkspacePanel className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -400,7 +402,7 @@ function AccessPanel({
       <Button asChild className="mt-4 w-full shadow-none">
         <Link href={`/clients/${client.id}/access`}>
           <KeyRoundIcon className="size-4" />
-          {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
+          {accessSummary.ctaLabel}
         </Link>
       </Button>
     </WorkspacePanel>
@@ -1142,7 +1144,25 @@ export function CurrentPlanPanel({
           </section>
 
           <section className="min-w-0 rounded-xl bg-muted/25 p-4">
-            <h3 className="text-sm font-semibold">Estructura semanal</h3>
+            <div className="grid gap-2">
+              <Button asChild className="shadow-none">
+                <Link href={`/clients/${clientId}/plan-assignment/edit`}>
+                  <DumbbellIcon className="size-4" />
+                  Editar plan
+                </Link>
+              </Button>
+              <Button
+                className="justify-start border-destructive/30 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                size="sm"
+                variant="outline"
+                onClick={onEndPlan}
+              >
+                <ArchiveIcon className="size-4" />
+                Finalizar plan
+              </Button>
+            </div>
+
+            <h3 className="mt-5 text-sm font-semibold">Estructura semanal</h3>
             {structure.weeklyBreakdown.length > 0 ? (
               <div className="mt-3 grid gap-2">
                 {structure.weeklyBreakdown.map((week) => (
@@ -1160,23 +1180,6 @@ export function CurrentPlanPanel({
               </p>
             )}
 
-            <div className="mt-5 grid gap-2">
-              <Button asChild className="shadow-none">
-                <Link href={`/clients/${clientId}/plan-assignment/edit`}>
-                  <DumbbellIcon className="size-4" />
-                  Editar plan
-                </Link>
-              </Button>
-              <Button
-                className="justify-start border-destructive/30 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
-                size="sm"
-                variant="outline"
-                onClick={onEndPlan}
-              >
-                <ArchiveIcon className="size-4" />
-                Finalizar plan
-              </Button>
-            </div>
           </section>
         </div>
       </WorkspacePanel>

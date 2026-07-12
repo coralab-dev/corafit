@@ -102,10 +102,10 @@ export function ClientProgressPanel({
     weight: 0,
   });
   const [openForms, setOpenForms] = useState<Record<ProgressTab, boolean>>({
-    measurements: !isDrawer,
-    notes: !isDrawer,
-    photos: !isDrawer,
-    weight: !isDrawer,
+    measurements: false,
+    notes: false,
+    photos: false,
+    weight: false,
   });
 
   const activeTabConfig = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
@@ -114,6 +114,8 @@ export function ClientProgressPanel({
   const isActiveTabLoading = loadingTabs[activeTab];
   const activeError = errors[activeTab];
   const activePanelId = `client-progress-${activeTab}-panel`;
+  const shouldRenderActivePanel =
+    isActiveTabLoaded || isFormOpen || Boolean(activeError && activeError.kind !== "load");
 
   const loadTab = useCallback(
     async (tab: ProgressTab, force = false) => {
@@ -332,16 +334,15 @@ export function ClientProgressPanel({
           Cargando progreso
         </div>
       ) : null}
-      {isActiveTabLoading && isActiveTabLoaded ? (
-        <p className="text-xs text-muted-foreground">Actualizando progreso...</p>
+      {shouldRenderActivePanel ? (
+        <div
+          aria-labelledby={`client-progress-${activeTab}-tab`}
+          id={activePanelId}
+          role="tabpanel"
+        >
+          {renderActiveSection()}
+        </div>
       ) : null}
-      <div
-        aria-labelledby={`client-progress-${activeTab}-tab`}
-        id={activePanelId}
-        role="tabpanel"
-      >
-        {renderActiveSection()}
-      </div>
 
       <ConfirmDialog
         confirmLabel="Borrar"
@@ -528,16 +529,15 @@ function WeightSection({
       key={editing?.id ?? "new"}
       item={editing}
       saving={saving}
-      variant={variant}
       onCancel={() => {
         setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        onCloseForm();
       }}
       onSave={async (input) => {
         const didSave = await onSave(input, editing?.id);
         if (didSave) {
           setEditing(null);
-          if (variant === "drawer") onCloseForm();
+          onCloseForm();
         }
         return didSave;
       }}
@@ -581,13 +581,11 @@ function WeightForm({
   onCancel,
   onSave,
   saving,
-  variant,
 }: {
   item: WeightLog | null;
   onCancel: () => void;
   onSave: (input: WeightLogInput) => Promise<boolean>;
   saving: boolean;
-  variant: ProgressVariant;
 }) {
   const [weightKg, setWeightKg] = useState(item?.weightKg.toString() ?? "");
   const [recordedAt, setRecordedAt] = useState(toDateInput(item?.recordedAt));
@@ -596,7 +594,6 @@ function WeightForm({
     <form
       className={cn(
         "grid gap-3 rounded-xl border bg-muted/20 p-3",
-        variant === "page" && "md:grid-cols-[1fr_1fr_2fr_auto]",
       )}
       onSubmit={async (event) => {
         event.preventDefault();
@@ -615,9 +612,7 @@ function WeightForm({
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
       <Input label="Nota" value={note} onChange={setNote} />
       <FormActions
-        editing={Boolean(item)}
         saving={saving}
-        variant={variant}
         onCancel={onCancel}
       />
     </form>
@@ -654,13 +649,13 @@ function MeasurementsSection({
       variant={variant}
       onCancel={() => {
         setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        onCloseForm();
       }}
       onSave={async (input) => {
         const didSave = await onSave(input, editing?.id);
         if (didSave) {
           setEditing(null);
-          if (variant === "drawer") onCloseForm();
+          onCloseForm();
         }
         return didSave;
       }}
@@ -734,7 +729,7 @@ function MeasurementsForm({
         await onSave(input);
       }}
     >
-      <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-3")}>
+      <div className={cn("grid gap-3", variant === "page" && "sm:grid-cols-2")}>
         {measurementFields.map(([key, label]) => (
           <Input
             key={key}
@@ -759,9 +754,7 @@ function MeasurementsForm({
       </div>
       <div className="mt-3 flex justify-end">
         <FormActions
-          editing={Boolean(item)}
           saving={saving}
-          variant={variant}
           onCancel={onCancel}
         />
       </div>
@@ -793,11 +786,10 @@ function PhotosSection({
   const form = isFormOpen ? (
     <PhotoForm
       saving={saving}
-      variant={variant}
       onCancel={onCloseForm}
       onUpload={async (formData) => {
         const didUpload = await onUpload(formData);
-        if (didUpload && variant === "drawer") onCloseForm();
+        if (didUpload) onCloseForm();
         return didUpload;
       }}
     />
@@ -849,22 +841,17 @@ function PhotoForm({
   onCancel,
   onUpload,
   saving,
-  variant,
 }: {
   onCancel: () => void;
   onUpload: (formData: FormData) => Promise<boolean>;
   saving: boolean;
-  variant: ProgressVariant;
 }) {
   const [photoType, setPhotoType] = useState<ProgressPhotoType>("front");
   const [recordedAt, setRecordedAt] = useState(toDateInput());
   const [file, setFile] = useState<File | null>(null);
   return (
     <form
-      className={cn(
-        "grid gap-3 rounded-xl border bg-muted/20 p-3",
-        variant === "page" && "md:grid-cols-[1fr_1fr_2fr_auto]",
-      )}
+      className="grid gap-3 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!file) return;
@@ -894,11 +881,9 @@ function PhotoForm({
         />
       </label>
       <div className="flex gap-2 self-end">
-        {variant === "drawer" ? (
-          <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
-        ) : null}
+        <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
         <Button className="shadow-none" disabled={saving || !file} type="submit">
           <CameraIcon className="size-4" />
           Subir
@@ -935,16 +920,15 @@ function NotesSection({
       key={editing?.id ?? "new"}
       item={editing}
       saving={saving}
-      variant={variant}
       onCancel={() => {
         setEditing(null);
-        if (variant === "drawer") onCloseForm();
+        onCloseForm();
       }}
       onSave={async (input) => {
         const didSave = await onSave(input, editing?.id);
         if (didSave) {
           setEditing(null);
-          if (variant === "drawer") onCloseForm();
+          onCloseForm();
         }
         return didSave;
       }}
@@ -989,13 +973,11 @@ function NoteForm({
   onCancel,
   onSave,
   saving,
-  variant,
 }: {
   item: FollowUpNote | null;
   onCancel: () => void;
   onSave: (input: FollowUpNoteInput) => Promise<boolean>;
   saving: boolean;
-  variant: ProgressVariant;
 }) {
   const [text, setText] = useState(item?.text ?? "");
   const [visibility, setVisibility] = useState(item?.visibility ?? "private");
@@ -1015,7 +997,7 @@ function NoteForm({
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
-      <div className={cn("flex flex-col gap-3", variant === "page" && "md:flex-row md:items-end md:justify-between")}>
+      <div className="flex flex-col gap-3">
         <Select
           label="Visibilidad"
           value={visibility}
@@ -1023,9 +1005,7 @@ function NoteForm({
           onChange={(value) => setVisibility(value as FollowUpNoteInput["visibility"])}
         />
         <FormActions
-          editing={Boolean(item)}
           saving={saving}
-          variant={variant}
           onCancel={onCancel}
         />
       </div>
@@ -1059,9 +1039,9 @@ function PageProgressSection({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
-      <div className="order-2 min-w-0 lg:order-1">{history}</div>
-      <aside className="order-1 min-w-0 lg:order-2 lg:sticky lg:top-4">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,380px)] xl:items-start">
+      <div className="order-2 min-w-0 xl:order-1">{history}</div>
+      <aside className="order-1 min-w-0 xl:order-2 xl:sticky xl:top-4">
         {form}
       </aside>
     </div>
@@ -1118,28 +1098,20 @@ function RecordRow({
 }
 
 function FormActions({
-  editing,
   onCancel,
   saving,
-  variant,
 }: {
-  editing: boolean;
   onCancel: () => void;
   saving: boolean;
-  variant: ProgressVariant;
 }) {
-  const showCancel = variant === "drawer" || editing;
-
   return (
     <div className="flex gap-2 self-end">
-      {showCancel ? (
-        <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-      ) : null}
+      <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
+        Cancelar
+      </Button>
       <Button className="shadow-none" disabled={saving} type="submit">
         <PlusIcon className="size-4" />
-        {editing ? "Guardar" : "Crear"}
+        Guardar
       </Button>
     </div>
   );

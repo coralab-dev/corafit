@@ -612,6 +612,8 @@ function WeightForm({
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
       <Input label="Nota" value={note} onChange={setNote} />
       <FormActions
+        createLabel="Registrar"
+        mode={item ? "edit" : "create"}
         saving={saving}
         onCancel={onCancel}
       />
@@ -754,6 +756,8 @@ function MeasurementsForm({
       </div>
       <div className="mt-3 flex justify-end">
         <FormActions
+          createLabel="Registrar"
+          mode={item ? "edit" : "create"}
           saving={saving}
           onCancel={onCancel}
         />
@@ -1005,6 +1009,8 @@ function NoteForm({
           onChange={(value) => setVisibility(value as FollowUpNoteInput["visibility"])}
         />
         <FormActions
+          createLabel="Añadir"
+          mode={item ? "edit" : "create"}
           saving={saving}
           onCancel={onCancel}
         />
@@ -1098,20 +1104,26 @@ function RecordRow({
 }
 
 function FormActions({
+  createLabel,
+  mode,
   onCancel,
   saving,
 }: {
+  createLabel: string;
+  mode: "create" | "edit";
   onCancel: () => void;
   saving: boolean;
 }) {
+  const isEditing = mode === "edit";
+
   return (
     <div className="flex gap-2 self-end">
       <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
         Cancelar
       </Button>
       <Button className="shadow-none" disabled={saving} type="submit">
-        <PlusIcon className="size-4" />
-        Guardar
+        {isEditing ? null : <PlusIcon className="size-4" />}
+        {isEditing ? "Guardar cambios" : createLabel}
       </Button>
     </div>
   );

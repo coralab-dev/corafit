@@ -44,7 +44,7 @@ type ClientDetailProps = {
   onEndPlan: () => void;
   onEdit: (client: Client) => void;
   onArchiveStatusChange: (client: Client) => void;
-  onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
   pendingStatus?: OperationalStatus | null;
   variant?: "drawer" | "page";
 };
@@ -147,18 +147,32 @@ function ClientDetailContent({
         role="tabpanel"
       >
         {visibleActiveTab === "summary" ? (
-          <SummaryPanel
-            assignment={assignment}
-            client={client}
-            isPlanLoading={isPlanLoading}
-            isStatusMutationPending={isStatusMutationPending}
-            pendingStatus={pendingStatus}
-            onEditNotes={() => onEdit(client)}
-            onArchiveStatusChange={onArchiveStatusChange}
-            onStatusChange={onStatusChange}
-            onToggleStatusActions={() => setIsStatusActionsOpen((current) => !current)}
-            showStatusActions={isStatusActionsOpen}
-          />
+          isPage ? (
+            <OperationalPanel
+              client={client}
+              isStatusMutationPending={isStatusMutationPending}
+              pendingStatus={pendingStatus}
+              showActions={isStatusActionsOpen}
+              onArchiveStatusChange={onArchiveStatusChange}
+              onStatusChange={onStatusChange}
+              onToggleActions={() => setIsStatusActionsOpen((current) => !current)}
+            />
+          ) : (
+            <SummaryPanel
+              assignment={assignment}
+              client={client}
+              isPlanLoading={isPlanLoading}
+              isStatusMutationPending={isStatusMutationPending}
+              pendingStatus={pendingStatus}
+              planError={planError}
+              onEditNotes={() => onEdit(client)}
+              onArchiveStatusChange={onArchiveStatusChange}
+              onRetryPlan={onRetryPlan}
+              onStatusChange={onStatusChange}
+              onToggleStatusActions={() => setIsStatusActionsOpen((current) => !current)}
+              showStatusActions={isStatusActionsOpen}
+            />
+          )
         ) : null}
         {visibleActiveTab === "plan" ? (
           <CurrentPlanPanel
@@ -171,7 +185,9 @@ function ClientDetailContent({
             variant={variant}
           />
         ) : null}
-        {visibleActiveTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
+        {visibleActiveTab === "progress" ? (
+          <ClientProgressPanel clientId={client.id} variant={variant} />
+        ) : null}
         {visibleActiveTab === "access" ? <AccessPanel client={client} /> : null}
         {visibleActiveTab === "notes" ? (
           <ClientNotesPanel
@@ -299,7 +315,7 @@ function AccessPanel({ client }: { client: Client }) {
           variant={getAccessVariant(client.access.status)}
         />
       </div>
-      <div className="mt-4 rounded-xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
+      <div className="mt-4 overflow-hidden break-all rounded-xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
         {client.access.link ?? "Genera un acceso para compartir link y PIN."}
       </div>
       <Button asChild className="mt-4 w-full shadow-none">
@@ -319,8 +335,10 @@ function SummaryPanel({
   isStatusMutationPending,
   onEditNotes,
   pendingStatus,
+  planError,
   showStatusActions,
   onArchiveStatusChange,
+  onRetryPlan,
   onStatusChange,
   onToggleStatusActions,
 }: {
@@ -330,9 +348,11 @@ function SummaryPanel({
   isStatusMutationPending: boolean;
   onEditNotes: () => void;
   pendingStatus?: OperationalStatus | null;
+  planError?: string | null;
   showStatusActions: boolean;
   onArchiveStatusChange: (client: Client) => void;
-  onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  onRetryPlan?: () => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
   onToggleStatusActions: () => void;
 }) {
   const hasKnownAssignment = assignment !== undefined;
@@ -359,11 +379,16 @@ function SummaryPanel({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold">Plan actual</p>
-            {isPlanLoading && !hasKnownAssignment ? (
+            {!hasKnownAssignment && isPlanLoading ? (
               <p className="mt-2 flex items-center text-sm text-muted-foreground">
                 <Loader2Icon className="mr-2 size-4 animate-spin" />
                 Cargando plan actual
               </p>
+            ) : !hasKnownAssignment && planError ? (
+              <div className="mt-2 text-sm text-destructive">
+                <p className="font-medium">No se pudo cargar el plan actual</p>
+                <p className="mt-1 leading-5">{planError}</p>
+              </div>
             ) : hasPlan && assignment?.assignedPlan ? (
               <>
                 <h3 className="mt-2 truncate text-base font-semibold">
@@ -377,17 +402,26 @@ function SummaryPanel({
               <p className="mt-2 text-sm text-muted-foreground">Sin plan asignado.</p>
             )}
           </div>
-          <StatusBadge
-            label={hasPlan ? "Activo" : "Sin plan"}
-            variant={hasPlan ? "with-plan" : "no-plan"}
-          />
+          {hasKnownAssignment ? (
+            <StatusBadge
+              label={hasPlan ? "Activo" : "Sin plan"}
+              variant={hasPlan ? "with-plan" : "no-plan"}
+            />
+          ) : null}
         </div>
-        <Button asChild className="mt-4 w-full shadow-none">
-          <Link href={`/clients/${client.id}/plan-assignment${hasPlan ? "/edit" : ""}`}>
-            <DumbbellIcon className="size-4" />
-            {hasPlan ? "Editar plan" : "Asignar plan"}
-          </Link>
-        </Button>
+        {!hasKnownAssignment && planError && onRetryPlan ? (
+          <Button className="mt-4 w-full shadow-none" variant="outline" onClick={onRetryPlan}>
+            Reintentar
+          </Button>
+        ) : null}
+        {hasKnownAssignment ? (
+          <Button asChild className="mt-4 w-full shadow-none">
+            <Link href={`/clients/${client.id}/plan-assignment${hasPlan ? "/edit" : ""}`}>
+              <DumbbellIcon className="size-4" />
+              {hasPlan ? "Editar plan" : "Asignar plan"}
+            </Link>
+          </Button>
+        ) : null}
       </WorkspacePanel>
 
       <ClientNotesPanel
@@ -424,7 +458,7 @@ function OperationalPanel({
   pendingStatus?: OperationalStatus | null;
   showActions: boolean;
   onArchiveStatusChange: (client: Client) => void;
-  onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
   onToggleActions: () => void;
 }) {
   const statusActions = clientStatusActionsFor(client.operationalStatus);
@@ -472,7 +506,14 @@ function OperationalPanel({
                 size="sm"
                 type="button"
                 variant="ghost"
-                onClick={() => onStatusChange(client.id, action.status)}
+                onClick={() => {
+                  const result = onStatusChange(client.id, action.status);
+                  void Promise.resolve(result).then((didChange) => {
+                    if (didChange !== false) {
+                      onToggleActions();
+                    }
+                  });
+                }}
               >
                 {isCurrentActionPending ? (
                   <Loader2Icon className="size-4 animate-spin" />

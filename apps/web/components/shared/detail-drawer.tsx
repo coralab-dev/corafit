@@ -87,7 +87,7 @@ function DrawerSurface({
         </div>
         <button
           aria-label="Cerrar detalle"
-          className="absolute right-4 top-5 z-10 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute right-4 top-5 z-40 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           type="button"
           onClick={onClose}
         >

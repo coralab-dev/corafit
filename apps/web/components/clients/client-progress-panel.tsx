@@ -33,6 +33,10 @@ import {
 
 type ProgressTab = "weight" | "measurements" | "photos" | "notes";
 type ProgressVariant = "drawer" | "page";
+type ProgressError = {
+  kind: "load" | "action";
+  message: string;
+} | null;
 type DeleteTarget =
   | { kind: "weight"; id: string }
   | { kind: "measurement"; id: string }
@@ -84,7 +88,7 @@ export function ClientProgressPanel({
     weight: false,
   });
   const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<ProgressTab, string | null>>({
+  const [errors, setErrors] = useState<Record<ProgressTab, ProgressError>>({
     measurements: null,
     notes: null,
     photos: null,
@@ -165,7 +169,10 @@ export function ClientProgressPanel({
         setLoadedTabs((current) => new Set(current).add(tab));
       } catch (caught) {
         if (requestIdsRef.current[tab] !== requestId) return;
-        setErrors((current) => ({ ...current, [tab]: getProgressErrorMessage(caught) }));
+        setErrors((current) => ({
+          ...current,
+          [tab]: { kind: "load", message: getProgressErrorMessage(caught) },
+        }));
       } finally {
         if (requestIdsRef.current[tab] === requestId) {
           setLoadingTabs((current) => ({ ...current, [tab]: false }));
@@ -245,7 +252,10 @@ export function ClientProgressPanel({
       await progressRequest(path, { method: "DELETE" }, config);
       await loadTab(activeTab, true);
     } catch (caught) {
-      setErrors((current) => ({ ...current, [activeTab]: getProgressErrorMessage(caught) }));
+      setErrors((current) => ({
+        ...current,
+        [activeTab]: { kind: "action", message: getProgressErrorMessage(caught) },
+      }));
     } finally {
       setSaving(false);
     }
@@ -301,17 +311,19 @@ export function ClientProgressPanel({
 
       {activeError ? (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          <p>{activeError}</p>
-          <Button
-            className="mt-3 shadow-none"
-            disabled={isActiveTabLoading}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => void loadTab(activeTab, true)}
-          >
-            Reintentar
-          </Button>
+          <p>{activeError.message}</p>
+          {activeError.kind === "load" ? (
+            <Button
+              className="mt-3 shadow-none"
+              disabled={isActiveTabLoading}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => void loadTab(activeTab, true)}
+            >
+              Reintentar
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {isActiveTabLoading && !isActiveTabLoaded ? (
@@ -367,7 +379,10 @@ export function ClientProgressPanel({
               await loadTab("weight", true);
               return true;
             } catch (caught) {
-              setErrors((current) => ({ ...current, weight: getProgressErrorMessage(caught) }));
+              setErrors((current) => ({
+                ...current,
+                weight: { kind: "action", message: getProgressErrorMessage(caught) },
+              }));
               return false;
             } finally {
               setSaving(false);
@@ -400,7 +415,10 @@ export function ClientProgressPanel({
               await loadTab("measurements", true);
               return true;
             } catch (caught) {
-              setErrors((current) => ({ ...current, measurements: getProgressErrorMessage(caught) }));
+              setErrors((current) => ({
+                ...current,
+                measurements: { kind: "action", message: getProgressErrorMessage(caught) },
+              }));
               return false;
             } finally {
               setSaving(false);
@@ -431,7 +449,10 @@ export function ClientProgressPanel({
             } catch (caught) {
               setErrors((current) => ({
                 ...current,
-                photos: getProgressErrorMessage(caught, "No pudimos subir la foto."),
+                photos: {
+                  kind: "action",
+                  message: getProgressErrorMessage(caught, "No pudimos subir la foto."),
+                },
               }));
               return false;
             } finally {
@@ -464,7 +485,10 @@ export function ClientProgressPanel({
             await loadTab("notes", true);
             return true;
           } catch (caught) {
-            setErrors((current) => ({ ...current, notes: getProgressErrorMessage(caught) }));
+            setErrors((current) => ({
+              ...current,
+              notes: { kind: "action", message: getProgressErrorMessage(caught) },
+            }));
             return false;
           } finally {
             setSaving(false);

@@ -122,12 +122,12 @@ export function ClientProgressPanel({ clientId }: { clientId: string }) {
 
   return (
     <WorkspacePanel className="p-4">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 className="text-sm font-semibold">Progreso</h3>
           <p className="text-sm text-muted-foreground">Historial de peso, medidas, fotos y seguimiento.</p>
         </div>
-        <div className="grid grid-cols-4 rounded-md border bg-muted/30 p-1 text-sm">
+        <div className="grid grid-flow-col auto-cols-[minmax(4.75rem,1fr)] overflow-x-auto rounded-md border bg-muted/30 p-1 text-sm">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -237,7 +237,7 @@ function WeightForm({ item, onCancel, onSave, saving }: { item: WeightLog | null
   const [recordedAt, setRecordedAt] = useState(toDateInput(item?.recordedAt));
   const [note, setNote] = useState(item?.note ?? "");
   return (
-    <form className="grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => { event.preventDefault(); await onSave({ weightKg: Number(weightKg), recordedAt, note: note.trim() || null }); setWeightKg(""); setNote(""); }}>
+    <form className="grid gap-3 rounded-md border bg-muted/20 p-3 md:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => { event.preventDefault(); await onSave({ weightKg: Number(weightKg), recordedAt, note: note.trim() || null }); setWeightKg(""); setNote(""); }}>
       <Input label="Kg" min="1" step="0.1" type="number" value={weightKg} onChange={setWeightKg} />
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
       <Input label="Nota" value={note} onChange={setNote} />
@@ -272,7 +272,7 @@ function MeasurementsForm({ item, onCancel, onSave, saving }: { item: BodyMeasur
       for (const [key] of measurementFields) input[key] = values[key] ? Number(values[key]) : null;
       await onSave(input);
     }}>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         {measurementFields.map(([key, label]) => (
           <Input key={key} label={`${label} (cm)`} min="0" step="0.1" type="number" value={values[key] ?? ""} onChange={(value) => setValues((current) => ({ ...current, [key]: value }))} />
         ))}
@@ -294,7 +294,7 @@ function PhotosSection({ items, onDelete, onUpload, saving }: { items: ProgressP
   const [file, setFile] = useState<File | null>(null);
   return (
     <div className="space-y-4">
-      <form className="grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => {
+      <form className="grid gap-3 rounded-md border bg-muted/20 p-3 md:grid-cols-[1fr_1fr_2fr_auto]" onSubmit={async (event) => {
         event.preventDefault();
         if (!file) return;
         const formData = new FormData();
@@ -310,7 +310,7 @@ function PhotosSection({ items, onDelete, onUpload, saving }: { items: ProgressP
         <Button className="self-end shadow-none" disabled={saving || !file} type="submit"><CameraIcon className="size-4" />Subir</Button>
       </form>
       {items.length === 0 ? <EmptyText text="Sin fotos de progreso." /> : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {items.map((item) => (
             <div key={item.id} className="overflow-hidden rounded-md border bg-background">
               <div className="relative aspect-[4/3] w-full">
@@ -348,7 +348,7 @@ function NoteForm({ item, onCancel, onSave, saving }: { item: FollowUpNote | nul
   return (
     <form className="grid gap-3 rounded-md border bg-muted/20 p-3" onSubmit={async (event) => { event.preventDefault(); await onSave({ text, visibility }); setText(""); }}>
       <textarea className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm" placeholder="Nota de seguimiento" required value={text} onChange={(event) => setText(event.target.value)} />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <Select label="Visibilidad" value={visibility} options={{ private: "Privada", visible_to_client: "Visible para cliente" }} onChange={(value) => setVisibility(value as FollowUpNoteInput["visibility"])} />
         <FormActions editing={Boolean(item)} saving={saving} onCancel={onCancel} />
       </div>

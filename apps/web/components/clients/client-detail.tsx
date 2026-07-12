@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { type KeyboardEvent, useId, useState } from "react";
 import {
   ArchiveIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
   DumbbellIcon,
   EditIcon,
-  EyeIcon,
   KeyRoundIcon,
   Loader2Icon,
   NotebookPenIcon,
@@ -29,33 +30,10 @@ import type {
   OperationalStatus,
 } from "@/lib/clients/types";
 import { ClientProgressPanel } from "./client-progress-panel";
+import { clientDetailTabs, type ClientDetailTab } from "./client-detail-navigation";
 import { clientStatusActionsFor } from "./client-status-state";
 
-type ClientDetailTab = "summary" | "plan" | "progress" | "access" | "notes";
-
-const clientDetailTabs: Array<{ key: ClientDetailTab; label: string }> = [
-  { key: "summary", label: "Resumen" },
-  { key: "plan", label: "Plan" },
-  { key: "progress", label: "Progreso" },
-  { key: "access", label: "Acceso" },
-  { key: "notes", label: "Notas" },
-];
-
-export function ClientDetail({
-  assignment,
-  client,
-  isPlanLoading,
-  onRetryPlan,
-  planError,
-  isClientEditDisabled = false,
-  isStatusMutationPending = false,
-  onEndPlan,
-  onEdit,
-  onArchiveStatusChange,
-  onStatusChange,
-  pendingStatus,
-  variant = "drawer",
-}: {
+type ClientDetailProps = {
   assignment: CurrentPlanAssignment | null | undefined;
   client: Client;
   isPlanLoading: boolean;
@@ -69,9 +47,142 @@ export function ClientDetail({
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
   pendingStatus?: OperationalStatus | null;
   variant?: "drawer" | "page";
-}) {
+};
+
+export function ClientDetail(props: ClientDetailProps) {
+  return <ClientDetailContent key={props.client.id} {...props} />;
+}
+
+function ClientDetailContent({
+  assignment,
+  client,
+  isPlanLoading,
+  onRetryPlan,
+  planError,
+  isClientEditDisabled = false,
+  isStatusMutationPending = false,
+  onEndPlan,
+  onEdit,
+  onArchiveStatusChange,
+  onStatusChange,
+  pendingStatus,
+  variant = "drawer",
+}: ClientDetailProps) {
   const isPage = variant === "page";
+  const tabsId = useId();
   const [activeTab, setActiveTab] = useState<ClientDetailTab>("summary");
+  const [isStatusActionsOpen, setIsStatusActionsOpen] = useState(false);
+  const visibleActiveTab = activeTab;
+
+  function selectTab(tab: ClientDetailTab) {
+    setActiveTab(tab);
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = clientDetailTabs.findIndex((tab) => tab.key === visibleActiveTab);
+    const lastIndex = clientDetailTabs.length - 1;
+    let nextIndex: number | null = null;
+
+    if (event.key === "ArrowRight") {
+      nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1;
+    }
+
+    if (event.key === "ArrowLeft") {
+      nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1;
+    }
+
+    if (event.key === "Home") {
+      nextIndex = 0;
+    }
+
+    if (event.key === "End") {
+      nextIndex = lastIndex;
+    }
+
+    if (nextIndex === null) {
+      return;
+    }
+
+    const nextTab = clientDetailTabs[nextIndex].key;
+
+    event.preventDefault();
+    setActiveTab(nextTab);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`${tabsId}-${nextTab}-tab`)?.focus();
+    });
+  }
+
+  function renderTabs(className: string) {
+    return (
+      <div className={className} role="tablist" aria-label="Detalle del cliente">
+        {clientDetailTabs.map((tab) => (
+          <button
+            key={tab.key}
+            aria-controls={`${tabsId}-${tab.key}-panel`}
+            aria-selected={visibleActiveTab === tab.key}
+            className={cn(
+              "rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              visibleActiveTab === tab.key &&
+                "bg-card text-foreground shadow-[var(--surface-shadow-soft)]",
+            )}
+            id={`${tabsId}-${tab.key}-tab`}
+            role="tab"
+            tabIndex={visibleActiveTab === tab.key ? 0 : -1}
+            type="button"
+            onClick={() => selectTab(tab.key)}
+            onKeyDown={handleTabKeyDown}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  function renderActivePanel() {
+    return (
+      <div
+        aria-labelledby={`${tabsId}-${visibleActiveTab}-tab`}
+        id={`${tabsId}-${visibleActiveTab}-panel`}
+        role="tabpanel"
+      >
+        {visibleActiveTab === "summary" ? (
+          <SummaryPanel
+            assignment={assignment}
+            client={client}
+            isPlanLoading={isPlanLoading}
+            isStatusMutationPending={isStatusMutationPending}
+            pendingStatus={pendingStatus}
+            onEditNotes={() => onEdit(client)}
+            onArchiveStatusChange={onArchiveStatusChange}
+            onStatusChange={onStatusChange}
+            onToggleStatusActions={() => setIsStatusActionsOpen((current) => !current)}
+            showStatusActions={isStatusActionsOpen}
+          />
+        ) : null}
+        {visibleActiveTab === "plan" ? (
+          <CurrentPlanPanel
+            assignment={assignment}
+            clientId={client.id}
+            isLoading={isPlanLoading}
+            onEndPlan={onEndPlan}
+            onRetry={onRetryPlan}
+            error={planError}
+            variant={variant}
+          />
+        ) : null}
+        {visibleActiveTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
+        {visibleActiveTab === "access" ? <AccessPanel client={client} /> : null}
+        {visibleActiveTab === "notes" ? (
+          <ClientNotesPanel
+            client={client}
+            isEditDisabled={isClientEditDisabled}
+            onEdit={() => onEdit(client)}
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   if (isPage) {
     return (
@@ -116,60 +227,20 @@ export function ClientDetail({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)] sm:grid-cols-5">
-            {clientDetailTabs.map((tab) => (
-              <button
-                key={tab.key}
-                className={cn(
-                  "rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition",
-                  activeTab === tab.key && "bg-card text-foreground shadow-[var(--surface-shadow-soft)]",
-                )}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {renderTabs(
+            "mt-5 grid grid-cols-2 gap-2 rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)] sm:grid-cols-5",
+          )}
         </div>
 
-        {activeTab === "summary" ? (
-          <OperationalPanel
-            client={client}
-            isStatusMutationPending={isStatusMutationPending}
-            pendingStatus={pendingStatus}
-            onArchiveStatusChange={onArchiveStatusChange}
-            onStatusChange={onStatusChange}
-          />
-        ) : null}
-        {activeTab === "plan" ? (
-          <CurrentPlanPanel
-            assignment={assignment}
-            clientId={client.id}
-            isLoading={isPlanLoading}
-            onEndPlan={onEndPlan}
-            onRetry={onRetryPlan}
-            error={planError}
-            variant={variant}
-          />
-        ) : null}
-        {activeTab === "progress" ? <ClientProgressPanel clientId={client.id} /> : null}
-        {activeTab === "access" ? <AccessPanel client={client} /> : null}
-        {activeTab === "notes" ? (
-          <ClientNotesPanel
-            client={client}
-            isEditDisabled={isClientEditDisabled}
-            onEdit={() => onEdit(client)}
-          />
-        ) : null}
+        {renderActivePanel()}
       </aside>
     );
   }
 
   return (
-    <aside className="flex min-h-0 flex-col bg-background">
+    <aside className="flex h-full min-h-0 flex-col bg-background">
       <div
-        className="flex items-start justify-between gap-4 border-b border-border/60 bg-card/80 px-6 py-7 pr-14 backdrop-blur"
+        className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border/60 bg-card/95 px-5 py-6 pr-14 backdrop-blur sm:px-6"
       >
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-primary shadow-[var(--surface-shadow-soft)]">
@@ -200,30 +271,14 @@ export function ClientDetail({
         </Button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
-        <CurrentPlanPanel
-          assignment={assignment}
-          clientId={client.id}
-          isLoading={isPlanLoading}
-          onEndPlan={onEndPlan}
-          onRetry={onRetryPlan}
-          error={planError}
-          variant={variant}
-        />
+      <div className="sticky top-0 z-10 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur sm:px-5">
+        {renderTabs(
+          "grid grid-flow-col auto-cols-[minmax(5.75rem,1fr)] gap-2 overflow-x-auto rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)]",
+        )}
+      </div>
 
-        <AccessPanel client={client} />
-        <OperationalPanel
-          client={client}
-          isStatusMutationPending={isStatusMutationPending}
-          pendingStatus={pendingStatus}
-          onArchiveStatusChange={onArchiveStatusChange}
-          onStatusChange={onStatusChange}
-        />
-        <ClientNotesPanel
-          client={client}
-          isEditDisabled={isClientEditDisabled}
-          onEdit={() => onEdit(client)}
-        />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+        {renderActivePanel()}
       </div>
     </aside>
   );
@@ -232,17 +287,22 @@ export function ClientDetail({
 function AccessPanel({ client }: { client: Client }) {
   return (
     <WorkspacePanel className="p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold">Acceso del cliente</h3>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Acceso del cliente</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Link y PIN para que el cliente entre a su portal.
+          </p>
+        </div>
         <StatusBadge
           label={getAccessLabel(client.access.status)}
           variant={getAccessVariant(client.access.status)}
         />
       </div>
-      <div className="rounded-xl border !border-transparent bg-muted/35 px-3 py-2 text-sm text-muted-foreground shadow-[var(--surface-shadow-soft)]">
+      <div className="mt-4 rounded-xl bg-muted/35 px-3 py-3 text-sm text-muted-foreground">
         {client.access.link ?? "Genera un acceso para compartir link y PIN."}
       </div>
-      <Button asChild className="mt-3 w-full shadow-none" variant="outline">
+      <Button asChild className="mt-4 w-full shadow-none">
         <Link href={`/clients/${client.id}/access`}>
           <KeyRoundIcon className="size-4" />
           {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
@@ -252,66 +312,201 @@ function AccessPanel({ client }: { client: Client }) {
   );
 }
 
+function SummaryPanel({
+  assignment,
+  client,
+  isPlanLoading,
+  isStatusMutationPending,
+  onEditNotes,
+  pendingStatus,
+  showStatusActions,
+  onArchiveStatusChange,
+  onStatusChange,
+  onToggleStatusActions,
+}: {
+  assignment: CurrentPlanAssignment | null | undefined;
+  client: Client;
+  isPlanLoading: boolean;
+  isStatusMutationPending: boolean;
+  onEditNotes: () => void;
+  pendingStatus?: OperationalStatus | null;
+  showStatusActions: boolean;
+  onArchiveStatusChange: (client: Client) => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  onToggleStatusActions: () => void;
+}) {
+  const hasKnownAssignment = assignment !== undefined;
+  const hasPlan = Boolean(assignment?.assignedPlan);
+  const totalSessions = assignment?.assignedPlan
+    ? countSessions(assignment.assignedPlan)
+    : 0;
+
+  return (
+    <div className="space-y-4">
+      <WorkspacePanel className="p-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <DetailStat label="Edad" value={formatNullableStat(client.age, "anos")} />
+          <DetailStat label="Altura" value={formatNullableStat(client.heightCm, "cm")} />
+          <DetailStat
+            label="Peso inicial"
+            value={formatNullableStat(client.initialWeightKg, "kg")}
+          />
+          <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
+        </div>
+      </WorkspacePanel>
+
+      <WorkspacePanel className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Plan actual</p>
+            {isPlanLoading && !hasKnownAssignment ? (
+              <p className="mt-2 flex items-center text-sm text-muted-foreground">
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+                Cargando plan actual
+              </p>
+            ) : hasPlan && assignment?.assignedPlan ? (
+              <>
+                <h3 className="mt-2 truncate text-base font-semibold">
+                  {assignment.assignedPlan.name}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {assignment.assignedPlan.durationWeeks} sem. / {totalSessions} sesiones
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">Sin plan asignado.</p>
+            )}
+          </div>
+          <StatusBadge
+            label={hasPlan ? "Activo" : "Sin plan"}
+            variant={hasPlan ? "with-plan" : "no-plan"}
+          />
+        </div>
+        <Button asChild className="mt-4 w-full shadow-none">
+          <Link href={`/clients/${client.id}/plan-assignment${hasPlan ? "/edit" : ""}`}>
+            <DumbbellIcon className="size-4" />
+            {hasPlan ? "Editar plan" : "Asignar plan"}
+          </Link>
+        </Button>
+      </WorkspacePanel>
+
+      <ClientNotesPanel
+        client={client}
+        isEditDisabled={false}
+        onEdit={onEditNotes}
+        previewOnly
+      />
+
+      <OperationalPanel
+        client={client}
+        isStatusMutationPending={isStatusMutationPending}
+        pendingStatus={pendingStatus}
+        showActions={showStatusActions}
+        onArchiveStatusChange={onArchiveStatusChange}
+        onStatusChange={onStatusChange}
+        onToggleActions={onToggleStatusActions}
+      />
+    </div>
+  );
+}
+
 function OperationalPanel({
   client,
   isStatusMutationPending,
   pendingStatus,
+  showActions,
   onArchiveStatusChange,
   onStatusChange,
+  onToggleActions,
 }: {
   client: Client;
   isStatusMutationPending: boolean;
   pendingStatus?: OperationalStatus | null;
+  showActions: boolean;
   onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => void;
+  onToggleActions: () => void;
 }) {
   const statusActions = clientStatusActionsFor(client.operationalStatus);
+  const normalStatusActions = statusActions.filter((action) => !action.isDestructive);
+  const archiveAction = statusActions.find((action) => action.status === "archived");
+  const isArchivePending = pendingStatus === archiveAction?.status;
   return (
     <WorkspacePanel className="p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold">Ficha operativa</h3>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Estado operativo</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Situacion actual para seguimiento interno.
+          </p>
+        </div>
         <StatusBadge
           label={statusLabels[client.operationalStatus]}
           variant={client.operationalStatus}
         />
       </div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <DetailStat label="Edad" value={`${client.age} anos`} />
-        <DetailStat label="Altura" value={`${client.heightCm} cm`} />
-        <DetailStat label="Peso inicial" value={`${client.initialWeightKg} kg`} />
-        <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        {statusActions.map((action) => {
-          const isCurrentActionPending = pendingStatus === action.status;
+      <Button
+        aria-expanded={showActions}
+        className="mt-4 w-full justify-between shadow-none"
+        disabled={isStatusMutationPending}
+        type="button"
+        variant="outline"
+        onClick={onToggleActions}
+      >
+        Cambiar estado
+        <ChevronDownIcon
+          className={cn("size-4 transition-transform", showActions && "rotate-180")}
+        />
+      </Button>
 
-          return (
-            <Button
-              key={action.status}
-              className="shadow-none"
-              disabled={isStatusMutationPending}
-              size="sm"
-              type="button"
-              variant={action.isDestructive ? "destructive" : "outline"}
-              onClick={() => {
-                if (action.requiresConfirmation) {
-                  onArchiveStatusChange(client);
-                  return;
-                }
+      {showActions ? (
+        <div className="mt-3 grid gap-2">
+          {normalStatusActions.map((action) => {
+            const isCurrentActionPending = pendingStatus === action.status;
 
-                onStatusChange(client.id, action.status);
-              }}
-            >
-              {isCurrentActionPending ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : action.status === "archived" ? (
-                <ArchiveIcon className="size-4" />
-              ) : null}
-              {action.label}
-            </Button>
-          );
-        })}
-      </div>
+            return (
+              <Button
+                key={action.status}
+                className="justify-start shadow-none"
+                disabled={isStatusMutationPending}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={() => onStatusChange(client.id, action.status)}
+              >
+                {isCurrentActionPending ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <CheckCircle2Icon className="size-4" />
+                )}
+                {action.label}
+              </Button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {archiveAction ? (
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <Button
+            className="w-full justify-start shadow-none"
+            disabled={isStatusMutationPending}
+            size="sm"
+            type="button"
+            variant="destructive"
+            onClick={() => {
+              onArchiveStatusChange(client);
+            }}
+          >
+            {isArchivePending ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <ArchiveIcon className="size-4" />
+            )}
+            {archiveAction.label}
+          </Button>
+        </div>
+      ) : null}
     </WorkspacePanel>
   );
 }
@@ -320,10 +515,12 @@ function ClientNotesPanel({
   client,
   isEditDisabled,
   onEdit,
+  previewOnly = false,
 }: {
   client: Client;
   isEditDisabled: boolean;
   onEdit: () => void;
+  previewOnly?: boolean;
 }) {
   return (
     <WorkspacePanel className="p-4">
@@ -335,22 +532,25 @@ function ClientNotesPanel({
         <NotePreview
           label="Lesiones"
           value={client.injuriesNotes || "Sin lesiones registradas."}
+          previewOnly={previewOnly}
         />
         <NotePreview
           label="Notas generales"
           value={client.generalNotes || "Sin notas generales."}
+          previewOnly={previewOnly}
         />
       </div>
-      <Button
-        className="mt-4 w-full shadow-none"
-        disabled={isEditDisabled}
-        type="button"
-        variant="outline"
-        onClick={onEdit}
-      >
-        <EditIcon className="size-4" />
-        Editar notas
-      </Button>
+      {!previewOnly ? (
+        <Button
+          className="mt-4 w-full shadow-none"
+          disabled={isEditDisabled}
+          type="button"
+          onClick={onEdit}
+        >
+          <EditIcon className="size-4" />
+          Editar notas
+        </Button>
+      ) : null}
     </WorkspacePanel>
   );
 }
@@ -434,7 +634,7 @@ export function CurrentPlanPanel({
     return (
       <WorkspacePanel className="p-4">
         {planLoadNotice}
-        <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border !border-transparent bg-background p-6 text-center shadow-[var(--surface-shadow-soft)]">
+        <div className="flex min-h-40 flex-col items-center justify-center gap-4 text-center">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
             <UserRoundIcon className="size-5" />
           </div>
@@ -444,7 +644,7 @@ export function CurrentPlanPanel({
               Selecciona un template y crea una copia editable para este cliente.
             </p>
           </div>
-          <Button asChild variant="outline">
+          <Button asChild className="shadow-none">
             <Link href={`/clients/${clientId}/plan-assignment`}>
               <DumbbellIcon className="size-4" />
               Asignar plan
@@ -482,20 +682,18 @@ export function CurrentPlanPanel({
         <DetailStat label="Progreso" value={`0/${totalSessions}`} />
       </div>
 
-      <div className={cn("mt-4 grid gap-2", variant === "page" && "sm:grid-cols-3")}>
-        <Button asChild className="w-full shadow-none" variant="outline">
-          <Link href={`/clients/${clientId}/plan-assignment/edit`}>
-            <EyeIcon className="size-4" />
-            Ver plan
-          </Link>
-        </Button>
-        <Button asChild className="w-full shadow-none" variant="outline">
+      <div className={cn("mt-4 grid gap-2", variant === "page" && "sm:grid-cols-2")}>
+        <Button asChild className="w-full shadow-none">
           <Link href={`/clients/${clientId}/plan-assignment/edit`}>
             <DumbbellIcon className="size-4" />
             Editar plan
           </Link>
         </Button>
-        <Button className="w-full shadow-none" variant="outline" onClick={onEndPlan}>
+        <Button
+          className="w-full border-destructive/30 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+          variant="outline"
+          onClick={onEndPlan}
+        >
           <ArchiveIcon className="size-4" />
           Finalizar plan
         </Button>
@@ -525,13 +723,32 @@ function DetailStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NotePreview({ label, value }: { label: string; value: string }) {
+function NotePreview({
+  label,
+  previewOnly = false,
+  value,
+}: {
+  label: string;
+  previewOnly?: boolean;
+  value: string;
+}) {
   return (
     <div className="border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 line-clamp-2 text-foreground">{value}</p>
+      <p
+        className={cn(
+          "mt-1 whitespace-pre-wrap text-foreground",
+          previewOnly && "line-clamp-2",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
+}
+
+function formatNullableStat(value: number | null, suffix: string) {
+  return value === null ? "Sin dato" : `${value} ${suffix}`;
 }
 
 function getAccessLabel(status: Client["access"]["status"]) {

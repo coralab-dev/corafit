@@ -32,6 +32,7 @@ import type {
 import { ClientProgressPanel } from "./client-progress-panel";
 import { clientDetailTabs, type ClientDetailTab } from "./client-detail-navigation";
 import {
+  resolveAssignedPlanStructure,
   resolveClientPageAccessSummary,
   resolveClientPagePlanSummary,
 } from "./client-page-summary";
@@ -199,12 +200,15 @@ function ClientDetailContent({
         {visibleActiveTab === "progress" ? (
           <ClientProgressPanel clientId={client.id} variant={variant} />
         ) : null}
-        {visibleActiveTab === "access" ? <AccessPanel client={client} /> : null}
+        {visibleActiveTab === "access" ? (
+          <AccessPanel client={client} variant={variant} />
+        ) : null}
         {visibleActiveTab === "notes" ? (
           <ClientNotesPanel
             client={client}
             isEditDisabled={isClientEditDisabled}
             onEdit={() => onEdit(client)}
+            variant={variant}
           />
         ) : null}
       </div>
@@ -311,7 +315,71 @@ function ClientDetailContent({
   );
 }
 
-function AccessPanel({ client }: { client: Client }) {
+function AccessPanel({
+  client,
+  variant = "drawer",
+}: {
+  client: Client;
+  variant?: "drawer" | "page";
+}) {
+  if (variant === "page") {
+    const accessSummary = resolveClientPageAccessSummary(client.access.status);
+
+    return (
+      <WorkspacePanel className="p-5">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.75fr)]">
+          <section className="min-w-0">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Acceso del cliente</p>
+                <h3 className="mt-2 text-lg font-semibold">{accessSummary.label}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {getAccessDescription(client.access.status)}
+                </p>
+              </div>
+              <StatusBadge
+                label={accessSummary.label}
+                variant={accessSummary.variant}
+              />
+            </div>
+
+            {client.access.lastAccessAt ? (
+              <div className="mt-5">
+                <DetailStat
+                  label="Último acceso"
+                  value={formatDate(client.access.lastAccessAt) ?? "Sin fecha"}
+                />
+              </div>
+            ) : null}
+          </section>
+
+          <section className="min-w-0 rounded-xl bg-muted/25 p-4">
+            <h3 className="text-sm font-semibold">Credenciales</h3>
+            <div className="mt-3 space-y-3">
+              {client.access.link ? (
+                <CredentialBlock label="Link" value={client.access.link} />
+              ) : null}
+              {client.access.pin ? (
+                <CredentialBlock label="PIN" value={client.access.pin} />
+              ) : null}
+              {!client.access.link && !client.access.pin ? (
+                <p className="rounded-xl border border-dashed bg-background/60 p-3 text-sm text-muted-foreground">
+                  Genera un acceso para crear link y PIN.
+                </p>
+              ) : null}
+            </div>
+            <Button asChild className="mt-4 w-full shadow-none">
+              <Link href={`/clients/${client.id}/access`}>
+                <KeyRoundIcon className="size-4" />
+                {accessSummary.ctaLabel}
+              </Link>
+            </Button>
+          </section>
+        </div>
+      </WorkspacePanel>
+    );
+  }
+
   return (
     <WorkspacePanel className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -337,6 +405,26 @@ function AccessPanel({ client }: { client: Client }) {
       </Button>
     </WorkspacePanel>
   );
+}
+
+function CredentialBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border bg-background px-3 py-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 break-all text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function getAccessDescription(status: Client["access"]["status"]) {
+  const descriptions: Record<Client["access"]["status"], string> = {
+    active: "El cliente puede entrar a su portal con sus credenciales actuales.",
+    disabled: "El acceso existe, pero está desactivado para el cliente.",
+    none: "Todavía no hay credenciales generadas para este cliente.",
+    temporarily_locked: "El acceso está bloqueado temporalmente y puede gestionarse desde Acceso.",
+  };
+
+  return descriptions[status];
 }
 
 function PageSummaryPanel({
@@ -796,12 +884,54 @@ function ClientNotesPanel({
   isEditDisabled,
   onEdit,
   previewOnly = false,
+  variant = "drawer",
 }: {
   client: Client;
   isEditDisabled: boolean;
   onEdit: () => void;
   previewOnly?: boolean;
+  variant?: "drawer" | "page";
 }) {
+  if (variant === "page") {
+    return (
+      <WorkspacePanel className="p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Notas y restricciones</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Observaciones operativas para adaptar el entrenamiento.
+            </p>
+          </div>
+          <Button
+            className="shadow-none"
+            disabled={isEditDisabled}
+            type="button"
+            variant="outline"
+            onClick={onEdit}
+          >
+            <EditIcon className="size-4" />
+            Editar notas
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section className="min-w-0 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm font-semibold">Lesiones y restricciones</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
+              {client.injuriesNotes || "Sin lesiones o restricciones registradas."}
+            </p>
+          </section>
+          <section className="min-w-0 rounded-xl border bg-background p-4">
+            <p className="text-sm font-semibold">Notas generales</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
+              {client.generalNotes || "Sin notas generales registradas."}
+            </p>
+          </section>
+        </div>
+      </WorkspacePanel>
+    );
+  }
+
   return (
     <WorkspacePanel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -853,6 +983,7 @@ export function CurrentPlanPanel({
   variant?: "drawer" | "page";
 }) {
   const hasKnownAssignment = assignment !== undefined;
+  const isPage = variant === "page";
 
   if (isLoading && !hasKnownAssignment) {
     return (
@@ -910,6 +1041,31 @@ export function CurrentPlanPanel({
   ) : null;
 
   if (!assignment?.assignedPlan) {
+    if (isPage) {
+      return (
+        <WorkspacePanel className="p-6">
+          {planLoadNotice}
+          <div className="flex min-h-52 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+              <UserRoundIcon className="size-5" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold">Sin plan asignado</p>
+              <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
+                Asigna un plan para definir duración, semanas y sesiones planificadas.
+              </p>
+            </div>
+            <Button asChild className="shadow-none">
+              <Link href={`/clients/${clientId}/plan-assignment`}>
+                <DumbbellIcon className="size-4" />
+                Asignar plan
+              </Link>
+            </Button>
+          </div>
+        </WorkspacePanel>
+      );
+    }
+
     return (
       <WorkspacePanel className="p-4">
         {planLoadNotice}
@@ -936,6 +1092,97 @@ export function CurrentPlanPanel({
 
   const totalSessions = countSessions(assignment.assignedPlan);
 
+  if (isPage) {
+    const structure = resolveAssignedPlanStructure(assignment.assignedPlan);
+
+    return (
+      <WorkspacePanel className="p-5">
+        {planLoadNotice}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.75fr)]">
+          <section className="min-w-0">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Plan actual</p>
+                <h3 className="mt-2 truncate text-2xl font-semibold tracking-tight">
+                  {assignment.assignedPlan.name}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Desde {formatDate(assignment.assignment.startDate) ?? "sin fecha"}
+                </p>
+              </div>
+              <StatusBadge label="Activo" variant="with-plan" />
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailStat
+                label="Objetivo"
+                value={assignment.assignedPlan.goal || "Sin objetivo"}
+              />
+              <DetailStat
+                label="Nivel"
+                value={assignment.assignedPlan.level || "Sin nivel"}
+              />
+              <DetailStat
+                label="Duración"
+                value={`${assignment.assignedPlan.durationWeeks} sem.`}
+              />
+              <DetailStat
+                label="Semanas configuradas"
+                value={`${structure.weekCount}`}
+              />
+              <DetailStat
+                label="Días de entrenamiento"
+                value={`${structure.trainingDayCount}`}
+              />
+              <DetailStat
+                label="Sesiones planificadas"
+                value={`${structure.sessionCount}`}
+              />
+            </div>
+          </section>
+
+          <section className="min-w-0 rounded-xl bg-muted/25 p-4">
+            <h3 className="text-sm font-semibold">Estructura semanal</h3>
+            {structure.weeklyBreakdown.length > 0 ? (
+              <div className="mt-3 grid gap-2">
+                {structure.weeklyBreakdown.map((week) => (
+                  <div
+                    key={week}
+                    className="rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    {week}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl border border-dashed bg-background/60 p-3 text-sm text-muted-foreground">
+                El plan todavía no tiene semanas configuradas.
+              </p>
+            )}
+
+            <div className="mt-5 grid gap-2">
+              <Button asChild className="shadow-none">
+                <Link href={`/clients/${clientId}/plan-assignment/edit`}>
+                  <DumbbellIcon className="size-4" />
+                  Editar plan
+                </Link>
+              </Button>
+              <Button
+                className="justify-start border-destructive/30 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                size="sm"
+                variant="outline"
+                onClick={onEndPlan}
+              >
+                <ArchiveIcon className="size-4" />
+                Finalizar plan
+              </Button>
+            </div>
+          </section>
+        </div>
+      </WorkspacePanel>
+    );
+  }
+
   return (
     <WorkspacePanel className="p-4">
       {planLoadNotice}
@@ -961,7 +1208,7 @@ export function CurrentPlanPanel({
         <DetailStat label="Progreso" value={`0/${totalSessions}`} />
       </div>
 
-      <div className={cn("mt-4 grid gap-2", variant === "page" && "sm:grid-cols-2")}>
+      <div className="mt-4 grid gap-2">
         <Button asChild className="w-full shadow-none">
           <Link href={`/clients/${clientId}/plan-assignment/edit`}>
             <DumbbellIcon className="size-4" />

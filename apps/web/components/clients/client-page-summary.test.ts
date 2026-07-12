@@ -1,6 +1,7 @@
 import { assert, test } from "vitest";
 import type { CurrentPlanAssignment } from "../../lib/clients/types.ts";
 import {
+  resolveAssignedPlanStructure,
   resolveClientPageAccessSummary,
   resolveClientPagePlanSummary,
 } from "./client-page-summary.ts";
@@ -106,5 +107,14 @@ test("uses explicit access labels for the client page summary", () => {
     label: "Acceso desactivado",
     ctaLabel: "Gestionar acceso",
     variant: "inactive",
+  });
+});
+
+test("summarizes assigned plan weeks and training days", () => {
+  assert.deepEqual(resolveAssignedPlanStructure(assignment.assignedPlan), {
+    weekCount: 1,
+    trainingDayCount: 1,
+    sessionCount: 1,
+    weeklyBreakdown: ["Semana 1: 1 día de entrenamiento"],
   });
 });

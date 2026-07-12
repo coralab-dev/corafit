@@ -345,7 +345,7 @@ export function ClientProgressPanel({
 
       <ConfirmDialog
         confirmLabel="Borrar"
-        description="Esta accion elimina el registro del historial de progreso."
+        description="Esta acción elimina el registro del historial de progreso."
         isLoading={saving}
         open={deleteTarget !== null}
         title="Borrar registro"
@@ -561,6 +561,18 @@ function WeightSection({
     </RecordList>
   );
 
+  if (variant === "page") {
+    return (
+      <PageProgressSection
+        form={form}
+        history={shouldRenderHistory ? list : null}
+        isFormOpen={isFormOpen}
+        onOpenForm={onOpenForm}
+        openLabel="Registrar peso"
+      />
+    );
+  }
+
   return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
@@ -674,6 +686,18 @@ function MeasurementsSection({
     </RecordList>
   );
 
+  if (variant === "page") {
+    return (
+      <PageProgressSection
+        form={form}
+        history={shouldRenderHistory ? list : null}
+        isFormOpen={isFormOpen}
+        onOpenForm={onOpenForm}
+        openLabel="Registrar medidas"
+      />
+    );
+  }
+
   return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
@@ -782,7 +806,7 @@ function PhotosSection({
     items.length === 0 ? (
       <EmptyText text="Sin fotos de progreso." />
     ) : (
-      <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-2")}>
+      <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-2 xl:grid-cols-3")}>
         {items.map((item) => (
           <div key={item.id} className="overflow-hidden rounded-xl border bg-background">
             <div className="relative aspect-[4/3] w-full">
@@ -806,18 +830,19 @@ function PhotosSection({
       </div>
     );
 
-  return (
-    <div className="space-y-4">
-      {form}
-      {shouldRenderHistory ? list : null}
-      {variant === "page" && !isFormOpen ? (
-        <Button className="shadow-none" type="button" onClick={onOpenForm}>
-          <CameraIcon className="size-4" />
-          Subir foto
-        </Button>
-      ) : null}
-    </div>
-  );
+  if (variant === "page") {
+    return (
+      <PageProgressSection
+        form={form}
+        history={shouldRenderHistory ? list : null}
+        isFormOpen={isFormOpen}
+        onOpenForm={onOpenForm}
+        openLabel="Subir foto"
+      />
+    );
+  }
+
+  return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
 function PhotoForm({
@@ -944,6 +969,18 @@ function NotesSection({
     </RecordList>
   );
 
+  if (variant === "page") {
+    return (
+      <PageProgressSection
+        form={form}
+        history={shouldRenderHistory ? list : null}
+        isFormOpen={isFormOpen}
+        onOpenForm={onOpenForm}
+        openLabel="Añadir nota"
+      />
+    );
+  }
+
   return <div className="space-y-4">{form}{shouldRenderHistory ? list : null}</div>;
 }
 
@@ -993,6 +1030,41 @@ function NoteForm({
         />
       </div>
     </form>
+  );
+}
+
+function PageProgressSection({
+  form,
+  history,
+  isFormOpen,
+  onOpenForm,
+  openLabel,
+}: {
+  form: ReactNode;
+  history: ReactNode;
+  isFormOpen: boolean;
+  onOpenForm: () => void;
+  openLabel: string;
+}) {
+  if (!isFormOpen) {
+    return (
+      <div className="space-y-4">
+        <Button className="shadow-none" type="button" onClick={onOpenForm}>
+          <PlusIcon className="size-4" />
+          {openLabel}
+        </Button>
+        {history}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
+      <div className="order-2 min-w-0 lg:order-1">{history}</div>
+      <aside className="order-1 min-w-0 lg:order-2 lg:sticky lg:top-4">
+        {form}
+      </aside>
+    </div>
   );
 }
 

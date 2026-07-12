@@ -102,8 +102,34 @@ export function resolveClientPageAccessSummary(status: AccessStatus) {
   };
 }
 
-function countSessions(plan: TrainingPlan) {
-  return (plan.weeks ?? []).reduce(
+export function resolveAssignedPlanStructure(plan: TrainingPlan | null) {
+  const weeks = plan?.weeks ?? [];
+  const weekCount = weeks.length;
+  const trainingDayCount = weeks.reduce(
+    (total, week) =>
+      total + (week.days ?? []).filter((day) => day.dayType === "training").length,
+    0,
+  );
+  const sessionCount = countSessions(plan);
+  const weeklyBreakdown = weeks.map((week) => {
+    const weekTrainingDays = (week.days ?? []).filter(
+      (day) => day.dayType === "training",
+    ).length;
+    const dayLabel = weekTrainingDays === 1 ? "día" : "días";
+
+    return `Semana ${week.weekNumber}: ${weekTrainingDays} ${dayLabel} de entrenamiento`;
+  });
+
+  return {
+    weekCount,
+    trainingDayCount,
+    sessionCount,
+    weeklyBreakdown,
+  };
+}
+
+function countSessions(plan: TrainingPlan | null) {
+  return (plan?.weeks ?? []).reduce(
     (total, week) =>
       total + (week.days ?? []).filter((day) => day.session).length,
     0,

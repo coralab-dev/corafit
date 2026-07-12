@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { formatDate, getInitialApiConfig } from "@/lib/clients/api";
 import { cn } from "@/lib/utils";
+import { resolveClientProgressLayout } from "./client-progress-layout";
 import {
   getProgressErrorMessage,
   progressFormDataRequest,
@@ -63,7 +64,7 @@ const measurementFields = [
   ["chestCm", "Pecho"],
   ["armCm", "Brazo"],
   ["legCm", "Pierna"],
-  ["gluteCm", "Gluteo"],
+  ["gluteCm", "Glúteo"],
 ] as const;
 
 export function ClientProgressPanel({
@@ -108,14 +109,7 @@ export function ClientProgressPanel({
     weight: false,
   });
 
-  const activeTabConfig = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
   const isFormOpen = openForms[activeTab];
-  const isActiveTabLoaded = loadedTabs.has(activeTab);
-  const isActiveTabLoading = loadingTabs[activeTab];
-  const activeError = errors[activeTab];
-  const activePanelId = `client-progress-${activeTab}-panel`;
-  const shouldRenderActivePanel =
-    isActiveTabLoaded || isFormOpen || Boolean(activeError && activeError.kind !== "load");
 
   const loadTab = useCallback(
     async (tab: ProgressTab, force = false) => {
@@ -265,12 +259,7 @@ export function ClientProgressPanel({
 
   const content = (
     <div className={cn(isDrawer ? "space-y-4" : "p-4")}>
-      <div
-        className={cn(
-          "flex flex-col gap-3",
-          !isDrawer && "md:flex-row md:items-center md:justify-between",
-        )}
-      >
+      <div className="flex flex-col gap-3">
         <div>
           <h3 className="text-sm font-semibold">Progreso</h3>
           <p className="text-sm text-muted-foreground">
@@ -278,7 +267,12 @@ export function ClientProgressPanel({
           </p>
         </div>
         <div
-          className="grid grid-flow-col auto-cols-[minmax(4.75rem,1fr)] overflow-x-auto rounded-xl border bg-muted/30 p-1 text-sm"
+          className={cn(
+            "grid rounded-xl border bg-muted/30 p-1 text-sm",
+            isDrawer
+              ? "grid-flow-col auto-cols-[minmax(4.75rem,1fr)] overflow-x-auto"
+              : "grid-cols-2 sm:grid-cols-4 lg:max-w-2xl",
+          )}
           role="tablist"
           aria-label="Progreso del cliente"
         >
@@ -307,42 +301,29 @@ export function ClientProgressPanel({
       {isDrawer && !isFormOpen ? (
         <Button className="w-full shadow-none" type="button" onClick={() => openForm(activeTab)}>
           <PlusIcon className="size-4" />
-          {activeTabConfig.cta}
+          {tabs.find((tab) => tab.key === activeTab)?.cta ?? tabs[0].cta}
         </Button>
       ) : null}
 
-      {activeError ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          <p>{activeError.message}</p>
-          {activeError.kind === "load" ? (
-            <Button
-              className="mt-3 shadow-none"
-              disabled={isActiveTabLoading}
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => void loadTab(activeTab, true)}
-            >
-              Reintentar
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      {isActiveTabLoading && !isActiveTabLoaded ? (
-        <div className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
-          <Loader2Icon className="mr-2 size-4 animate-spin" />
-          Cargando progreso
-        </div>
-      ) : null}
-      {shouldRenderActivePanel ? (
+      {tabs.map((tab) => (
         <div
-          aria-labelledby={`client-progress-${activeTab}-tab`}
-          id={activePanelId}
+          key={tab.key}
+          aria-labelledby={`client-progress-${tab.key}-tab`}
+          hidden={activeTab !== tab.key}
+          id={`client-progress-${tab.key}-panel`}
           role="tabpanel"
         >
-          {renderActiveSection()}
+          <ProgressPanelState
+            error={errors[tab.key]}
+            isFormOpen={openForms[tab.key]}
+            isLoaded={loadedTabs.has(tab.key)}
+            isLoading={loadingTabs[tab.key]}
+            onRetry={() => void loadTab(tab.key, true)}
+          >
+            {renderSection(tab.key)}
+          </ProgressPanelState>
         </div>
-      ) : null}
+      ))}
 
       <ConfirmDialog
         confirmLabel="Borrar"
@@ -356,17 +337,17 @@ export function ClientProgressPanel({
     </div>
   );
 
-  function renderActiveSection() {
-    if (activeTab === "weight") {
+  function renderSection(tab: ProgressTab) {
+    if (tab === "weight") {
       return (
         <WeightSection
           items={weightLogs}
           saving={saving}
           variant={variant}
-          isFormOpen={isFormOpen}
+          isFormOpen={openForms.weight}
           onCloseForm={() => closeForm("weight")}
           onDelete={(id) => setDeleteTarget({ kind: "weight", id })}
-          shouldRenderHistory={isActiveTabLoaded}
+          shouldRenderHistory={loadedTabs.has("weight")}
           onOpenForm={() => openForm("weight")}
           onSave={async (input, id) => {
             setSaving(true);
@@ -393,16 +374,16 @@ export function ClientProgressPanel({
       );
     }
 
-    if (activeTab === "measurements") {
+    if (tab === "measurements") {
       return (
         <MeasurementsSection
           items={measurements}
           saving={saving}
           variant={variant}
-          isFormOpen={isFormOpen}
+          isFormOpen={openForms.measurements}
           onCloseForm={() => closeForm("measurements")}
           onDelete={(id) => setDeleteTarget({ kind: "measurement", id })}
-          shouldRenderHistory={isActiveTabLoaded}
+          shouldRenderHistory={loadedTabs.has("measurements")}
           onOpenForm={() => openForm("measurements")}
           onSave={async (input, id) => {
             setSaving(true);
@@ -429,16 +410,16 @@ export function ClientProgressPanel({
       );
     }
 
-    if (activeTab === "photos") {
+    if (tab === "photos") {
       return (
         <PhotosSection
           items={photos}
           saving={saving}
           variant={variant}
-          isFormOpen={isFormOpen}
+          isFormOpen={openForms.photos}
           onCloseForm={() => closeForm("photos")}
           onDelete={(id) => setDeleteTarget({ kind: "photo", id })}
-          shouldRenderHistory={isActiveTabLoaded}
+          shouldRenderHistory={loadedTabs.has("photos")}
           onOpenForm={() => openForm("photos")}
           onUpload={async (formData) => {
             setSaving(true);
@@ -469,10 +450,10 @@ export function ClientProgressPanel({
         items={notes}
         saving={saving}
         variant={variant}
-        isFormOpen={isFormOpen}
+        isFormOpen={openForms.notes}
         onCloseForm={() => closeForm("notes")}
         onDelete={(id) => setDeleteTarget({ kind: "note", id })}
-        shouldRenderHistory={isActiveTabLoaded}
+        shouldRenderHistory={loadedTabs.has("notes")}
         onOpenForm={() => openForm("notes")}
         onSave={async (input, id) => {
           setSaving(true);
@@ -500,6 +481,54 @@ export function ClientProgressPanel({
   }
 
   return isDrawer ? content : <WorkspacePanel>{content}</WorkspacePanel>;
+}
+
+function ProgressPanelState({
+  children,
+  error,
+  isFormOpen,
+  isLoaded,
+  isLoading,
+  onRetry,
+}: {
+  children: ReactNode;
+  error: ProgressError;
+  isFormOpen: boolean;
+  isLoaded: boolean;
+  isLoading: boolean;
+  onRetry: () => void;
+}) {
+  const shouldRenderChildren =
+    isLoaded || isFormOpen || Boolean(error && error.kind !== "load");
+
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p>{error.message}</p>
+          {error.kind === "load" ? (
+            <Button
+              className="mt-3 shadow-none"
+              disabled={isLoading}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={onRetry}
+            >
+              Reintentar
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {isLoading && !isLoaded ? (
+        <div className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
+          <Loader2Icon className="mr-2 size-4 animate-spin" />
+          Cargando progreso
+        </div>
+      ) : null}
+      {shouldRenderChildren ? children : null}
+    </div>
+  );
 }
 
 function WeightSection({
@@ -564,11 +593,15 @@ function WeightSection({
   if (variant === "page") {
     return (
       <PageProgressSection
+        emptyText="Sin registros de peso."
         form={form}
         history={shouldRenderHistory ? list : null}
         isFormOpen={isFormOpen}
         onOpenForm={onOpenForm}
         openLabel="Registrar peso"
+        recordCount={items.length}
+        tab="weight"
+        variant={variant}
       />
     );
   }
@@ -592,9 +625,7 @@ function WeightForm({
   const [note, setNote] = useState(item?.note ?? "");
   return (
     <form
-      className={cn(
-        "grid gap-3 rounded-xl border bg-muted/20 p-3",
-      )}
+      className="grid min-w-0 gap-3 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         const didSave = await onSave({
@@ -608,7 +639,11 @@ function WeightForm({
         }
       }}
     >
-      <Input label="Kg" min="1" step="0.1" type="number" value={weightKg} onChange={setWeightKg} />
+      <FormHeader
+        description="Registra el peso observado en una fecha concreta."
+        title={item ? "Editar peso" : "Registrar peso"}
+      />
+      <Input label="Peso (kg)" min="1" step="0.1" type="number" value={weightKg} onChange={setWeightKg} />
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
       <Input label="Nota" value={note} onChange={setNote} />
       <FormActions
@@ -686,11 +721,15 @@ function MeasurementsSection({
   if (variant === "page") {
     return (
       <PageProgressSection
+        emptyText="Sin medidas registradas."
         form={form}
         history={shouldRenderHistory ? list : null}
         isFormOpen={isFormOpen}
         onOpenForm={onOpenForm}
         openLabel="Registrar medidas"
+        recordCount={items.length}
+        tab="measurements"
+        variant={variant}
       />
     );
   }
@@ -719,7 +758,7 @@ function MeasurementsForm({
   const [note, setNote] = useState(item?.note ?? "");
   return (
     <form
-      className="rounded-xl border bg-muted/20 p-3"
+      className="min-w-0 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         const input: BodyMeasurementInput = {
@@ -731,7 +770,11 @@ function MeasurementsForm({
         await onSave(input);
       }}
     >
-      <div className={cn("grid gap-3", variant === "page" && "sm:grid-cols-2")}>
+      <FormHeader
+        description="Captura medidas corporales con fecha y visibilidad."
+        title={item ? "Editar medidas" : "Registrar medidas"}
+      />
+      <div className={cn("mt-3 grid min-w-0 gap-3", variant === "page" && "md:grid-cols-2 xl:grid-cols-3")}>
         {measurementFields.map(([key, label]) => (
           <Input
             key={key}
@@ -745,7 +788,7 @@ function MeasurementsForm({
         ))}
         <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
         <Input label="Nota" value={note} onChange={setNote} />
-        <label className="flex items-end gap-2 pb-2 text-sm">
+        <label className="flex min-w-0 items-end gap-2 pb-2 text-sm">
           <input
             checked={visibleToClient}
             type="checkbox"
@@ -802,7 +845,7 @@ function PhotosSection({
     items.length === 0 ? (
       <EmptyText text="Sin fotos de progreso." />
     ) : (
-      <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-2 xl:grid-cols-3")}>
+      <div className={cn("grid gap-3", variant === "page" && "md:grid-cols-2 2xl:grid-cols-3")}>
         {items.map((item) => (
           <div key={item.id} className="overflow-hidden rounded-xl border bg-background">
             <div className="relative aspect-[4/3] w-full">
@@ -829,11 +872,15 @@ function PhotosSection({
   if (variant === "page") {
     return (
       <PageProgressSection
+        emptyText="Sin fotos de progreso."
         form={form}
         history={shouldRenderHistory ? list : null}
         isFormOpen={isFormOpen}
         onOpenForm={onOpenForm}
         openLabel="Subir foto"
+        recordCount={items.length}
+        tab="photos"
+        variant={variant}
       />
     );
   }
@@ -855,7 +902,7 @@ function PhotoForm({
   const [file, setFile] = useState<File | null>(null);
   return (
     <form
-      className="grid gap-3 rounded-xl border bg-muted/20 p-3"
+      className="grid min-w-0 gap-3 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!file) return;
@@ -867,6 +914,10 @@ function PhotoForm({
         if (didUpload) setFile(null);
       }}
     >
+      <FormHeader
+        description="Sube una foto visible para comparar avances."
+        title="Subir foto"
+      />
       <Select
         label="Tipo"
         value={photoType}
@@ -874,17 +925,17 @@ function PhotoForm({
         onChange={(value) => setPhotoType(value as ProgressPhotoType)}
       />
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
-      <label className="grid gap-1 text-sm font-medium">
+      <label className="grid min-w-0 gap-1 text-sm font-medium">
         Foto
         <input
           accept="image/jpeg,image/png,image/webp"
-          className="rounded-xl border bg-background px-3 py-2 text-sm"
+          className="block w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm file:max-w-full"
           required
           type="file"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
       </label>
-      <div className="flex gap-2 self-end">
+      <div className="grid gap-2 self-end sm:flex sm:justify-end">
         <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
@@ -960,11 +1011,15 @@ function NotesSection({
   if (variant === "page") {
     return (
       <PageProgressSection
+        emptyText="Sin notas de seguimiento."
         form={form}
         history={shouldRenderHistory ? list : null}
         isFormOpen={isFormOpen}
         onOpenForm={onOpenForm}
         openLabel="Añadir nota"
+        recordCount={items.length}
+        tab="notes"
+        variant={variant}
       />
     );
   }
@@ -987,15 +1042,19 @@ function NoteForm({
   const [visibility, setVisibility] = useState(item?.visibility ?? "private");
   return (
     <form
-      className="grid gap-3 rounded-xl border bg-muted/20 p-3"
+      className="grid min-w-0 gap-3 rounded-xl border bg-muted/20 p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         const didSave = await onSave({ text, visibility });
         if (didSave) setText("");
       }}
     >
+      <FormHeader
+        description="Deja una observación privada o visible para el cliente."
+        title={item ? "Guardar cambios" : "Añadir nota"}
+      />
       <textarea
-        className="min-h-24 rounded-xl border bg-background px-3 py-2 text-sm"
+        className="min-h-24 w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
         placeholder="Nota de seguimiento"
         required
         value={text}
@@ -1020,19 +1079,48 @@ function NoteForm({
 }
 
 function PageProgressSection({
+  emptyText,
   form,
   history,
   isFormOpen,
   onOpenForm,
   openLabel,
+  recordCount,
+  tab,
+  variant,
 }: {
+  emptyText: string;
   form: ReactNode;
   history: ReactNode;
   isFormOpen: boolean;
   onOpenForm: () => void;
   openLabel: string;
+  recordCount: number;
+  tab: ProgressTab;
+  variant: ProgressVariant;
 }) {
-  if (!isFormOpen) {
+  const layout = resolveClientProgressLayout({
+    isFormOpen,
+    recordCount,
+    tab,
+    variant,
+  });
+
+  if (layout.kind === "drawer") {
+    return <div className="space-y-4">{form}{history}</div>;
+  }
+
+  if (layout.kind === "empty-with-cta") {
+    return (
+      <EmptyText
+        actionLabel={openLabel}
+        text={emptyText}
+        onAction={onOpenForm}
+      />
+    );
+  }
+
+  if (layout.kind === "full-history") {
     return (
       <div className="space-y-4">
         <Button className="shadow-none" type="button" onClick={onOpenForm}>
@@ -1044,8 +1132,30 @@ function PageProgressSection({
     );
   }
 
+  if (layout.kind === "full-form") {
+    return (
+      <div
+        className={cn(
+          "mx-auto w-full min-w-0",
+          layout.formWidth === "narrow" ? "max-w-xl" : "max-w-4xl",
+        )}
+      >
+        {form}
+      </div>
+    );
+  }
+
+  if (layout.kind === "measurements-form") {
+    return (
+      <div className="space-y-4">
+        <div className="w-full min-w-0">{form}</div>
+        {history}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,380px)] xl:items-start">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] xl:items-start">
       <div className="order-2 min-w-0 xl:order-1">{history}</div>
       <aside className="order-1 min-w-0 xl:order-2 xl:sticky xl:top-4">
         {form}
@@ -1060,6 +1170,23 @@ function RecordList({ children, empty }: { children: ReactNode; empty: string })
     <EmptyText text={empty} />
   ) : (
     <div className="space-y-2">{children}</div>
+  );
+}
+
+function FormHeader({
+  description,
+  title,
+}: {
+  description?: string;
+  title: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <h4 className="text-sm font-semibold">{title}</h4>
+      {description ? (
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -1081,17 +1208,17 @@ function RecordRow({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 rounded-xl border bg-background p-3",
+        "flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-start sm:justify-between",
         tone === "private" && "bg-muted/25",
         tone === "visible" && "border-primary/20 bg-primary/5",
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{meta}</p>
-        {note ? <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{note}</p> : null}
+        <p className="break-words text-sm font-medium">{title}</p>
+        <p className="mt-1 break-words text-xs text-muted-foreground">{meta}</p>
+        {note ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">{note}</p> : null}
       </div>
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 gap-1 self-end sm:self-start">
         <IconButton label="Editar" onClick={onEdit}>
           <PencilIcon className="size-4" />
         </IconButton>
@@ -1117,7 +1244,7 @@ function FormActions({
   const isEditing = mode === "edit";
 
   return (
-    <div className="flex gap-2 self-end">
+    <div className="grid gap-2 self-end sm:flex sm:justify-end">
       <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
         Cancelar
       </Button>
@@ -1140,10 +1267,10 @@ function Input({
   value: string;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value">) {
   return (
-    <label className="grid gap-1 text-sm font-medium">
+    <label className="grid min-w-0 gap-1 text-sm font-medium">
       {label}
       <input
-        className="rounded-xl border bg-background px-3 py-2 text-sm"
+        className="w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         {...props}
@@ -1164,10 +1291,10 @@ function Select({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-sm font-medium">
+    <label className="grid min-w-0 gap-1 text-sm font-medium">
       {label}
       <select
-        className="rounded-xl border bg-background px-3 py-2 text-sm"
+        className="w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -1204,8 +1331,26 @@ function IconButton({
   );
 }
 
-function EmptyText({ text }: { text: string }) {
-  return <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">{text}</p>;
+function EmptyText({
+  actionLabel,
+  onAction,
+  text,
+}: {
+  actionLabel?: string;
+  onAction?: () => void;
+  text: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+      <p>{text}</p>
+      {actionLabel && onAction ? (
+        <Button className="mt-3 shadow-none" type="button" onClick={onAction}>
+          <PlusIcon className="size-4" />
+          {actionLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function toDateInput(value?: string) {

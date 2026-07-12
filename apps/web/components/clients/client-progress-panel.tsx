@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -309,6 +310,7 @@ export function ClientProgressPanel({
         <div
           key={tab.key}
           aria-labelledby={`client-progress-${tab.key}-tab`}
+          className="mt-4"
           hidden={activeTab !== tab.key}
           id={`client-progress-${tab.key}-panel`}
           role="tabpanel"
@@ -900,6 +902,7 @@ function PhotoForm({
   const [photoType, setPhotoType] = useState<ProgressPhotoType>("front");
   const [recordedAt, setRecordedAt] = useState(toDateInput());
   const [file, setFile] = useState<File | null>(null);
+  const fileInputId = useId();
   return (
     <form
       className="grid min-w-0 gap-3 rounded-xl border bg-muted/20 p-3"
@@ -925,16 +928,28 @@ function PhotoForm({
         onChange={(value) => setPhotoType(value as ProgressPhotoType)}
       />
       <Input label="Fecha" type="date" value={recordedAt} onChange={setRecordedAt} />
-      <label className="grid min-w-0 gap-1 text-sm font-medium">
+      <label className="grid min-w-0 gap-1 text-sm font-medium" htmlFor={fileInputId}>
         Foto
+      </label>
+      <div className="grid min-w-0 gap-2 rounded-xl border bg-background p-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+        <label
+          className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-none transition hover:bg-muted/60 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"
+          htmlFor={fileInputId}
+        >
+          Seleccionar archivo
+        </label>
+        <p className="min-w-0 truncate px-1 text-sm text-muted-foreground">
+          {file?.name ?? "Ningún archivo seleccionado"}
+        </p>
         <input
+          id={fileInputId}
           accept="image/jpeg,image/png,image/webp"
-          className="block w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm file:max-w-full"
+          className="sr-only"
           required
           type="file"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
-      </label>
+      </div>
       <div className="grid gap-2 self-end sm:flex sm:justify-end">
         <Button className="shadow-none" disabled={saving} type="button" variant="outline" onClick={onCancel}>
           Cancelar

@@ -52,8 +52,8 @@ test("distinguishes unknown, error, empty, and assigned plan summary states", ()
   assert.deepEqual(resolveClientPagePlanSummary(undefined, false, null), {
     state: "unknown",
     badgeLabel: "Desconocido",
-    title: "Plan todavia no disponible",
-    detail: "El estado del plan aun no se ha confirmado.",
+    title: "Plan todavía no disponible",
+    detail: "El estado del plan aún no se ha confirmado.",
     durationWeeks: null,
     sessionCount: null,
   });
@@ -89,10 +89,22 @@ test("distinguishes unknown, error, empty, and assigned plan summary states", ()
 test("uses explicit access labels for the client page summary", () => {
   assert.deepEqual(resolveClientPageAccessSummary("active"), {
     label: "Acceso activo",
+    ctaLabel: "Gestionar acceso",
     variant: "access-active",
   });
   assert.deepEqual(resolveClientPageAccessSummary("none"), {
-    label: "Pendiente",
+    label: "Sin acceso",
+    ctaLabel: "Generar acceso",
     variant: "no-plan",
+  });
+  assert.deepEqual(resolveClientPageAccessSummary("temporarily_locked"), {
+    label: "Bloqueado temporalmente",
+    ctaLabel: "Gestionar acceso",
+    variant: "access-pending",
+  });
+  assert.deepEqual(resolveClientPageAccessSummary("disabled"), {
+    label: "Acceso desactivado",
+    ctaLabel: "Gestionar acceso",
+    variant: "inactive",
   });
 });

@@ -899,7 +899,10 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
   if (mode === "detail") {
     return (
       <WorkspaceFrame>
-        <div className="border-b bg-background/80 px-4 py-3 backdrop-blur sm:px-6">
+        <nav
+          aria-label="Navegación de clientes"
+          className="border-b bg-background/80 px-4 py-3 backdrop-blur sm:px-6"
+        >
           <div className="mx-auto flex w-full max-w-7xl items-center">
             <Button asChild className="shadow-none" variant="ghost">
               <Link href="/clients">
@@ -908,7 +911,7 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
               </Link>
             </Button>
           </div>
-        </div>
+        </nav>
 
         <main className="flex-1 bg-background px-4 py-5 sm:px-6 lg:py-6">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">

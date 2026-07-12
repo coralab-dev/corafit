@@ -42,8 +42,8 @@ export function resolveClientPagePlanSummary(
     return {
       state: "unknown",
       badgeLabel: "Desconocido",
-      title: isLoading ? "Cargando plan actual" : "Plan todavia no disponible",
-      detail: "El estado del plan aun no se ha confirmado.",
+      title: isLoading ? "Cargando plan actual" : "Plan todavía no disponible",
+      detail: "El estado del plan aún no se ha confirmado.",
       durationWeeks: null,
       sessionCount: null,
     };
@@ -72,18 +72,34 @@ export function resolveClientPagePlanSummary(
 
 export function resolveClientPageAccessSummary(status: AccessStatus) {
   if (status === "active") {
-    return { label: "Acceso activo", variant: "access-active" as const };
+    return {
+      label: "Acceso activo",
+      ctaLabel: "Gestionar acceso",
+      variant: "access-active" as const,
+    };
   }
 
   if (status === "temporarily_locked") {
-    return { label: "Pendiente", variant: "access-pending" as const };
+    return {
+      label: "Bloqueado temporalmente",
+      ctaLabel: "Gestionar acceso",
+      variant: "access-pending" as const,
+    };
   }
 
   if (status === "disabled") {
-    return { label: "Pendiente", variant: "inactive" as const };
+    return {
+      label: "Acceso desactivado",
+      ctaLabel: "Gestionar acceso",
+      variant: "inactive" as const,
+    };
   }
 
-  return { label: "Pendiente", variant: "no-plan" as const };
+  return {
+    label: "Sin acceso",
+    ctaLabel: "Generar acceso",
+    variant: "no-plan" as const,
+  };
 }
 
 function countSessions(plan: TrainingPlan) {

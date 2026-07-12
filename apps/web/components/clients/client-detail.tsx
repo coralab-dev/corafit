@@ -225,7 +225,7 @@ function ClientDetailContent({
                   {client.name}
                 </h2>
                 <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {client.phone || "Sin telefono"}
+                  {client.phone || "Sin teléfono"}
                 </p>
                 <p className="mt-1 truncate text-sm text-muted-foreground">
                   {client.mainGoal} / {typeLabels[client.clientType]}
@@ -278,7 +278,7 @@ function ClientDetailContent({
               {client.name}
             </h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">
-              {client.phone || "Sin telefono"}
+              {client.phone || "Sin teléfono"}
             </p>
             <p className="mt-1 truncate text-sm text-muted-foreground">
               {client.mainGoal} / {typeLabels[client.clientType]}
@@ -408,7 +408,7 @@ function PageSummaryPanel({
           {hasPlan ? (
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <DetailStat
-                label="Duracion"
+                label="Duración"
                 value={`${planSummary.durationWeeks} sem.`}
               />
               <DetailStat
@@ -450,7 +450,7 @@ function PageSummaryPanel({
             <div className="min-w-0">
               <p className="text-sm font-semibold">Acceso</p>
               <p className="mt-2 break-all text-sm text-muted-foreground">
-                {client.access.link ?? "Aun no hay un link de acceso para compartir."}
+                {client.access.link ?? "Aún no hay un link de acceso para compartir."}
               </p>
             </div>
             <StatusBadge
@@ -461,7 +461,7 @@ function PageSummaryPanel({
           <Button asChild className="mt-5 shadow-none" variant="outline">
             <Link href={`/clients/${client.id}/access`}>
               <KeyRoundIcon className="size-4" />
-              {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
+              {accessSummary.ctaLabel}
             </Link>
           </Button>
         </section>
@@ -469,7 +469,7 @@ function PageSummaryPanel({
         <section className="min-w-0 border-t border-border/60 pt-6 lg:col-span-2">
           <h3 className="text-sm font-semibold">Datos del cliente</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailStat label="Edad" value={formatNullableStat(client.age, "anos")} />
+            <DetailStat label="Edad" value={formatNullableStat(client.age, "años")} />
             <DetailStat label="Altura" value={formatNullableStat(client.heightCm, "cm")} />
             <DetailStat
               label="Peso inicial"
@@ -478,7 +478,7 @@ function PageSummaryPanel({
             <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
             <DetailStat label="Objetivo" value={client.mainGoal || "Sin objetivo"} />
             <DetailStat label="Modalidad" value={typeLabels[client.clientType]} />
-            <DetailStat label="Telefono" value={client.phone || "Sin telefono"} />
+            <DetailStat label="Teléfono" value={client.phone || "Sin teléfono"} />
           </div>
         </section>
 
@@ -491,6 +491,7 @@ function PageSummaryPanel({
             onArchiveStatusChange={onArchiveStatusChange}
             onStatusChange={onStatusChange}
             onToggleActions={onToggleActions}
+            variant="page"
           />
         </section>
 
@@ -562,7 +563,7 @@ function SummaryPanel({
     <div className="space-y-4">
       <WorkspacePanel className="p-4">
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <DetailStat label="Edad" value={formatNullableStat(client.age, "anos")} />
+          <DetailStat label="Edad" value={formatNullableStat(client.age, "años")} />
           <DetailStat label="Altura" value={formatNullableStat(client.heightCm, "cm")} />
           <DetailStat
             label="Peso inicial"
@@ -588,7 +589,7 @@ function SummaryPanel({
               </div>
             ) : !hasKnownAssignment ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                Plan todavia no disponible.
+                Plan todavía no disponible.
               </p>
             ) : hasPlan && assignment?.assignedPlan ? (
               <>
@@ -685,6 +686,7 @@ function OperationalStatusControls({
   onArchiveStatusChange,
   onStatusChange,
   onToggleActions,
+  variant = "drawer",
 }: {
   client: Client;
   isStatusMutationPending: boolean;
@@ -693,6 +695,7 @@ function OperationalStatusControls({
   onArchiveStatusChange: (client: Client) => void;
   onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
   onToggleActions: () => void;
+  variant?: "drawer" | "page";
 }) {
   const statusActions = clientStatusActionsFor(client.operationalStatus);
   const normalStatusActions = statusActions.filter((action) => !action.isDestructive);
@@ -704,7 +707,7 @@ function OperationalStatusControls({
         <div>
           <h3 className="text-sm font-semibold">Estado operativo</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Situacion actual para seguimiento interno.
+            Situación actual para seguimiento interno.
           </p>
         </div>
         <StatusBadge
@@ -763,11 +766,14 @@ function OperationalStatusControls({
       {archiveAction ? (
         <div className="mt-4 border-t border-border/60 pt-4">
           <Button
-            className="w-full justify-start shadow-none"
+            className={cn(
+              "justify-start shadow-none",
+              variant === "page" ? "text-destructive" : "w-full",
+            )}
             disabled={isStatusMutationPending}
             size="sm"
             type="button"
-            variant="destructive"
+            variant={variant === "page" ? "ghost" : "destructive"}
             onClick={() => {
               onArchiveStatusChange(client);
             }}
@@ -880,7 +886,7 @@ export function CurrentPlanPanel({
   if (!hasKnownAssignment) {
     return (
       <section className="flex min-h-48 items-center justify-center rounded-2xl border !border-transparent bg-card p-6 text-center text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
-        Plan todavia no disponible.
+        Plan todavía no disponible.
       </section>
     );
   }
@@ -948,7 +954,7 @@ export function CurrentPlanPanel({
 
       <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border/60 pt-4">
         <DetailStat
-          label="Duracion"
+          label="Duración"
           value={`${assignment.assignedPlan.durationWeeks} sem.`}
         />
         <DetailStat label="Sesiones" value={`${totalSessions}`} />

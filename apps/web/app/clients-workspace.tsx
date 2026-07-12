@@ -6,15 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { WorkspaceFrame, WorkspaceHeader, WorkspacePanel, WorkspaceSplit } from "@/components/layout/workspace-shell";
+import { WorkspaceFrame, WorkspaceHeader } from "@/components/layout/workspace-shell";
 import { ClientDetail, ClientFormDialog, ClientList, EndPlanDialog } from "@/components/clients/components";
 import { ClientActivityPanel, ClientActivitySkeletonPanel, ClientDetailLoadingCard, ClientErrorCard, ClientMetrics, ClientNotFoundCard } from "@/components/clients/workspace-panels";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
-import { PanelSkeleton } from "@/components/shared/skeletons";
 import { CoraFitApiError, authenticatedRequest } from "@/lib/api/authenticated-request";
 import { fetchAllPages } from "@/lib/pagination";
 import { clientSchema, emptyDefaults, getErrorMessage, normalizeFormValues, statusLabels } from "@/lib/clients/api";
@@ -899,73 +898,50 @@ export function ClientsWorkspace({ mode = "list", selectedClientId }: ClientsWor
 
   if (mode === "detail") {
     return (
-      <WorkspaceFrame
-        header={
-          <WorkspaceHeader
-            description={currentDetailClient?.mainGoal ?? "Datos operativos, acceso y plan actual del cliente."}
-            title={currentDetailClient?.name ?? "Ficha de cliente"}
-            actions={
-              <Button asChild className="shadow-none" variant="outline">
-                <Link href="/clients">Volver a clientes</Link>
-              </Button>
-            }
-          />
-        }
-      >
-        <WorkspaceSplit
-          main={
-            <div className="flex flex-col gap-5 bg-background p-6">
-              {detailState.status === "error" || error ? (
-                <ClientErrorCard
-                  error={detailState.status === "error" ? detailState.error : error}
-                />
-              ) : null}
+      <WorkspaceFrame>
+        <div className="border-b bg-background/80 px-4 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto flex w-full max-w-7xl items-center">
+            <Button asChild className="shadow-none" variant="ghost">
+              <Link href="/clients">
+                <ArrowLeftIcon className="size-4" />
+                Volver a clientes
+              </Link>
+            </Button>
+          </div>
+        </div>
 
-              {detailState.status === "loading" ? (
-                <ClientDetailLoadingCard />
-              ) : detailState.status === "ready" && currentDetailClient ? (
-                <ClientDetail
-                  assignment={currentDetailAssignment}
-                  client={currentDetailClient}
-                  isClientEditDisabled={isClientStatusMutationPending(
-                    statusMutation,
-                    currentDetailClient.id,
-                  )}
-                  isPlanLoading={false}
-                  isStatusMutationPending={Boolean(pendingStatusClientId)}
-                  pendingStatus={getPendingStatus(currentDetailClient.id)}
-                  variant="page"
-                  onArchiveStatusChange={openArchiveDialog}
-                  onEndPlan={() => setIsEndPlanOpen(true)}
-                  onEdit={openEditForm}
-                  onStatusChange={updateStatus}
-                />
-              ) : detailState.status === "not-found" ? (
-                <ClientNotFoundCard />
-              ) : (
-                null
-              )}
-            </div>
-          }
-          side={
-            <div className="p-5">
-              {currentDetailClient ? (
-                <ClientQuickPanel
-                  assignment={currentDetailAssignment}
-                  client={currentDetailClient}
-                  isEditDisabled={isClientStatusMutationPending(
-                    statusMutation,
-                    currentDetailClient.id,
-                  )}
-                  onEdit={() => openEditForm(currentDetailClient)}
-                  onEndPlan={() => setIsEndPlanOpen(true)}
-                />
-              ) : detailState.status === "loading" ? (
-                <PanelSkeleton rows={4} titleWidth="w-32" />
-              ) : null}
-            </div>
-          }
-        />
+        <main className="flex-1 bg-background px-4 py-5 sm:px-6 lg:py-6">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+            {detailState.status === "error" || error ? (
+              <ClientErrorCard
+                error={detailState.status === "error" ? detailState.error : error}
+              />
+            ) : null}
+
+            {detailState.status === "loading" ? (
+              <ClientDetailLoadingCard />
+            ) : detailState.status === "ready" && currentDetailClient ? (
+              <ClientDetail
+                assignment={currentDetailAssignment}
+                client={currentDetailClient}
+                isClientEditDisabled={isClientStatusMutationPending(
+                  statusMutation,
+                  currentDetailClient.id,
+                )}
+                isPlanLoading={false}
+                isStatusMutationPending={Boolean(pendingStatusClientId)}
+                pendingStatus={getPendingStatus(currentDetailClient.id)}
+                variant="page"
+                onArchiveStatusChange={openArchiveDialog}
+                onEndPlan={() => setIsEndPlanOpen(true)}
+                onEdit={openEditForm}
+                onStatusChange={updateStatus}
+              />
+            ) : detailState.status === "not-found" ? (
+              <ClientNotFoundCard />
+            ) : null}
+          </div>
+        </main>
 
         {sharedDialogs}
       </WorkspaceFrame>
@@ -1092,52 +1068,5 @@ function ClientMetricsSkeleton() {
         </div>
       ))}
     </div>
-  );
-}
-
-function ClientQuickPanel({
-  assignment,
-  client,
-  isEditDisabled,
-  onEdit,
-  onEndPlan,
-}: {
-  assignment: CurrentPlanAssignment | null | undefined;
-  client: Client;
-  isEditDisabled: boolean;
-  onEdit: () => void;
-  onEndPlan: () => void;
-}) {
-  const hasPlan = Boolean(assignment?.assignedPlan);
-  return (
-    <WorkspacePanel title="Acciones rápidas" description="Operaciones frecuentes de esta ficha.">
-      <div className="flex flex-col gap-2 p-4">
-        <Button
-          className="justify-start shadow-none"
-          disabled={isEditDisabled}
-          variant="outline"
-          onClick={onEdit}
-        >
-          Editar cliente
-        </Button>
-        {hasPlan ? (
-          <>
-            <Button asChild className="justify-start shadow-none" variant="outline">
-              <Link href={`/clients/${client.id}/plan-assignment/edit`}>Editar plan actual</Link>
-            </Button>
-            <Button className="justify-start shadow-none" variant="outline" onClick={onEndPlan}>
-              Finalizar plan actual
-            </Button>
-          </>
-        ) : (
-          <Button asChild className="justify-start shadow-none">
-            <Link href={`/clients/${client.id}/plan-assignment`}>Asignar plan</Link>
-          </Button>
-        )}
-        <Button asChild className="justify-start shadow-none" variant="outline">
-          <Link href={`/clients/${client.id}/access`}>Gestionar acceso</Link>
-        </Button>
-      </div>
-    </WorkspacePanel>
   );
 }

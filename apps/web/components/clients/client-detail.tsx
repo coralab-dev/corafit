@@ -31,6 +31,10 @@ import type {
 } from "@/lib/clients/types";
 import { ClientProgressPanel } from "./client-progress-panel";
 import { clientDetailTabs, type ClientDetailTab } from "./client-detail-navigation";
+import {
+  resolveClientPageAccessSummary,
+  resolveClientPagePlanSummary,
+} from "./client-page-summary";
 import { clientStatusActionsFor } from "./client-status-state";
 
 type ClientDetailProps = {
@@ -148,12 +152,19 @@ function ClientDetailContent({
       >
         {visibleActiveTab === "summary" ? (
           isPage ? (
-            <OperationalPanel
+            <PageSummaryPanel
+              assignment={assignment}
               client={client}
+              isClientEditDisabled={isClientEditDisabled}
+              isPlanLoading={isPlanLoading}
               isStatusMutationPending={isStatusMutationPending}
               pendingStatus={pendingStatus}
+              planError={planError}
               showActions={isStatusActionsOpen}
               onArchiveStatusChange={onArchiveStatusChange}
+              onEditNotes={() => onEdit(client)}
+              onEndPlan={onEndPlan}
+              onRetryPlan={onRetryPlan}
               onStatusChange={onStatusChange}
               onToggleActions={() => setIsStatusActionsOpen((current) => !current)}
             />
@@ -202,10 +213,10 @@ function ClientDetailContent({
 
   if (isPage) {
     return (
-      <aside className="flex min-h-0 flex-col gap-4">
+      <section className="flex min-h-0 flex-col gap-4">
         <div className="rounded-2xl border !border-transparent bg-card p-5 shadow-[var(--surface-shadow)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-4 md:flex-1">
               <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
                 {initials(client.name)}
               </div>
@@ -221,13 +232,13 @@ function ClientDetailContent({
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
               <StatusBadge
-                label={statusLabels[client.operationalStatus]}
+                label={`Estado: ${statusLabels[client.operationalStatus]}`}
                 variant={client.operationalStatus}
               />
               <StatusBadge
-                label={getAccessLabel(client.access.status)}
+                label={`Acceso: ${getAccessLabel(client.access.status)}`}
                 variant={getAccessVariant(client.access.status)}
               />
               <Button
@@ -242,14 +253,16 @@ function ClientDetailContent({
               </Button>
             </div>
           </div>
+        </div>
 
+        <div className="overflow-x-auto rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)]">
           {renderTabs(
-            "mt-5 grid grid-cols-2 gap-2 rounded-2xl border !border-transparent bg-muted/25 p-1 shadow-[var(--surface-shadow-soft)] sm:grid-cols-5",
+            "grid min-w-max grid-flow-col auto-cols-[minmax(6.25rem,1fr)] gap-2 sm:min-w-0 sm:grid-cols-5",
           )}
         </div>
 
         {renderActivePanel()}
-      </aside>
+      </section>
     );
   }
 
@@ -322,6 +335,192 @@ function AccessPanel({ client }: { client: Client }) {
           {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
         </Link>
       </Button>
+    </WorkspacePanel>
+  );
+}
+
+function PageSummaryPanel({
+  assignment,
+  client,
+  isClientEditDisabled,
+  isPlanLoading,
+  isStatusMutationPending,
+  onEditNotes,
+  onEndPlan,
+  onRetryPlan,
+  pendingStatus,
+  planError,
+  showActions,
+  onArchiveStatusChange,
+  onStatusChange,
+  onToggleActions,
+}: {
+  assignment: CurrentPlanAssignment | null | undefined;
+  client: Client;
+  isClientEditDisabled: boolean;
+  isPlanLoading: boolean;
+  isStatusMutationPending: boolean;
+  onEditNotes: () => void;
+  onEndPlan: () => void;
+  onRetryPlan?: () => void;
+  pendingStatus?: OperationalStatus | null;
+  planError?: string | null;
+  showActions: boolean;
+  onArchiveStatusChange: (client: Client) => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
+  onToggleActions: () => void;
+}) {
+  const planSummary = resolveClientPagePlanSummary(
+    assignment,
+    isPlanLoading,
+    planError,
+  );
+  const accessSummary = resolveClientPageAccessSummary(client.access.status);
+  const hasPlan = planSummary.state === "assigned";
+  const canUsePlanAction = planSummary.state !== "unknown" && planSummary.state !== "error";
+
+  return (
+    <WorkspacePanel className="p-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <section className="min-w-0 border-b border-border/60 pb-6 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Plan actual</p>
+              <h3 className="mt-2 truncate text-lg font-semibold">
+                {planSummary.title}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {planSummary.detail}
+              </p>
+            </div>
+            <StatusBadge
+              label={planSummary.badgeLabel}
+              variant={
+                planSummary.state === "assigned"
+                  ? "with-plan"
+                  : planSummary.state === "error"
+                    ? "error"
+                    : "no-plan"
+              }
+            />
+          </div>
+
+          {hasPlan ? (
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <DetailStat
+                label="Duracion"
+                value={`${planSummary.durationWeeks} sem.`}
+              />
+              <DetailStat
+                label="Sesiones"
+                value={`${planSummary.sessionCount}`}
+              />
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {canUsePlanAction ? (
+              <Button asChild className="shadow-none">
+                <Link href={`/clients/${client.id}/plan-assignment${hasPlan ? "/edit" : ""}`}>
+                  <DumbbellIcon className="size-4" />
+                  {hasPlan ? "Editar plan" : "Asignar plan"}
+                </Link>
+              </Button>
+            ) : null}
+            {planSummary.state === "error" && onRetryPlan ? (
+              <Button className="shadow-none" variant="outline" onClick={onRetryPlan}>
+                Reintentar
+              </Button>
+            ) : null}
+            {hasPlan ? (
+              <Button
+                className="border-destructive/30 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                variant="outline"
+                onClick={onEndPlan}
+              >
+                <ArchiveIcon className="size-4" />
+                Finalizar plan
+              </Button>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="min-w-0">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Acceso</p>
+              <p className="mt-2 break-all text-sm text-muted-foreground">
+                {client.access.link ?? "Aun no hay un link de acceso para compartir."}
+              </p>
+            </div>
+            <StatusBadge
+              label={accessSummary.label}
+              variant={accessSummary.variant}
+            />
+          </div>
+          <Button asChild className="mt-5 shadow-none" variant="outline">
+            <Link href={`/clients/${client.id}/access`}>
+              <KeyRoundIcon className="size-4" />
+              {client.access.status === "active" ? "Gestionar acceso" : "Generar acceso"}
+            </Link>
+          </Button>
+        </section>
+
+        <section className="min-w-0 border-t border-border/60 pt-6 lg:col-span-2">
+          <h3 className="text-sm font-semibold">Datos del cliente</h3>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <DetailStat label="Edad" value={formatNullableStat(client.age, "anos")} />
+            <DetailStat label="Altura" value={formatNullableStat(client.heightCm, "cm")} />
+            <DetailStat
+              label="Peso inicial"
+              value={formatNullableStat(client.initialWeightKg, "kg")}
+            />
+            <DetailStat label="Nivel" value={client.trainingLevel || "Sin nivel"} />
+            <DetailStat label="Objetivo" value={client.mainGoal || "Sin objetivo"} />
+            <DetailStat label="Modalidad" value={typeLabels[client.clientType]} />
+            <DetailStat label="Telefono" value={client.phone || "Sin telefono"} />
+          </div>
+        </section>
+
+        <section className="min-w-0 border-t border-border/60 pt-6">
+          <OperationalStatusControls
+            client={client}
+            isStatusMutationPending={isStatusMutationPending}
+            pendingStatus={pendingStatus}
+            showActions={showActions}
+            onArchiveStatusChange={onArchiveStatusChange}
+            onStatusChange={onStatusChange}
+            onToggleActions={onToggleActions}
+          />
+        </section>
+
+        <section className="min-w-0 border-t border-border/60 pt-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold">Notas y restricciones</h3>
+            <Button
+              className="shadow-none"
+              disabled={isClientEditDisabled}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={onEditNotes}
+            >
+              <NotebookPenIcon className="size-4" />
+              Editar notas
+            </Button>
+          </div>
+          <div className="space-y-3 text-sm">
+            <NotePreview
+              label="Lesiones"
+              value={client.injuriesNotes || "Sin lesiones registradas."}
+            />
+            <NotePreview
+              label="Notas generales"
+              value={client.generalNotes || "Sin notas generales."}
+            />
+          </div>
+        </section>
+      </div>
     </WorkspacePanel>
   );
 }
@@ -463,12 +662,44 @@ function OperationalPanel({
   onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
   onToggleActions: () => void;
 }) {
+  return (
+    <WorkspacePanel className="p-4">
+      <OperationalStatusControls
+        client={client}
+        isStatusMutationPending={isStatusMutationPending}
+        pendingStatus={pendingStatus}
+        showActions={showActions}
+        onArchiveStatusChange={onArchiveStatusChange}
+        onStatusChange={onStatusChange}
+        onToggleActions={onToggleActions}
+      />
+    </WorkspacePanel>
+  );
+}
+
+function OperationalStatusControls({
+  client,
+  isStatusMutationPending,
+  pendingStatus,
+  showActions,
+  onArchiveStatusChange,
+  onStatusChange,
+  onToggleActions,
+}: {
+  client: Client;
+  isStatusMutationPending: boolean;
+  pendingStatus?: OperationalStatus | null;
+  showActions: boolean;
+  onArchiveStatusChange: (client: Client) => void;
+  onStatusChange: (clientId: string, status: OperationalStatus) => Promise<boolean> | void;
+  onToggleActions: () => void;
+}) {
   const statusActions = clientStatusActionsFor(client.operationalStatus);
   const normalStatusActions = statusActions.filter((action) => !action.isDestructive);
   const archiveAction = statusActions.find((action) => action.status === "archived");
   const isArchivePending = pendingStatus === archiveAction?.status;
   return (
-    <WorkspacePanel className="p-4">
+    <>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Estado operativo</h3>
@@ -550,7 +781,7 @@ function OperationalPanel({
           </Button>
         </div>
       ) : null}
-    </WorkspacePanel>
+    </>
   );
 }
 

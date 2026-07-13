@@ -62,6 +62,7 @@ export type TrainingSessionExerciseRowProps = {
   onDuplicate: () => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
+  onReplace?: (exercise: Exercise) => Promise<boolean>;
   onUpdate: (body: ExerciseUpdate) => Promise<boolean>;
   presentation: "table" | "card";
   sessionName: string;
@@ -82,6 +83,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
   onDuplicate,
   onMoveDown,
   onMoveUp,
+  onReplace,
   onUpdate,
   presentation,
   sessionName,
@@ -99,6 +101,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isReplacePickerOpen, setIsReplacePickerOpen] = useState(false);
   const previousExerciseRef = useRef(exercise);
 
   useEffect(() => {
@@ -232,6 +235,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
             onEditNote={() => setIsEditingNote(true)}
             onMoveDown={onMoveDown}
             onMoveUp={onMoveUp}
+            onReplace={onReplace ? () => setIsReplacePickerOpen(true) : undefined}
           />
         </td>
       </tr>
@@ -261,6 +265,7 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
                 onEditNote={() => setIsEditingNote(true)}
                 onMoveDown={onMoveDown}
                 onMoveUp={onMoveUp}
+                onReplace={onReplace ? () => setIsReplacePickerOpen(true) : undefined}
               />
             </div>
             <ExerciseIndicators alternatives={alternatives} exercise={exercise} />
@@ -355,6 +360,20 @@ export const TrainingSessionExerciseRow = memo(function TrainingSessionExerciseR
         onOpenChange={setIsAlternativePickerOpen}
         onSelect={onAddAlternative}
       />
+
+      {onReplace ? (
+        <ExercisePickerDialog
+          excludedExerciseIds={[
+            exercise.exerciseId,
+            ...alternatives.map((alternative) => alternative.alternativeExerciseId),
+          ]}
+          mode="replace"
+          open={isReplacePickerOpen}
+          sessionName={sessionName}
+          onOpenChange={setIsReplacePickerOpen}
+          onSelect={onReplace}
+        />
+      ) : null}
 
       <ConfirmActionDialog
         confirmLabel="Eliminar ejercicio"
@@ -477,6 +496,7 @@ function ExerciseActions({
   onEditNote,
   onMoveDown,
   onMoveUp,
+  onReplace,
 }: {
   alternativesCount: number;
   isFirst: boolean;
@@ -489,6 +509,7 @@ function ExerciseActions({
   onEditNote: () => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
+  onReplace?: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -514,6 +535,12 @@ function ExerciseActions({
             <CopyIcon data-icon="inline-start" />
             Duplicar
           </DropdownMenuItem>
+          {onReplace ? (
+            <DropdownMenuItem disabled={isReadOnly || isBusy} onSelect={onReplace}>
+              <EditIcon data-icon="inline-start" />
+              Reemplazar ejercicio
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem disabled={isReadOnly || isBusy} onSelect={onEditNote}>
             <EditIcon data-icon="inline-start" />
             Editar nota

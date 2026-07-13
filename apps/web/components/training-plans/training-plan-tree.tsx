@@ -10,7 +10,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import { Button } from "@/components/ui/button";
@@ -35,13 +35,30 @@ import {
   type TrainingPlan,
   type TrainingPlanDay,
   type TrainingPlanWeek,
-  useTrainingPlanEditor,
+  type TrainingSession,
 } from "@/hooks/use-training-plans";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { dayLabels, dayOfWeekValues } from "./training-plan-days";
 
 type MutationState = "saving" | "saved" | "error";
+export type PlanTreeEditor = {
+  copyDay(dayId: string, body: { dayOfWeek: string }): Promise<TrainingPlanDay>;
+  createDay(
+    weekId: string,
+    body: { dayOfWeek: string; dayType?: string; dayOrder?: number },
+  ): Promise<TrainingPlanDay>;
+  createSession(
+    dayId: string,
+    body: { name: string; description?: string | null; coachNote?: string | null },
+  ): Promise<TrainingSession>;
+  createWeek(body: { weekNumber?: number; notes?: string }): Promise<TrainingPlanWeek>;
+  deleteDay(dayId: string): Promise<{ deleted: boolean }>;
+  deleteSession(sessionId: string): Promise<{ deleted: boolean }>;
+  deleteWeek(weekId: string): Promise<{ deleted: boolean }>;
+  duplicateWeek(weekId: string): Promise<TrainingPlanWeek>;
+  updateDay(dayId: string, body: { dayOfWeek: string }): Promise<TrainingPlanDay>;
+};
 
 export function PlanTree({
   className,
@@ -51,38 +68,23 @@ export function PlanTree({
   onMutationStateChange,
   onSelectSession,
   plan,
+  scopeDescription,
   selectedSessionId,
 }: {
   className?: string;
-  editor: ReturnType<typeof useTrainingPlanEditor>;
+  editor: PlanTreeEditor;
   isBusy: boolean;
   isReadOnly: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onSelectSession: (sessionId: string) => void;
   plan: TrainingPlan;
+  scopeDescription?: string;
   selectedSessionId?: string;
 }) {
   const weeks = useMemo(() => plan.weeks ?? [], [plan.weeks]);
-  const selectedWeekId = useMemo(
-    () =>
-      weeks.find((week) =>
-        week.days.some((day) => day.session?.id === selectedSessionId),
-      )?.id,
-    [selectedSessionId, weeks],
-  );
   const [expandedWeekIds, setExpandedWeekIds] = useState<Set<string>>(
-    () => new Set(weeks[0] ? [weeks[0].id] : []),
+    () => new Set(),
   );
-  const previousSelectedWeekIdRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (!selectedWeekId || selectedWeekId === previousSelectedWeekIdRef.current) {
-      return;
-    }
-
-    previousSelectedWeekIdRef.current = selectedWeekId;
-    setExpandedWeekIds((current) => new Set(current).add(selectedWeekId));
-  }, [selectedWeekId]);
 
   function setWeekOpen(weekId: string, open: boolean) {
     setExpandedWeekIds((current) => {
@@ -112,7 +114,12 @@ export function PlanTree({
           <h2 className="text-sm font-semibold">Estructura</h2>
           <span className="text-xs text-muted-foreground">{weeks.length} semanas</span>
         </div>
-        {isReadOnly ? (
+        {scopeDescription ? (
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-muted/45 p-3 text-xs text-muted-foreground">
+            <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>{scopeDescription}</p>
+          </div>
+        ) : isReadOnly ? (
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-muted/45 p-3 text-xs text-muted-foreground">
             <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <p>
@@ -237,7 +244,7 @@ function WeekActions({
   onMutationStateChange,
   week,
 }: {
-  editor: ReturnType<typeof useTrainingPlanEditor>;
+  editor: PlanTreeEditor;
   isBusy: boolean;
   onDuplicated: (weekId: string) => void;
   onMutationStateChange: (state: MutationState) => void;
@@ -337,7 +344,7 @@ function DayNode({
   usedDays,
 }: {
   day: TrainingPlanDay;
-  editor: ReturnType<typeof useTrainingPlanEditor>;
+  editor: PlanTreeEditor;
   isReadOnly: boolean;
   isBusy: boolean;
   isSelected: boolean;
@@ -419,7 +426,7 @@ function DayActions({
   usedDays,
 }: {
   day: TrainingPlanDay;
-  editor: ReturnType<typeof useTrainingPlanEditor>;
+  editor: PlanTreeEditor;
   isBusy: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onSelectSession: (sessionId: string) => void;
@@ -519,7 +526,7 @@ function AddDayDialog({
   usedDays,
   weekId,
 }: {
-  editor: ReturnType<typeof useTrainingPlanEditor>;
+  editor: PlanTreeEditor;
   isBusy: boolean;
   onMutationStateChange: (state: MutationState) => void;
   onCreated: (sessionId?: string) => void;

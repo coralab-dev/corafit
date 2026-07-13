@@ -269,10 +269,7 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
   return {
     completedSessions: summary.completedSessions,
     completionPercent,
-    currentStreak: calculateCurrentStreak(
-      data.week.days,
-      data.todaySession?.date ?? null,
-    ),
+    currentStreak: data.streak.current,
     days: data.week.days.map((day) =>
       buildWeekDayView(day, data.todaySession?.date ?? null),
     ),
@@ -327,38 +324,6 @@ function weekDayTone(
   if (status === "overdue") return "overdue";
   if (status === "pending" && day.canOpen) return "pending";
   return "upcoming";
-}
-
-function calculateCurrentStreak(
-  days: ClientPortalDay[],
-  todayDate: string | null,
-) {
-  if (!todayDate) return 0;
-
-  const visibleDays = [...days]
-    .filter((day) => day.date <= todayDate)
-    .sort((left, right) => left.date.localeCompare(right.date));
-
-  const anchorIndex = visibleDays.findLastIndex(
-    (day) => day.session && isFinalized(day.log?.status ?? day.status),
-  );
-
-  if (anchorIndex < 0) return 0;
-
-  let streak = 0;
-
-  for (let index = anchorIndex; index >= 0; index -= 1) {
-    const day = visibleDays[index];
-
-    if (!day?.session || day.status === "no_session") continue;
-
-    const status = day.log?.status ?? day.status;
-    if (!isFinalized(status)) break;
-
-    streak += 1;
-  }
-
-  return streak;
 }
 
 function buildNextActivity(

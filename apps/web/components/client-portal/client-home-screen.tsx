@@ -281,7 +281,9 @@ function CurrentStreakCard({ streak }: { streak: number }) {
           Racha actual
         </p>
         <p className="mt-1 text-lg font-black">
-          {streak} {plural(streak, "sesion seguida", "sesiones seguidas")}
+          {streak === 0
+            ? "Completa tu proxima sesion para iniciar una racha"
+            : `${streak} ${plural(streak, "sesion seguida", "sesiones seguidas")}`}
         </p>
       </div>
     </article>

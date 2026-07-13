@@ -16,6 +16,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ClientPortalService } from './client-portal.service';
+import { ClientStreakService } from './client-streak.service';
 
 type PrismaServiceMock = {
   client: {
@@ -174,6 +175,7 @@ function createSessionLog(overrides: Record<string, unknown> = {}) {
 
 describe('ClientPortalService', () => {
   let prismaService: PrismaServiceMock;
+  let streakService: ClientStreakService;
   let service: ClientPortalService;
   let validPinHash: string;
 
@@ -210,7 +212,13 @@ describe('ClientPortalService', () => {
         findFirst: vi.fn().mockResolvedValue(null),
       },
     };
-    service = new ClientPortalService(prismaService as unknown as PrismaService);
+    streakService = {
+      getCurrentStreak: vi.fn().mockResolvedValue(6),
+    } as unknown as ClientStreakService;
+    service = new ClientPortalService(
+      prismaService as unknown as PrismaService,
+      streakService,
+    );
   });
 
   it('rejects malformed PINs before verification', async () => {
@@ -629,8 +637,12 @@ describe('ClientPortalService', () => {
           href: '/client-portal/plain-token/calendar',
           query: { date: '2026-05-29' },
         },
+        streak: {
+          current: 0,
+        },
       });
       expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
+      expect(streakService.getCurrentStreak).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -639,7 +651,9 @@ describe('ClientPortalService', () => {
   it('returns the current plan and week summary for an active home', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
-    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(createAssignment())
+      .mockResolvedValueOnce(createAssignment());
 
     try {
       const result = await service.getHome(createAccess(), 'plain-token');
@@ -665,6 +679,14 @@ describe('ClientPortalService', () => {
             restDays: 4,
           },
         },
+        streak: {
+          current: 6,
+        },
+      });
+      expect(streakService.getCurrentStreak).toHaveBeenCalledWith({
+        anchorDate: '2026-05-20',
+        assignment: createAssignment(),
+        clientId: 'client-id',
       });
       expect(result.week?.days).toHaveLength(7);
       expect(result.week?.days.slice(0, 3)).toMatchObject([
@@ -705,30 +727,31 @@ describe('ClientPortalService', () => {
   it('returns home week days in assignment order when the week starts away from monday', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-30T18:00:00.000Z'));
-    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(
-      createAssignment({
-        startDate: new Date('2026-05-29T00:00:00.000Z'),
-        assignedPlan: {
-          id: 'assigned-plan-id',
-          name: 'Assigned Plan',
-          durationWeeks: 4,
-          weeks: [
-            {
-              id: 'week-1',
-              trainingPlanId: 'assigned-plan-id',
-              weekNumber: 1,
-              notes: null,
-              createdAt: new Date('2026-01-01T00:00:00.000Z'),
-              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-              days: [
-                createPlanDay(DayOfWeek.friday, 5, createSession(DayOfWeek.friday)),
-                createPlanDay(DayOfWeek.saturday, 6, createSession(DayOfWeek.saturday)),
-              ],
-            },
-          ],
-        },
-      }),
-    );
+    const assignment = createAssignment({
+      startDate: new Date('2026-05-29T00:00:00.000Z'),
+      assignedPlan: {
+        id: 'assigned-plan-id',
+        name: 'Assigned Plan',
+        durationWeeks: 4,
+        weeks: [
+          {
+            id: 'week-1',
+            trainingPlanId: 'assigned-plan-id',
+            weekNumber: 1,
+            notes: null,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            days: [
+              createPlanDay(DayOfWeek.friday, 5, createSession(DayOfWeek.friday)),
+              createPlanDay(DayOfWeek.saturday, 6, createSession(DayOfWeek.saturday)),
+            ],
+          },
+        ],
+      },
+    });
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(assignment)
+      .mockResolvedValueOnce(assignment);
 
     try {
       const result = await service.getHome(createAccess(), 'plain-token');
@@ -766,7 +789,9 @@ describe('ClientPortalService', () => {
   it('returns today pending session when today has no log yet', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
-    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(createAssignment())
+      .mockResolvedValueOnce(createAssignment());
 
     try {
       const result = await service.getHome(createAccess(), 'plain-token');
@@ -793,7 +818,9 @@ describe('ClientPortalService', () => {
   it('reflects today opened session and latest session on home', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-20T18:00:00.000Z'));
-    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(createAssignment());
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(createAssignment())
+      .mockResolvedValueOnce(createAssignment());
     prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
       createSessionLog({
         id: 'today-log-id',

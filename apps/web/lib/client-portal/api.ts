@@ -72,6 +72,9 @@ export type ClientPortalHome = {
       date: string;
     };
   };
+  streak: {
+    current: number;
+  };
 };
 
 export type ClientPortalCalendar = {

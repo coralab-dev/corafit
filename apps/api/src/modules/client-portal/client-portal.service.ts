@@ -23,6 +23,7 @@ import {
   type TrainingSession,
 } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ClientStreakService } from './client-streak.service';
 import type { VerifyPinDto } from './dto/verify-pin.dto';
 
 export type TokenStatusResult = {
@@ -153,6 +154,9 @@ export type ClientPortalHomeResult = {
       date: string;
     };
   };
+  streak: {
+    current: number;
+  };
 };
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -163,7 +167,10 @@ const DEFAULT_TIMEZONE = 'America/Mexico_City';
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 @Injectable()
 export class ClientPortalService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly clientStreakService: ClientStreakService,
+  ) {}
 
   getStatus() {
     return { module: 'client-portal', status: 'ready' };
@@ -362,10 +369,24 @@ export class ClientPortalService {
         nextPendingSession: null,
         latestSession: null,
         calendarLink: this.toCalendarLink(token, calendarDate),
+        streak: {
+          current: 0,
+        },
       };
     }
 
     const days = calendarResult.calendar.days;
+    const activeAssignment = await this.findCalendarAssignment(
+      access.clientId,
+      ClientTrainingPlanAssignmentStatus.active,
+    );
+    const currentStreak = activeAssignment
+      ? await this.clientStreakService.getCurrentStreak({
+          anchorDate: calendarResult.calendar.today,
+          assignment: activeAssignment,
+          clientId: access.clientId,
+        })
+      : 0;
 
     return {
       state: this.toHomeState(calendarResult.state),
@@ -383,6 +404,9 @@ export class ClientPortalService {
       nextPendingSession: this.findNextPendingSession(days, calendarResult.calendar.today),
       latestSession: this.findLatestSession(days),
       calendarLink: this.toCalendarLink(token, calendarDate),
+      streak: {
+        current: currentStreak,
+      },
     };
   }
 

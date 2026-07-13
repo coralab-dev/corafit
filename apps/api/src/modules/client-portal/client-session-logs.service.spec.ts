@@ -19,6 +19,7 @@ import {
   type ClientSessionSnapshotV1,
 } from './client-session-snapshot.service';
 import { ClientSessionLogsService } from './client-session-logs.service';
+import { ClientStreakService } from './client-streak.service';
 
 type PrismaServiceMock = {
   client: {
@@ -194,6 +195,7 @@ function createLog(overrides: Record<string, unknown> = {}) {
 describe('ClientSessionLogsService', () => {
   let prismaService: PrismaServiceMock;
   let snapshotService: ClientSessionSnapshotService;
+  let streakService: ClientStreakService;
   let service: ClientSessionLogsService;
 
   beforeEach(() => {
@@ -216,9 +218,13 @@ describe('ClientSessionLogsService', () => {
       parseSnapshotData: vi.fn((value: unknown) => value as ClientSessionSnapshotV1),
       isSnapshotV1: vi.fn(),
     } as unknown as ClientSessionSnapshotService;
+    streakService = {
+      getCurrentStreak: vi.fn().mockResolvedValue(2),
+    } as unknown as ClientStreakService;
     service = new ClientSessionLogsService(
       prismaService as unknown as PrismaService,
       snapshotService,
+      streakService,
     );
   });
 
@@ -457,7 +463,7 @@ describe('ClientSessionLogsService', () => {
     );
   });
 
-  it('completion-card returns summary and assignment streak at the scheduled session', async () => {
+  it('completion-card returns summary and shared assignment streak at the scheduled session', async () => {
     prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
       createLog({
         status: ClientSessionStatus.completed,
@@ -470,40 +476,35 @@ describe('ClientSessionLogsService', () => {
         },
       }),
     );
-    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
-      createLog({
-        id: 'future-open-log',
-        status: ClientSessionStatus.opened,
-        scheduledDate: new Date(Date.UTC(2026, 4, 22)),
-      }),
-      createLog({
-        id: 'previous-log',
-        status: ClientSessionStatus.completed,
-        scheduledDate: new Date(Date.UTC(2026, 4, 18)),
-      }),
-      createLog({
-        id: 'current-log',
-        status: ClientSessionStatus.completed,
-        scheduledDate: new Date(Date.UTC(2026, 4, 20)),
-      }),
-      createLog({
-        id: 'older-partial-log',
-        status: ClientSessionStatus.partially_completed,
-        scheduledDate: new Date(Date.UTC(2026, 4, 16)),
-      }),
-    ]);
+    vi.mocked(streakService.getCurrentStreak).mockResolvedValueOnce(6);
 
     const result = await service.getCompletionCard(createAccess(), 'log-id');
 
-    expect(prismaService.clientSessionLog.findMany).toHaveBeenCalledWith({
+    expect(prismaService.clientTrainingPlanAssignment.findFirst).toHaveBeenCalledWith({
       where: {
         clientId: 'client-id',
-        assignmentId: 'assignment-id',
-        scheduledDate: {
-          lte: new Date(Date.UTC(2026, 4, 20)),
+        id: 'assignment-id',
+      },
+      include: {
+        assignedPlan: {
+          include: {
+            weeks: {
+              orderBy: { weekNumber: 'asc' },
+              include: {
+                days: {
+                  orderBy: [{ dayOfWeek: 'asc' }],
+                  include: { session: true },
+                },
+              },
+            },
+          },
         },
       },
-      orderBy: { scheduledDate: 'desc' },
+    });
+    expect(streakService.getCurrentStreak).toHaveBeenCalledWith({
+      anchorDate: '2026-05-20',
+      assignment: createAssignment(),
+      clientId: 'client-id',
     });
     expect(result).toEqual({
       sessionName: 'Lower Body',
@@ -512,7 +513,7 @@ describe('ClientSessionLogsService', () => {
       completedExercises: 2,
       totalExercises: 2,
       completionPercentage: 100,
-      streak: 2,
+      streak: 6,
     });
   });
 

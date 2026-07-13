@@ -104,6 +104,9 @@ function home(overrides: Partial<ClientPortalHome> = {}): ClientPortalHome {
       },
     }),
     state: "active",
+    streak: {
+      current: 6,
+    },
     timezone: "America/Mexico_City",
     todaySession: day({ canOpen: true, date: "2026-07-13" }),
     week: {
@@ -315,6 +318,9 @@ describe("client home state", () => {
 
   test("weekly progress handles zero training sessions without a fake streak", () => {
     const view = buildClientHomeViewModel(home({
+      streak: {
+        current: 0,
+      },
       week: {
         days: [
           day({
@@ -544,311 +550,13 @@ describe("client home state", () => {
     expect(view.emptyNextActivityMessage).toBeNull();
   });
 
-  test("current streak counts six finalized sessions", () => {
+  test("current streak comes from the home endpoint", () => {
     const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-18", "saturday", "log-6"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          finalizedDay("2026-07-14", "tuesday", "log-2"),
-          finalizedDay("2026-07-15", "wednesday", "log-3"),
-          finalizedDay("2026-07-16", "thursday", "log-4"),
-          finalizedDay("2026-07-17", "friday", "log-5"),
-          finalizedDay("2026-07-18", "saturday", "log-6"),
-          day({ date: "2026-07-19", dayOfWeek: "sunday" }),
-        ],
-        summary: {
-          completedSessions: 6,
-          openedSessions: 0,
-          pendingSessions: 1,
-          restDays: 0,
-          totalTrainingSessions: 7,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
+      streak: {
+        current: 9,
       },
     }));
 
-    expect(view.week?.currentStreak).toBe(6);
-  });
-
-  test("rest days between sessions do not break current streak", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-18", "saturday", "log-3"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          restDay("2026-07-14", "tuesday"),
-          finalizedDay("2026-07-15", "wednesday", "log-2"),
-          restDay("2026-07-16", "thursday"),
-          restDay("2026-07-17", "friday"),
-          finalizedDay("2026-07-18", "saturday", "log-3"),
-          day({ date: "2026-07-19", dayOfWeek: "sunday" }),
-        ],
-        summary: {
-          completedSessions: 3,
-          openedSessions: 0,
-          pendingSessions: 1,
-          restDays: 3,
-          totalTrainingSessions: 4,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(3);
-  });
-
-  test("previous pending session breaks current streak", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-18", "saturday", "log-2"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          day({ canOpen: true, date: "2026-07-14", dayOfWeek: "tuesday" }),
-          finalizedDay("2026-07-15", "wednesday", "log-ignored"),
-          restDay("2026-07-16", "thursday"),
-          restDay("2026-07-17", "friday"),
-          finalizedDay("2026-07-18", "saturday", "log-2"),
-          day({ date: "2026-07-19", dayOfWeek: "sunday" }),
-        ],
-        summary: {
-          completedSessions: 3,
-          openedSessions: 0,
-          pendingSessions: 2,
-          restDays: 2,
-          totalTrainingSessions: 5,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(2);
-  });
-
-  test("pending session today keeps streak anchored on last finalized session", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: day({
-        canOpen: true,
-        date: "2026-07-15",
-        dayOfWeek: "wednesday",
-      }),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          restDay("2026-07-14", "tuesday"),
-          day({
-            canOpen: true,
-            date: "2026-07-15",
-            dayOfWeek: "wednesday",
-          }),
-          day({ date: "2026-07-16", dayOfWeek: "thursday" }),
-          restDay("2026-07-17", "friday"),
-          restDay("2026-07-18", "saturday"),
-          restDay("2026-07-19", "sunday"),
-        ],
-        summary: {
-          completedSessions: 1,
-          openedSessions: 0,
-          pendingSessions: 2,
-          restDays: 4,
-          totalTrainingSessions: 3,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(1);
-  });
-
-  test("in progress session today keeps streak anchored on last finalized session", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: day({
-        canOpen: true,
-        date: "2026-07-15",
-        dayOfWeek: "wednesday",
-        log: {
-          completedAt: null,
-          id: "log-active",
-          openedAt: "2026-07-15T12:00:00.000Z",
-          status: "in_progress",
-        },
-        status: "in_progress",
-      }),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          restDay("2026-07-14", "tuesday"),
-          day({
-            canOpen: true,
-            date: "2026-07-15",
-            dayOfWeek: "wednesday",
-            log: {
-              completedAt: null,
-              id: "log-active",
-              openedAt: "2026-07-15T12:00:00.000Z",
-              status: "in_progress",
-            },
-            status: "in_progress",
-          }),
-          day({ date: "2026-07-16", dayOfWeek: "thursday" }),
-          restDay("2026-07-17", "friday"),
-          restDay("2026-07-18", "saturday"),
-          restDay("2026-07-19", "sunday"),
-        ],
-        summary: {
-          completedSessions: 1,
-          openedSessions: 1,
-          pendingSessions: 1,
-          restDays: 4,
-          totalTrainingSessions: 3,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(1);
-  });
-
-  test("overdue session between completed sessions breaks current streak", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-17", "friday", "log-2"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          day({
-            canOpen: true,
-            date: "2026-07-14",
-            dayOfWeek: "tuesday",
-            status: "overdue",
-          }),
-          restDay("2026-07-15", "wednesday"),
-          finalizedDay("2026-07-17", "friday", "log-2"),
-          day({ date: "2026-07-18", dayOfWeek: "saturday" }),
-          restDay("2026-07-19", "sunday"),
-          restDay("2026-07-20", "monday"),
-        ],
-        summary: {
-          completedSessions: 2,
-          openedSessions: 0,
-          pendingSessions: 2,
-          restDays: 3,
-          totalTrainingSessions: 4,
-        },
-        weekEndDate: "2026-07-20",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(1);
-  });
-
-  test("partially completed session counts for current streak", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-15", "wednesday", "log-2"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          day({
-            date: "2026-07-14",
-            dayOfWeek: "tuesday",
-            log: {
-              completedAt: "2026-07-14T13:00:00.000Z",
-              id: "log-partial",
-              openedAt: "2026-07-14T12:00:00.000Z",
-              status: "partially_completed",
-            },
-            status: "partially_completed",
-          }),
-          finalizedDay("2026-07-15", "wednesday", "log-2"),
-          day({ date: "2026-07-16", dayOfWeek: "thursday" }),
-          restDay("2026-07-17", "friday"),
-          restDay("2026-07-18", "saturday"),
-          restDay("2026-07-19", "sunday"),
-        ],
-        summary: {
-          completedSessions: 3,
-          openedSessions: 0,
-          pendingSessions: 1,
-          restDays: 3,
-          totalTrainingSessions: 4,
-        },
-        weekEndDate: "2026-07-19",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(3);
-  });
-
-  test("future sessions do not alter current streak", () => {
-    const view = buildClientHomeViewModel(home({
-      todaySession: finalizedDay("2026-07-15", "wednesday", "log-2"),
-      week: {
-        days: [
-          finalizedDay("2026-07-13", "monday", "log-1"),
-          finalizedDay("2026-07-15", "wednesday", "log-2"),
-          day({
-            canOpen: false,
-            date: "2026-07-16",
-            dayOfWeek: "thursday",
-          }),
-          day({
-            canOpen: false,
-            date: "2026-07-17",
-            dayOfWeek: "friday",
-          }),
-          restDay("2026-07-18", "saturday"),
-          restDay("2026-07-19", "sunday"),
-          restDay("2026-07-20", "monday"),
-        ],
-        summary: {
-          completedSessions: 2,
-          openedSessions: 0,
-          pendingSessions: 2,
-          restDays: 3,
-          totalTrainingSessions: 4,
-        },
-        weekEndDate: "2026-07-20",
-        weekNumber: 2,
-        weekStartDate: "2026-07-13",
-      },
-    }));
-
-    expect(view.week?.currentStreak).toBe(2);
+    expect(view.week?.currentStreak).toBe(9);
   });
 });
-
-function finalizedDay(date: string, dayOfWeek: string, logId: string) {
-  return day({
-    date,
-    dayOfWeek,
-    log: {
-      completedAt: `${date}T13:00:00.000Z`,
-      id: logId,
-      openedAt: `${date}T12:00:00.000Z`,
-      status: "completed",
-    },
-    status: "completed",
-  });
-}
-
-function restDay(date: string, dayOfWeek: string) {
-  return day({
-    date,
-    dayOfWeek,
-    session: null,
-    status: "no_session",
-  });
-}

@@ -205,6 +205,41 @@ describe('ClientStreakService', () => {
     await expect(getStreak(service, '2026-07-13')).resolves.toBe(3);
   });
 
+  it('breaks when a missed session happened after the latest completed session', async () => {
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({ date: '2026-07-06', sessionId: 'session-a' }),
+      createLog({ date: '2026-07-08', sessionId: 'session-b' }),
+    ]);
+
+    await expect(getStreak(service, '2026-07-13')).resolves.toBe(0);
+  });
+
+  it('breaks when a past partial session happened after the latest completed session', async () => {
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({ date: '2026-07-06', sessionId: 'session-a' }),
+      createLog({
+        date: '2026-07-08',
+        sessionId: 'session-b',
+        status: ClientSessionStatus.partially_completed,
+      }),
+    ]);
+
+    await expect(getStreak(service, '2026-07-13')).resolves.toBe(0);
+  });
+
+  it('breaks when yesterday was in progress and today is rest', async () => {
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({ date: '2026-07-06', sessionId: 'session-a' }),
+      createLog({
+        date: '2026-07-08',
+        sessionId: 'session-b',
+        status: ClientSessionStatus.in_progress,
+      }),
+    ]);
+
+    await expect(getStreak(service, '2026-07-09')).resolves.toBe(0);
+  });
+
   it('keeps the streak when today is in progress and previous sessions are completed', async () => {
     prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
       createLog({ date: '2026-07-06', sessionId: 'session-a' }),
@@ -229,6 +264,30 @@ describe('ClientStreakService', () => {
     ]);
 
     await expect(getStreak(service, '2026-07-13')).resolves.toBe(4);
+  });
+
+  it('breaks when today is partially completed', async () => {
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({ date: '2026-07-06', sessionId: 'session-a' }),
+      createLog({ date: '2026-07-08', sessionId: 'session-b' }),
+      createLog({ date: '2026-07-10', sessionId: 'session-c' }),
+      createLog({
+        date: '2026-07-13',
+        sessionId: 'session-a',
+        status: ClientSessionStatus.partially_completed,
+      }),
+    ]);
+
+    await expect(getStreak(service, '2026-07-13')).resolves.toBe(0);
+  });
+
+  it('starts a new streak after a missed session is followed by a completed session', async () => {
+    prismaService.clientSessionLog.findMany.mockResolvedValueOnce([
+      createLog({ date: '2026-07-06', sessionId: 'session-a' }),
+      createLog({ date: '2026-07-10', sessionId: 'session-c' }),
+    ]);
+
+    await expect(getStreak(service, '2026-07-10')).resolves.toBe(1);
   });
 
   it('ignores future sessions and logs', async () => {

@@ -61,25 +61,23 @@ export class ClientStreakService {
         log,
       ]),
     );
-    const anchorIndex = scheduledSessions.findLastIndex((session) =>
-      this.isCompleted(logsBySessionAndDate.get(this.getLogKey(
-        session.trainingSessionId,
-        session.date,
-      ))),
-    );
-
-    if (anchorIndex < 0) return 0;
-
     let streak = 0;
 
-    for (let index = anchorIndex; index >= 0; index -= 1) {
-      const session = scheduledSessions[index];
+    for (const session of [...scheduledSessions].reverse()) {
       const log = logsBySessionAndDate.get(this.getLogKey(
         session.trainingSessionId,
         session.date,
       ));
+      const status = log?.status;
+      const isToday = session.date === anchorDate;
+      const isUnfinishedToday = isToday && (
+        !log ||
+        status === ClientSessionStatus.opened ||
+        status === ClientSessionStatus.in_progress
+      );
 
-      if (!this.isCompleted(log)) break;
+      if (isUnfinishedToday) continue;
+      if (status !== ClientSessionStatus.completed) break;
 
       streak += 1;
     }
@@ -123,10 +121,6 @@ export class ClientStreakService {
     }
 
     return sessions;
-  }
-
-  private isCompleted(log: ClientSessionLog | undefined) {
-    return log?.status === ClientSessionStatus.completed;
   }
 
   private getLogKey(trainingSessionId: string, date: string) {

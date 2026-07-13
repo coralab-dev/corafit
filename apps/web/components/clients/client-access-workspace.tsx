@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ import {
   getPlanSummary,
   markAccessDisabled,
   markAccessGenerated,
+  resolveAccessLoadFailure,
   type AccessMutationResponse,
   type GeneratedAccess,
   type PendingAccessAction,
@@ -58,6 +59,9 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
   const [generatedAccess, setGeneratedAccess] = useState<GeneratedAccess | null>(null);
   const [confirmationTarget, setConfirmationTarget] = useState<ConfirmationTarget>(null);
   const [confirmationError, setConfirmationError] = useState("");
+  const assignmentRef = useRef(assignment);
+  const clientRef = useRef(client);
+  const hasLoadedRef = useRef(hasLoaded);
 
   const organizationId = profile?.organization?.id ?? null;
   const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
@@ -69,6 +73,12 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
       authenticatedRequest<T>(path, init, { organizationId, session }),
     [organizationId, session],
   );
+
+  useEffect(() => {
+    assignmentRef.current = assignment;
+    clientRef.current = client;
+    hasLoadedRef.current = hasLoaded;
+  }, [assignment, client, hasLoaded]);
 
   const loadAccessScreen = useCallback(async () => {
     if (!isApiReady) {
@@ -105,12 +115,19 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
         );
         setAssignment(currentAssignment);
       } catch (caughtError) {
-        setAssignment(null);
+        setAssignment((currentAssignment) =>
+          hasLoadedRef.current ? currentAssignment : null,
+        );
         setPlanLoadError(getErrorMessage(caughtError));
       }
     } catch (caughtError) {
-      setClient(null);
-      setAssignment(null);
+      const resolved = resolveAccessLoadFailure({
+        assignment: assignmentRef.current,
+        client: clientRef.current,
+        hasLoaded: hasLoadedRef.current,
+      });
+      setClient(resolved.client);
+      setAssignment(resolved.assignment);
       setLoadError(getErrorMessage(caughtError));
       setHasLoaded(true);
     } finally {

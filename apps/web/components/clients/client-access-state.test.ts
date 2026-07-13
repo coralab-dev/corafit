@@ -5,7 +5,7 @@ import {
   getPlanSummary,
   markAccessDisabled,
   markAccessGenerated,
-  shouldLoadErrorChangeAfterClipboardFailure,
+  resolveAccessLoadFailure,
 } from "./client-access-state";
 
 const baseAccess: ClientAccess = {
@@ -97,14 +97,35 @@ describe("client access state", () => {
     });
   });
 
-  test("clipboard errors do not replace the screen load error", () => {
-    expect(shouldLoadErrorChangeAfterClipboardFailure()).toBe(false);
-  });
-
   test("plan errors stay explicit without blocking access management", () => {
     expect(getPlanSummary(null, "No se pudo cargar el plan")).toEqual({
       label: "Plan no disponible",
       tone: "warning",
+    });
+  });
+
+  test("initial load failures clear the screen into an error state", () => {
+    expect(resolveAccessLoadFailure({
+      assignment: { id: "plan-1" },
+      client: { id: "client-1" },
+      hasLoaded: false,
+    })).toEqual({
+      assignment: null,
+      client: null,
+    });
+  });
+
+  test("refresh failures preserve the last known client and plan", () => {
+    const previousClient = { id: "client-1" };
+    const previousAssignment = { id: "plan-1" };
+
+    expect(resolveAccessLoadFailure({
+      assignment: previousAssignment,
+      client: previousClient,
+      hasLoaded: true,
+    })).toEqual({
+      assignment: previousAssignment,
+      client: previousClient,
     });
   });
 });

@@ -98,6 +98,18 @@ export function getPlanSummary(
   return { label: "Sin plan activo", tone: "muted" };
 }
 
-export function shouldLoadErrorChangeAfterClipboardFailure() {
-  return false;
+export function resolveAccessLoadFailure<TClient, TAssignment>({
+  assignment,
+  client,
+  hasLoaded,
+}: {
+  assignment: TAssignment | null;
+  client: TClient | null;
+  hasLoaded: boolean;
+}) {
+  if (hasLoaded && client) {
+    return { assignment, client };
+  }
+
+  return { assignment: null, client: null };
 }

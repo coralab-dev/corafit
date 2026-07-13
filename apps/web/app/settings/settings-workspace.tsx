@@ -47,7 +47,11 @@ import type { AuthProfile } from "@/lib/auth/types";
 import { getErrorMessage } from "@/lib/clients/api";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
-import { getSettingsPlanSummary, type SettingsBillingData } from "./settings-state";
+import {
+  getSettingsPlanSummary,
+  type SettingsBillingData,
+  type SettingsPlanTone,
+} from "./settings-state";
 
 type ThemeOption = {
   description: string;
@@ -124,6 +128,7 @@ const organizationTypeLabels: Record<string, string> = {
 const organizationStatusLabels: Record<string, string> = {
   active: "Activa",
   cancelled: "Cancelada",
+  deleted: "Eliminada",
   suspended: "Suspendida",
 };
 
@@ -134,6 +139,36 @@ const subscriptionStatusLabels: Record<string, string> = {
   past_due: "Vencida",
   suspended: "Suspendida",
   trial: "Prueba",
+};
+
+const statusToneByStatus: Record<string, "success" | "muted" | "warning" | "danger"> = {
+  active: "success",
+  cancelled: "muted",
+  deleted: "danger",
+  suspended: "warning",
+};
+
+const planToneClasses: Record<SettingsPlanTone, { bar: string; text: string }> = {
+  critical: {
+    bar: "bg-red-500",
+    text: "text-red-700 dark:text-red-300",
+  },
+  notice: {
+    bar: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  ok: {
+    bar: "bg-primary",
+    text: "text-muted-foreground",
+  },
+  stale: {
+    bar: "bg-muted-foreground/35",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  warning: {
+    bar: "bg-yellow-500",
+    text: "text-yellow-700 dark:text-yellow-300",
+  },
 };
 
 function SummaryCard({
@@ -190,7 +225,17 @@ function CompactFact({
   );
 }
 
-function StatusBadge({ children, tone = "success" }: { children: ReactNode; tone?: "success" | "muted" | "warning" }) {
+function getStatusTone(status: string) {
+  return statusToneByStatus[status] ?? "muted";
+}
+
+function StatusBadge({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: "success" | "muted" | "warning" | "danger";
+}) {
   return (
     <Badge variant={tone} className="text-[10px]">
       {children}
@@ -206,7 +251,9 @@ function AccountSummaryCard({ profile }: { profile: AuthProfile }) {
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <p className="truncate text-base font-semibold">{profile.user.name}</p>
-            <StatusBadge>{profile.user.status === "active" ? "Activa" : profile.user.status}</StatusBadge>
+            <StatusBadge tone={getStatusTone(profile.user.status)}>
+              {profile.user.status === "active" ? "Activa" : profile.user.status}
+            </StatusBadge>
           </div>
           <p className="mt-1 truncate text-sm text-muted-foreground">{profile.user.email}</p>
         </div>
@@ -229,7 +276,7 @@ function OrganizationSummaryCard({ profile }: { profile: AuthProfile }) {
           <Badge variant="outline">
             {memberRoleLabels[profile.member.role] ?? profile.member.role}
           </Badge>
-          <StatusBadge>
+          <StatusBadge tone={getStatusTone(profile.organization.status)}>
             {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
           </StatusBadge>
         </div>
@@ -257,6 +304,7 @@ function PlanSummaryCard({
     billingLoading,
     profileSubscription: profile.subscription,
   });
+  const toneClasses = planToneClasses[summary.tone];
 
   return (
     <SummaryCard title="Plan" icon={<CreditCardIcon className="size-4" />}>
@@ -272,7 +320,9 @@ function PlanSummaryCard({
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>{summary.usageLabel}</span>
+            <span className={cn(summary.tone !== "ok" && toneClasses.text)}>
+              {summary.usageLabel}
+            </span>
             {summary.canRetry ? (
               <Button className="h-7 px-2 text-xs shadow-none" size="sm" type="button" variant="outline" onClick={onRetry}>
                 <RefreshCwIcon className="size-3.5" />
@@ -283,13 +333,19 @@ function PlanSummaryCard({
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className={cn(
-                "h-full rounded-full bg-primary transition-[width]",
-                summary.isUsageStale && "bg-muted-foreground/35",
+                "h-full rounded-full transition-[width]",
+                toneClasses.bar,
               )}
-              style={{ width: `${summary.usagePercent}%` }}
+              style={{ width: `${Math.min(summary.usagePercent, 100)}%` }}
             />
           </div>
         </div>
+        {summary.limitMessage && !summary.isUsageStale ? (
+          <div className={cn("flex items-start gap-2 text-xs", toneClasses.text)}>
+            <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
+            <span>{summary.limitMessage}</span>
+          </div>
+        ) : null}
         {summary.renewsAt ? (
           <p className="text-xs text-muted-foreground">
             Renueva el {formatDate(summary.renewsAt)}
@@ -306,7 +362,13 @@ function PlanSummaryCard({
   );
 }
 
-function ProfileSection({ profile }: { profile: AuthProfile }) {
+function ProfileSection({
+  onProfileSaved,
+  profile,
+}: {
+  onProfileSaved: (profile: AuthProfile) => void;
+  profile: AuthProfile;
+}) {
   const { refreshProfile } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -340,6 +402,7 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
         name: updatedProfile.user.name,
         phone: updatedProfile.user.phone ?? "",
       });
+      onProfileSaved(updatedProfile);
       notify.success("Perfil actualizado");
 
       try {
@@ -394,7 +457,11 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
           <CompactFact label="Email" value={profile.user.email} />
           <CompactFact
             label="Estado"
-            value={<StatusBadge>{profile.user.status === "active" ? "Activa" : profile.user.status}</StatusBadge>}
+            value={
+              <StatusBadge tone={getStatusTone(profile.user.status)}>
+                {profile.user.status === "active" ? "Activa" : profile.user.status}
+              </StatusBadge>
+            }
           />
         </div>
         <div className="flex justify-end">
@@ -408,7 +475,13 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
   );
 }
 
-function OrganizationSection({ profile }: { profile: AuthProfile }) {
+function OrganizationSection({
+  onOrganizationSaved,
+  profile,
+}: {
+  onOrganizationSaved: (organization: AuthProfile["organization"]) => void;
+  profile: AuthProfile;
+}) {
   const { refreshProfile } = useAuth();
   const isOwner = profile.member.role === "owner";
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -439,6 +512,7 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
       );
 
       form.reset({ name: updatedOrganization.name });
+      onOrganizationSaved(updatedOrganization);
       notify.success("Organización actualizada");
 
       try {
@@ -465,7 +539,7 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
         <CompactFact
           label="Estado"
           value={
-            <StatusBadge>
+            <StatusBadge tone={getStatusTone(profile.organization.status)}>
               {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
             </StatusBadge>
           }
@@ -499,7 +573,7 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
           <CompactFact
             label="Estado"
             value={
-              <StatusBadge>
+              <StatusBadge tone={getStatusTone(profile.organization.status)}>
                 {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
               </StatusBadge>
             }
@@ -565,7 +639,15 @@ function AppearanceSection() {
   );
 }
 
-function SettingsOperations({ profile }: { profile: AuthProfile }) {
+function SettingsOperations({
+  onOrganizationSaved,
+  onProfileSaved,
+  profile,
+}: {
+  onOrganizationSaved: (organization: AuthProfile["organization"]) => void;
+  onProfileSaved: (profile: AuthProfile) => void;
+  profile: AuthProfile;
+}) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
   return (
@@ -583,10 +665,10 @@ function SettingsOperations({ profile }: { profile: AuthProfile }) {
           </TabsList>
         </div>
         <TabsContent value="profile" className="m-0 p-4">
-          <ProfileSection profile={profile} />
+          <ProfileSection onProfileSaved={onProfileSaved} profile={profile} />
         </TabsContent>
         <TabsContent value="organization" className="m-0 p-4">
-          <OrganizationSection profile={profile} />
+          <OrganizationSection onOrganizationSaved={onOrganizationSaved} profile={profile} />
         </TabsContent>
         <TabsContent value="appearance" className="m-0 p-4">
           <AppearanceSection />
@@ -636,6 +718,7 @@ function SessionRow() {
 
 export function SettingsWorkspace() {
   const { profile } = useAuth();
+  const [presentationProfile, setPresentationProfile] = useState<AuthProfile | null>(null);
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -699,8 +782,31 @@ export function SettingsWorkspace() {
     };
   }, [profileOrganizationId]);
 
-  if (!profile || !profile.organization || !profile.member || !profile.subscription) {
+  const visibleProfile =
+    presentationProfile?.organization.id === profileOrganizationId ? presentationProfile : profile;
+
+  if (
+    !visibleProfile ||
+    !visibleProfile.organization ||
+    !visibleProfile.member ||
+    !visibleProfile.subscription
+  ) {
     return <SettingsSkeleton />;
+  }
+
+  function handleProfileSaved(updatedProfile: AuthProfile) {
+    setPresentationProfile(updatedProfile);
+  }
+
+  function handleOrganizationSaved(organization: AuthProfile["organization"]) {
+    setPresentationProfile((current) =>
+      current
+        ? {
+            ...current,
+            organization,
+          }
+        : null,
+    );
   }
 
   return (
@@ -714,17 +820,21 @@ export function SettingsWorkspace() {
     >
       <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
         <div className="grid gap-4 lg:grid-cols-3">
-          <AccountSummaryCard profile={profile} />
-          <OrganizationSummaryCard profile={profile} />
+          <AccountSummaryCard profile={visibleProfile} />
+          <OrganizationSummaryCard profile={visibleProfile} />
           <PlanSummaryCard
             billing={billing}
             billingError={billingError}
             billingLoading={billingLoading}
-            onRetry={() => void loadBilling(profile.organization.id)}
-            profile={profile}
+            onRetry={() => void loadBilling(visibleProfile.organization.id)}
+            profile={visibleProfile}
           />
         </div>
-        <SettingsOperations profile={profile} />
+        <SettingsOperations
+          onOrganizationSaved={handleOrganizationSaved}
+          onProfileSaved={handleProfileSaved}
+          profile={visibleProfile}
+        />
         <SessionRow />
       </div>
     </WorkspaceFrame>

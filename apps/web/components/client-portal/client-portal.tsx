@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
+import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 import {
   clientPortalRequest,
   clientPortalFormDataRequest,
@@ -50,7 +51,6 @@ import {
   type ClientPortalBodyMeasurement,
   type ClientPortalCalendar,
   type ClientPortalDay,
-  type ClientPortalHome,
   type ClientPortalProgressNote,
   type ClientPortalProgressPhoto,
   type ClientPortalProgressPhotoType,
@@ -60,16 +60,8 @@ import {
   type ClientSessionPreview,
   type CompletionCard,
 } from "@/lib/client-portal/api";
-
-const dayLabels: Record<string, string> = {
-  monday: "L",
-  tuesday: "M",
-  wednesday: "M",
-  thursday: "J",
-  friday: "V",
-  saturday: "S",
-  sunday: "D",
-};
+export { ClientHomeScreen } from "@/components/client-portal/client-home-screen";
+export { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 
 const statusLabels: Record<ClientPortalStatus, string> = {
   no_session: "Descanso",
@@ -150,85 +142,6 @@ const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
   partially_completed: "text-[#9a6a12]",
 };
 
-const clientPortalNavItems = [
-  {
-    key: "home",
-    label: "Inicio",
-    href: (token: string) => `/c/${encodeURIComponent(token)}/home`,
-    icon: Home,
-  },
-  {
-    key: "calendar",
-    label: "Calendario",
-    href: (token: string) => `/c/${encodeURIComponent(token)}/calendar`,
-    icon: Calendar,
-  },
-  {
-    key: "progress",
-    label: "Progreso",
-    href: (token: string) => `/c/${encodeURIComponent(token)}/progress`,
-    icon: TrendingUp,
-  },
-  {
-    key: "settings",
-    label: "Config.",
-    href: (token: string) => `/c/${encodeURIComponent(token)}/settings`,
-    icon: Settings,
-  },
-] as const;
-
-type ClientPortalNavKey =
-  | "home"
-  | "calendar"
-  | "progress"
-  | "settings"
-  | "profile";
-type ClientPortalNavItem = (typeof clientPortalNavItems)[number];
-
-export function ClientPortalShell({
-  token,
-  active,
-  children,
-  hideCalendarNav,
-}: {
-  token: string;
-  active?: ClientPortalNavKey;
-  children: ReactNode;
-  hideCalendarNav?: boolean;
-}) {
-  const navItems: readonly ClientPortalNavItem[] = hideCalendarNav
-    ? clientPortalNavItems.filter((item) => item.key !== "calendar")
-    : clientPortalNavItems;
-
-  return (
-    <main className="client-portal-viewport bg-[#f8f7f5] text-[#121722] [--portal-accent:#df4d3e] [--portal-accent-on:#ffffff] [--portal-accent-shadow:rgba(223,77,62,0.22)] [--portal-accent-soft:#fff1ee] dark:bg-[#07090d] dark:text-[#f4f6f8] dark:[--portal-accent:#F0C947] dark:[--portal-accent-on:#0b0d0f] dark:[--portal-accent-shadow:rgba(240,201,71,0.22)] dark:[--portal-accent-soft:rgba(240,201,71,0.12)]">
-      <div className="client-portal-viewport mx-auto w-full bg-[#fdfdfc] shadow-[0_22px_80px_rgba(18,23,34,0.10)] dark:bg-[#0d1016] md:max-w-3xl lg:max-w-6xl lg:bg-transparent lg:shadow-none lg:dark:bg-transparent">
-        {active ? (
-          <ClientPortalDesktopNav
-            token={token}
-            active={active}
-            items={navItems}
-          />
-        ) : null}
-        <div
-          className={cn(
-            "client-portal-viewport pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10",
-            active && "lg:pl-64",
-          )}
-        >
-          {children}
-        </div>
-        {active ? (
-          <ClientPortalBottomNav
-            token={token}
-            active={active}
-            items={navItems}
-          />
-        ) : null}
-      </div>
-    </main>
-  );
-}
 
 export function PinAccessScreen({ token }: { token: string }) {
   const router = useRouter();
@@ -364,164 +277,6 @@ export function PinAccessScreen({ token }: { token: string }) {
         <p className="mt-10 text-center text-sm leading-6 text-[#8b929d]">
           Tu coach te compartio un link privado y un PIN.
         </p>
-      </section>
-    </ClientPortalShell>
-  );
-}
-
-export function ClientHomeScreen({ token }: { token: string }) {
-  const router = useRouter();
-  const [data, setData] = useState<ClientPortalHome | null>(null);
-  const [calendar, setCalendar] = useState<ClientPortalCalendar | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [opening, setOpening] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-
-    async function loadHome() {
-      try {
-        const homeResult = await clientPortalRequest<ClientPortalHome>(
-          `/client-portal/${encodeURIComponent(token)}/home`,
-        );
-        if (!alive) return;
-
-        setData(homeResult);
-
-        if (homeResult.state === "no_plan") {
-          setCalendar(null);
-          return;
-        }
-
-        const calendarResult = await clientPortalRequest<ClientPortalCalendar>(
-          `/client-portal/${encodeURIComponent(token)}/calendar`,
-        );
-        if (alive) {
-          setCalendar(calendarResult);
-        }
-      } catch (caught) {
-        if (alive)
-          setError(errorMessage(caught, "No pudimos cargar tu portal."));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-
-    void loadHome();
-
-    return () => {
-      alive = false;
-    };
-  }, [token]);
-
-  async function openSession(day: ClientPortalDay | null) {
-    if (!day?.session) return;
-    if (day.log) {
-      router.push(`/c/${encodeURIComponent(token)}/session/${day.log.id}`);
-      return;
-    }
-    setOpening(true);
-    try {
-      const log = await clientPortalRequest<ClientSessionLog>(
-        `/client-portal/${encodeURIComponent(token)}/session-logs/open`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            scheduledDate: day.date,
-            trainingSessionId: day.session.id,
-          }),
-        },
-      );
-      router.push(`/c/${encodeURIComponent(token)}/session/${log.id}`);
-    } catch (caught) {
-      setError(errorMessage(caught, "No pudimos abrir la sesion."));
-    } finally {
-      setOpening(false);
-    }
-  }
-
-  if (loading && !data) {
-    return (
-      <ClientPortalShell token={token} active="home">
-        <HomeLoadingState />
-      </ClientPortalShell>
-    );
-  }
-  if (error && !data)
-    return <ScreenState title="Algo salio mal" description={error} />;
-  if (!data) return null;
-
-  const actionableSession = data.todaySession?.session
-    ? data.todaySession
-    : data.nextPendingSession;
-  const summary = data.week?.summary;
-  const visibleStreak = calculateVisibleSessionStreak(
-    calendar?.calendar?.days ?? [],
-    calendar?.calendar?.today,
-  );
-  const hasNoPlan = data.state === "no_plan";
-
-  return (
-    <ClientPortalShell token={token} active="home" hideCalendarNav={hasNoPlan}>
-      <section className="px-6 pt-9 md:px-8 lg:px-10">
-        <header className="flex items-center justify-between">
-          <BrandMark compact />
-          {loading ? (
-            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
-              <Loader2 className="size-3.5 animate-spin" />
-              Actualizando
-            </span>
-          ) : null}
-        </header>
-        <h1 className="mt-8 text-3xl font-bold tracking-normal">
-          Hola, {firstName(data.client.name)}
-        </h1>
-        {hasNoPlan ? (
-          <EmptyCard
-            className="mt-6"
-            title="Tu coach esta preparando tu plan."
-            description="Te avisara cuando tu calendario de entrenamiento este listo."
-          />
-        ) : (
-          <>
-            <p className="mt-2 text-base text-[#667080] dark:text-[#aab2bf]">
-              Listo para tu entrenamiento de hoy.
-            </p>
-            <SessionHero
-              day={actionableSession}
-              loading={opening}
-              onOpen={() => void openSession(actionableSession)}
-            />
-            <SectionHeader
-              title="Tu semana"
-              href={`/c/${encodeURIComponent(token)}/calendar`}
-            />
-            {calendar?.calendar ? (
-              <MiniWeek days={calendar.calendar.days} />
-            ) : (
-              <EmptyCard title={homeStateTitle(data.state)} />
-            )}
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <MetricCard
-                label="Completadas"
-                value={summary?.completedSessions ?? 0}
-                caption="esta semana"
-              />
-              <MetricCard
-                label="Racha actual"
-                value={visibleStreak}
-                caption="dias"
-                icon={<Flame className="size-6 text-[var(--portal-accent)]" />}
-              />
-              <MetricCard
-                label="Por completar"
-                value={summary?.pendingSessions ?? 0}
-                caption="esta semana"
-              />
-            </div>
-          </>
-        )}
       </section>
     </ClientPortalShell>
   );
@@ -2183,182 +1938,6 @@ function isForbidden(caught: unknown) {
   );
 }
 
-function ClientPortalDesktopNav({
-  token,
-  active,
-  items,
-}: {
-  token: string;
-  active: ClientPortalNavKey;
-  items: readonly ClientPortalNavItem[];
-}) {
-  return (
-    <aside className="hidden lg:fixed lg:bottom-0 lg:left-0 lg:top-0 lg:block lg:w-64 lg:border-r lg:border-[#ece7e3] lg:bg-[#fdfdfc] lg:px-6 lg:py-10 lg:dark:border-[#222936] lg:dark:bg-[#0d1016]">
-      <BrandMark compact />
-      <nav className="mt-12 space-y-2">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const selected = active === item.key;
-          return (
-            <Link
-              className={cn(
-                "flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-bold text-[#667080] dark:text-[#aab2bf]",
-                selected &&
-                  "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] ",
-              )}
-              href={item.href(token)}
-              key={item.key}
-            >
-              <Icon className="size-6" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="absolute bottom-10 left-6 right-6 rounded-xl border border-[#ece7e3] bg-white p-4 text-sm shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-        <p className="font-bold">Acceso seguro</p>
-        <p className="mt-2 leading-6 text-[#667080] dark:text-[#aab2bf]">
-          Tu informacion esta protegida.
-        </p>
-      </div>
-    </aside>
-  );
-}
-
-function ClientPortalBottomNav({
-  token,
-  active,
-  items,
-}: {
-  token: string;
-  active: ClientPortalNavKey;
-  items: readonly ClientPortalNavItem[];
-}) {
-  return (
-    <nav
-      aria-label="Navegacion principal"
-      className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[calc(0.65rem+env(safe-area-inset-bottom))] lg:hidden"
-    >
-      <div className="flex min-h-16 w-full max-w-[24rem] items-center justify-between gap-1 rounded-full border border-white/70 bg-[#f7f3ee]/82 px-2 py-1.5 shadow-[0_18px_45px_rgba(18,23,34,0.18),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[#f7f3ee]/72 dark:border-[#2b3342]/80 dark:bg-[#111722]/88 dark:shadow-[0_18px_45px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] dark:supports-[backdrop-filter]:bg-[#111722]/76">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const selected = active === item.key;
-          return (
-            <Link
-              aria-current={selected ? "page" : undefined}
-              className={cn(
-                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[0.64rem] font-bold leading-none text-[#7d827f] transition-all duration-200 ease-out dark:text-[#aab2bf]",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] ",
-                selected
-                  ? "min-h-12 bg-white text-[var(--portal-accent)] shadow-[0_8px_22px_rgba(18,23,34,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] dark:text-[#0b0d0f] dark:shadow-[0_8px_22px_rgba(0,0,0,0.3)]"
-                  : "min-h-11 hover:bg-white/45 hover:text-[#565d66] dark:hover:bg-white/8 dark:hover:text-[#f4f6f8]",
-              )}
-              href={item.href(token)}
-              key={item.key}
-            >
-              <Icon
-                className={cn(
-                  "size-5 shrink-0 stroke-[2.1]",
-                  selected && "size-6 stroke-[2.4]",
-                )}
-              />
-              <span className="max-w-full truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-function SessionHero({
-  day,
-  loading,
-  onOpen,
-}: {
-  day: ClientPortalDay | null;
-  loading: boolean;
-  onOpen: () => void;
-}) {
-  if (!day?.session) {
-    return (
-      <EmptyCard
-        className="mt-6"
-        title="Sin sesion para hoy"
-        description="Revisa tu calendario semanal."
-      />
-    );
-  }
-
-  return (
-    <article className="mt-6 rounded-xl border border-[#f5dfda] bg-[linear-gradient(135deg,#fff8f7,#fff)] p-5 shadow-sm dark:border-[#2b3342] dark:bg-[linear-gradient(135deg,#1a202b,#121722)]">
-      <p className="text-sm font-bold text-[var(--portal-accent)] ">
-        Sesion de hoy
-      </p>
-      <div className="mt-3 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">{day.session.name}</h2>
-          <div className="mt-3 flex gap-4 text-sm font-medium text-[#65717f] dark:text-[#aab2bf]">
-            <span>{sessionHeroStatus(day)}</span>
-            <span>
-              {day.canOpen || day.log
-                ? "Lista para entrenar"
-                : "Sesion programada"}
-            </span>
-          </div>
-        </div>
-        <button
-          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[var(--portal-accent)] text-[var(--portal-accent-on)] shadow-[0_10px_24px_rgba(223,77,62,0.24)]"
-          disabled={loading || (!day.canOpen && !day.log)}
-          onClick={onOpen}
-          type="button"
-          aria-label={day.log ? "Continuar sesion" : "Comenzar sesion"}
-        >
-          {loading ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : (
-            <ChevronRight className="size-7" />
-          )}
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function MiniWeek({ days }: { days: ClientPortalDay[] }) {
-  return (
-    <div className="mt-4 grid grid-cols-7 gap-2">
-      {days.map((day) => {
-        const active =
-          day.status === "completed" || day.status === "partially_completed";
-        return (
-          <div
-            className={cn(
-              "rounded-xl py-2 text-center",
-              day.status === "in_progress" && "bg-[var(--portal-accent-soft)] ",
-            )}
-            key={day.date}
-          >
-            <div className="text-xs font-semibold text-[#65717f] dark:text-[#aab2bf]">
-              {dayLabels[day.dayOfWeek] ?? day.dayOfWeek.slice(0, 1)}
-            </div>
-            <div className="mt-2 text-sm font-bold">{day.date.slice(-2)}</div>
-            <div
-              className={cn(
-                "mx-auto mt-2 flex size-6 items-center justify-center rounded-full border border-[#c9cdd3] dark:border-[#3a4354]",
-                active &&
-                  "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)]  dark:text-[#0b0d0f]",
-              )}
-            >
-              {active ? <Check className="size-4" /> : null}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function CalendarDayCard({
   day,
   loading,
@@ -3345,100 +2924,6 @@ function ExerciseMiniNavigation({
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  caption,
-  icon,
-}: {
-  label: string;
-  value: ReactNode;
-  caption: string;
-  icon?: ReactNode;
-}) {
-  return (
-    <div className="min-h-24 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-      <p className="text-xs font-semibold text-[#667080] dark:text-[#aab2bf]">
-        {label}
-      </p>
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-2xl font-bold">{value}</span>
-        {icon ?? (
-          <span className="flex size-7 items-center justify-center rounded-full border border-[var(--portal-accent)] text-[var(--portal-accent)]">
-            <Check className="size-4" />
-          </span>
-        )}
-      </div>
-      <p className="mt-1 text-xs font-medium text-[#667080] dark:text-[#aab2bf]">
-        {caption}
-      </p>
-    </div>
-  );
-}
-
-function HomeLoadingState() {
-  return (
-    <section className="px-6 pt-9 md:px-8 lg:px-10">
-      <header className="flex items-center justify-between">
-        <BrandMark compact />
-        <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
-          <Loader2 className="size-3.5 animate-spin" />
-          Preparando
-        </span>
-      </header>
-      <div className="mt-8 h-9 w-48 animate-pulse rounded-lg bg-[#ece7e3] dark:bg-[#242b36]" />
-      <div className="mt-3 h-5 w-64 animate-pulse rounded-lg bg-[#ece7e3] dark:bg-[#242b36]" />
-      <div className="mt-6 rounded-3xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <div className="h-4 w-28 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="mt-4 h-7 w-56 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="mt-6 h-12 w-full animate-pulse rounded-2xl bg-[#f2efeb] dark:bg-[#1a202b]" />
-      </div>
-      <div className="mt-8 flex items-center justify-between">
-        <div className="h-6 w-24 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="h-4 w-16 animate-pulse rounded bg-[#ece7e3] dark:bg-[#242b36]" />
-      </div>
-      <div className="mt-4 grid grid-cols-7 gap-2">
-        {Array.from({ length: 7 }).map((_, index) => (
-          <div
-            className="h-16 animate-pulse rounded-xl border border-[#ece7e3] bg-white dark:border-[#293140] dark:bg-[#121722]"
-            key={index}
-          />
-        ))}
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div
-            className="h-24 animate-pulse rounded-xl border border-[#ece7e3] bg-white dark:border-[#293140] dark:bg-[#121722]"
-            key={index}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SectionHeader({
-  title,
-  href,
-  label = "Ver mas",
-}: {
-  title: string;
-  href: string;
-  label?: string;
-}) {
-  return (
-    <div className="mt-8 flex items-center justify-between">
-      <h2 className="text-lg font-bold">{title}</h2>
-      <Link
-        className="text-sm font-bold text-[var(--portal-accent)]"
-        href={href}
-      >
-        {label}
-      </Link>
-    </div>
-  );
-}
-
 function TopBar({ title, backHref }: { title: string; backHref: string }) {
   return (
     <header className="flex items-center justify-between">
@@ -3565,17 +3050,6 @@ function BrandMark({ compact }: { compact?: boolean }) {
       {compact ? <span className="text-2xl font-bold">CoraFit</span> : null}
     </div>
   );
-}
-
-function firstName(name: string) {
-  return name.trim().split(/\s+/)[0] ?? name;
-}
-
-function homeStateTitle(state: ClientPortalHome["state"]) {
-  if (state === "no_plan") return "Aun no tienes un plan asignado";
-  if (state === "not_started") return "Tu plan aun no inicia";
-  if (state === "plan_finished") return "Tu plan ya termino";
-  return "Sin sesiones esta semana";
 }
 
 function calendarStateTitle(state?: ClientPortalCalendar["state"]) {
@@ -3788,48 +3262,6 @@ function CalendarStatusBadge({
       {statusLabels[day.status]}
     </span>
   );
-}
-
-function sessionHeroStatus(day: ClientPortalDay) {
-  if (day.log?.status) return statusLabels[day.log.status];
-  if (day.status && day.status !== "pending") return statusLabels[day.status];
-  return "Sesion programada";
-}
-
-function calculateVisibleSessionStreak(
-  days: ClientPortalDay[],
-  today?: string,
-) {
-  const sortedDays = [...days].sort((left, right) =>
-    left.date.localeCompare(right.date),
-  );
-  const completedIndexes = sortedDays
-    .map((day, index) => (isFinalized(day.status) ? index : -1))
-    .filter((index) => index >= 0);
-
-  if (!completedIndexes.length) return 0;
-
-  const todayIndex = today
-    ? sortedDays.findIndex((day) => day.date === today)
-    : -1;
-  const anchorIndex =
-    todayIndex >= 0 && isFinalized(sortedDays[todayIndex]?.status)
-      ? todayIndex
-      : (completedIndexes
-          .filter((index) => todayIndex < 0 || index <= todayIndex)
-          .at(-1) ?? completedIndexes.at(-1));
-
-  if (anchorIndex === undefined) return 0;
-
-  let streak = 0;
-  for (let index = anchorIndex; index >= 0; index -= 1) {
-    const day = sortedDays[index];
-    if (!day?.session) continue;
-    if (!isFinalized(day.status)) break;
-    streak += 1;
-  }
-
-  return streak;
 }
 
 function errorMessage(caught: unknown, fallback: string) {

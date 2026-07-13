@@ -26,6 +26,7 @@ import {
   type ClientSessionSnapshotProgress,
   type ClientSessionSnapshotV1,
 } from './client-session-snapshot.service';
+import { ClientStreakService } from './client-streak.service';
 
 export type OpenClientSessionLogDto = {
   scheduledDate: string;
@@ -87,6 +88,7 @@ export class ClientSessionLogsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly snapshotService: ClientSessionSnapshotService,
+    private readonly clientStreakService: ClientStreakService,
   ) {}
 
   async openSession(
@@ -294,25 +296,22 @@ export class ClientSessionLogsService {
     const completionPercentage = totalExercises === 0
       ? 0
       : Math.round((completedExercises / totalExercises) * 100);
-    const completedLogs = await this.prismaService.clientSessionLog.findMany({
-      where: {
-        clientId: access.clientId,
-        assignmentId: log.assignmentId,
-        scheduledDate: {
-          lte: log.scheduledDate,
-        },
-      },
-      orderBy: { scheduledDate: 'desc' },
+    const assignment = await this.getAssignmentById(access.clientId, log.assignmentId);
+    const scheduledDate = this.toDateKeyFromUtcDate(log.scheduledDate);
+    const streak = await this.clientStreakService.getCurrentStreak({
+      anchorDate: scheduledDate,
+      assignment,
+      clientId: access.clientId,
     });
 
     return {
       sessionName: snapshot.session.name,
-      scheduledDate: this.toDateKeyFromUtcDate(log.scheduledDate),
+      scheduledDate,
       status: log.status,
       completedExercises,
       totalExercises,
       completionPercentage,
-      streak: this.calculateCompletedStreak(completedLogs, log.scheduledDate),
+      streak,
     };
   }
 
@@ -354,6 +353,39 @@ export class ClientSessionLogsService {
 
     if (!assignment) {
       throw new BadRequestException('Client does not have an active plan');
+    }
+
+    return assignment;
+  }
+
+  private async getAssignmentById(
+    clientId: string,
+    assignmentId: string,
+  ): Promise<AssignmentWithPlan> {
+    const assignment = await this.prismaService.clientTrainingPlanAssignment.findFirst({
+      where: {
+        clientId,
+        id: assignmentId,
+      },
+      include: {
+        assignedPlan: {
+          include: {
+            weeks: {
+              orderBy: { weekNumber: 'asc' },
+              include: {
+                days: {
+                  orderBy: [{ dayOfWeek: 'asc' }],
+                  include: { session: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Plan assignment was not found');
     }
 
     return assignment;
@@ -446,24 +478,6 @@ export class ClientSessionLogsService {
         alternativeExerciseId: alternative.alternativeExerciseId,
       })),
     };
-  }
-
-  private calculateCompletedStreak(logs: ClientSessionLog[], anchorDate: Date) {
-    const orderedLogs = logs
-      .filter((log) => log.scheduledDate <= anchorDate)
-      .sort(
-      (a, b) => b.scheduledDate.getTime() - a.scheduledDate.getTime(),
-    );
-    let streak = 0;
-
-    for (const log of orderedLogs) {
-      if (log.status !== ClientSessionStatus.completed) {
-        break;
-      }
-      streak += 1;
-    }
-
-    return streak;
   }
 
   private isFinalizedStatus(status: ClientSessionStatus) {

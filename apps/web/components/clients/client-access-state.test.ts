@@ -104,6 +104,33 @@ describe("client access state", () => {
     });
   });
 
+  test("stale plan data is marked as not updated after a refresh error", () => {
+    expect(getPlanSummary({
+      assignment: {
+        assignedPlanId: "assigned-plan-1",
+        endedAt: null,
+        id: "assignment-1",
+        sourceTrainingPlanId: "source-plan-1",
+        startDate: "2026-01-01",
+        status: "active",
+      },
+      assignedPlan: {
+        durationWeeks: 4,
+        generalNotes: null,
+        goal: null,
+        id: "assigned-plan-1",
+        level: null,
+        name: "Nombre del plan",
+        planType: "assigned_copy",
+        status: "active",
+      },
+      sourcePlan: null,
+    }, "Error de actualizacion")).toEqual({
+      label: "Nombre del plan · No actualizado",
+      tone: "warning",
+    });
+  });
+
   test("initial load failures clear the screen into an error state", () => {
     expect(resolveAccessLoadFailure({
       assignment: { id: "plan-1" },

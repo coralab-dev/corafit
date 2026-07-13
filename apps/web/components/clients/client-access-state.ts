@@ -87,6 +87,13 @@ export function getPlanSummary(
   assignment: CurrentPlanAssignment | null,
   planError: string,
 ): { label: string; tone: "muted" | "success" | "warning" } {
+  if (planError && assignment?.assignedPlan) {
+    return {
+      label: `${assignment.assignedPlan.name} · No actualizado`,
+      tone: "warning",
+    };
+  }
+
   if (assignment?.assignedPlan) {
     return { label: assignment.assignedPlan.name, tone: "success" };
   }

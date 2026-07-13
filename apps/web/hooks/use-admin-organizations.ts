@@ -34,6 +34,11 @@ export type AdminOrganization = {
   clientsUsed: number;
 };
 
+<<<<<<< HEAD
+=======
+export type AdminOrganizationStatusAction = "reactivate" | "suspend";
+
+>>>>>>> origin/staging
 export type AdminSubscriptionPlan = {
   id: string;
   code: string;
@@ -192,6 +197,42 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [adminRequest],
   );
 
+<<<<<<< HEAD
+=======
+  const updateOrganizationStatus = useCallback(
+    async (
+      organizationId: string,
+      action: AdminOrganizationStatusAction,
+    ) => {
+      const organization = await adminRequest<AdminOrganization>(
+        `/admin/organizations/${organizationId}/${action}`,
+        { method: "POST" },
+      );
+      const shouldKeep =
+        normalizedFilters.status === "all" ||
+        normalizedFilters.status === organization.status;
+
+      if (shouldKeep) {
+        setItems((current) =>
+          current.map((item) =>
+            item.id === organization.id ? organization : item,
+          ),
+        );
+        setSelectedOrganization(organization);
+      } else {
+        setItems((current) =>
+          current.filter((item) => item.id !== organization.id),
+        );
+        setSelectedId("");
+        setSelectedOrganization(null);
+      }
+
+      return organization;
+    },
+    [adminRequest, normalizedFilters.status],
+  );
+
+>>>>>>> origin/staging
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadOrganizations();
@@ -229,6 +270,10 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     selectedOrganization,
     subscriptionPlans,
     updateOrganizationSubscription,
+<<<<<<< HEAD
+=======
+    updateOrganizationStatus,
+>>>>>>> origin/staging
   };
 }
 

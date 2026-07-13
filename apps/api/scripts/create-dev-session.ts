@@ -12,21 +12,41 @@ import {
   createPrismaClient,
 } from 'db';
 
-dotenv.config({ path: resolve(process.cwd(), '../../.env') });
-dotenv.config();
+type Env = Record<string, string | undefined>;
 
-const supabaseUrl = requireEnv('SUPABASE_URL');
-const supabaseServiceKey = requireEnv('SUPABASE_SERVICE_KEY');
-const supabaseAnonKey = requireEnv('SUPABASE_ANON_KEY');
+type Destination =
+  | {
+      kind: 'local';
+      host: string;
+    }
+  | {
+      kind: 'remote';
+      host: string;
+    };
 
-const devEmail = (process.env.DEV_AUTH_EMAIL ?? 'corafit.dev.coach@gmail.com')
-  .trim()
-  .toLowerCase();
-const devPassword = process.env.DEV_AUTH_PASSWORD ?? 'CoraFitDev123!';
-const devName = process.env.DEV_AUTH_NAME?.trim() || 'Coach Demo';
-const devOrganizationName =
-  process.env.DEV_ORGANIZATION_NAME?.trim() || 'CoraFit Demo';
-const devAuthJwt = process.env.DEV_AUTH_JWT?.trim();
+type SupabaseDestination = Destination & {
+  projectRef: string | null;
+};
+
+type DevSessionConfig = {
+  supabaseUrl: string;
+  supabaseServiceKey: string;
+  serviceKeySource: 'SUPABASE_SERVICE_ROLE_KEY' | 'SUPABASE_SERVICE_KEY';
+  supabaseAnonKey: string;
+  authFlow: 'password' | 'jwt';
+  devEmail: string | null;
+  devPassword: string | null;
+  devName: string;
+  devOrganizationName: string;
+  devAuthJwt: string | null;
+  apiUrl: string;
+  printSession: boolean;
+  allowRemoteMutation: boolean;
+  expectedSupabaseProjectRef: string | null;
+  expectedPostgresHost: string | null;
+  supabaseDestination: SupabaseDestination;
+  postgresDestination: Destination | null;
+};
 
 type SupabaseUser = {
   id: string;
@@ -34,51 +54,57 @@ type SupabaseUser = {
 };
 
 async function main() {
-  const adminSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+  loadEnv();
+  const config = buildDevSessionConfig(process.env);
+  validateRemoteMutationAuthorization(config);
+
+  const adminSupabase = createClient(config.supabaseUrl, config.supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
-  const publicSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const publicSupabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
 
-  const jwtUserResult = devAuthJwt
-    ? await publicSupabase.auth.getUser(devAuthJwt)
+  const jwtUserResult = config.devAuthJwt
+    ? await publicSupabase.auth.getUser(config.devAuthJwt)
     : null;
 
-  let sessionResult = devAuthJwt
+  let sessionResult = config.devAuthJwt
     ? null
     : await publicSupabase.auth.signInWithPassword({
-        email: devEmail,
-        password: devPassword,
+        email: requirePasswordFlowEmail(config),
+        password: requirePasswordFlowPassword(config),
       });
 
   if (jwtUserResult?.error) {
-    throw new Error(`DEV_AUTH_JWT is invalid or expired: ${jwtUserResult.error.message}`);
+    throw new Error(
+      `DEV_AUTH_JWT is invalid or expired: ${jwtUserResult.error.message}`,
+    );
   }
 
   if (sessionResult?.error) {
     const createResult = await adminSupabase.auth.admin.createUser({
-      email: devEmail,
-      password: devPassword,
+      email: requirePasswordFlowEmail(config),
+      password: requirePasswordFlowPassword(config),
       email_confirm: true,
       user_metadata: {
-        name: devName,
+        name: config.devName,
       },
     });
 
     if (createResult.error && !isAlreadyRegistered(createResult.error.message)) {
       const signUpResult = await publicSupabase.auth.signUp({
-        email: devEmail,
-        password: devPassword,
+        email: requirePasswordFlowEmail(config),
+        password: requirePasswordFlowPassword(config),
         options: {
           data: {
-            name: devName,
+            name: config.devName,
           },
         },
       });
@@ -88,22 +114,25 @@ async function main() {
           [
             `Could not create Supabase user: ${createResult.error.message}`,
             `Fallback signUp also failed: ${signUpResult.error.message}`,
-            'Check that SUPABASE_SERVICE_KEY is the service_role key, or create the user manually in Supabase Auth.',
+            `Check that ${config.serviceKeySource} is the service_role key, or create the user manually in Supabase Auth.`,
           ].join(' '),
         );
       }
     }
 
     sessionResult = await publicSupabase.auth.signInWithPassword({
-      email: devEmail,
-      password: devPassword,
+      email: requirePasswordFlowEmail(config),
+      password: requirePasswordFlowPassword(config),
     });
   }
 
-  if (!devAuthJwt && (!sessionResult?.data.session || !sessionResult.data.user)) {
+  if (
+    !config.devAuthJwt &&
+    (!sessionResult?.data.session || !sessionResult.data.user)
+  ) {
     throw new Error(
       [
-        `Could not sign in ${devEmail}.`,
+        `Could not sign in ${requirePasswordFlowEmail(config)}.`,
         'If this Supabase user already exists, set DEV_AUTH_PASSWORD to its real password or reset it in Supabase.',
         'If email confirmation is enabled, confirm the user in Supabase Auth before running this again.',
         sessionResult?.error ? `Supabase error: ${sessionResult.error.message}` : '',
@@ -113,10 +142,21 @@ async function main() {
     );
   }
 
-  const supabaseUser: SupabaseUser = devAuthJwt
+  if (config.devAuthJwt && !jwtUserResult?.data.user) {
+    throw new Error('DEV_AUTH_JWT did not resolve to a Supabase user.');
+  }
+
+  if (!config.devAuthJwt && !sessionResult?.data.user) {
+    throw new Error('Supabase sign-in did not resolve to a user.');
+  }
+
+  const supabaseUser: SupabaseUser = config.devAuthJwt
     ? jwtUserResult.data.user
     : sessionResult.data.user;
-  const email = supabaseUser.email?.toLowerCase() ?? devEmail;
+  const email = resolveDevAuthEmail({
+    configuredEmail: config.devEmail,
+    resolvedUserEmail: supabaseUser.email,
+  });
   const prisma = createPrismaClient();
 
   try {
@@ -153,12 +193,12 @@ async function main() {
       create: {
         supabaseUserId: supabaseUser.id,
         email,
-        name: devName,
+        name: config.devName,
         status: UserStatus.active,
       },
       update: {
         email,
-        name: devName,
+        name: config.devName,
         status: UserStatus.active,
       },
     });
@@ -173,7 +213,7 @@ async function main() {
       })) ??
       (await prisma.organization.create({
         data: {
-          name: devOrganizationName,
+          name: config.devOrganizationName,
           type: OrganizationType.individual,
           timezone: 'America/Mexico_City',
           status: OrganizationStatus.active,
@@ -221,40 +261,286 @@ async function main() {
     });
 
     const configPayload = {
-      apiUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000',
-      bearerToken: devAuthJwt ?? sessionResult.data.session.access_token,
+      apiUrl: config.apiUrl,
+      bearerToken:
+        config.devAuthJwt ?? requireSessionAccessToken(sessionResult?.data.session),
       organizationId: organization.id,
     };
 
-    console.log('\nCoraFit dev auth ready\n');
-    console.log(`Email: ${devEmail}`);
-    if (!devAuthJwt) {
-      console.log(`Password: ${devPassword}`);
+    for (const line of buildDevSessionOutput({
+      config,
+      accessToken: configPayload.bearerToken,
+      organizationId: configPayload.organizationId,
+    })) {
+      console.log(line);
     }
-    console.log(`Organization ID: ${organization.id}`);
-    console.log('\nPaste this in the browser console on the web app if you want to skip the Conexion dialog:\n');
-    console.log(
-      `localStorage.setItem('corafit_api_config', ${JSON.stringify(
-        JSON.stringify(configPayload),
-      )}); location.reload();`,
-    );
-    console.log('\nOr use the Conexion dialog with:');
-    console.log(`API URL: ${configPayload.apiUrl}`);
-    console.log(`Supabase JWT: ${configPayload.bearerToken}`);
-    console.log(`Organization ID: ${configPayload.organizationId}\n`);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim();
+export function buildDevSessionConfig(env: Env): DevSessionConfig {
+  const supabaseUrl = requireEnv(env, 'SUPABASE_URL');
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const legacyServiceKey = env.SUPABASE_SERVICE_KEY?.trim();
+  const supabaseServiceKey = serviceRoleKey || legacyServiceKey;
+
+  if (!supabaseServiceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required in .env');
+  }
+
+  const destination = detectDestination(
+    supabaseUrl,
+    env.DATABASE_URL?.trim() ?? null,
+  );
+  const devAuthJwt = env.DEV_AUTH_JWT?.trim() || null;
+  const authFlow = devAuthJwt ? 'jwt' : 'password';
+  const devEmail =
+    authFlow === 'password'
+      ? requireEnv(env, 'DEV_AUTH_EMAIL').toLowerCase()
+      : env.DEV_AUTH_EMAIL?.trim().toLowerCase() || null;
+  const devPassword =
+    authFlow === 'password' ? requireEnv(env, 'DEV_AUTH_PASSWORD') : null;
+
+  return {
+    supabaseUrl,
+    supabaseServiceKey,
+    serviceKeySource: serviceRoleKey
+      ? 'SUPABASE_SERVICE_ROLE_KEY'
+      : 'SUPABASE_SERVICE_KEY',
+    supabaseAnonKey: requireEnv(env, 'SUPABASE_ANON_KEY'),
+    authFlow,
+    devEmail,
+    devPassword,
+    devName: env.DEV_AUTH_NAME?.trim() || 'Coach Demo',
+    devOrganizationName: env.DEV_ORGANIZATION_NAME?.trim() || 'CoraFit Demo',
+    devAuthJwt,
+    apiUrl: env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:4000',
+    printSession: env.DEV_AUTH_PRINT_SESSION === 'true',
+    allowRemoteMutation: env.DEV_AUTH_ALLOW_REMOTE_MUTATION === 'true',
+    expectedSupabaseProjectRef:
+      env.DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF?.trim() || null,
+    expectedPostgresHost: env.DEV_AUTH_EXPECTED_POSTGRES_HOST?.trim() || null,
+    supabaseDestination: destination.supabase,
+    postgresDestination: destination.postgres,
+  };
+}
+
+export function validateRemoteMutationAuthorization(
+  config: Pick<
+    DevSessionConfig,
+    | 'allowRemoteMutation'
+    | 'expectedSupabaseProjectRef'
+    | 'expectedPostgresHost'
+    | 'supabaseDestination'
+    | 'postgresDestination'
+  >,
+) {
+  const hasRemoteDestination =
+    config.supabaseDestination.kind === 'remote' ||
+    config.postgresDestination?.kind === 'remote';
+
+  if (!hasRemoteDestination) {
+    return;
+  }
+
+  if (!config.allowRemoteMutation) {
+    throw new Error(
+      'DEV_AUTH_ALLOW_REMOTE_MUTATION=true is required before dev:auth can mutate a remote Supabase/Postgres destination.',
+    );
+  }
+
+  if (config.supabaseDestination.kind === 'remote') {
+    if (!config.expectedSupabaseProjectRef) {
+      throw new Error(
+        'DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF is required before dev:auth can mutate a remote Supabase destination.',
+      );
+    }
+
+    if (
+      config.supabaseDestination.projectRef !==
+      config.expectedSupabaseProjectRef
+    ) {
+      throw new Error(
+        'DEV_AUTH_EXPECTED_SUPABASE_PROJECT_REF does not match configured Supabase destination.',
+      );
+    }
+  }
+
+  if (config.postgresDestination?.kind !== 'remote') {
+    return;
+  }
+
+  if (!config.expectedPostgresHost) {
+    throw new Error(
+      'DEV_AUTH_EXPECTED_POSTGRES_HOST is required before dev:auth can mutate a remote Postgres destination.',
+    );
+  }
+
+  if (config.postgresDestination.host !== config.expectedPostgresHost) {
+    throw new Error(
+      'DEV_AUTH_EXPECTED_POSTGRES_HOST does not match configured Postgres destination.',
+    );
+  }
+}
+
+export function resolveDevAuthEmail(input: {
+  configuredEmail: string | null;
+  resolvedUserEmail: string | undefined;
+}) {
+  const email =
+    input.resolvedUserEmail?.trim().toLowerCase() ??
+    input.configuredEmail?.trim().toLowerCase();
+
+  if (!email) {
+    throw new Error(
+      'DEV_AUTH_JWT resolved user has no email; set DEV_AUTH_EMAIL before running dev:auth.',
+    );
+  }
+
+  return email;
+}
+
+function requireSessionAccessToken(session: { access_token?: string } | null | undefined) {
+  if (!session?.access_token) {
+    throw new Error('Supabase sign-in did not return an access token.');
+  }
+
+  return session.access_token;
+}
+
+export function buildDevSessionOutput(input: {
+  config: Pick<DevSessionConfig, 'devEmail' | 'apiUrl' | 'printSession'>;
+  accessToken: string;
+  organizationId: string;
+}) {
+  const lines = [
+    '',
+    'CoraFit dev auth ready',
+    '',
+    `Email: ${input.config.devEmail ?? '(resolved from token)'}`,
+    `Organization ID: ${input.organizationId}`,
+  ];
+
+  if (!input.config.printSession) {
+    lines.push(
+      '',
+      'Sensitive session output is hidden by default.',
+      'Set DEV_AUTH_PRINT_SESSION=true for a one-time console print of the local browser session details.',
+      '',
+    );
+    return lines;
+  }
+
+  const configPayload = {
+    apiUrl: input.config.apiUrl,
+    bearerToken: input.accessToken,
+    organizationId: input.organizationId,
+  };
+
+  lines.push(
+    '',
+    'Paste this in the browser console on the web app if you want to skip the Conexion dialog:',
+    '',
+    `localStorage.setItem('corafit_api_config', ${JSON.stringify(
+      JSON.stringify(configPayload),
+    )}); location.reload();`,
+    '',
+    'Or use the Conexion dialog with:',
+    `API URL: ${configPayload.apiUrl}`,
+    `Supabase JWT: ${configPayload.bearerToken}`,
+    `Organization ID: ${configPayload.organizationId}`,
+    '',
+  );
+
+  return lines;
+}
+
+function loadEnv() {
+  dotenv.config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
+  dotenv.config({ quiet: true });
+}
+
+function requireEnv(env: Env, name: string) {
+  const value = env[name]?.trim();
 
   if (!value) {
     throw new Error(`${name} is required in .env`);
   }
 
   return value;
+}
+
+function detectDestination(
+  supabaseUrl: string,
+  databaseUrl: string | null,
+): {
+  supabase: SupabaseDestination;
+  postgres: Destination | null;
+} {
+  const supabaseHost = parseHost(supabaseUrl);
+  const databaseHost = databaseUrl ? parseHost(databaseUrl) : null;
+
+  return {
+    supabase: {
+      kind: isLocalHost(supabaseHost) ? 'local' : 'remote',
+      host: supabaseHost,
+      projectRef: getSupabaseProjectRef(supabaseHost),
+    },
+    postgres: databaseHost
+      ? {
+          kind: isLocalHost(databaseHost) ? 'local' : 'remote',
+          host: databaseHost,
+        }
+      : null,
+  };
+}
+
+function requirePasswordFlowEmail(config: Pick<DevSessionConfig, 'devEmail'>) {
+  if (!config.devEmail) {
+    throw new Error('DEV_AUTH_EMAIL is required for password auth.');
+  }
+
+  return config.devEmail;
+}
+
+function requirePasswordFlowPassword(
+  config: Pick<DevSessionConfig, 'devPassword'>,
+) {
+  if (!config.devPassword) {
+    throw new Error('DEV_AUTH_PASSWORD is required for password auth.');
+  }
+
+  return config.devPassword;
+}
+
+function parseHost(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    throw new Error('Could not identify configured destination host.');
+  }
+}
+
+function getSupabaseProjectRef(host: string) {
+  if (host.startsWith('db.') && host.endsWith('.supabase.co')) {
+    return host.split('.')[1] ?? null;
+  }
+
+  if (host.endsWith('.supabase.co')) {
+    return host.split('.')[0] ?? null;
+  }
+
+  return null;
+}
+
+function isLocalHost(host: string) {
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host.endsWith('.localhost')
+  );
 }
 
 function isAlreadyRegistered(message: string) {
@@ -266,7 +552,9 @@ function isAlreadyRegistered(message: string) {
   );
 }
 
-void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

@@ -1,110 +1,139 @@
 "use client";
 
 import {
+  AlertTriangleIcon,
+  ActivityIcon,
+  ArrowLeftIcon,
   CheckCircle2Icon,
   ClipboardIcon,
   Clock3Icon,
-  EyeIcon,
-  InfoIcon,
   KeyRoundIcon,
   Loader2Icon,
   LockKeyholeIcon,
-  MessageCircleIcon,
   RefreshCwIcon,
-  ShieldCheckIcon,
   ShieldOffIcon,
-  SmartphoneIcon,
+  SparklesIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { notify } from "@/lib/notify";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
+import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   WorkspaceFrame,
   WorkspaceHeader,
   WorkspacePanel,
-  WorkspaceSplit,
 } from "@/components/layout/workspace-shell";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
+import { formatDate, getErrorMessage, initials, statusLabels, typeLabels } from "@/lib/clients/api";
+import type { Client, ClientAccess, CurrentPlanAssignment } from "@/lib/clients/types";
+import { notify } from "@/lib/notify";
+import { cn } from "@/lib/utils";
 import {
-  apiRequest,
-  formatDate,
-  getErrorMessage,
-  getInitialApiConfig,
-  initials,
-  statusLabels,
-  typeLabels,
-} from "@/lib/clients/api";
-import type { AccessStatus, ApiConfig, Client, ClientAccess, CurrentPlanAssignment } from "@/lib/clients/types";
-import { ClientErrorCard, ClientDetailLoadingCard, ClientNotFoundCard } from "./workspace-panels";
+  buildAccessViewState,
+  getPlanSummary,
+  markAccessDisabled,
+  markAccessGenerated,
+  resolveAccessLoadFailure,
+  type AccessMutationResponse,
+  type GeneratedAccess,
+  type PendingAccessAction,
+} from "./client-access-state";
+import { ClientErrorCard, ClientNotFoundCard } from "./workspace-panels";
 
-type GeneratedAccess = {
-  link: string;
-  pin: string;
-};
-
-type AccessResponse = {
-  access: { id: string; status: AccessStatus };
-  link: string;
-  pin: string;
-};
+type ConfirmationTarget = "regenerate" | "disable" | null;
 
 export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
-  const [apiConfig] = useState<ApiConfig>(getInitialApiConfig);
+  const { profile, session, status: authStatus } = useAuth();
   const [client, setClient] = useState<Client | null>(null);
   const [assignment, setAssignment] = useState<CurrentPlanAssignment | null>(null);
+  const [planLoadError, setPlanLoadError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [isRequestLoading, setIsRequestLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAccessAction>(null);
   const [generatedAccess, setGeneratedAccess] = useState<GeneratedAccess | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [confirmationTarget, setConfirmationTarget] = useState<ConfirmationTarget>(null);
+  const [confirmationError, setConfirmationError] = useState("");
+  const assignmentRef = useRef(assignment);
+  const clientRef = useRef(client);
+  const hasLoadedRef = useRef(hasLoaded);
 
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+  const organizationId = profile?.organization?.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
+  const isInitialLoading = authStatus === "loading" || (isRequestLoading && !hasLoaded);
+  const isRefreshing = isRequestLoading && hasLoaded;
+
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
+
+  useEffect(() => {
+    assignmentRef.current = assignment;
+    clientRef.current = client;
+    hasLoadedRef.current = hasLoaded;
+  }, [assignment, client, hasLoaded]);
 
   const loadAccessScreen = useCallback(async () => {
     if (!isApiReady) {
       setClient(null);
       setAssignment(null);
-      setError("Configura el JWT del coach y la organizacion para leer clientes reales.");
-      setIsLoading(false);
+      setPlanLoadError("");
+      setLoadError(
+        authStatus === "loading"
+          ? ""
+          : "La sesion no esta disponible. Inicia sesion de nuevo para gestionar este acceso.",
+      );
+      setHasLoaded(false);
       return;
     }
 
-    setIsLoading(true);
-    setError("");
+    setIsRequestLoading(true);
+    setLoadError("");
+    setPlanLoadError("");
 
     try {
-      const [selectedClient, access, currentAssignment] = await Promise.all([
-        apiRequest<Omit<Client, "access">>(`/clients/${clientId}`, { method: "GET" }, apiConfig),
-        apiRequest<ClientAccess | null>(`/clients/${clientId}/access`, { method: "GET" }, apiConfig),
-        apiRequest<CurrentPlanAssignment | null>(
-          `/clients/${clientId}/plan-assignment/current`,
-          { method: "GET" },
-          apiConfig,
-        ).catch(() => null),
+      const [selectedClient, access] = await Promise.all([
+        request<Omit<Client, "access">>(`/clients/${clientId}`, { method: "GET" }),
+        request<ClientAccess | null>(`/clients/${clientId}/access`, { method: "GET" }),
       ]);
 
-      setClient({
-        ...selectedClient,
-        access: access
-          ? {
-              id: access.id,
-              createdAt: access.createdAt,
-              lastAccessAt: access.lastAccessAt,
-              lockedUntil: access.lockedUntil,
-              status: access.status,
-              updatedAtRaw: access.updatedAt,
-              updatedAt: formatDate(access.updatedAt ?? access.lastAccessAt ?? access.lockedUntil),
-            }
-          : { status: "none" },
-      });
-      setAssignment(currentAssignment);
+      const normalizedAccess = normalizeAccess(access);
+      setClient({ ...selectedClient, access: normalizedAccess });
+      setHasLoaded(true);
+
+      try {
+        const currentAssignment = await request<CurrentPlanAssignment | null>(
+          `/clients/${clientId}/plan-assignment/current`,
+          { method: "GET" },
+        );
+        setAssignment(currentAssignment);
+      } catch (caughtError) {
+        setAssignment((currentAssignment) =>
+          hasLoadedRef.current ? currentAssignment : null,
+        );
+        setPlanLoadError(getErrorMessage(caughtError));
+      }
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const resolved = resolveAccessLoadFailure({
+        assignment: assignmentRef.current,
+        client: clientRef.current,
+        hasLoaded: hasLoadedRef.current,
+      });
+      setClient(resolved.client);
+      setAssignment(resolved.assignment);
+      setLoadError(getErrorMessage(caughtError));
+      setHasLoaded(true);
     } finally {
-      setIsLoading(false);
+      setIsRequestLoading(false);
     }
-  }, [apiConfig, clientId, isApiReady]);
+  }, [authStatus, clientId, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -114,108 +143,124 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
     return () => window.clearTimeout(timer);
   }, [loadAccessScreen]);
 
-  async function generateAccess(mode: "create" | "regenerate") {
-    if (!client) {
+  useEffect(() => {
+    if (!isRefreshing) {
+      notify.dismiss("client-access-refresh");
       return;
     }
 
-    setIsSubmitting(true);
-    setError("");
+    const timer = window.setTimeout(() => {
+      notify.refresh("Actualizando acceso", { id: "client-access-refresh" });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      notify.dismiss("client-access-refresh");
+    };
+  }, [isRefreshing]);
+
+  async function generateAccess(mode: "generate" | "regenerate") {
+    if (!client || pendingAction) {
+      return false;
+    }
+
+    setPendingAction(mode);
+    setConfirmationError("");
+
     try {
       const endpoint =
-        mode === "create" ? `/clients/${client.id}/access` : `/clients/${client.id}/access/regenerate-pin`;
-      const response = await apiRequest<AccessResponse>(endpoint, { method: "POST" }, apiConfig);
-      const updatedAt = new Date().toISOString();
+        mode === "generate" ? `/clients/${client.id}/access` : `/clients/${client.id}/access/regenerate-pin`;
+      const response = await request<AccessMutationResponse>(endpoint, { method: "POST" });
+      const updated = markAccessGenerated(client.access, response, new Date().toISOString());
 
-      setGeneratedAccess({ link: response.link, pin: response.pin });
+      setGeneratedAccess(updated.generatedAccess);
       setClient((current) =>
         current
           ? {
               ...current,
-              access: {
-                ...current.access,
-                id: response.access.id,
-                link: response.link,
-                pin: response.pin,
-                status: response.access.status,
-                updatedAtRaw: updatedAt,
-                updatedAt: "Ahora",
-              },
+              access: updated.access,
             }
           : current,
       );
-      notify.success(mode === "create" ? "Acceso generado" : "Acceso regenerado");
+      notify.success(mode === "generate" ? "Acceso generado" : "Acceso regenerado");
+      return true;
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const message = getErrorMessage(caughtError);
+      setConfirmationError(message);
+      notify.error(message);
+      return false;
     } finally {
-      setIsSubmitting(false);
+      setPendingAction(null);
     }
   }
 
   async function disableAccess() {
-    if (!client) {
-      return;
+    if (!client || pendingAction) {
+      return false;
     }
 
-    setIsSubmitting(true);
-    setError("");
+    setPendingAction("disable");
+    setConfirmationError("");
+
     try {
-      await apiRequest<ClientAccess>(
-        `/clients/${client.id}/access/disable`,
-        { method: "PATCH" },
-        apiConfig,
-      );
+      await request<ClientAccess>(`/clients/${client.id}/access/disable`, { method: "PATCH" });
       setGeneratedAccess(null);
       setClient((current) =>
         current
           ? {
               ...current,
-              access: {
-                status: "disabled",
-                updatedAtRaw: new Date().toISOString(),
-                updatedAt: "Ahora",
-              },
+              access: markAccessDisabled(current.access, new Date().toISOString()),
             }
           : current,
       );
       notify.success("Acceso desactivado");
+      return true;
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      const message = getErrorMessage(caughtError);
+      setConfirmationError(message);
+      notify.error(message);
+      return false;
     } finally {
-      setIsSubmitting(false);
+      setPendingAction(null);
     }
   }
 
   async function copyValue(value: string | undefined, label: string) {
-    if (!value) {
-      setError("El link y el PIN completos solo se muestran al generar o regenerar acceso.");
+    if (!value || pendingAction) {
       return;
     }
 
-    await navigator.clipboard.writeText(value);
-    notify.success(`${label} copiado`);
+    setPendingAction("copy");
+    try {
+      await navigator.clipboard.writeText(value);
+      notify.success(`${label} copiado`);
+    } catch (caughtError) {
+      notify.error(getErrorMessage(caughtError));
+    } finally {
+      setPendingAction(null);
+    }
   }
 
+  const accessState = client ? buildAccessViewState(client.access) : null;
   const whatsAppMessage = useMemo(() => {
     if (!client || !generatedAccess) {
       return "";
     }
 
-    return `Hola ${client.name}, aqui tienes tu acceso a CoraFit. Entra desde este link: ${generatedAccess.link}. Tu PIN es: ${generatedAccess.pin}.`;
+    return `Hola ${client.name}, aqui tienes tu acceso a CoraFit. Entra desde este enlace privado: ${generatedAccess.link}. Tu PIN es: ${generatedAccess.pin}.`;
   }, [client, generatedAccess]);
 
-  const hasGeneratedCredentials = Boolean(generatedAccess);
-  const isActive = client?.access.status === "active";
-  const canCreate = client?.access.status === "none" || client?.access.status === "disabled";
-
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <WorkspaceFrame
-        header={<WorkspaceHeader title="Generar acceso" description="Cargando datos del cliente..." />}
+        header={
+          <WorkspaceHeader
+            title="Acceso al portal"
+            description="Cargando datos del cliente..."
+          />
+        }
       >
-        <div className="flex min-h-96 items-center justify-center">
-          <ClientDetailLoadingCard />
-        </div>
+        <AccessScreenSkeleton />
       </WorkspaceFrame>
     );
   }
@@ -225,18 +270,26 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
       <WorkspaceFrame
         header={
           <WorkspaceHeader
-            title="Generar acceso"
-            description="No se encontro el cliente solicitado."
-            actions={
-              <Button asChild variant="outline">
-                <Link href="/clients">Volver a clientes</Link>
-              </Button>
-            }
+            title="Acceso al portal"
+            description="No se pudo preparar la gestion de acceso."
+            actions={<BackToClientButton clientId={clientId} />}
           />
         }
       >
         <div className="p-6">
-          {error ? <ClientErrorCard error={error} /> : <ClientNotFoundCard />}
+          {loadError ? (
+            <WorkspacePanel>
+              <div className="space-y-4 p-5">
+                <ClientErrorCard error={loadError} />
+                <Button variant="outline" onClick={() => void loadAccessScreen()}>
+                  <RefreshCwIcon className="mr-2 size-4" />
+                  Reintentar
+                </Button>
+              </div>
+            </WorkspacePanel>
+          ) : (
+            <ClientNotFoundCard />
+          )}
         </div>
       </WorkspaceFrame>
     );
@@ -246,311 +299,553 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
     <WorkspaceFrame
       header={
         <WorkspaceHeader
-          title="Generar acceso"
-          description="Crea y gestiona el acceso al portal para este cliente."
-          actions={
-            <Button asChild variant="outline">
-              <Link href={`/clients/${client.id}`}>
-                <EyeIcon className="mr-2 size-4" />
-                Ver ficha
-              </Link>
-            </Button>
-          }
+          title="Acceso al portal"
+          description="Genera y administra las credenciales de acceso de este cliente."
+          actions={<BackToClientButton clientId={client.id} />}
         />
       }
     >
-      {error ? (
-        <div className="mx-6 mt-5">
-          <ClientErrorCard error={error} />
-        </div>
-      ) : null}
-
-      <WorkspaceSplit
-        main={
-          <div className="flex flex-col gap-5 bg-background p-6">
-            <AccessClientSummary client={client} assignment={assignment} />
-            <AccessGenerationCard
-              canCreate={canCreate}
-              isSubmitting={isSubmitting}
-              onGenerate={() => generateAccess(canCreate ? "create" : "regenerate")}
-            />
-            <GeneratedAccessCard
-              access={generatedAccess}
-              isActive={isActive}
-              message={whatsAppMessage}
-              onCopyLink={() => copyValue(generatedAccess?.link, "Link")}
-              onCopyPin={() => copyValue(generatedAccess?.pin, "PIN")}
-              onCopyMessage={() => copyValue(whatsAppMessage, "Mensaje")}
-            />
-          </div>
-        }
-        side={
-          <div className="p-5">
-            <AccessStatusCard
-              access={client.access}
-              hasGeneratedCredentials={hasGeneratedCredentials}
-              isSubmitting={isSubmitting}
-              onDisable={disableAccess}
-              onRegenerate={() => generateAccess("regenerate")}
-            />
-          </div>
-        }
+      <main className="flex flex-col gap-5 bg-background p-4 md:p-5">
+        {loadError ? (
+          <InlineLoadError error={loadError} onRetry={() => void loadAccessScreen()} />
+        ) : null}
+        <AccessSummaryCards
+          assignment={assignment}
+          client={client}
+          planLoadError={planLoadError}
+        />
+        {generatedAccess ? (
+          <GeneratedAccessCard
+            access={generatedAccess}
+            isCopying={pendingAction === "copy"}
+            message={whatsAppMessage}
+            onCopyLink={() => void copyValue(generatedAccess.link, "Enlace")}
+            onCopyMessage={() => void copyValue(whatsAppMessage, "Mensaje")}
+            onCopyPin={() => void copyValue(generatedAccess.pin, "PIN")}
+          />
+        ) : null}
+        {accessState ? (
+          <AccessOperationPanel
+            access={client.access}
+            accessState={accessState}
+            pendingAction={pendingAction}
+            onDisable={() => setConfirmationTarget("disable")}
+            onGenerate={() => void generateAccess("generate")}
+            onRegenerate={() => setConfirmationTarget("regenerate")}
+          />
+        ) : null}
+      </main>
+      <ConfirmActionDialog
+        confirmLabel="Regenerar acceso"
+        consequence="Se generara un nuevo enlace y PIN. Las sesiones actuales del cliente dejaran de funcionar."
+        description="Confirma que quieres reemplazar las credenciales actuales."
+        errorMessage={confirmationTarget === "regenerate" ? confirmationError : null}
+        isLoading={pendingAction === "regenerate"}
+        onConfirm={() => generateAccess("regenerate")}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmationError("");
+          }
+          setConfirmationTarget(open ? "regenerate" : null);
+        }}
+        open={confirmationTarget === "regenerate"}
+        title="Regenerar acceso"
+      />
+      <ConfirmActionDialog
+        confirmLabel="Desactivar acceso"
+        consequence="El cliente perdera inmediatamente el acceso y necesitara nuevas credenciales para volver a entrar."
+        description="Confirma que quieres bloquear el acceso actual del cliente."
+        errorMessage={confirmationTarget === "disable" ? confirmationError : null}
+        isLoading={pendingAction === "disable"}
+        onConfirm={disableAccess}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmationError("");
+          }
+          setConfirmationTarget(open ? "disable" : null);
+        }}
+        open={confirmationTarget === "disable"}
+        title="Desactivar acceso"
       />
     </WorkspaceFrame>
   );
 }
 
-function AccessClientSummary({
+function BackToClientButton({ clientId }: { clientId: string }) {
+  return (
+    <Button asChild variant="outline">
+      <Link href={`/clients/${clientId}`}>
+        <ArrowLeftIcon className="mr-2 size-4" />
+        Volver al cliente
+      </Link>
+    </Button>
+  );
+}
+
+function AccessScreenSkeleton() {
+  return (
+    <main
+      className="flex flex-col gap-5 bg-background p-4 md:p-5"
+      role="status"
+      aria-label="Cargando acceso"
+    >
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <article
+            key={index}
+            className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-4 w-28" />
+                <div className="mt-3 flex items-center gap-3">
+                  <Skeleton className="size-10 shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-5 w-36 max-w-full" />
+                    <Skeleton className="mt-2 h-3 w-44 max-w-full" />
+                  </div>
+                </div>
+              </div>
+              <Skeleton className="size-10 shrink-0 rounded-xl" />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <WorkspacePanel>
+        <div className="border-b px-4 py-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="mt-2 h-3 w-80 max-w-full" />
+        </div>
+        <div className="flex flex-col gap-5 p-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div
+                key={index}
+                className="rounded-2xl border !border-transparent bg-background p-4 shadow-[var(--surface-shadow-soft)]"
+              >
+                <div className="flex items-start gap-3">
+                  <Skeleton className="mt-1 size-5 shrink-0 rounded" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="mt-3 h-4 w-32 max-w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-4 w-[32rem] max-w-full" />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Skeleton className="h-10 w-full sm:w-40" />
+            <Skeleton className="h-10 w-full sm:w-40" />
+          </div>
+        </div>
+      </WorkspacePanel>
+    </main>
+  );
+}
+
+function AccessSummaryCards({
   assignment,
   client,
+  planLoadError,
 }: {
   assignment: CurrentPlanAssignment | null;
   client: Client;
+  planLoadError: string;
+}) {
+  const planSummary = getPlanSummary(assignment, planLoadError);
+  const accessMeta = getAccessMeta(client.access.status);
+
+  return (
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Resumen de acceso">
+      <AccessMetricCard
+        icon={<UserRoundIcon className="size-4" />}
+        label="Cliente"
+        tone="default"
+        title={client.name}
+        value={
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-primary">
+              {initials(client.name)}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-lg font-semibold text-foreground">{client.name}</span>
+              <span className="block truncate text-sm text-muted-foreground">
+                {typeLabels[client.clientType]} · {statusLabels[client.operationalStatus]}
+              </span>
+            </span>
+          </div>
+        }
+      />
+      <AccessMetricCard
+        icon={accessMeta.icon}
+        label="Estado del acceso"
+        tone={accessMeta.tone}
+        value={
+          <div className="mt-1">
+            <Badge className={cn("rounded-full", accessMeta.badgeClass)} variant="outline">
+              {accessMeta.label}
+            </Badge>
+          </div>
+        }
+      />
+      <AccessMetricCard
+        icon={<ActivityIcon className="size-4" />}
+        label="Ultima actividad"
+        title={planLoadError || undefined}
+        tone={planSummary.tone === "warning" ? "warning" : "muted"}
+        value={
+          <>
+            <span className="block text-lg font-semibold text-foreground">
+              {formatDateTime(client.access.lastAccessAt) ?? "Sin actividad"}
+            </span>
+            <span
+              className={cn(
+                "mt-1 block truncate text-sm",
+                planSummary.tone === "warning"
+                  ? "text-amber-700 dark:text-amber-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              {planSummary.label}
+            </span>
+          </>
+        }
+      />
+    </section>
+  );
+}
+
+function AccessMetricCard({
+  icon,
+  label,
+  title,
+  tone = "default",
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  title?: string;
+  tone?: "default" | "muted" | "success" | "warning" | "danger";
+  value: ReactNode;
 }) {
   return (
-    <WorkspacePanel className="overflow-hidden">
-      <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-full border bg-muted text-lg font-semibold text-primary">
-            {initials(client.name)}
-          </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-2xl font-semibold tracking-normal">{client.name}</h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline" className="gap-1.5">
-                <span className="size-2 rounded-full bg-primary" />
-                {statusLabels[client.operationalStatus]}
-              </Badge>
-              <Badge variant="outline">{typeLabels[client.clientType]}</Badge>
-              <span>
-                Objetivo: <span className="font-medium text-primary">{client.mainGoal}</span>
-              </span>
-            </div>
-          </div>
+    <article
+      className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+      title={title}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="mt-3 min-w-0">{value}</div>
         </div>
-        <Button asChild variant="outline">
-          <Link href={`/clients/${client.id}`}>
-            <EyeIcon className="mr-2 size-4" />
-            Ver ficha del cliente
-          </Link>
-        </Button>
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            metricToneStyles[tone],
+          )}
+        >
+          {icon}
+        </span>
       </div>
-      {assignment?.assignedPlan ? (
-        <div className="border-t px-5 py-3 text-sm text-muted-foreground">
-          Plan actual: <span className="font-medium text-foreground">{assignment.assignedPlan.name}</span>
-        </div>
-      ) : null}
+    </article>
+  );
+}
+
+function AccessOperationPanel({
+  access,
+  accessState,
+  onDisable,
+  onGenerate,
+  onRegenerate,
+  pendingAction,
+}: {
+  access: ClientAccess;
+  accessState: ReturnType<typeof buildAccessViewState>;
+  onDisable: () => void;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  pendingAction: PendingAccessAction;
+}) {
+  const isGenerate = accessState.primaryAction === "generate";
+  const isDisabled = access.status === "disabled";
+  const isLocked = access.status === "temporarily_locked";
+  const title = isGenerate
+    ? isDisabled
+      ? "Acceso desactivado"
+      : "Generar acceso"
+    : isLocked
+      ? "Acceso bloqueado"
+      : "Acceso activo";
+  const description = isGenerate
+    ? isDisabled
+      ? "Genera nuevas credenciales para reactivar el portal del cliente."
+      : "Crea un enlace privado y un PIN para que el cliente entre a su portal."
+    : isLocked
+      ? "El acceso esta pausado temporalmente por seguridad."
+      : "Las credenciales actuales estan vigentes.";
+
+  return (
+    <WorkspacePanel title={title} description={description}>
+      <div className="flex flex-col gap-5 p-5">
+        {isGenerate ? (
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+            <div className="flex gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+                <KeyRoundIcon className="size-5" />
+              </span>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                {isDisabled
+                  ? "El acceso anterior esta desactivado. Al generar uno nuevo, se mostrara el enlace privado y el PIN una sola vez."
+                  : "El cliente recibira un enlace privado y un PIN. Las credenciales completas se mostraran una sola vez."}
+              </p>
+            </div>
+            <Button
+              className="h-11 w-full md:w-auto"
+              disabled={Boolean(pendingAction && pendingAction !== "generate") || pendingAction === "generate"}
+              onClick={onGenerate}
+            >
+              {pendingAction === "generate" ? (
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+              ) : (
+                <SparklesIcon className="mr-2 size-4" />
+              )}
+              {isDisabled ? "Generar nuevo acceso" : "Generar acceso"}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-3">
+              <StatusLine
+                icon={getAccessMeta(access.status).icon}
+                label="Estado"
+                value={getAccessStatusLabel(access.status)}
+              />
+              <StatusLine
+                icon={<RefreshCwIcon className="size-5" />}
+                label="Ultima actualizacion"
+                value={access.updatedAt ?? formatDate(access.updatedAtRaw) ?? "Sin registro"}
+              />
+              <StatusLine
+                icon={<Clock3Icon className="size-5" />}
+                label="Ultimo acceso"
+                value={formatDateTime(access.lastAccessAt) ?? "Sin actividad"}
+              />
+            </div>
+            {isLocked ? (
+              <div className="rounded-2xl border !border-transparent bg-amber-50/70 p-4 text-sm text-amber-950 shadow-[var(--surface-shadow-soft)] dark:bg-amber-950/25 dark:text-amber-100">
+                <div className="flex gap-3">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <p>
+                    Desbloqueo: <span className="font-medium">{formatDateTime(access.lockedUntil) ?? "Sin fecha registrada"}</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Las credenciales completas no pueden recuperarse. Regenera el acceso si necesitas compartir nuevas credenciales.
+              </p>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                className="w-full sm:w-auto"
+                disabled={Boolean(pendingAction && pendingAction !== "regenerate") || pendingAction === "regenerate"}
+                variant="outline"
+                onClick={onRegenerate}
+              >
+                {pendingAction === "regenerate" ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <RefreshCwIcon className="mr-2 size-4" />
+                )}
+                Regenerar acceso
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={Boolean(pendingAction && pendingAction !== "disable") || pendingAction === "disable"}
+                variant="destructive"
+                onClick={onDisable}
+              >
+                {pendingAction === "disable" ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <ShieldOffIcon className="mr-2 size-4" />
+                )}
+                Desactivar acceso
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </WorkspacePanel>
   );
 }
 
-function AccessGenerationCard({
-  canCreate,
-  isSubmitting,
-  onGenerate,
-}: {
-  canCreate: boolean;
-  isSubmitting: boolean;
-  onGenerate: () => void;
-}) {
-  return (
-    <WorkspacePanel
-      description="El cliente entrara con link privado y PIN."
-      title="Generar nuevo acceso"
-    >
-      <div className="space-y-4 p-4">
-        <div>
-          <p className="mb-2 text-sm font-medium">Tipo de PIN</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="flex min-h-12 items-center gap-3 rounded-md border border-primary bg-primary/5 px-4 text-sm font-medium">
-              <span className="flex size-5 items-center justify-center rounded-full border-2 border-primary">
-                <span className="size-2 rounded-full bg-primary" />
-              </span>
-              Generar automatico
-            </div>
-            <div className="flex min-h-12 items-center justify-between gap-3 rounded-md border px-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-3">
-                <span className="size-5 rounded-full border" />
-                Definir manualmente
-              </span>
-              <Badge variant="outline">Proximamente</Badge>
-            </div>
-          </div>
-        </div>
-        <Button className="h-12 w-full" disabled={isSubmitting} onClick={onGenerate}>
-          {isSubmitting ? (
-            <Loader2Icon className="mr-2 size-4 animate-spin" />
-          ) : (
-            <KeyRoundIcon className="mr-2 size-4" />
-          )}
-          {canCreate ? "Generar acceso" : "Regenerar link + PIN"}
-        </Button>
-      </div>
-    </WorkspacePanel>
-  );
+const metricToneStyles = {
+  danger: "bg-red-50 text-red-700 dark:bg-red-950/45 dark:text-red-300",
+  default: "bg-accent text-primary",
+  muted: "bg-muted text-muted-foreground",
+  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300",
+  warning: "bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300",
+};
+
+function getAccessMeta(status: ClientAccess["status"]) {
+  const meta: Record<
+    ClientAccess["status"],
+    {
+      badgeClass: string;
+      icon: ReactNode;
+      label: string;
+      tone: "default" | "muted" | "success" | "warning" | "danger";
+    }
+  > = {
+    active: {
+      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/35 dark:text-emerald-300",
+      icon: <CheckCircle2Icon className="size-4" />,
+      label: "Activo",
+      tone: "success",
+    },
+    disabled: {
+      badgeClass: "border-muted bg-muted text-muted-foreground",
+      icon: <ShieldOffIcon className="size-4" />,
+      label: "Desactivado",
+      tone: "muted",
+    },
+    none: {
+      badgeClass: "border-border bg-background text-muted-foreground",
+      icon: <KeyRoundIcon className="size-4" />,
+      label: "Sin acceso",
+      tone: "default",
+    },
+    temporarily_locked: {
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/35 dark:text-amber-300",
+      icon: <LockKeyholeIcon className="size-4" />,
+      label: "Bloqueado",
+      tone: "warning",
+    },
+  };
+
+  return meta[status];
 }
 
 function GeneratedAccessCard({
   access,
-  isActive,
+  isCopying,
   message,
   onCopyLink,
   onCopyMessage,
   onCopyPin,
 }: {
-  access: GeneratedAccess | null;
-  isActive: boolean;
+  access: GeneratedAccess;
+  isCopying: boolean;
   message: string;
   onCopyLink: () => void;
   onCopyMessage: () => void;
   onCopyPin: () => void;
 }) {
   return (
-    <WorkspacePanel>
-      <div className="border-b px-4 py-4">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <CheckCircle2Icon className={access ? "text-primary" : "text-muted-foreground"} />
-          {access ? "Acceso generado" : "Credenciales no visibles"}
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {access
-            ? "Copia estos datos ahora. No se volveran a mostrar completos."
-            : isActive
-              ? "El acceso esta activo, pero el link completo y PIN solo se muestran al generar o regenerar."
-              : "Genera un acceso para mostrar link privado, PIN y mensaje sugerido."}
+    <section className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] ring-1 ring-amber-200/60 dark:ring-amber-900/40">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <CheckCircle2Icon className="size-5 text-amber-700 dark:text-amber-300" />
+            Credenciales listas
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Copia y comparte estos datos antes de salir de esta pantalla.
+          </p>
+        </div>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Por seguridad, el enlace y el PIN completos no volveran a mostrarse despues de recargar.
         </p>
       </div>
-      <div className="space-y-4 p-4">
-        <CopyRow label="Link privado" value={access?.link ?? ""} onCopy={onCopyLink} />
-        <CopyRow label="PIN de acceso" value={access?.pin ?? ""} onCopy={onCopyPin} />
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px]">
-          <div className="rounded-md border bg-background p-4 text-sm text-muted-foreground">
-            <p className="mb-2 font-medium text-foreground">Mensaje sugerido para WhatsApp</p>
-            {message ? (
-              <p>{message}</p>
-            ) : (
-              <p>Disponible cuando generes o regeneres un acceso.</p>
-            )}
-          </div>
-          <Button className="h-full min-h-14" disabled={!message} onClick={onCopyMessage}>
-            <MessageCircleIcon className="mr-2 size-5" />
-            Copiar mensaje
-          </Button>
-        </div>
-        {access ? (
-          <div className="flex gap-3 rounded-md border border-primary/40 bg-primary/10 p-4 text-sm">
-            <InfoIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            <p>El link completo solo se muestra ahora. Si lo pierdes, deberas regenerarlo.</p>
-          </div>
-        ) : null}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+        <CredentialRow
+          isCopying={isCopying}
+          label="Link privado"
+          value={access.link}
+          onCopy={onCopyLink}
+        />
+        <CredentialRow
+          emphasize
+          isCopying={isCopying}
+          label="PIN"
+          value={access.pin}
+          onCopy={onCopyPin}
+        />
+        <CredentialRow
+          className="lg:col-span-2"
+          isCopying={isCopying}
+          label="Mensaje para compartir"
+          value={message}
+          copyLabel="Copiar mensaje"
+          onCopy={onCopyMessage}
+        />
       </div>
-    </WorkspacePanel>
+    </section>
   );
 }
 
-function CopyRow({
+function CredentialRow({
+  className,
+  copyLabel = "Copiar",
+  emphasize = false,
+  isCopying,
   label,
   onCopy,
   value,
 }: {
+  className?: string;
+  copyLabel?: string;
+  emphasize?: boolean;
+  isCopying: boolean;
   label: string;
   onCopy: () => void;
   value: string;
 }) {
   return (
-    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_150px]">
-      <label className="text-sm font-medium md:col-span-2">{label}</label>
-      <div className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm">
-        {value ? <p className="break-all">{value}</p> : <p className="text-muted-foreground">No visible</p>}
+    <div
+      className={cn(
+        "grid gap-3 rounded-2xl border !border-transparent bg-background p-3 shadow-[var(--surface-shadow-soft)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">{label}</p>
+        <p
+          className={cn(
+            "mt-1 break-all",
+            emphasize
+              ? "font-mono text-3xl font-semibold tracking-[0.18em] text-foreground"
+              : "text-sm text-foreground",
+          )}
+        >
+          {value}
+        </p>
       </div>
-      <Button variant="outline" disabled={!value} onClick={onCopy}>
-        <ClipboardIcon className="mr-2 size-4" />
-        Copiar
+      <Button
+        className="w-full sm:w-auto"
+        disabled={isCopying || !value}
+        variant="outline"
+        onClick={onCopy}
+      >
+        {isCopying ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <ClipboardIcon className="mr-2 size-4" />}
+        {copyLabel}
       </Button>
     </div>
   );
 }
 
-function AccessStatusCard({
-  access,
-  hasGeneratedCredentials,
-  isSubmitting,
-  onDisable,
-  onRegenerate,
-}: {
-  access: ClientAccess;
-  hasGeneratedCredentials: boolean;
-  isSubmitting: boolean;
-  onDisable: () => void;
-  onRegenerate: () => void;
-}) {
-  const isActive = access.status === "active";
-  const statusLabel = getAccessStatusLabel(access.status);
-
+function InlineLoadError({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <WorkspacePanel title="Estado del acceso">
-      <div className="space-y-4 p-4">
-        <div className="rounded-md border border-primary/40 bg-primary/10 p-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-1 size-3 rounded-full bg-primary" />
-            <div>
-              <p className="font-semibold text-primary">{statusLabel}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {isActive
-                  ? "El cliente puede entrar a su portal con credenciales vigentes."
-                  : "El cliente no puede entrar hasta que generes un nuevo acceso."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <StatusLine
-          icon={<Clock3Icon className="size-5" />}
-          label="Ultimo acceso"
-          value={formatDateTime(access.lastAccessAt) ?? "Sin actividad"}
-        />
-        <StatusLine
-          icon={<KeyRoundIcon className="size-5" />}
-          label="PIN vigente"
-          value={hasGeneratedCredentials ? "Visible ahora" : "Oculto por seguridad"}
-          caption={access.updatedAt ? `Actualizado: ${access.updatedAt}` : undefined}
-        />
-        <StatusLine
-          icon={<SmartphoneIcon className="size-5" />}
-          label="Regla de sesion"
-          value="Proximamente"
-          caption="1 dispositivo a la vez aun no esta implementado."
-        />
-
-        <div className="space-y-3 pt-2">
-          <Button className="w-full" variant="outline" disabled={isSubmitting} onClick={onRegenerate}>
-            {isSubmitting ? (
-              <Loader2Icon className="mr-2 size-4 animate-spin" />
-            ) : (
-              <RefreshCwIcon className="mr-2 size-4" />
-            )}
-            Regenerar link + PIN
-          </Button>
-          <Button className="w-full" variant="outline" disabled>
-            <LockKeyholeIcon className="mr-2 size-4" />
-            Regenerar PIN
-            <Badge className="ml-2" variant="outline">Proximamente</Badge>
-          </Button>
-          <Button
-            className="w-full"
-            variant="destructive"
-            disabled={!isActive || isSubmitting}
-            onClick={onDisable}
-          >
-            <ShieldOffIcon className="mr-2 size-4" />
-            Desactivar acceso
-          </Button>
-        </div>
-
-        <div className="flex gap-3 pt-2 text-sm text-muted-foreground">
-          <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
-          <p>Al desactivar, el cliente ya no podra entrar hasta que generes un nuevo acceso.</p>
-        </div>
+    <WorkspacePanel>
+      <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+        <ClientErrorCard error={error} />
+        <Button className="shrink-0" variant="outline" onClick={onRetry}>
+          <RefreshCwIcon className="mr-2 size-4" />
+          Reintentar
+        </Button>
       </div>
     </WorkspacePanel>
   );
@@ -568,23 +863,41 @@ function StatusLine({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 border-b pb-4 last:border-b-0">
-      <div className="mt-1 text-muted-foreground">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="mt-1 font-medium">{value}</p>
-        {caption ? <p className="mt-1 text-xs text-muted-foreground">{caption}</p> : null}
+    <div className="min-w-0 rounded-2xl border !border-transparent bg-background p-4 shadow-[var(--surface-shadow-soft)]">
+      <div className="flex items-start gap-3">
+        <div className="mt-1 text-muted-foreground">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="mt-1 break-words font-medium">{value}</p>
+          {caption ? <p className="mt-1 text-xs text-muted-foreground">{caption}</p> : null}
+        </div>
       </div>
     </div>
   );
 }
 
-function getAccessStatusLabel(status: AccessStatus) {
-  const labels: Record<AccessStatus, string> = {
+function normalizeAccess(access: ClientAccess | null): ClientAccess {
+  if (!access) {
+    return { status: "none" };
+  }
+
+  return {
+    id: access.id,
+    createdAt: access.createdAt,
+    lastAccessAt: access.lastAccessAt,
+    lockedUntil: access.lockedUntil,
+    status: access.status,
+    updatedAt: formatDate(access.updatedAtRaw ?? access.updatedAt ?? access.lastAccessAt ?? access.lockedUntil),
+    updatedAtRaw: access.updatedAtRaw ?? access.updatedAt,
+  };
+}
+
+function getAccessStatusLabel(status: ClientAccess["status"]) {
+  const labels: Record<ClientAccess["status"], string> = {
     active: "Activo",
     disabled: "Desactivado",
     none: "Sin acceso",
-    temporarily_locked: "Bloqueado temporalmente",
+    temporarily_locked: "Bloqueado",
   };
 
   return labels[status];

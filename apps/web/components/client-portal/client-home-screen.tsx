@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   ChevronRight,
   Dumbbell,
+  Flame,
   Loader2,
   RotateCcw,
   UserRound,
@@ -271,9 +272,9 @@ function CurrentStreakCard({ streak }: { streak: number }) {
     <article className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-[0_12px_32px_rgba(18,23,34,0.06)] dark:border-[#293140] dark:bg-[#121722]">
       <span
         aria-hidden="true"
-        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-2xl"
+        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)]"
       >
-        {"\uD83D\uDD25"}
+        <Flame className="size-6 text-[var(--portal-accent)]" />
       </span>
       <div>
         <p className="text-sm font-black text-[var(--portal-accent)]">
@@ -312,8 +313,8 @@ function WeekSummaryCard({
         </Link>
       </div>
 
-      <div className="mt-5 overflow-x-auto pb-2">
-        <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
+      <div className="mt-5 snap-x snap-mandatory overflow-x-auto pb-2">
+        <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
           {week.days.map((day) => (
             <WeekDayCard day={day} key={day.date} />
           ))}

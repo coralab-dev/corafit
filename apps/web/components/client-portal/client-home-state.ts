@@ -335,24 +335,27 @@ function calculateCurrentStreak(
 ) {
   if (!todayDate) return 0;
 
-  let streak = 0;
-  let started = false;
   const visibleDays = [...days]
     .filter((day) => day.date <= todayDate)
-    .sort((left, right) => right.date.localeCompare(left.date));
+    .sort((left, right) => left.date.localeCompare(right.date));
 
-  for (const day of visibleDays) {
-    if (!day.session || day.status === "no_session") continue;
+  const anchorIndex = visibleDays.findLastIndex(
+    (day) => day.session && isFinalized(day.log?.status ?? day.status),
+  );
+
+  if (anchorIndex < 0) return 0;
+
+  let streak = 0;
+
+  for (let index = anchorIndex; index >= 0; index -= 1) {
+    const day = visibleDays[index];
+
+    if (!day?.session || day.status === "no_session") continue;
 
     const status = day.log?.status ?? day.status;
-    if (isFinalized(status)) {
-      streak += 1;
-      started = true;
-      continue;
-    }
+    if (!isFinalized(status)) break;
 
-    if (started) break;
-    return 0;
+    streak += 1;
   }
 
   return streak;

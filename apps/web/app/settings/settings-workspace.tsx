@@ -3,38 +3,26 @@
 import {
   AlertTriangleIcon,
   Building2Icon,
+  CheckIcon,
   CreditCardIcon,
   LaptopIcon,
   LoaderIcon,
   LogOutIcon,
   MoonIcon,
   PaletteIcon,
-  ShieldCheckIcon,
+  RefreshCwIcon,
   SunIcon,
   UserRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useSyncExternalStore, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { notify } from "@/lib/notify";
-import { useAppTheme } from "@/components/providers/theme-provider";
-import { useAuth } from "@/components/providers/auth-provider";
-import { authenticatedRequest } from "@/lib/api/authenticated-request";
-import { getErrorMessage } from "@/lib/clients/api";
-import {
-  WorkspaceFrame,
-  WorkspaceHeader,
-  WorkspacePanel,
-} from "@/components/layout/workspace-shell";
-import { PanelSkeleton } from "@/components/shared/skeletons";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -43,7 +31,23 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  WorkspaceFrame,
+  WorkspaceHeader,
+  WorkspacePanel,
+} from "@/components/layout/workspace-shell";
+import { useAuth } from "@/components/providers/auth-provider";
+import { useAppTheme } from "@/components/providers/theme-provider";
+import { PanelSkeleton } from "@/components/shared/skeletons";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import type { AuthProfile } from "@/lib/auth/types";
+import { getErrorMessage } from "@/lib/clients/api";
+import { notify } from "@/lib/notify";
+import { cn } from "@/lib/utils";
+import { getSettingsPlanSummary, type SettingsBillingData } from "./settings-state";
 
 type ThemeOption = {
   description: string;
@@ -52,21 +56,23 @@ type ThemeOption = {
   value: "light" | "dark" | "system";
 };
 
+type SettingsTab = "profile" | "organization" | "appearance";
+
 const themeOptions: ThemeOption[] = [
   {
-    description: "Interfaz clara para espacios con mucha luz.",
+    description: "Fondo claro para espacios con mucha luz.",
     icon: SunIcon,
     label: "Claro",
     value: "light",
   },
   {
-    description: "Interfaz oscura para sesiones largas de trabajo.",
+    description: "Menos brillo para sesiones largas.",
     icon: MoonIcon,
     label: "Oscuro",
     value: "dark",
   },
   {
-    description: "Usa automaticamente el tema del dispositivo.",
+    description: "Respeta el tema del dispositivo.",
     icon: LaptopIcon,
     label: "Sistema",
     value: "system",
@@ -86,57 +92,217 @@ const orgSchema = z.object({
 
 type OrgFormValues = z.infer<typeof orgSchema>;
 
-type BillingData = {
+type BillingData = SettingsBillingData & {
   id: string;
   organizationId: string;
-  status: string;
   startedAt: string;
-  renewsAt: string | null;
   cancelledAt: string | null;
-  usedClients: number;
-  clientUsage?: {
-    used: number;
-    limit: number;
+  clientUsage?: SettingsBillingData["clientUsage"] & {
     remaining: number;
     isAtLimit: boolean;
     isOverLimit: boolean;
-    warningLevel: "ok" | "near_limit" | "at_limit" | "over_limit";
   };
-  plan: {
+  plan: SettingsBillingData["plan"] & {
     id: string;
     code: string;
-    name: string;
-    clientLimit: number;
     memberLimit: number;
     priceMonthly: number;
     currency: string;
   };
 };
 
-function InfoItem({
+const memberRoleLabels: Record<string, string> = {
+  coach: "Coach",
+  owner: "Owner",
+};
+
+const organizationTypeLabels: Record<string, string> = {
+  individual: "Individual",
+  studio: "Studio",
+};
+
+const organizationStatusLabels: Record<string, string> = {
+  active: "Activa",
+  cancelled: "Cancelada",
+  suspended: "Suspendida",
+};
+
+const subscriptionStatusLabels: Record<string, string> = {
+  active: "Activa",
+  cancelled: "Cancelada",
+  expired: "Expirada",
+  past_due: "Vencida",
+  suspended: "Suspendida",
+  trial: "Prueba",
+};
+
+function SummaryCard({
+  children,
+  icon,
+  title,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow)]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          {icon}
+        </span>
+        {title}
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function InitialsAvatar({ name }: { name: string }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return (
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
+      {initials || "CF"}
+    </div>
+  );
+}
+
+function CompactFact({
   label,
   value,
-  tone = "default",
 }: {
   label: string;
   value: ReactNode;
-  tone?: "default" | "muted" | "success";
 }) {
   return (
-    <div className="min-w-0 border-t px-4 py-3 first:border-t-0 md:border-l md:border-t-0 md:first:border-l-0">
+    <div className="min-w-0">
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <div
-        className={cn(
-          "mt-1 truncate text-sm font-medium",
-          tone === "muted" && "text-muted-foreground",
-          tone === "success" && "text-emerald-600 dark:text-emerald-400",
-        )}
-      >
-        {value}
-      </div>
+      <div className="mt-1 truncate text-sm font-medium">{value}</div>
     </div>
+  );
+}
+
+function StatusBadge({ children, tone = "success" }: { children: ReactNode; tone?: "success" | "muted" | "warning" }) {
+  return (
+    <Badge variant={tone} className="text-[10px]">
+      {children}
+    </Badge>
+  );
+}
+
+function AccountSummaryCard({ profile }: { profile: AuthProfile }) {
+  return (
+    <SummaryCard title="Cuenta" icon={<UserRoundIcon className="size-4" />}>
+      <div className="flex min-w-0 items-center gap-3">
+        <InitialsAvatar name={profile.user.name} />
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-base font-semibold">{profile.user.name}</p>
+            <StatusBadge>{profile.user.status === "active" ? "Activa" : profile.user.status}</StatusBadge>
+          </div>
+          <p className="mt-1 truncate text-sm text-muted-foreground">{profile.user.email}</p>
+        </div>
+      </div>
+    </SummaryCard>
+  );
+}
+
+function OrganizationSummaryCard({ profile }: { profile: AuthProfile }) {
+  return (
+    <SummaryCard title="Organización" icon={<Building2Icon className="size-4" />}>
+      <div className="space-y-3">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold">{profile.organization.name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {organizationTypeLabels[profile.organization.type] ?? profile.organization.type}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">
+            {memberRoleLabels[profile.member.role] ?? profile.member.role}
+          </Badge>
+          <StatusBadge>
+            {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
+          </StatusBadge>
+        </div>
+      </div>
+    </SummaryCard>
+  );
+}
+
+function PlanSummaryCard({
+  billing,
+  billingError,
+  billingLoading,
+  onRetry,
+  profile,
+}: {
+  billing: BillingData | null;
+  billingError: string | null;
+  billingLoading: boolean;
+  onRetry: () => void;
+  profile: AuthProfile;
+}) {
+  const summary = getSettingsPlanSummary({
+    billing,
+    billingError,
+    billingLoading,
+    profileSubscription: profile.subscription,
+  });
+
+  return (
+    <SummaryCard title="Plan" icon={<CreditCardIcon className="size-4" />}>
+      <div className="space-y-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">{summary.planName}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {subscriptionStatusLabels[summary.subscriptionStatus] ?? summary.subscriptionStatus}
+            </p>
+          </div>
+          {billingLoading ? <LoaderIcon className="mt-0.5 size-4 animate-spin text-muted-foreground" /> : null}
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>{summary.usageLabel}</span>
+            {summary.canRetry ? (
+              <Button className="h-7 px-2 text-xs shadow-none" size="sm" type="button" variant="outline" onClick={onRetry}>
+                <RefreshCwIcon className="size-3.5" />
+                Reintentar
+              </Button>
+            ) : null}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full bg-primary transition-[width]",
+                summary.isUsageStale && "bg-muted-foreground/35",
+              )}
+              style={{ width: `${summary.usagePercent}%` }}
+            />
+          </div>
+        </div>
+        {summary.renewsAt ? (
+          <p className="text-xs text-muted-foreground">
+            Renueva el {formatDate(summary.renewsAt)}
+          </p>
+        ) : null}
+        {summary.isUsageStale ? (
+          <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+            <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
+            <span>No se pudo actualizar el uso del plan.</span>
+          </div>
+        ) : null}
+      </div>
+    </SummaryCard>
   );
 }
 
@@ -154,16 +320,33 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
     reValidateMode: "onBlur",
   });
 
+  useEffect(() => {
+    form.reset({
+      name: profile.user.name,
+      phone: profile.user.phone ?? "",
+    });
+  }, [form, profile.user.name, profile.user.phone]);
+
   async function onSubmit(values: ProfileFormValues) {
     setIsSubmitting(true);
     try {
       const phoneValue = values.phone?.trim() || undefined;
-      await authenticatedRequest<AuthProfile>("/auth/me", {
+      const updatedProfile = await authenticatedRequest<AuthProfile>("/auth/me", {
         method: "PATCH",
         body: JSON.stringify({ name: values.name, phone: phoneValue }),
       });
-      await refreshProfile();
+
+      form.reset({
+        name: updatedProfile.user.name,
+        phone: updatedProfile.user.phone ?? "",
+      });
       notify.success("Perfil actualizado");
+
+      try {
+        await refreshProfile();
+      } catch {
+        notify.warning("Los cambios se guardaron, pero no se pudo actualizar toda la vista.");
+      }
     } catch (error) {
       notify.error(getErrorMessage(error));
     } finally {
@@ -172,63 +355,56 @@ function ProfileSection({ profile }: { profile: AuthProfile }) {
   }
 
   return (
-    <WorkspacePanel
-      title="Perfil del coach"
-      description="Datos visibles para operar la cuenta."
-      icon={<UserRoundIcon className="size-4" />}
-    >
-      <Form {...form}>
-        <form className="space-y-4 p-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={isSubmitting} className="h-11" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Telefono</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      className="h-11"
-                      disabled={isSubmitting}
-                      placeholder="Opcional"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="overflow-hidden rounded-md border bg-background/60 md:grid md:grid-cols-2">
-            <InfoItem label="Email" value={profile.user.email} tone="muted" />
-            <InfoItem
-              label="Estado"
-              value={profile.user.status === "active" ? "Activo" : profile.user.status}
-              tone={profile.user.status === "active" ? "success" : "default"}
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting && <LoaderIcon className="mr-2 size-4 animate-spin" />}
-              Guardar perfil
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </WorkspacePanel>
+    <Form {...form}>
+      <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre</FormLabel>
+                <FormControl>
+                  <Input {...field} disabled={isSubmitting} className="h-11" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Teléfono</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    className="h-11"
+                    disabled={isSubmitting}
+                    placeholder="Opcional"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <CompactFact label="Email" value={profile.user.email} />
+          <CompactFact
+            label="Estado"
+            value={<StatusBadge>{profile.user.status === "active" ? "Activa" : profile.user.status}</StatusBadge>}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button disabled={isSubmitting || !form.formState.isDirty} type="submit">
+            {isSubmitting ? <LoaderIcon className="size-4 animate-spin" /> : null}
+            Guardar cambios
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
 
@@ -246,15 +422,30 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
     reValidateMode: "onBlur",
   });
 
+  useEffect(() => {
+    form.reset({ name: profile.organization.name });
+  }, [form, profile.organization.name]);
+
   async function onSubmit(values: OrgFormValues) {
     setIsSubmitting(true);
     try {
-      await authenticatedRequest("/organizations/current", {
-        method: "PATCH",
-        body: JSON.stringify({ name: values.name }),
-      }, { organizationId: profile.organization.id });
-      await refreshProfile();
-      notify.success("Organizacion actualizada");
+      const updatedOrganization = await authenticatedRequest<AuthProfile["organization"]>(
+        "/organizations/current",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: values.name }),
+        },
+        { organizationId: profile.organization.id },
+      );
+
+      form.reset({ name: updatedOrganization.name });
+      notify.success("Organización actualizada");
+
+      try {
+        await refreshProfile();
+      } catch {
+        notify.warning("Los cambios se guardaron, pero no se pudo actualizar toda la vista.");
+      }
     } catch (error) {
       notify.error(getErrorMessage(error));
     } finally {
@@ -262,185 +453,66 @@ function OrganizationSection({ profile }: { profile: AuthProfile }) {
     }
   }
 
-  const typeLabels: Record<string, string> = {
-    individual: "Individual",
-    studio: "Studio",
-  };
-
-  const statusLabels: Record<string, string> = {
-    active: "Activa",
-    suspended: "Suspendida",
-    cancelled: "Cancelada",
-  };
-
-  return (
-    <WorkspacePanel
-      title="Organizacion"
-      description="Identidad y contexto operativo."
-      icon={<Building2Icon className="size-4" />}
-    >
-      {isOwner ? (
-        <Form {...form}>
-          <form className="space-y-4 p-4" onSubmit={form.handleSubmit(onSubmit)}>
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre de la organizacion</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={isSubmitting} className="h-11" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="overflow-hidden rounded-md border bg-background/60 md:grid md:grid-cols-3">
-              <InfoItem
-                label="Tipo"
-                value={typeLabels[profile.organization.type] ?? profile.organization.type}
-              />
-              <InfoItem label="Zona horaria" value={profile.organization.timezone} />
-              <InfoItem
-                label="Estado"
-                value={statusLabels[profile.organization.status] ?? profile.organization.status}
-                tone={profile.organization.status === "active" ? "success" : "default"}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button disabled={isSubmitting} type="submit">
-                {isSubmitting && <LoaderIcon className="mr-2 size-4 animate-spin" />}
-                Guardar organizacion
-              </Button>
-            </div>
-          </form>
-        </Form>
-      ) : (
-        <div className="p-4">
-          <div className="overflow-hidden rounded-md border bg-background/60 md:grid md:grid-cols-2">
-            <InfoItem label="Nombre" value={profile.organization.name} />
-            <InfoItem
-              label="Tipo"
-              value={typeLabels[profile.organization.type] ?? profile.organization.type}
-            />
-            <InfoItem label="Zona horaria" value={profile.organization.timezone} />
-            <InfoItem
-              label="Estado"
-              value={statusLabels[profile.organization.status] ?? profile.organization.status}
-              tone={profile.organization.status === "active" ? "success" : "default"}
-            />
-          </div>
-        </div>
-      )}
-    </WorkspacePanel>
-  );
-}
-
-function PlanSection({ profile }: { profile: AuthProfile }) {
-  const [billing, setBilling] = useState<BillingData | null>(null);
-  const [billingLoading, setBillingLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    authenticatedRequest<BillingData>("/billing/current", {
-      method: "GET",
-    }, { organizationId: profile.organization.id })
-      .then((data) => {
-        if (!cancelled) {
-          setBilling(data);
-          setBillingLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBilling(null);
-          setBillingLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profile.organization.id]);
-
-  const planName = billing?.plan.name ?? profile.subscription.subscriptionPlan.name;
-  const clientLimit = billing?.plan.clientLimit ?? profile.subscription.subscriptionPlan.clientLimit;
-  const usedClients = billing?.clientUsage?.used ?? billing?.usedClients;
-  const clientUsage = billing?.clientUsage ?? (
-    usedClients !== undefined && usedClients !== null
-      ? {
-          used: usedClients,
-          limit: clientLimit,
-          remaining: Math.max(clientLimit - usedClients, 0),
-          isAtLimit: usedClients === clientLimit,
-          isOverLimit: usedClients > clientLimit,
-          warningLevel: usedClients > clientLimit
-            ? "over_limit"
-            : usedClients === clientLimit
-              ? "at_limit"
-              : usedClients >= clientLimit * 0.8
-                ? "near_limit"
-                : "ok",
-        }
-      : null
-  );
-  const usageWarning =
-    clientUsage?.warningLevel === "over_limit"
-      ? "Tu organizacion supera el limite recomendado del plan beta. No se bloqueara la operacion durante beta, pero queda pendiente revision manual."
-      : clientUsage?.warningLevel === "at_limit"
-        ? "Llegaste al limite recomendado de tu plan beta. Puedes seguir operando durante la beta; revisaremos el plan manualmente si hace falta."
-        : null;
-
-  const statusLabels: Record<string, string> = {
-    trial: "Prueba",
-    active: "Activa",
-    past_due: "Vencida",
-    expired: "Expirada",
-    cancelled: "Cancelada",
-    suspended: "Suspendida",
-  };
-
-  const subscriptionStatus = billing?.status ?? profile.subscription.status;
+  if (!isOwner) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        <CompactFact label="Nombre" value={profile.organization.name} />
+        <CompactFact
+          label="Tipo"
+          value={organizationTypeLabels[profile.organization.type] ?? profile.organization.type}
+        />
+        <CompactFact label="Zona horaria" value={profile.organization.timezone} />
+        <CompactFact
+          label="Estado"
+          value={
+            <StatusBadge>
+              {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
+            </StatusBadge>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
-    <WorkspacePanel
-      title="Plan actual"
-      description="Uso disponible en esta organizacion."
-      icon={<CreditCardIcon className="size-4" />}
-    >
-      <div className="space-y-4 p-4">
-        <div className="rounded-md border bg-background/60 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Plan
-          </p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight">{planName}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {statusLabels[subscriptionStatus] ?? subscriptionStatus}
-          </p>
-        </div>
-        <div className="overflow-hidden rounded-md border bg-background/60 md:grid md:grid-cols-2 xl:block">
-          <InfoItem label="Limite de clientes" value={clientLimit} />
-          <InfoItem
-            label="Clientes usados"
+    <Form {...form}>
+      <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre de la organización</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={isSubmitting} className="h-11" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid gap-4 md:grid-cols-3">
+          <CompactFact
+            label="Tipo"
+            value={organizationTypeLabels[profile.organization.type] ?? profile.organization.type}
+          />
+          <CompactFact label="Zona horaria" value={profile.organization.timezone} />
+          <CompactFact
+            label="Estado"
             value={
-              billingLoading ? (
-                <LoaderIcon className="size-4 animate-spin" />
-              ) : clientUsage ? (
-                `${clientUsage.used} / ${clientUsage.limit}`
-              ) : (
-                "No disponible"
-              )
+              <StatusBadge>
+                {organizationStatusLabels[profile.organization.status] ?? profile.organization.status}
+              </StatusBadge>
             }
           />
         </div>
-        {usageWarning ? (
-          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-            <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-            <p>{usageWarning}</p>
-          </div>
-        ) : null}
-      </div>
-    </WorkspacePanel>
+        <div className="flex justify-end">
+          <Button disabled={isSubmitting || !form.formState.isDirty} type="submit">
+            {isSubmitting ? <LoaderIcon className="size-4 animate-spin" /> : null}
+            Guardar cambios
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
 
@@ -454,58 +526,77 @@ function AppearanceSection() {
   const selectedTheme = isMounted ? theme : "system";
 
   return (
+    <div className="grid gap-3">
+      {themeOptions.map((option) => {
+        const Icon = option.icon;
+        const isSelected = selectedTheme === option.value;
+
+        return (
+          <button
+            key={option.value}
+            className={cn(
+              "flex min-h-16 items-center gap-3 rounded-xl border bg-background px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+              isSelected
+                ? "border-primary/45 bg-primary/5 text-foreground"
+                : "hover:border-primary/35 hover:bg-accent/40",
+            )}
+            type="button"
+            onClick={() => setTheme(option.value)}
+          >
+            <span
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground",
+                isSelected && "border-primary/30 text-primary",
+              )}
+            >
+              <Icon className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{option.label}</span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {option.description}
+              </span>
+            </span>
+            {isSelected ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SettingsOperations({ profile }: { profile: AuthProfile }) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+
+  return (
     <WorkspacePanel
-      description="Elige entre tema claro, oscuro o seguir el sistema."
-      title="Apariencia"
+      title="Configuración"
+      description="Ajusta una sección a la vez."
       icon={<PaletteIcon className="size-4" />}
     >
-      <div className="grid gap-3 p-4 lg:grid-cols-3">
-        {themeOptions.map((option) => {
-          const Icon = option.icon;
-          const isSelected = selectedTheme === option.value;
-
-          return (
-            <button
-              key={option.value}
-              className={cn(
-                "flex min-h-28 items-start gap-3 rounded-md border bg-card p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
-                isSelected
-                  ? "border-primary/45 bg-primary/5 text-foreground"
-                  : "hover:border-primary/35 hover:bg-background hover:shadow-sm",
-              )}
-              type="button"
-              onClick={() => setTheme(option.value)}
-            >
-              <span
-                className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground",
-                  isSelected && "border-primary/30 text-primary",
-                )}
-              >
-                <Icon className="size-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="flex items-center gap-2 font-semibold">
-                  {option.label}
-                  {isSelected ? (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                      Activo
-                    </span>
-                  ) : null}
-                </span>
-                <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                  {option.description}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SettingsTab)}>
+        <div className="overflow-x-auto border-b px-4 py-3">
+          <TabsList className="w-max min-w-full justify-start bg-muted/70 sm:min-w-0">
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
+            <TabsTrigger value="organization">Organización</TabsTrigger>
+            <TabsTrigger value="appearance">Apariencia</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="profile" className="m-0 p-4">
+          <ProfileSection profile={profile} />
+        </TabsContent>
+        <TabsContent value="organization" className="m-0 p-4">
+          <OrganizationSection profile={profile} />
+        </TabsContent>
+        <TabsContent value="appearance" className="m-0 p-4">
+          <AppearanceSection />
+        </TabsContent>
+      </Tabs>
     </WorkspacePanel>
   );
 }
 
-function SessionSection() {
+function SessionRow() {
   const router = useRouter();
   const { logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -515,42 +606,98 @@ function SessionSection() {
     try {
       await logout();
       router.replace("/login");
-    } catch {
+    } catch (error) {
       setIsLoggingOut(false);
+      notify.error(getErrorMessage(error));
     }
   }
 
   return (
-    <WorkspacePanel
-      description="Cierra tu sesion en CoraFit."
-      title="Sesion"
-      icon={<ShieldCheckIcon className="size-4" />}
-    >
-      <div className="space-y-3 p-4">
-        <p className="text-sm text-muted-foreground">
-          Esta accion cierra la sesion local en este navegador.
+    <div className="flex flex-col gap-3 border-t px-1 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-semibold">Cerrar sesión</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Finaliza la sesión en este navegador.
         </p>
-        <Button
-          className="w-full"
-          disabled={isLoggingOut}
-          onClick={handleLogout}
-          type="button"
-          variant="destructive"
-        >
-          {isLoggingOut ? (
-            <LoaderIcon className="mr-2 size-4 animate-spin" />
-          ) : (
-            <LogOutIcon className="mr-2 size-4" />
-          )}
-          Cerrar sesion
-        </Button>
       </div>
-    </WorkspacePanel>
+      <Button
+        className="border-destructive/35 text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+        disabled={isLoggingOut}
+        onClick={handleLogout}
+        type="button"
+        variant="outline"
+      >
+        {isLoggingOut ? <LoaderIcon className="size-4 animate-spin" /> : <LogOutIcon className="size-4" />}
+        Cerrar sesión
+      </Button>
+    </div>
   );
 }
 
 export function SettingsWorkspace() {
   const { profile } = useAuth();
+  const [billing, setBilling] = useState<BillingData | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const profileOrganizationId = profile?.organization?.id;
+
+  async function loadBilling(organizationId: string, options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      setBillingLoading(true);
+    }
+    setBillingError(null);
+    try {
+      const data = await authenticatedRequest<BillingData>(
+        "/billing/current",
+        { method: "GET" },
+        { organizationId },
+      );
+      setBilling(data);
+    } catch (error) {
+      setBilling(null);
+      setBillingError(getErrorMessage(error));
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!profileOrganizationId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function load() {
+      setBillingLoading(true);
+      setBillingError(null);
+      try {
+        const data = await authenticatedRequest<BillingData>(
+          "/billing/current",
+          { method: "GET" },
+          { organizationId: profileOrganizationId },
+        );
+        if (!cancelled) {
+          setBilling(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBilling(null);
+          setBillingError(getErrorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setBillingLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileOrganizationId]);
 
   if (!profile || !profile.organization || !profile.member || !profile.subscription) {
     return <SettingsSkeleton />;
@@ -560,23 +707,25 @@ export function SettingsWorkspace() {
     <WorkspaceFrame
       header={
         <WorkspaceHeader
-          title="Configuracion"
-          description="Ajusta tu perfil, organizacion, plan y preferencias."
+          title="Configuración"
+          description="Administra tu cuenta, organización y preferencias."
         />
       }
     >
       <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0 space-y-4">
-            <ProfileSection profile={profile} />
-            <OrganizationSection profile={profile} />
-          </div>
-          <div className="min-w-0 space-y-4">
-            <PlanSection profile={profile} />
-            <SessionSection />
-          </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <AccountSummaryCard profile={profile} />
+          <OrganizationSummaryCard profile={profile} />
+          <PlanSummaryCard
+            billing={billing}
+            billingError={billingError}
+            billingLoading={billingLoading}
+            onRetry={() => void loadBilling(profile.organization.id)}
+            profile={profile}
+          />
         </div>
-        <AppearanceSection />
+        <SettingsOperations profile={profile} />
+        <SessionRow />
       </div>
     </WorkspaceFrame>
   );
@@ -587,63 +736,43 @@ function SettingsSkeleton() {
     <WorkspaceFrame
       header={
         <WorkspaceHeader
-          title="Configuracion"
-          description="Ajusta tu perfil, organizacion, plan y preferencias."
+          title="Configuración"
+          description="Administra tu cuenta, organización y preferencias."
         />
       }
     >
       <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0 space-y-4">
-            <PanelSkeleton rows={3} titleWidth="w-36" />
-            <PanelSkeleton rows={3} titleWidth="w-32" />
-          </div>
-          <div className="min-w-0 space-y-4">
-            <WorkspacePanel>
-              <div className="border-b px-4 py-4">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="mt-2 h-3 w-52 max-w-full" />
-              </div>
-              <div className="space-y-4 p-4">
-                <div className="rounded-md border bg-background/60 p-4">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="mt-3 h-7 w-32" />
-                  <Skeleton className="mt-2 h-4 w-20" />
-                </div>
-                <div className="overflow-hidden rounded-md border bg-background/60">
-                  <div className="p-4">
-                    <Skeleton className="h-3 w-28" />
-                    <Skeleton className="mt-3 h-4 w-20" />
-                  </div>
-                  <div className="border-t p-4">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="mt-3 h-4 w-24" />
-                  </div>
-                </div>
-              </div>
-            </WorkspacePanel>
-            <PanelSkeleton rows={1} titleWidth="w-20" />
-          </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow)]">
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="mt-4 h-5 w-36" />
+              <Skeleton className="mt-2 h-4 w-48 max-w-full" />
+              <Skeleton className="mt-4 h-2 w-full" />
+            </div>
+          ))}
         </div>
         <WorkspacePanel>
           <div className="border-b px-4 py-4">
             <Skeleton className="h-4 w-28" />
-            <Skeleton className="mt-2 h-3 w-64 max-w-full" />
+            <Skeleton className="mt-2 h-3 w-56 max-w-full" />
           </div>
-          <div className="grid gap-3 p-4 lg:grid-cols-3">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="flex min-h-28 items-start gap-3 rounded-md border bg-card p-4">
-                <Skeleton className="size-9 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="mt-3 h-3 w-full" />
-                  <Skeleton className="mt-2 h-3 w-3/4" />
-                </div>
-              </div>
-            ))}
+          <div className="border-b px-4 py-3">
+            <Skeleton className="h-10 w-80 max-w-full" />
+          </div>
+          <div className="p-4">
+            <PanelSkeleton rows={3} titleWidth="w-36" />
           </div>
         </WorkspacePanel>
       </div>
     </WorkspaceFrame>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }

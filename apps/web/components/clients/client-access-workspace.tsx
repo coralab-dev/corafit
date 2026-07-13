@@ -2,6 +2,7 @@
 
 import {
   AlertTriangleIcon,
+  ActivityIcon,
   ArrowLeftIcon,
   CheckCircle2Icon,
   ClipboardIcon,
@@ -9,10 +10,10 @@ import {
   KeyRoundIcon,
   Loader2Icon,
   LockKeyholeIcon,
-  MessageCircleIcon,
   RefreshCwIcon,
   ShieldOffIcon,
   SparklesIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -21,11 +22,11 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { ConfirmActionDialog } from "@/components/shared/confirm-action-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   WorkspaceFrame,
   WorkspaceHeader,
   WorkspacePanel,
-  WorkspaceSplit,
 } from "@/components/layout/workspace-shell";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import { formatDate, getErrorMessage, initials, statusLabels, typeLabels } from "@/lib/clients/api";
@@ -41,7 +42,7 @@ import {
   type GeneratedAccess,
   type PendingAccessAction,
 } from "./client-access-state";
-import { ClientDetailLoadingCard, ClientErrorCard, ClientNotFoundCard } from "./workspace-panels";
+import { ClientErrorCard, ClientNotFoundCard } from "./workspace-panels";
 
 type ConfirmationTarget = "regenerate" | "disable" | null;
 
@@ -124,6 +125,22 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
 
     return () => window.clearTimeout(timer);
   }, [loadAccessScreen]);
+
+  useEffect(() => {
+    if (!isRefreshing) {
+      notify.dismiss("client-access-refresh");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      notify.refresh("Actualizando acceso", { id: "client-access-refresh" });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      notify.dismiss("client-access-refresh");
+    };
+  }, [isRefreshing]);
 
   async function generateAccess(mode: "generate" | "regenerate") {
     if (!client || pendingAction) {
@@ -226,9 +243,7 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
           />
         }
       >
-        <div className="flex min-h-96 items-center justify-center">
-          <ClientDetailLoadingCard />
-        </div>
+        <AccessScreenSkeleton />
       </WorkspaceFrame>
     );
   }
@@ -268,75 +283,41 @@ export function ClientAccessWorkspace({ clientId }: { clientId: string }) {
       header={
         <WorkspaceHeader
           title="Acceso al portal"
-          description="Gestiona el enlace privado y el PIN del cliente."
+          description="Genera y administra las credenciales de acceso de este cliente."
           actions={<BackToClientButton clientId={client.id} />}
         />
       }
     >
-      <WorkspaceSplit
-        main={
-          <div className="flex flex-col gap-5 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted))/0.32)] p-4 md:p-6">
-            {loadError ? (
-              <InlineLoadError error={loadError} onRetry={() => void loadAccessScreen()} />
-            ) : null}
-            {isRefreshing ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2Icon className="size-4 animate-spin" />
-                Actualizando acceso...
-              </div>
-            ) : null}
-            <AccessClientSummary
-              assignment={assignment}
-              client={client}
-              planLoadError={planLoadError}
-            />
-            {accessState ? (
-              <div className="xl:hidden">
-                <AccessStatusPanel
-                  access={client.access}
-                  accessState={accessState}
-                  pendingAction={pendingAction}
-                  onDisable={() => setConfirmationTarget("disable")}
-                  onRegenerate={() => setConfirmationTarget("regenerate")}
-                />
-              </div>
-            ) : null}
-            {generatedAccess ? (
-              <GeneratedAccessCard
-                access={generatedAccess}
-                isCopying={pendingAction === "copy"}
-                message={whatsAppMessage}
-                onCopyLink={() => void copyValue(generatedAccess.link, "Enlace")}
-                onCopyMessage={() => void copyValue(whatsAppMessage, "Mensaje")}
-                onCopyPin={() => void copyValue(generatedAccess.pin, "PIN")}
-              />
-            ) : null}
-            {accessState?.primaryAction === "generate" ? (
-              <AccessEmptyPanel
-                isPending={pendingAction === "generate"}
-                isBlocked={Boolean(pendingAction && pendingAction !== "generate")}
-                onGenerate={() => void generateAccess("generate")}
-              />
-            ) : (
-              <ActiveAccessPanel access={client.access} />
-            )}
-          </div>
-        }
-        side={
-          accessState ? (
-            <div className="sticky top-5 p-5">
-              <AccessStatusPanel
-                access={client.access}
-                accessState={accessState}
-                pendingAction={pendingAction}
-                onDisable={() => setConfirmationTarget("disable")}
-                onRegenerate={() => setConfirmationTarget("regenerate")}
-              />
-            </div>
-          ) : null
-        }
-        sideClassName="hidden xl:block"
-      />
+      <main className="flex flex-col gap-5 bg-background p-4 md:p-5">
+        {loadError ? (
+          <InlineLoadError error={loadError} onRetry={() => void loadAccessScreen()} />
+        ) : null}
+        <AccessSummaryCards
+          assignment={assignment}
+          client={client}
+          planLoadError={planLoadError}
+        />
+        {generatedAccess ? (
+          <GeneratedAccessCard
+            access={generatedAccess}
+            isCopying={pendingAction === "copy"}
+            message={whatsAppMessage}
+            onCopyLink={() => void copyValue(generatedAccess.link, "Enlace")}
+            onCopyMessage={() => void copyValue(whatsAppMessage, "Mensaje")}
+            onCopyPin={() => void copyValue(generatedAccess.pin, "PIN")}
+          />
+        ) : null}
+        {accessState ? (
+          <AccessOperationPanel
+            access={client.access}
+            accessState={accessState}
+            pendingAction={pendingAction}
+            onDisable={() => setConfirmationTarget("disable")}
+            onGenerate={() => void generateAccess("generate")}
+            onRegenerate={() => setConfirmationTarget("regenerate")}
+          />
+        ) : null}
+      </main>
       <ConfirmActionDialog
         confirmLabel="Regenerar acceso"
         consequence="Se generara un nuevo enlace y PIN. Las sesiones actuales del cliente dejaran de funcionar."
@@ -384,7 +365,70 @@ function BackToClientButton({ clientId }: { clientId: string }) {
   );
 }
 
-function AccessClientSummary({
+function AccessScreenSkeleton() {
+  return (
+    <main
+      className="flex flex-col gap-5 bg-background p-4 md:p-5"
+      role="status"
+      aria-label="Cargando acceso"
+    >
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <article
+            key={index}
+            className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-4 w-28" />
+                <div className="mt-3 flex items-center gap-3">
+                  <Skeleton className="size-10 shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-5 w-36 max-w-full" />
+                    <Skeleton className="mt-2 h-3 w-44 max-w-full" />
+                  </div>
+                </div>
+              </div>
+              <Skeleton className="size-10 shrink-0 rounded-xl" />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <WorkspacePanel>
+        <div className="border-b px-4 py-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="mt-2 h-3 w-80 max-w-full" />
+        </div>
+        <div className="flex flex-col gap-5 p-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div
+                key={index}
+                className="rounded-2xl border !border-transparent bg-background p-4 shadow-[var(--surface-shadow-soft)]"
+              >
+                <div className="flex items-start gap-3">
+                  <Skeleton className="mt-1 size-5 shrink-0 rounded" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="mt-3 h-4 w-32 max-w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-4 w-[32rem] max-w-full" />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Skeleton className="h-10 w-full sm:w-40" />
+            <Skeleton className="h-10 w-full sm:w-40" />
+          </div>
+        </div>
+      </WorkspacePanel>
+    </main>
+  );
+}
+
+function AccessSummaryCards({
   assignment,
   client,
   planLoadError,
@@ -394,135 +438,278 @@ function AccessClientSummary({
   planLoadError: string;
 }) {
   const planSummary = getPlanSummary(assignment, planLoadError);
+  const accessMeta = getAccessMeta(client.access.status);
 
   return (
-    <WorkspacePanel className="overflow-hidden border-amber-200/50 bg-card/95 dark:border-amber-900/30">
-      <div className="flex items-center gap-4 p-5">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-lg font-semibold text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/45 dark:text-amber-100 dark:ring-amber-900/50">
-          {initials(client.name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-xl font-semibold tracking-normal">{client.name}</h2>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="outline">{statusLabels[client.operationalStatus]}</Badge>
-            <Badge variant="outline">{typeLabels[client.clientType]}</Badge>
-            <span>
-              Objetivo: <span className="font-medium text-foreground">{client.mainGoal}</span>
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Resumen de acceso">
+      <AccessMetricCard
+        icon={<UserRoundIcon className="size-4" />}
+        label="Cliente"
+        tone="default"
+        title={client.name}
+        value={
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-primary">
+              {initials(client.name)}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-lg font-semibold text-foreground">{client.name}</span>
+              <span className="block truncate text-sm text-muted-foreground">
+                {typeLabels[client.clientType]} · {statusLabels[client.operationalStatus]}
+              </span>
             </span>
           </div>
-        </div>
-      </div>
-      <div className="grid gap-3 border-t px-5 py-4 text-sm md:grid-cols-3">
-        <SummaryFact label="Estado operativo" value={statusLabels[client.operationalStatus]} />
-        <SummaryFact label="Modalidad" value={typeLabels[client.clientType]} />
-        <SummaryFact
-          label="Plan actual"
-          tone={planSummary.tone}
-          value={planSummary.label}
-          title={planLoadError || undefined}
-        />
-      </div>
-    </WorkspacePanel>
+        }
+      />
+      <AccessMetricCard
+        icon={accessMeta.icon}
+        label="Estado del acceso"
+        tone={accessMeta.tone}
+        value={
+          <div className="mt-1">
+            <Badge className={cn("rounded-full", accessMeta.badgeClass)} variant="outline">
+              {accessMeta.label}
+            </Badge>
+          </div>
+        }
+      />
+      <AccessMetricCard
+        icon={<ActivityIcon className="size-4" />}
+        label="Ultima actividad"
+        title={planLoadError || undefined}
+        tone={planSummary.tone === "warning" ? "warning" : "muted"}
+        value={
+          <>
+            <span className="block text-lg font-semibold text-foreground">
+              {formatDateTime(client.access.lastAccessAt) ?? "Sin actividad"}
+            </span>
+            <span
+              className={cn(
+                "mt-1 block truncate text-sm",
+                planSummary.tone === "warning"
+                  ? "text-amber-700 dark:text-amber-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              {planSummary.label}
+            </span>
+          </>
+        }
+      />
+    </section>
   );
 }
 
-function SummaryFact({
+function AccessMetricCard({
+  icon,
   label,
   title,
-  tone = "muted",
+  tone = "default",
   value,
 }: {
+  icon: ReactNode;
   label: string;
   title?: string;
-  tone?: "muted" | "success" | "warning";
-  value: string;
+  tone?: "default" | "muted" | "success" | "warning" | "danger";
+  value: ReactNode;
 }) {
   return (
-    <div title={title}>
-      <p className="text-xs uppercase tracking-normal text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "mt-1 font-medium",
-          tone === "success" ? "text-foreground" : null,
-          tone === "warning" ? "text-amber-700 dark:text-amber-300" : null,
-          tone === "muted" ? "text-muted-foreground" : null,
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function AccessEmptyPanel({
-  isBlocked,
-  isPending,
-  onGenerate,
-}: {
-  isBlocked: boolean;
-  isPending: boolean;
-  onGenerate: () => void;
-}) {
-  return (
-    <WorkspacePanel>
-      <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
-        <div>
-          <div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 dark:bg-amber-950/45 dark:text-amber-200">
-            <KeyRoundIcon className="size-5" />
-          </div>
-          <h2 className="text-lg font-semibold">Preparar acceso privado</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            El cliente recibira un enlace privado y un PIN para entrar a su portal. Las credenciales completas se mostraran una sola vez al generarlas.
-          </p>
-        </div>
-        <Button className="h-12 w-full" disabled={isBlocked || isPending} onClick={onGenerate}>
-          {isPending ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <SparklesIcon className="mr-2 size-4" />}
-          Generar acceso
-        </Button>
-      </div>
-    </WorkspacePanel>
-  );
-}
-
-function ActiveAccessPanel({ access }: { access: ClientAccess }) {
-  const isLocked = access.status === "temporarily_locked";
-
-  return (
-    <WorkspacePanel
-      title={isLocked ? "Acceso temporalmente bloqueado" : "Acceso vigente"}
-      description={
-        isLocked
-          ? "El cliente no puede entrar hasta que termine el bloqueo o se regeneren credenciales."
-          : "El cliente puede entrar con sus credenciales actuales."
-      }
+    <article
+      className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+      title={title}
     >
-      <div className="grid gap-4 p-5 md:grid-cols-3">
-        {isLocked ? (
-          <StatusLine
-            icon={<LockKeyholeIcon className="size-5" />}
-            label="Desbloqueo"
-            value={formatDateTime(access.lockedUntil) ?? "Sin fecha registrada"}
-          />
-        ) : null}
-        <StatusLine
-          icon={<Clock3Icon className="size-5" />}
-          label="Ultimo acceso"
-          value={formatDateTime(access.lastAccessAt) ?? "Sin actividad"}
-        />
-        <StatusLine
-          icon={<RefreshCwIcon className="size-5" />}
-          label="Actualizado"
-          value={access.updatedAt ?? formatDate(access.updatedAtRaw) ?? "Sin registro"}
-        />
-        <StatusLine
-          icon={<KeyRoundIcon className="size-5" />}
-          label="Credenciales"
-          value="Ocultas por seguridad"
-          caption="Las credenciales completas no se pueden recuperar."
-        />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="mt-3 min-w-0">{value}</div>
+        </div>
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            metricToneStyles[tone],
+          )}
+        >
+          {icon}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function AccessOperationPanel({
+  access,
+  accessState,
+  onDisable,
+  onGenerate,
+  onRegenerate,
+  pendingAction,
+}: {
+  access: ClientAccess;
+  accessState: ReturnType<typeof buildAccessViewState>;
+  onDisable: () => void;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  pendingAction: PendingAccessAction;
+}) {
+  const isGenerate = accessState.primaryAction === "generate";
+  const isDisabled = access.status === "disabled";
+  const isLocked = access.status === "temporarily_locked";
+  const title = isGenerate
+    ? isDisabled
+      ? "Acceso desactivado"
+      : "Generar acceso"
+    : isLocked
+      ? "Acceso bloqueado"
+      : "Acceso activo";
+  const description = isGenerate
+    ? isDisabled
+      ? "Genera nuevas credenciales para reactivar el portal del cliente."
+      : "Crea un enlace privado y un PIN para que el cliente entre a su portal."
+    : isLocked
+      ? "El acceso esta pausado temporalmente por seguridad."
+      : "Las credenciales actuales estan vigentes.";
+
+  return (
+    <WorkspacePanel title={title} description={description}>
+      <div className="flex flex-col gap-5 p-5">
+        {isGenerate ? (
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+            <div className="flex gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+                <KeyRoundIcon className="size-5" />
+              </span>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                {isDisabled
+                  ? "El acceso anterior esta desactivado. Al generar uno nuevo, se mostrara el enlace privado y el PIN una sola vez."
+                  : "El cliente recibira un enlace privado y un PIN. Las credenciales completas se mostraran una sola vez."}
+              </p>
+            </div>
+            <Button
+              className="h-11 w-full md:w-auto"
+              disabled={Boolean(pendingAction && pendingAction !== "generate") || pendingAction === "generate"}
+              onClick={onGenerate}
+            >
+              {pendingAction === "generate" ? (
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+              ) : (
+                <SparklesIcon className="mr-2 size-4" />
+              )}
+              {isDisabled ? "Generar nuevo acceso" : "Generar acceso"}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-3">
+              <StatusLine
+                icon={getAccessMeta(access.status).icon}
+                label="Estado"
+                value={getAccessStatusLabel(access.status)}
+              />
+              <StatusLine
+                icon={<RefreshCwIcon className="size-5" />}
+                label="Ultima actualizacion"
+                value={access.updatedAt ?? formatDate(access.updatedAtRaw) ?? "Sin registro"}
+              />
+              <StatusLine
+                icon={<Clock3Icon className="size-5" />}
+                label="Ultimo acceso"
+                value={formatDateTime(access.lastAccessAt) ?? "Sin actividad"}
+              />
+            </div>
+            {isLocked ? (
+              <div className="rounded-2xl border !border-transparent bg-amber-50/70 p-4 text-sm text-amber-950 shadow-[var(--surface-shadow-soft)] dark:bg-amber-950/25 dark:text-amber-100">
+                <div className="flex gap-3">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <p>
+                    Desbloqueo: <span className="font-medium">{formatDateTime(access.lockedUntil) ?? "Sin fecha registrada"}</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Las credenciales completas no pueden recuperarse. Regenera el acceso si necesitas compartir nuevas credenciales.
+              </p>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                className="w-full sm:w-auto"
+                disabled={Boolean(pendingAction && pendingAction !== "regenerate") || pendingAction === "regenerate"}
+                variant="outline"
+                onClick={onRegenerate}
+              >
+                {pendingAction === "regenerate" ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <RefreshCwIcon className="mr-2 size-4" />
+                )}
+                Regenerar acceso
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={Boolean(pendingAction && pendingAction !== "disable") || pendingAction === "disable"}
+                variant="destructive"
+                onClick={onDisable}
+              >
+                {pendingAction === "disable" ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <ShieldOffIcon className="mr-2 size-4" />
+                )}
+                Desactivar acceso
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </WorkspacePanel>
   );
+}
+
+const metricToneStyles = {
+  danger: "bg-red-50 text-red-700 dark:bg-red-950/45 dark:text-red-300",
+  default: "bg-accent text-primary",
+  muted: "bg-muted text-muted-foreground",
+  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300",
+  warning: "bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300",
+};
+
+function getAccessMeta(status: ClientAccess["status"]) {
+  const meta: Record<
+    ClientAccess["status"],
+    {
+      badgeClass: string;
+      icon: ReactNode;
+      label: string;
+      tone: "default" | "muted" | "success" | "warning" | "danger";
+    }
+  > = {
+    active: {
+      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/35 dark:text-emerald-300",
+      icon: <CheckCircle2Icon className="size-4" />,
+      label: "Activo",
+      tone: "success",
+    },
+    disabled: {
+      badgeClass: "border-muted bg-muted text-muted-foreground",
+      icon: <ShieldOffIcon className="size-4" />,
+      label: "Desactivado",
+      tone: "muted",
+    },
+    none: {
+      badgeClass: "border-border bg-background text-muted-foreground",
+      icon: <KeyRoundIcon className="size-4" />,
+      label: "Sin acceso",
+      tone: "default",
+    },
+    temporarily_locked: {
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/35 dark:text-amber-300",
+      icon: <LockKeyholeIcon className="size-4" />,
+      label: "Bloqueado",
+      tone: "warning",
+    },
+  };
+
+  return meta[status];
 }
 
 function GeneratedAccessCard({
@@ -541,161 +728,95 @@ function GeneratedAccessCard({
   onCopyPin: () => void;
 }) {
   return (
-    <WorkspacePanel className="border-emerald-200/60 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-      <div className="border-b border-emerald-200/70 px-5 py-4 dark:border-emerald-900/40">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-emerald-950 dark:text-emerald-100">
-          <CheckCircle2Icon className="size-5 text-emerald-700 dark:text-emerald-300" />
-          Credenciales listas
-        </h2>
-        <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-100/75">
-          Copia estos datos ahora. Las credenciales completas solo aparecen en este momento.
+    <section className="rounded-2xl border !border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] ring-1 ring-amber-200/60 dark:ring-amber-900/40">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <CheckCircle2Icon className="size-5 text-amber-700 dark:text-amber-300" />
+            Credenciales listas
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Copia y comparte estos datos antes de salir de esta pantalla.
+          </p>
+        </div>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Por seguridad, el enlace y el PIN completos no volveran a mostrarse despues de recargar.
         </p>
       </div>
-      <div className="space-y-4 p-5">
-        <CopyRow
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+        <CredentialRow
           isCopying={isCopying}
-          label="Enlace privado"
+          label="Link privado"
           value={access.link}
           onCopy={onCopyLink}
         />
-        <CopyRow
+        <CredentialRow
+          emphasize
           isCopying={isCopying}
           label="PIN"
           value={access.pin}
           onCopy={onCopyPin}
         />
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
-          <div className="rounded-2xl border border-emerald-200/70 bg-background/80 p-4 text-sm text-muted-foreground dark:border-emerald-900/40">
-            <p className="mb-2 font-medium text-foreground">Mensaje sugerido para WhatsApp</p>
-            <p>{message}</p>
-          </div>
-          <Button className="h-full min-h-12" disabled={isCopying || !message} onClick={onCopyMessage}>
-            {isCopying ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <MessageCircleIcon className="mr-2 size-5" />}
-            Copiar mensaje
-          </Button>
-        </div>
-        <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100">
-          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-          <p>Guarda o envia estas credenciales antes de salir de la pantalla. No se guardan en este navegador.</p>
-        </div>
+        <CredentialRow
+          className="lg:col-span-2"
+          isCopying={isCopying}
+          label="Mensaje para compartir"
+          value={message}
+          copyLabel="Copiar mensaje"
+          onCopy={onCopyMessage}
+        />
       </div>
-    </WorkspacePanel>
+    </section>
   );
 }
 
-function CopyRow({
+function CredentialRow({
+  className,
+  copyLabel = "Copiar",
+  emphasize = false,
   isCopying,
   label,
   onCopy,
   value,
 }: {
+  className?: string;
+  copyLabel?: string;
+  emphasize?: boolean;
   isCopying: boolean;
   label: string;
   onCopy: () => void;
   value: string;
 }) {
   return (
-    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_140px]">
-      <label className="text-sm font-medium md:col-span-2">{label}</label>
-      <div className="min-h-11 rounded-2xl border bg-background/85 px-3 py-2 text-sm">
-        <p className="break-all">{value}</p>
-      </div>
-      <Button variant="outline" disabled={isCopying || !value} onClick={onCopy}>
-        {isCopying ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <ClipboardIcon className="mr-2 size-4" />}
-        Copiar
-      </Button>
-    </div>
-  );
-}
-
-function AccessStatusPanel({
-  access,
-  accessState,
-  onDisable,
-  onRegenerate,
-  pendingAction,
-}: {
-  access: ClientAccess;
-  accessState: ReturnType<typeof buildAccessViewState>;
-  onDisable: () => void;
-  onRegenerate: () => void;
-  pendingAction: PendingAccessAction;
-}) {
-  const isGenerate = accessState.primaryAction === "generate";
-  const primaryPending = pendingAction === accessState.primaryAction;
-  const hasOtherPending = Boolean(pendingAction && !primaryPending);
-
-  return (
-    <WorkspacePanel title="Estado del acceso">
-      <div className="space-y-4 p-4">
-        <div
+    <div
+      className={cn(
+        "grid gap-3 rounded-2xl border !border-transparent bg-background p-3 shadow-[var(--surface-shadow-soft)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">{label}</p>
+        <p
           className={cn(
-            "rounded-2xl border p-4",
-            accessState.tone === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-100"
-              : null,
-            accessState.tone === "warning"
-              ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100"
-              : null,
-            accessState.tone === "neutral"
-              ? "border-border bg-muted/40 text-foreground"
-              : null,
+            "mt-1 break-all",
+            emphasize
+              ? "font-mono text-3xl font-semibold tracking-[0.18em] text-foreground"
+              : "text-sm text-foreground",
           )}
         >
-          <p className="font-semibold">{getAccessStatusLabel(access.status)}</p>
-          <p className="mt-1 text-sm opacity-80">{accessState.copy}</p>
-        </div>
-
-        {accessState.lockedUntil ? (
-          <StatusLine
-            icon={<LockKeyholeIcon className="size-5" />}
-            label="Desbloqueo"
-            value={formatDateTime(accessState.lockedUntil) ?? "Sin fecha registrada"}
-          />
-        ) : null}
-        <StatusLine
-          icon={<Clock3Icon className="size-5" />}
-          label="Ultimo acceso"
-          value={formatDateTime(access.lastAccessAt) ?? "Sin actividad"}
-        />
-        <StatusLine
-          icon={<RefreshCwIcon className="size-5" />}
-          label="Actualizado"
-          value={access.updatedAt ?? formatDate(access.updatedAtRaw) ?? "Sin registro"}
-        />
-
-        {isGenerate ? null : (
-          <div className="space-y-3 pt-1">
-            <Button
-              className="w-full"
-              disabled={hasOtherPending || primaryPending}
-              variant="outline"
-              onClick={onRegenerate}
-            >
-              {primaryPending ? (
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-              ) : (
-                <RefreshCwIcon className="mr-2 size-4" />
-              )}
-              Regenerar acceso
-            </Button>
-            <Button
-              className="w-full"
-              disabled={Boolean(pendingAction && pendingAction !== "disable") || pendingAction === "disable"}
-              variant="destructive"
-              onClick={onDisable}
-            >
-              {pendingAction === "disable" ? (
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-              ) : (
-                <ShieldOffIcon className="mr-2 size-4" />
-              )}
-              Desactivar acceso
-            </Button>
-          </div>
-        )}
+          {value}
+        </p>
       </div>
-    </WorkspacePanel>
+      <Button
+        className="w-full sm:w-auto"
+        disabled={isCopying || !value}
+        variant="outline"
+        onClick={onCopy}
+      >
+        {isCopying ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <ClipboardIcon className="mr-2 size-4" />}
+        {copyLabel}
+      </Button>
+    </div>
   );
 }
 
@@ -725,7 +846,7 @@ function StatusLine({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border bg-background/70 p-4">
+    <div className="min-w-0 rounded-2xl border !border-transparent bg-background p-4 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-start gap-3">
         <div className="mt-1 text-muted-foreground">{icon}</div>
         <div className="min-w-0 flex-1">
@@ -759,7 +880,7 @@ function getAccessStatusLabel(status: ClientAccess["status"]) {
     active: "Activo",
     disabled: "Desactivado",
     none: "Sin acceso",
-    temporarily_locked: "Bloqueado temporalmente",
+    temporarily_locked: "Bloqueado",
   };
 
   return labels[status];

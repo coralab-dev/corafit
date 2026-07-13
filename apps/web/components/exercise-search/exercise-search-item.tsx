@@ -27,28 +27,30 @@ const muscleLabels: Record<Exercise["primaryMuscle"], string> = {
   back: "Espalda",
   legs: "Piernas",
   shoulder: "Hombro",
-  biceps: "Biceps",
-  triceps: "Triceps",
+  biceps: "Bíceps",
+  triceps: "Tríceps",
   core: "Core",
-  glute: "Gluteo",
+  glute: "Glúteo",
 };
 
 const equipmentLabels: Record<Exercise["equipment"], string> = {
   barbell: "Barra",
   dumbbell: "Mancuerna",
   cable: "Cable",
-  machine: "Maquina",
+  machine: "Máquina",
   bodyweight: "Peso corporal",
   other: "Otro",
 };
 
 export function ExerciseSearchItem({
   exercise,
+  isDisabled = false,
   isSelected,
   onSelect,
   selectionMode = "card",
 }: {
   exercise: Exercise;
+  isDisabled?: boolean;
   isSelected?: boolean;
   onSelect?: (exercise: Exercise) => void;
   selectionMode?: "card" | "explicit";
@@ -64,12 +66,14 @@ export function ExerciseSearchItem({
         className={cn(
           "group flex w-full items-center gap-3 border-b bg-background px-2.5 py-2 text-left transition-colors last:border-b-0 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
           isSelected && "bg-primary/5 shadow-[inset_3px_0_0_var(--primary)]",
+          isDisabled && "cursor-not-allowed opacity-60",
         )}
+        aria-disabled={isDisabled || undefined}
         role={isExplicit ? undefined : "button"}
-        tabIndex={isExplicit ? undefined : 0}
-        onClick={isExplicit ? undefined : () => onSelect?.(exercise)}
+        tabIndex={isExplicit || isDisabled ? undefined : 0}
+        onClick={isExplicit || isDisabled ? undefined : () => onSelect?.(exercise)}
         onKeyDown={
-          isExplicit
+          isExplicit || isDisabled
             ? undefined
             : (event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -124,6 +128,7 @@ export function ExerciseSearchItem({
               </Badge>
               <Button
                 className="h-8"
+                disabled={isDisabled}
                 size="sm"
                 type="button"
                 variant="outline"
@@ -138,6 +143,7 @@ export function ExerciseSearchItem({
               {isExplicit ? (
                 <Button
                   className="h-8"
+                  disabled={isDisabled}
                   size="sm"
                   type="button"
                   onClick={(event) => {
@@ -171,7 +177,7 @@ export function ExerciseSearchItem({
   );
 }
 
-function ExerciseDetailsDialog({
+export function ExerciseDetailsDialog({
   exercise,
   isCustom,
   isOpen,
@@ -279,7 +285,7 @@ function DetailSection({ title, value }: { title: string; value: string | null }
     <section>
       <h4 className="text-sm font-semibold">{title}</h4>
       <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-        {value?.trim() || "Sin informacion registrada."}
+        {value?.trim() || "Sin información registrada."}
       </p>
     </section>
   );

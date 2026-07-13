@@ -400,7 +400,11 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureSessionExerciseVisible(sessionExerciseId, member.organizationId);
+    const sessionExercise = await this.ensureSessionExerciseVisible(
+      sessionExerciseId,
+      member.organizationId,
+    );
+    this.ensureSessionExercisePlanIsDraft(sessionExercise);
     if (body.exerciseId !== undefined) {
       await this.ensureExerciseVisible(body.exerciseId, member.organizationId);
     }
@@ -429,7 +433,11 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureSessionExerciseVisible(sessionExerciseId, member.organizationId);
+    const sessionExercise = await this.ensureSessionExerciseVisible(
+      sessionExerciseId,
+      member.organizationId,
+    );
+    this.ensureSessionExercisePlanIsDraft(sessionExercise);
     await this.prismaService.sessionExercise.delete({
       where: { id: sessionExerciseId },
     });
@@ -449,6 +457,7 @@ export class TrainingPlansService {
       sessionExerciseId,
       member.organizationId,
     );
+    this.ensureSessionExercisePlanIsDraft(original);
     const maxExercise = await this.prismaService.sessionExercise.findFirst({
       where: { trainingSessionId: original.trainingSessionId },
       orderBy: { orderIndex: 'desc' },
@@ -516,7 +525,25 @@ export class TrainingPlansService {
         id: { in: ids },
         session: this.sessionOrganizationWhere(member.organizationId),
       },
-      select: { id: true, trainingSessionId: true },
+      select: {
+        id: true,
+        trainingSessionId: true,
+        session: {
+          select: {
+            day: {
+              select: {
+                week: {
+                  select: {
+                    trainingPlan: {
+                      select: { status: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (existing.length !== ids.length) {
@@ -527,6 +554,8 @@ export class TrainingPlansService {
     if (sessionIds.size !== 1) {
       throw new ConflictException('All exercises must belong to the same session');
     }
+
+    this.ensurePlanIsDraft(existing[0]?.session?.day?.week?.trainingPlan);
 
     return this.prismaService.$transaction(async (tx) => {
       for (let index = 0; index < ids.length; index++) {
@@ -556,7 +585,11 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureSessionExerciseVisible(sessionExerciseId, member.organizationId);
+    const sessionExercise = await this.ensureSessionExerciseVisible(
+      sessionExerciseId,
+      member.organizationId,
+    );
+    this.ensureSessionExercisePlanIsDraft(sessionExercise);
     await this.ensureExerciseVisible(body.alternativeExerciseId, member.organizationId);
 
     const alternativeCount = await this.prismaService.sessionExerciseAlternative.count({
@@ -588,7 +621,11 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureAlternativeVisible(alternativeId, member.organizationId);
+    const alternative = await this.ensureAlternativeVisible(
+      alternativeId,
+      member.organizationId,
+    );
+    this.ensureAlternativePlanIsDraft(alternative);
     if (body.alternativeExerciseId !== undefined) {
       await this.ensureExerciseVisible(body.alternativeExerciseId, member.organizationId);
     }
@@ -619,7 +656,11 @@ export class TrainingPlansService {
       throw new ForbiddenException('Organization membership is required');
     }
 
-    await this.ensureAlternativeVisible(alternativeId, member.organizationId);
+    const alternative = await this.ensureAlternativeVisible(
+      alternativeId,
+      member.organizationId,
+    );
+    this.ensureAlternativePlanIsDraft(alternative);
     await this.prismaService.sessionExerciseAlternative.delete({
       where: { id: alternativeId },
     });
@@ -1475,6 +1516,25 @@ export class TrainingPlansService {
           session: this.sessionOrganizationWhere(organizationId),
         },
       },
+      include: {
+        sessionExercise: {
+          include: {
+            session: {
+              include: {
+                day: {
+                  include: {
+                    week: {
+                      include: {
+                        trainingPlan: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!alternative) {
@@ -1498,6 +1558,19 @@ export class TrainingPlansService {
         alternatives: {
           include: {
             alternativeExercise: true,
+          },
+        },
+        session: {
+          include: {
+            day: {
+              include: {
+                week: {
+                  include: {
+                    trainingPlan: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -1879,8 +1952,38 @@ export class TrainingPlansService {
   }
 
   private ensurePlanIsDraft(plan: { status?: TrainingPlanStatus } | null | undefined) {
-    if (plan?.status !== undefined && plan.status !== TrainingPlanStatus.draft) {
+    if (plan?.status !== TrainingPlanStatus.draft) {
       throw new ConflictException('Only draft plans can be edited');
     }
+  }
+
+  private ensureSessionExercisePlanIsDraft(
+    sessionExercise: {
+      session?: {
+        day?: {
+          week?: {
+            trainingPlan?: { status?: TrainingPlanStatus } | null;
+          } | null;
+        } | null;
+      } | null;
+    },
+  ) {
+    this.ensurePlanIsDraft(sessionExercise.session?.day?.week?.trainingPlan);
+  }
+
+  private ensureAlternativePlanIsDraft(
+    alternative: {
+      sessionExercise?: {
+        session?: {
+          day?: {
+            week?: {
+              trainingPlan?: { status?: TrainingPlanStatus } | null;
+            } | null;
+          } | null;
+        } | null;
+      } | null;
+    },
+  ) {
+    this.ensureSessionExercisePlanIsDraft(alternative.sessionExercise ?? {});
   }
 }

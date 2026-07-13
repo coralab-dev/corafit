@@ -21,7 +21,7 @@ export function MetricStrip({
   return (
     <div
       className={cn(
-        "grid overflow-hidden rounded-md border bg-card sm:grid-cols-2 xl:grid-cols-4",
+        "grid overflow-hidden rounded-2xl border bg-card shadow-[0_10px_30px_rgba(21,23,26,0.05)] sm:grid-cols-2 xl:grid-cols-4 dark:shadow-none",
         className,
       )}
     >
@@ -34,15 +34,20 @@ export function MetricStrip({
 
 function MetricCell({ item }: { item: MetricStripItem }) {
   const toneClass = {
-    amber: "text-amber-600",
+    amber: "text-amber-600 dark:text-amber-400",
     default: "text-primary",
-    green: "text-emerald-600",
+    green: "text-emerald-600 dark:text-emerald-400",
   }[item.tone ?? "default"];
 
   return (
     <div className="flex min-h-24 items-start gap-3 border-b px-4 py-4 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0">
       {item.icon ? (
-        <div className={cn("mt-0.5 text-muted-foreground", toneClass)}>
+        <div
+          className={cn(
+            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/70",
+            toneClass,
+          )}
+        >
           {item.icon}
         </div>
       ) : null}

@@ -20,6 +20,14 @@ type PrismaServiceMock = {
   organization: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  organizationSubscription: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
+  subscriptionPlan: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
   };
   organizationSubscription: {
     upsert: ReturnType<typeof vi.fn>;
@@ -64,6 +72,51 @@ describe('AdminService', () => {
       organization: {
         findMany: vi.fn().mockResolvedValue([organization]),
         findUnique: vi.fn().mockResolvedValue(organization),
+        update: vi.fn().mockResolvedValue({
+          ...organization,
+          status: OrganizationStatus.suspended,
+        }),
+      },
+      organizationSubscription: {
+        upsert: vi.fn().mockResolvedValue({
+          id: 'subscription-id',
+          organizationId: 'organization-id',
+          subscriptionPlanId: 'pro-plan-id',
+          status: SubscriptionStatus.active,
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          renewsAt: new Date('2026-02-01T00:00:00.000Z'),
+          cancelledAt: null,
+        }),
+      },
+      subscriptionPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'founder-plan-id',
+            code: 'founder',
+            name: 'Founder',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 30,
+            memberLimit: 1,
+            isPublic: false,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ]),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'pro-plan-id',
+          code: 'pro',
+          name: 'Pro',
+          priceMonthly: 0,
+          currency: 'MXN',
+          clientLimit: 30,
+          memberLimit: 1,
+          isPublic: true,
+          status: SubscriptionPlanStatus.active,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        }),
       },
       organizationSubscription: {
         upsert: vi.fn().mockResolvedValue({
@@ -261,6 +314,103 @@ describe('AdminService', () => {
         cancelledAt: null,
       },
     });
+  });
+
+  it('suspends an active organization by updating only its status', async () => {
+    const suspendedOrganization = {
+      ...organization,
+      status: OrganizationStatus.suspended,
+    };
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(organization)
+      .mockResolvedValueOnce(suspendedOrganization);
+    prismaService.organization.update.mockResolvedValueOnce(suspendedOrganization);
+
+    await expect(service.suspendOrganization('organization-id')).resolves.toMatchObject({
+      id: 'organization-id',
+      status: OrganizationStatus.suspended,
+      clientsUsed: 3,
+    });
+
+    expect(prismaService.organization.update).toHaveBeenCalledWith({
+      where: { id: 'organization-id' },
+      data: { status: OrganizationStatus.suspended },
+    });
+  });
+
+  it('keeps suspending an already suspended organization idempotent', async () => {
+    const suspendedOrganization = {
+      ...organization,
+      status: OrganizationStatus.suspended,
+    };
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(suspendedOrganization)
+      .mockResolvedValueOnce(suspendedOrganization);
+
+    await expect(service.suspendOrganization('organization-id')).resolves.toMatchObject({
+      id: 'organization-id',
+      status: OrganizationStatus.suspended,
+    });
+
+    expect(prismaService.organization.update).not.toHaveBeenCalled();
+  });
+
+  it('reactivates a suspended organization by updating only its status', async () => {
+    const suspendedOrganization = {
+      ...organization,
+      status: OrganizationStatus.suspended,
+    };
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(suspendedOrganization)
+      .mockResolvedValueOnce(organization);
+    prismaService.organization.update.mockResolvedValueOnce(organization);
+
+    await expect(service.reactivateOrganization('organization-id')).resolves.toMatchObject({
+      id: 'organization-id',
+      status: OrganizationStatus.active,
+      clientsUsed: 3,
+    });
+
+    expect(prismaService.organization.update).toHaveBeenCalledWith({
+      where: { id: 'organization-id' },
+      data: { status: OrganizationStatus.active },
+    });
+  });
+
+  it('keeps reactivating an active organization idempotent', async () => {
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(organization)
+      .mockResolvedValueOnce(organization);
+
+    await expect(service.reactivateOrganization('organization-id')).resolves.toMatchObject({
+      id: 'organization-id',
+      status: OrganizationStatus.active,
+    });
+
+    expect(prismaService.organization.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when changing status for an unknown organization', async () => {
+    prismaService.organization.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.suspendOrganization('missing-organization-id'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prismaService.organization.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects status changes for cancelled organizations without writing', async () => {
+    prismaService.organization.findUnique.mockResolvedValueOnce({
+      ...organization,
+      status: OrganizationStatus.cancelled,
+    });
+
+    await expect(
+      service.reactivateOrganization('organization-id'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaService.organization.update).not.toHaveBeenCalled();
   });
 
   it('rejects empty plan codes before writing', async () => {

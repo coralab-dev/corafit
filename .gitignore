@@ -22,9 +22,8 @@ test-results/
 documentacion/
 docs/*
 !docs/
-!docs/agent-notes.md
-!docs/architecture-short.md
-!docs/testing.md
+!docs/agent/
+!docs/agent/**
 
 .agents/
 skills-lock.json

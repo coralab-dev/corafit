@@ -33,6 +33,25 @@ export type Client = {
   currentAssignment?: CurrentPlanAssignment | null;
 };
 
+export type ClientDetailResponse = Omit<
+  Client,
+  | "access"
+  | "currentAssignment"
+  | "phone"
+  | "age"
+  | "sex"
+  | "trainingLevel"
+  | "injuriesNotes"
+  | "generalNotes"
+> & {
+  phone?: string | null;
+  age?: number | null;
+  sex?: string | null;
+  trainingLevel?: string | null;
+  injuriesNotes?: string | null;
+  generalNotes?: string | null;
+};
+
 export type ClientsResponse = {
   items: Client[];
   limit: number;

@@ -331,24 +331,31 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       <WorkspaceSplit
         main={
           <div className="flex min-w-0 flex-col gap-5 bg-background p-4 pb-28 md:p-6 xl:pb-6">
-            <ContextStrip
-              client={client}
-              isLoadingClient={isLoadingClient}
-              organizationTimezone={organizationTimezone}
-              startDate={startDate}
-              onStartDateChange={setStartDateOverride}
-            />
-
             {!hasClient ? (
               <ClientUnavailableState
                 clientError={clientError}
-                clientId={clientId}
                 isLoadingClient={isLoadingClient}
               />
             ) : isClientBlocked ? (
-              <ActiveAssignmentNotice client={client} clientId={clientId} />
+              <>
+                <ContextStrip
+                  client={client}
+                  isLoadingClient={isLoadingClient}
+                  organizationTimezone={organizationTimezone}
+                  startDate={startDate}
+                  onStartDateChange={setStartDateOverride}
+                />
+                <ActiveAssignmentNotice client={client} clientId={clientId} />
+              </>
             ) : (
               <>
+                <ContextStrip
+                  client={client}
+                  isLoadingClient={isLoadingClient}
+                  organizationTimezone={organizationTimezone}
+                  startDate={startDate}
+                  onStartDateChange={setStartDateOverride}
+                />
                 <ErrorBanner message={clientError} />
 
                 <WorkspacePanel className="overflow-hidden">
@@ -564,11 +571,9 @@ function ActiveAssignmentNotice({
 
 function ClientUnavailableState({
   clientError,
-  clientId,
   isLoadingClient,
 }: {
   clientError: string;
-  clientId: string;
   isLoadingClient: boolean;
 }) {
   if (!clientError) {
@@ -586,9 +591,6 @@ function ClientUnavailableState({
       <p className="mt-1 text-destructive/80">
         {clientError || "Intenta volver al cliente y abrir la asignación otra vez."}
       </p>
-      <Button asChild className="mt-4" variant="outline">
-        <Link href={`/clients/${clientId}`}>Volver al cliente</Link>
-      </Button>
     </div>
   );
 }

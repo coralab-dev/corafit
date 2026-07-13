@@ -142,6 +142,7 @@ export type ClientPortalHomeResult = {
       openedSessions: number;
       restDays: number;
     };
+    days: ClientPortalCalendarDay[];
   };
   todaySession: ClientPortalCalendarDay | null;
   nextPendingSession: ClientPortalCalendarDay | null;
@@ -376,6 +377,7 @@ export class ClientPortalService {
         weekStartDate: calendarResult.calendar.weekStartDate,
         weekEndDate: calendarResult.calendar.weekEndDate,
         summary: this.summarizeCalendarWeek(days),
+        days,
       },
       todaySession: days.find((day) => day.date === calendarResult.calendar?.today) ?? null,
       nextPendingSession: this.findNextPendingSession(days, calendarResult.calendar.today),

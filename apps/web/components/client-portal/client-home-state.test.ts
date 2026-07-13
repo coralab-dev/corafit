@@ -33,6 +33,45 @@ function day(
 }
 
 function home(overrides: Partial<ClientPortalHome> = {}): ClientPortalHome {
+  const weekDays = [
+    day({ canOpen: true, date: "2026-07-13", dayOfWeek: "monday" }),
+    day({
+      date: "2026-07-14",
+      dayOfWeek: "tuesday",
+      session: null,
+      status: "no_session",
+    }),
+    day({
+      date: "2026-07-15",
+      dayOfWeek: "wednesday",
+      session: {
+        coachNote: null,
+        description: null,
+        id: "session-leg",
+        name: "Pierna",
+      },
+    }),
+    day({
+      date: "2026-07-16",
+      dayOfWeek: "thursday",
+      session: null,
+      status: "no_session",
+    }),
+    day({ date: "2026-07-17", dayOfWeek: "friday" }),
+    day({
+      date: "2026-07-18",
+      dayOfWeek: "saturday",
+      session: null,
+      status: "no_session",
+    }),
+    day({
+      date: "2026-07-19",
+      dayOfWeek: "sunday",
+      session: null,
+      status: "no_session",
+    }),
+  ];
+
   return {
     calendarLink: {
       href: "/calendar",
@@ -68,6 +107,7 @@ function home(overrides: Partial<ClientPortalHome> = {}): ClientPortalHome {
     timezone: "America/Mexico_City",
     todaySession: day({ canOpen: true, date: "2026-07-13" }),
     week: {
+      days: weekDays,
       summary: {
         completedSessions: 3,
         openedSessions: 0,
@@ -183,7 +223,7 @@ describe("client home state", () => {
       title: "Push",
     });
     expect(view.nextActivity).toMatchObject({
-      dateLabel: "Miercoles 15 · Pierna",
+      dateLabel: "Mie 15 · Pierna",
       sessionName: "Pierna",
     });
   });
@@ -276,6 +316,50 @@ describe("client home state", () => {
   test("weekly progress handles zero training sessions without a fake streak", () => {
     const view = buildClientHomeViewModel(home({
       week: {
+        days: [
+          day({
+            date: "2026-07-13",
+            dayOfWeek: "monday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-14",
+            dayOfWeek: "tuesday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-15",
+            dayOfWeek: "wednesday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-16",
+            dayOfWeek: "thursday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-17",
+            dayOfWeek: "friday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-18",
+            dayOfWeek: "saturday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            date: "2026-07-19",
+            dayOfWeek: "sunday",
+            session: null,
+            status: "no_session",
+          }),
+        ],
         summary: {
           completedSessions: 0,
           openedSessions: 0,
@@ -306,8 +390,157 @@ describe("client home state", () => {
     }));
 
     expect(view.nextActivity).toBeNull();
-    expect(view.emptyNextActivityMessage).toBe(
-      "No tienes mas entrenamientos pendientes esta semana.",
-    );
+    expect(view.emptyNextActivityMessage).toBeNull();
+  });
+
+  test("weekly days map every home day with today and complete status tones", () => {
+    const longName =
+      "Pierna posterior con tempo lento y bloque largo de accesorios";
+    const view = buildClientHomeViewModel(home({
+      todaySession: day({ canOpen: true, date: "2026-07-15" }),
+      week: {
+        days: [
+          day({
+            date: "2026-07-13",
+            dayOfWeek: "monday",
+            session: null,
+            status: "no_session",
+          }),
+          day({
+            canOpen: true,
+            date: "2026-07-14",
+            dayOfWeek: "tuesday",
+          }),
+          day({
+            canOpen: false,
+            date: "2026-07-15",
+            dayOfWeek: "wednesday",
+            session: {
+              coachNote: null,
+              description: null,
+              id: "session-long",
+              name: longName,
+            },
+          }),
+          day({
+            canOpen: true,
+            date: "2026-07-16",
+            dayOfWeek: "thursday",
+            status: "overdue",
+          }),
+          day({
+            canOpen: true,
+            date: "2026-07-17",
+            dayOfWeek: "friday",
+            log: {
+              completedAt: null,
+              id: "log-active",
+              openedAt: "2026-07-17T12:00:00.000Z",
+              status: "opened",
+            },
+            status: "opened",
+          }),
+          day({
+            canOpen: false,
+            date: "2026-07-18",
+            dayOfWeek: "saturday",
+            log: {
+              completedAt: "2026-07-18T13:00:00.000Z",
+              id: "log-partial",
+              openedAt: "2026-07-18T12:00:00.000Z",
+              status: "partially_completed",
+            },
+            status: "partially_completed",
+          }),
+          day({
+            canOpen: false,
+            date: "2026-07-19",
+            dayOfWeek: "sunday",
+            log: {
+              completedAt: "2026-07-19T13:00:00.000Z",
+              id: "log-completed",
+              openedAt: "2026-07-19T12:00:00.000Z",
+              status: "completed",
+            },
+            status: "completed",
+          }),
+        ],
+        summary: {
+          completedSessions: 2,
+          openedSessions: 1,
+          pendingSessions: 3,
+          restDays: 1,
+          totalTrainingSessions: 6,
+        },
+        weekEndDate: "2026-07-19",
+        weekNumber: 2,
+        weekStartDate: "2026-07-13",
+      },
+    }));
+
+    expect(view.week?.days).toHaveLength(7);
+    expect(view.week?.days).toMatchObject([
+      {
+        dateNumber: "13",
+        dayLabel: "Lun",
+        isRest: true,
+        isToday: false,
+        sessionName: "Descanso",
+        statusLabel: "Descanso",
+        tone: "rest",
+      },
+      {
+        statusLabel: "Pendiente",
+        tone: "pending",
+      },
+      {
+        isToday: true,
+        sessionName: longName,
+        statusLabel: "Proxima",
+        tone: "upcoming",
+      },
+      {
+        statusLabel: "Atrasada",
+        tone: "overdue",
+      },
+      {
+        statusLabel: "En curso",
+        tone: "active",
+      },
+      {
+        statusLabel: "Parcial",
+        tone: "partial",
+      },
+      {
+        statusLabel: "Completada",
+        tone: "completed",
+      },
+    ]);
+  });
+
+  test("weekly range is compact and next activity is optional", () => {
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: null,
+      week: {
+        days: [],
+        summary: {
+          completedSessions: 0,
+          openedSessions: 0,
+          pendingSessions: 0,
+          restDays: 7,
+          totalTrainingSessions: 0,
+        },
+        weekEndDate: "2026-07-18",
+        weekNumber: 1,
+        weekStartDate: "2026-07-12",
+      },
+    }));
+
+    expect(view.week).toMatchObject({
+      completionPercent: 0,
+      rangeLabel: "12-18 jul",
+    });
+    expect(view.nextActivity).toBeNull();
+    expect(view.emptyNextActivityMessage).toBeNull();
   });
 });

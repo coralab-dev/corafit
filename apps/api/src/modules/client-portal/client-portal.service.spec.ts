@@ -666,6 +666,98 @@ describe('ClientPortalService', () => {
           },
         },
       });
+      expect(result.week?.days).toHaveLength(7);
+      expect(result.week?.days.slice(0, 3)).toMatchObject([
+        {
+          date: '2026-05-18',
+          dayOfWeek: DayOfWeek.monday,
+          status: 'overdue',
+          canOpen: true,
+          session: {
+            id: 'session-monday',
+            name: 'monday session',
+          },
+          log: null,
+        },
+        {
+          date: '2026-05-19',
+          dayOfWeek: DayOfWeek.tuesday,
+          status: 'no_session',
+          canOpen: false,
+          session: null,
+          log: null,
+        },
+        {
+          date: '2026-05-20',
+          dayOfWeek: DayOfWeek.wednesday,
+          status: 'pending',
+          canOpen: true,
+          session: {
+            id: 'session-wednesday',
+          },
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns home week days in assignment order when the week starts away from monday', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-30T18:00:00.000Z'));
+    prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(
+      createAssignment({
+        startDate: new Date('2026-05-29T00:00:00.000Z'),
+        assignedPlan: {
+          id: 'assigned-plan-id',
+          name: 'Assigned Plan',
+          durationWeeks: 4,
+          weeks: [
+            {
+              id: 'week-1',
+              trainingPlanId: 'assigned-plan-id',
+              weekNumber: 1,
+              notes: null,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              days: [
+                createPlanDay(DayOfWeek.friday, 5, createSession(DayOfWeek.friday)),
+                createPlanDay(DayOfWeek.saturday, 6, createSession(DayOfWeek.saturday)),
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    try {
+      const result = await service.getHome(createAccess(), 'plain-token');
+
+      expect(result.week?.days).toHaveLength(7);
+      expect(result.week?.days.map((day) => day.dayOfWeek)).toEqual([
+        DayOfWeek.friday,
+        DayOfWeek.saturday,
+        DayOfWeek.sunday,
+        DayOfWeek.monday,
+        DayOfWeek.tuesday,
+        DayOfWeek.wednesday,
+        DayOfWeek.thursday,
+      ]);
+      expect(result.week?.days.slice(0, 3)).toMatchObject([
+        {
+          date: '2026-05-29',
+          session: { id: 'session-friday' },
+        },
+        {
+          date: '2026-05-30',
+          session: { id: 'session-saturday' },
+        },
+        {
+          date: '2026-05-31',
+          status: 'no_session',
+          session: null,
+        },
+      ]);
     } finally {
       vi.useRealTimers();
     }

@@ -61,6 +61,7 @@ export type ClientPortalHome = {
       openedSessions: number;
       restDays: number;
     };
+    days: ClientPortalDay[];
   };
   todaySession: ClientPortalDay | null;
   nextPendingSession: ClientPortalDay | null;

@@ -38,13 +38,33 @@ export type ClientHomeHeroView = {
 export type ClientHomeWeekView = {
   completedSessions: number;
   completionPercent: number;
+  days: ClientHomeWeekDayView[];
   openedSessions: number;
   pendingLabel: string;
   pendingSessions: number;
+  rangeLabel: string;
   progressLabel: string;
   restDays: number;
   totalTrainingSessions: number;
   weekLabel: string;
+};
+
+export type ClientHomeWeekDayView = {
+  date: string;
+  dayLabel: string;
+  dateNumber: string;
+  sessionName: string;
+  statusLabel: string;
+  tone:
+    | "rest"
+    | "pending"
+    | "upcoming"
+    | "overdue"
+    | "active"
+    | "completed"
+    | "partial";
+  isToday: boolean;
+  isRest: boolean;
 };
 
 export type ClientHomeNextActivityView = {
@@ -95,10 +115,7 @@ export function buildClientHomeViewModel(
 
   return {
     clientFirstName: firstName(data.client.name),
-    emptyNextActivityMessage:
-      data.state === "active" && !nextActivity
-        ? "No tienes mas entrenamientos pendientes esta semana."
-        : null,
+    emptyNextActivityMessage: null,
     hero,
     hideCalendarNav: data.state === "no_plan",
     nextActivity,
@@ -251,14 +268,60 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
   return {
     completedSessions: summary.completedSessions,
     completionPercent,
+    days: data.week.days.map((day) =>
+      buildWeekDayView(day, data.todaySession?.date ?? null),
+    ),
     openedSessions: summary.openedSessions,
     pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "dia", "dias")} de descanso`,
     pendingSessions: summary.pendingSessions,
     progressLabel: `${summary.completedSessions} de ${summary.totalTrainingSessions} sesiones completadas`,
+    rangeLabel: formatWeekRange(data.week.weekStartDate, data.week.weekEndDate),
     restDays: summary.restDays,
     totalTrainingSessions: summary.totalTrainingSessions,
     weekLabel: `Semana ${data.week.weekNumber}`,
   };
+}
+
+function buildWeekDayView(
+  day: ClientPortalDay,
+  todayDate: string | null,
+): ClientHomeWeekDayView {
+  const status = day.log?.status ?? day.status;
+  const isRest = !day.session || day.status === "no_session";
+
+  return {
+    date: day.date,
+    dateNumber: day.date.slice(-2),
+    dayLabel: shortWeekday(day.dayOfWeek),
+    isRest,
+    isToday: day.date === todayDate,
+    sessionName: day.session?.name ?? "Descanso",
+    statusLabel: weekDayStatusLabel(day, status),
+    tone: weekDayTone(day, status),
+  };
+}
+
+function weekDayStatusLabel(day: ClientPortalDay, status: string) {
+  if (!day.session || day.status === "no_session") return "Descanso";
+  if (status === "completed") return "Completada";
+  if (status === "partially_completed") return "Parcial";
+  if (status === "opened" || status === "in_progress") return "En curso";
+  if (status === "overdue") return "Atrasada";
+  if (status === "pending" && day.canOpen) return "Pendiente";
+  return "Proxima";
+}
+
+function weekDayTone(
+  day: ClientPortalDay,
+  status: string,
+): ClientHomeWeekDayView["tone"] {
+  if (!day.session || day.status === "no_session") return "rest";
+  if (status === "completed") return "completed";
+  if (status === "partially_completed") return "partial";
+  if (status === "opened" || status === "in_progress") return "active";
+  if (status === "overdue") return "overdue";
+  if (status === "pending" && day.canOpen) return "pending";
+  return "upcoming";
 }
 
 function buildNextActivity(
@@ -322,15 +385,28 @@ function shortWeekdayDate(day: ClientPortalDay) {
 
 function shortWeekday(dayOfWeek: string) {
   const labels: Record<string, string> = {
-    friday: "Viernes",
-    monday: "Lunes",
-    saturday: "Sabado",
-    sunday: "Domingo",
-    thursday: "Jueves",
-    tuesday: "Martes",
-    wednesday: "Miercoles",
+    friday: "Vie",
+    monday: "Lun",
+    saturday: "Sab",
+    sunday: "Dom",
+    thursday: "Jue",
+    tuesday: "Mar",
+    wednesday: "Mie",
   };
   return labels[dayOfWeek] ?? capitalize(dayOfWeek);
+}
+
+function formatWeekRange(startDate: string, endDate: string) {
+  const startDay = Number(startDate.slice(-2));
+  const endDay = Number(endDate.slice(-2));
+  const endMonth = new Intl.DateTimeFormat("es-MX", {
+    month: "short",
+    timeZone: "UTC",
+  })
+    .format(new Date(`${endDate}T00:00:00.000Z`))
+    .replace(".", "");
+
+  return `${startDay}-${endDay} ${endMonth}`;
 }
 
 function capitalize(value: string) {

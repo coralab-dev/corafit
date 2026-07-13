@@ -34,11 +34,8 @@ export type AdminOrganization = {
   clientsUsed: number;
 };
 
-<<<<<<< HEAD
-=======
 export type AdminOrganizationStatusAction = "reactivate" | "suspend";
 
->>>>>>> origin/staging
 export type AdminSubscriptionPlan = {
   id: string;
   code: string;
@@ -197,8 +194,6 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [adminRequest],
   );
 
-<<<<<<< HEAD
-=======
   const updateOrganizationStatus = useCallback(
     async (
       organizationId: string,
@@ -232,7 +227,6 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [adminRequest, normalizedFilters.status],
   );
 
->>>>>>> origin/staging
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadOrganizations();
@@ -270,10 +264,7 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     selectedOrganization,
     subscriptionPlans,
     updateOrganizationSubscription,
-<<<<<<< HEAD
-=======
     updateOrganizationStatus,
->>>>>>> origin/staging
   };
 }
 

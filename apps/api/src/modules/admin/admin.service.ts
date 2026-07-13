@@ -109,8 +109,6 @@ export class AdminService {
     return this.toAdminOrganization(organization);
   }
 
-<<<<<<< HEAD
-=======
   async suspendOrganization(organizationId: string): Promise<AdminOrganization> {
     return this.updateOrganizationStatus(
       organizationId,
@@ -122,7 +120,6 @@ export class AdminService {
     return this.updateOrganizationStatus(organizationId, OrganizationStatus.active);
   }
 
->>>>>>> origin/staging
   async listSubscriptionPlans(): Promise<AdminSubscriptionPlan[]> {
     const plans = await this.prismaService.subscriptionPlan.findMany({
       select: {
@@ -200,8 +197,6 @@ export class AdminService {
     return this.getOrganization(normalizedOrganizationId);
   }
 
-<<<<<<< HEAD
-=======
   private async updateOrganizationStatus(
     organizationId: string,
     status: OrganizationStatus,
@@ -235,7 +230,6 @@ export class AdminService {
     return this.getOrganization(normalizedOrganizationId);
   }
 
->>>>>>> origin/staging
   private get organizationInclude() {
     return {
       owner: {

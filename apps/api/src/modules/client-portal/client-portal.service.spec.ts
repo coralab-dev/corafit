@@ -175,6 +175,7 @@ function createSessionLog(overrides: Record<string, unknown> = {}) {
 
 describe('ClientPortalService', () => {
   let prismaService: PrismaServiceMock;
+  let getCurrentStreak: ReturnType<typeof vi.fn>;
   let streakService: ClientStreakService;
   let service: ClientPortalService;
   let validPinHash: string;
@@ -212,8 +213,9 @@ describe('ClientPortalService', () => {
         findFirst: vi.fn().mockResolvedValue(null),
       },
     };
+    getCurrentStreak = vi.fn().mockResolvedValue(6);
     streakService = {
-      getCurrentStreak: vi.fn().mockResolvedValue(6),
+      getCurrentStreak,
     } as unknown as ClientStreakService;
     service = new ClientPortalService(
       prismaService as unknown as PrismaService,
@@ -642,7 +644,7 @@ describe('ClientPortalService', () => {
         },
       });
       expect(prismaService.clientSessionLog.findMany).not.toHaveBeenCalled();
-      expect(streakService.getCurrentStreak).not.toHaveBeenCalled();
+      expect(getCurrentStreak).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -683,7 +685,7 @@ describe('ClientPortalService', () => {
           current: 6,
         },
       });
-      expect(streakService.getCurrentStreak).toHaveBeenCalledWith({
+      expect(getCurrentStreak).toHaveBeenCalledWith({
         anchorDate: '2026-05-20',
         assignment: createAssignment(),
         clientId: 'client-id',

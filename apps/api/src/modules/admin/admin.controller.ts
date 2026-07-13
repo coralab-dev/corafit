@@ -65,8 +65,6 @@ export class AdminController {
   }
 
   @UseGuards(PlatformAdminGuard)
-<<<<<<< HEAD
-=======
   @Post('organizations/:organizationId/suspend')
   suspendOrganization(
     @Param('organizationId') organizationId: string,
@@ -83,7 +81,6 @@ export class AdminController {
   }
 
   @UseGuards(PlatformAdminGuard)
->>>>>>> origin/staging
   @Patch('organizations/:organizationId/subscription')
   updateOrganizationSubscription(
     @Param('organizationId') organizationId: string,

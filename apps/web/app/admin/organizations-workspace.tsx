@@ -2,10 +2,7 @@
 
 import {
   Building2Icon,
-<<<<<<< HEAD
-=======
   BanIcon,
->>>>>>> origin/staging
   RefreshCwIcon,
   RotateCcwIcon,
   SearchIcon,
@@ -77,10 +74,7 @@ export function AdminOrganizationsWorkspace() {
     selectedOrganization,
     subscriptionPlans,
     updateOrganizationSubscription,
-<<<<<<< HEAD
-=======
     updateOrganizationStatus,
->>>>>>> origin/staging
   } = useAdminOrganizations({ search, status });
 
   const totals = useMemo(
@@ -216,10 +210,7 @@ export function AdminOrganizationsWorkspace() {
             organization={selectedOrganization}
             subscriptionPlans={subscriptionPlans}
             onChangePlan={updateOrganizationSubscription}
-<<<<<<< HEAD
-=======
             onChangeStatus={updateOrganizationStatus}
->>>>>>> origin/staging
           />
         }
         sideClassName="xl:w-[380px] xl:min-w-[340px]"
@@ -334,10 +325,7 @@ function OrganizationDetail({
   isLoading,
   isPlansLoading,
   onChangePlan,
-<<<<<<< HEAD
-=======
   onChangeStatus,
->>>>>>> origin/staging
   organization,
   subscriptionPlans,
 }: {
@@ -345,13 +333,10 @@ function OrganizationDetail({
   isLoading: boolean;
   isPlansLoading: boolean;
   onChangePlan: (organizationId: string, planCode: string) => Promise<AdminOrganization>;
-<<<<<<< HEAD
-=======
   onChangeStatus: (
     organizationId: string,
     action: AdminOrganizationStatusAction,
   ) => Promise<AdminOrganization>;
->>>>>>> origin/staging
   organization: AdminOrganization | null;
   subscriptionPlans: AdminSubscriptionPlan[];
 }) {
@@ -387,11 +372,7 @@ function OrganizationDetail({
     <aside className="space-y-4 p-4">
       <WorkspacePanel
         title="Detalle operativo"
-<<<<<<< HEAD
-        description="Solo lectura para soporte beta."
-=======
         description="Acciones administrativas para soporte beta."
->>>>>>> origin/staging
         icon={<Building2Icon className="size-4" />}
       >
         <div className="divide-y">
@@ -453,8 +434,6 @@ function OrganizationDetail({
   );
 }
 
-<<<<<<< HEAD
-=======
 function OrganizationStatusAction({
   onChangeStatus,
   organization,
@@ -537,7 +516,6 @@ function OrganizationStatusAction({
   );
 }
 
->>>>>>> origin/staging
 function PlanChangeForm({
   isPlansLoading,
   onChangePlan,

@@ -53,15 +53,12 @@ describe('AdminController', () => {
       getStatus: vi.fn(),
       listOrganizations: vi.fn().mockResolvedValue([{ id: 'organization-id' }]),
       listSubscriptionPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
-<<<<<<< HEAD
-=======
       reactivateOrganization: vi
         .fn()
         .mockResolvedValue({ id: 'organization-id', status: 'active' }),
       suspendOrganization: vi
         .fn()
         .mockResolvedValue({ id: 'organization-id', status: 'suspended' }),
->>>>>>> origin/staging
       updateOrganizationSubscription: vi
         .fn()
         .mockResolvedValue({ id: 'organization-id', plan: { code: 'pro' } }),

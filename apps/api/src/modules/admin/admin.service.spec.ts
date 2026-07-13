@@ -316,8 +316,6 @@ describe('AdminService', () => {
     });
   });
 
-<<<<<<< HEAD
-=======
   it('suspends an active organization by updating only its status', async () => {
     const suspendedOrganization = {
       ...organization,
@@ -415,7 +413,6 @@ describe('AdminService', () => {
     expect(prismaService.organization.update).not.toHaveBeenCalled();
   });
 
->>>>>>> origin/staging
   it('rejects empty plan codes before writing', async () => {
     await expect(
       service.updateOrganizationSubscription('organization-id', { planCode: '   ' }),

@@ -80,6 +80,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
   const startDate = startDateOverride ?? defaultStartDate;
   const selectedPlanId = selectedPlanSummary?.id ?? "";
   const activePlan = selectedPlanDetail ?? selectedPlanSummary;
+  const hasClient = Boolean(client);
   const isClientBlocked = Boolean(client && hasActiveAssignment(client.currentAssignment));
   const selectedWeekPreview = selectedPlanDetail && selectedWeekNumber
     ? getWeekPreview(selectedPlanDetail, selectedWeekNumber, startDate)
@@ -317,7 +318,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     <WorkspaceFrame
       header={
         <WorkspaceHeader
-          description={`Configura el plan que recibirá ${client?.name ?? "Juan Pérez"}.`}
+          description={`Configura el plan que recibirá ${client?.name ?? "Cliente"}.`}
           title="Asignar plan"
           actions={
             <Button asChild className="shadow-none" variant="outline">
@@ -338,7 +339,13 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
               onStartDateChange={setStartDateOverride}
             />
 
-            {isClientBlocked ? (
+            {!hasClient ? (
+              <ClientUnavailableState
+                clientError={clientError}
+                clientId={clientId}
+                isLoadingClient={isLoadingClient}
+              />
+            ) : isClientBlocked ? (
               <ActiveAssignmentNotice client={client} clientId={clientId} />
             ) : (
               <>
@@ -425,10 +432,10 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
             )}
           </div>
         }
-        side={!isClientBlocked ? <div className="hidden p-5 xl:block">{summary}</div> : undefined}
+        side={hasClient && !isClientBlocked ? <div className="hidden p-5 xl:block">{summary}</div> : undefined}
         sideClassName="xl:w-[380px] xl:min-w-[340px]"
       />
-      {!isClientBlocked ? <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 shadow-lg backdrop-blur xl:hidden">
+      {hasClient && !isClientBlocked ? <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 shadow-lg backdrop-blur xl:hidden">
         <Button className="w-full" disabled={!canAssign} onClick={assignPlan}>
           {isAssigning ? <Loader2Icon className="size-4 animate-spin" /> : null}
           Asignar plan
@@ -504,10 +511,10 @@ function ContextStrip({
     <section className="grid gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow)] md:grid-cols-[minmax(0,1fr)_280px] md:items-center">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-primary">
-          {client ? initials(client.name) : isLoadingClient ? <Loader2Icon className="size-4 animate-spin" /> : "JP"}
+          {client ? initials(client.name) : isLoadingClient ? <Loader2Icon className="size-4 animate-spin" /> : "CL"}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{client?.name ?? "Juan Pérez"}</p>
+          <p className="truncate text-sm font-semibold">{client?.name ?? "Cliente"}</p>
           <p className="mt-1 truncate text-sm text-muted-foreground">
             {client
               ? `${statusLabels[client.operationalStatus]} · ${client.mainGoal || "Sin objetivo"}`
@@ -550,6 +557,37 @@ function ActiveAssignmentNotice({
       </div>
       <Button asChild className="shrink-0" variant="outline">
         <Link href={`/clients/${clientId}/plan-assignment/edit`}>Ver plan actual</Link>
+      </Button>
+    </div>
+  );
+}
+
+function ClientUnavailableState({
+  clientError,
+  clientId,
+  isLoadingClient,
+}: {
+  clientError: string;
+  clientId: string;
+  isLoadingClient: boolean;
+}) {
+  if (!clientError) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-transparent bg-card text-sm text-muted-foreground shadow-[var(--surface-shadow)]">
+        {isLoadingClient ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : null}
+        Cargando cliente
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive shadow-[var(--surface-shadow)]">
+      <p className="font-semibold">No se pudo cargar el cliente.</p>
+      <p className="mt-1 text-destructive/80">
+        {clientError || "Intenta volver al cliente y abrir la asignación otra vez."}
+      </p>
+      <Button asChild className="mt-4" variant="outline">
+        <Link href={`/clients/${clientId}`}>Volver al cliente</Link>
       </Button>
     </div>
   );
@@ -614,7 +652,7 @@ function AssignmentSummary({
 
       {weekRange ? (
         <p className="mt-4 rounded-xl bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Primera semana: {weekRange}
+          Semana {selectedWeekNumber ?? 1}: {weekRange}
         </p>
       ) : null}
 

@@ -1,3 +1,5 @@
+import type { AuthProfile } from "@/lib/auth/types";
+
 export type SettingsBillingData = {
   status: string;
   renewsAt: string | null;
@@ -22,6 +24,17 @@ export type SettingsProfileSubscription = {
 };
 
 export type SettingsPlanTone = "ok" | "warning" | "notice" | "critical" | "stale";
+
+export function mergeOrganizationSnapshot(
+  current: AuthProfile | null,
+  visibleProfile: AuthProfile,
+  organization: AuthProfile["organization"],
+) {
+  return {
+    ...(current ?? visibleProfile),
+    organization,
+  };
+}
 
 export function getUsagePercent(used: number | null, limit: number) {
   if (!used || limit <= 0) {

@@ -49,6 +49,7 @@ import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import {
   getSettingsPlanSummary,
+  mergeOrganizationSnapshot,
   type SettingsBillingData,
   type SettingsPlanTone,
 } from "./settings-state";
@@ -793,6 +794,7 @@ export function SettingsWorkspace() {
   ) {
     return <SettingsSkeleton />;
   }
+  const validatedProfile = visibleProfile;
 
   function handleProfileSaved(updatedProfile: AuthProfile) {
     setPresentationProfile(updatedProfile);
@@ -800,12 +802,7 @@ export function SettingsWorkspace() {
 
   function handleOrganizationSaved(organization: AuthProfile["organization"]) {
     setPresentationProfile((current) =>
-      current
-        ? {
-            ...current,
-            organization,
-          }
-        : null,
+      mergeOrganizationSnapshot(current, validatedProfile, organization),
     );
   }
 
@@ -820,20 +817,20 @@ export function SettingsWorkspace() {
     >
       <div className="flex flex-1 flex-col gap-4 bg-background px-4 py-4 md:px-6">
         <div className="grid gap-4 lg:grid-cols-3">
-          <AccountSummaryCard profile={visibleProfile} />
-          <OrganizationSummaryCard profile={visibleProfile} />
+          <AccountSummaryCard profile={validatedProfile} />
+          <OrganizationSummaryCard profile={validatedProfile} />
           <PlanSummaryCard
             billing={billing}
             billingError={billingError}
             billingLoading={billingLoading}
-            onRetry={() => void loadBilling(visibleProfile.organization.id)}
-            profile={visibleProfile}
+            onRetry={() => void loadBilling(validatedProfile.organization.id)}
+            profile={validatedProfile}
           />
         </div>
         <SettingsOperations
           onOrganizationSaved={handleOrganizationSaved}
           onProfileSaved={handleProfileSaved}
-          profile={visibleProfile}
+          profile={validatedProfile}
         />
         <SessionRow />
       </div>

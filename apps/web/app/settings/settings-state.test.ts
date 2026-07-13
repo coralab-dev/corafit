@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSettingsPlanSummary } from "./settings-state";
+import { getSettingsPlanSummary, mergeOrganizationSnapshot } from "./settings-state";
 
 describe("settings plan summary", () => {
   const profileSubscription = {
@@ -174,6 +174,65 @@ describe("settings plan summary", () => {
       usedClients: null,
       usageLabel: "Uso no actualizado",
       usagePercent: 0,
+    });
+  });
+});
+
+describe("settings presentation snapshot", () => {
+  const visibleProfile = {
+    user: {
+      email: "coach@corafit.test",
+      id: "user-1",
+      name: "Coach Actual",
+      phone: null,
+      platformRole: "user" as const,
+      status: "active",
+      supabaseUserId: "supabase-1",
+    },
+    organization: {
+      id: "org-1",
+      name: "Organización anterior",
+      ownerUserId: "user-1",
+      status: "active",
+      timezone: "America/Mexico_City",
+      type: "individual",
+    },
+    member: {
+      id: "member-1",
+      organizationId: "org-1",
+      role: "owner",
+      status: "active",
+      userId: "user-1",
+    },
+    subscription: {
+      id: "subscription-1",
+      organizationId: "org-1",
+      renewsAt: null,
+      status: "active",
+      subscriptionPlan: {
+        clientLimit: 5,
+        code: "beta",
+        id: "plan-1",
+        memberLimit: 1,
+        name: "Beta Coach",
+      },
+      subscriptionPlanId: "plan-1",
+    },
+  };
+
+  it("uses the visible profile as base when merging an organization without a local snapshot", () => {
+    const updatedOrganization = {
+      ...visibleProfile.organization,
+      name: "Organización nueva",
+    };
+
+    const snapshot = mergeOrganizationSnapshot(null, visibleProfile, updatedOrganization);
+
+    expect(snapshot).toMatchObject({
+      organization: updatedOrganization,
+      user: visibleProfile.user,
+      member: visibleProfile.member,
+      subscription: visibleProfile.subscription,
     });
   });
 });

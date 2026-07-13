@@ -45,9 +45,9 @@ export function AssignmentWeekPreview({
 
   if (!weeks.length || !preview) {
     return (
-      <div className="mt-4 rounded-md border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
+      <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
         <AlertTriangleIcon className="mr-2 inline size-4 align-text-bottom" />
-        Este plan no tiene semanas cargadas todavia. Puedes asignarlo, pero conviene completarlo antes.
+        Este plan no tiene semanas cargadas todavía. Puedes asignarlo, pero conviene completarlo antes.
       </div>
     );
   }
@@ -56,14 +56,13 @@ export function AssignmentWeekPreview({
   const nextWeek = weeks[weekIndex + 1]?.weekNumber ?? null;
 
   return (
-    <div className="mt-4 space-y-4">
-      <div className="flex flex-col gap-3 border-b pb-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-semibold">Vista previa del calendario</p>
-          <p className="mt-1 text-xl font-semibold tracking-normal">
-            Semana {preview.weekNumber} de {weeks.length}
+          <p className="text-base font-semibold">Vista previa del calendario</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Semana {preview.weekNumber} de {weeks.length} · {preview.rangeLabel}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">{preview.rangeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -94,12 +93,12 @@ export function AssignmentWeekPreview({
           <button
             key={day.key}
             className={cn(
-              "min-h-32 scroll-ml-4 rounded-md border p-3 text-left transition [scroll-snap-align:start]",
+              "min-h-32 scroll-ml-4 rounded-xl border border-transparent p-3 text-left shadow-[var(--surface-shadow-soft)] transition [scroll-snap-align:start]",
               day.isRest
                 ? "bg-muted/35 text-muted-foreground"
-                : "bg-background hover:border-primary/50",
+                : "bg-background hover:border-primary/35",
               selectedDay?.key === day.key &&
-                "border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]",
+                "border-primary/45 bg-primary/5 shadow-[0_0_0_1px_var(--primary)]",
             )}
             type="button"
             onClick={() => onSelectDay(day.key)}
@@ -110,7 +109,7 @@ export function AssignmentWeekPreview({
               </span>
               <span
                 className={cn(
-                  "flex size-7 items-center justify-center rounded-md",
+                  "flex size-7 items-center justify-center rounded-lg",
                   day.isRest ? "bg-background/70" : "bg-primary text-primary-foreground",
                 )}
               >
@@ -141,17 +140,17 @@ function DayDetail({ day }: { day: WeekPreviewDay | null }) {
 
   if (day.isRest) {
     return (
-      <div className="rounded-md border bg-muted/30 p-5">
-        <p className="text-base font-semibold">Dia de descanso</p>
+      <div className="rounded-xl border border-transparent bg-muted/30 p-5 shadow-[var(--surface-shadow-soft)]">
+        <p className="text-base font-semibold">Día de descanso</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          No hay una sesion programada para este dia.
+          No hay una sesión programada para este día.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border bg-background p-5">
+    <div className="rounded-xl border border-transparent bg-background p-5 shadow-[var(--surface-shadow-soft)]">
       <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-lg font-semibold">{day.session?.name}</p>
@@ -175,7 +174,7 @@ function DayDetail({ day }: { day: WeekPreviewDay | null }) {
       ) : null}
 
       {day.exercises.length ? (
-        <div className="mt-4 divide-y rounded-md border">
+        <div className="mt-4 divide-y overflow-hidden rounded-xl border bg-muted/20">
           {day.exercises.map((exercise) => (
             <div
               key={exercise.id}
@@ -198,7 +197,7 @@ function DayDetail({ day }: { day: WeekPreviewDay | null }) {
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
-          Esta sesion todavia no tiene ejercicios.
+          Esta sesión todavía no tiene ejercicios.
         </p>
       )}
     </div>

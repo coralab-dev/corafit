@@ -3,14 +3,12 @@
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
-  CalendarDaysIcon,
   CheckCircle2Icon,
   DumbbellIcon,
   InfoIcon,
   Loader2Icon,
   SearchIcon,
   ShieldCheckIcon,
-  UserRoundIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,19 +18,16 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { authenticatedRequest } from "@/lib/api/authenticated-request";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import {
-  apiRequest,
-  formatDate,
   getErrorMessage,
-  getInitialApiConfig,
   initials,
   statusLabels,
 } from "@/lib/clients/api";
 import { fetchAllPages } from "@/lib/pagination";
 import type {
-  ApiConfig,
   Client,
   ClientDetailResponse,
   CurrentPlanAssignment,
@@ -42,24 +37,26 @@ import type {
 import { AssignmentWeekPreview } from "./assignment-week-preview";
 import {
   canConfirmAssignment,
+  formatDateOnlyEs,
   getAssignmentEndDate,
   getFirstWeekRange,
+  getLevelLabel,
   getPlanListFacts,
   getSortedWeeks,
   getWeekPreview,
   getWeekSessionCount,
+  hasActiveAssignment,
   isClientAvailableForAssignment,
 } from "./assign-plan-state";
 
 export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, session, status: authStatus } = useAuth();
   const organizationTimezone = profile?.organization?.timezone ?? "UTC";
   const defaultStartDate = useMemo(
     () => getTodayInTimeZone(organizationTimezone),
     [organizationTimezone],
   );
-  const [apiConfig] = useState<ApiConfig>(getInitialApiConfig);
   const [client, setClient] = useState<Client | null>(null);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [selectedPlanSummary, setSelectedPlanSummary] = useState<TrainingPlan | null>(null);
@@ -78,10 +75,12 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
   const [assignmentError, setAssignmentError] = useState("");
   const previewRequestRef = useRef(0);
 
-  const isApiReady = Boolean(apiConfig.bearerToken.trim() && apiConfig.organizationId.trim());
+  const organizationId = profile?.organization?.id ?? null;
+  const isApiReady = authStatus === "authenticated" && Boolean(session && organizationId);
   const startDate = startDateOverride ?? defaultStartDate;
   const selectedPlanId = selectedPlanSummary?.id ?? "";
   const activePlan = selectedPlanDetail ?? selectedPlanSummary;
+  const isClientBlocked = Boolean(client && hasActiveAssignment(client.currentAssignment));
   const selectedWeekPreview = selectedPlanDetail && selectedWeekNumber
     ? getWeekPreview(selectedPlanDetail, selectedWeekNumber, startDate)
     : null;
@@ -115,9 +114,20 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     );
   }, [plans, query]);
 
+  const request = useCallback(
+    <T,>(path: string, init: RequestInit = {}) =>
+      authenticatedRequest<T>(path, init, { organizationId, session }),
+    [organizationId, session],
+  );
+
   const loadClient = useCallback(async () => {
     if (!isApiReady) {
-      setClientError("Configura el JWT del coach y la organizacion para leer clientes reales.");
+      setClient(null);
+      setClientError(
+        authStatus === "loading"
+          ? ""
+          : "La sesión no está disponible. Inicia sesión de nuevo para asignar planes.",
+      );
       return;
     }
 
@@ -125,19 +135,17 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     setClientError("");
     try {
       const [clientDetail, currentAssignment] = await Promise.all([
-        apiRequest<ClientDetailResponse>(
+        request<ClientDetailResponse>(
           `/clients/${encodeURIComponent(clientId)}`,
           { method: "GET" },
-          apiConfig,
         ),
-        apiRequest<CurrentPlanAssignment | null>(
+        request<CurrentPlanAssignment | null>(
           `/clients/${encodeURIComponent(clientId)}/plan-assignment/current`,
           { method: "GET" },
-          apiConfig,
         ),
       ]);
       setClient(createClientFromDetail(clientDetail, currentAssignment));
-      if (currentAssignment?.assignment.status === "active") {
+      if (hasActiveAssignment(currentAssignment)) {
         setClientError("El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.");
       }
     } catch (caughtError) {
@@ -146,11 +154,16 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     } finally {
       setIsLoadingClient(false);
     }
-  }, [apiConfig, clientId, isApiReady]);
+  }, [authStatus, clientId, isApiReady, request]);
 
   const loadPlans = useCallback(async () => {
     if (!isApiReady) {
-      setPlansError("Configura la conexion al API para asignar planes reales.");
+      setPlans([]);
+      setPlansError(
+        authStatus === "loading"
+          ? ""
+          : "La sesión no está disponible. Inicia sesión de nuevo para asignar planes.",
+      );
       return;
     }
 
@@ -160,10 +173,9 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       const activePlans = await fetchAllPages({
         params: new URLSearchParams({ status: "active" }),
         fetchPage: (pageParams) =>
-          apiRequest<PlansResponse>(
+          request<PlansResponse>(
             `/training-plans?${pageParams.toString()}`,
             { method: "GET" },
-            apiConfig,
           ),
       });
       setPlans(activePlans);
@@ -172,7 +184,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     } finally {
       setIsLoadingPlans(false);
     }
-  }, [apiConfig, isApiReady]);
+  }, [authStatus, isApiReady, request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -199,10 +211,9 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       setSelectedWeekNumber(null);
       setSelectedDayKey(null);
 
-      void apiRequest<TrainingPlan>(
+      void request<TrainingPlan>(
         `/training-plans/${encodeURIComponent(selectedPlanSummary.id)}`,
         { method: "GET", signal: controller.signal },
-        apiConfig,
       )
         .then((planDetail) => {
           if (previewRequestRef.current !== requestId) {
@@ -212,14 +223,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
           setSelectedPlanDetail(planDetail);
           const firstWeek = getSortedWeeks(planDetail)[0] ?? null;
           setSelectedWeekNumber(firstWeek?.weekNumber ?? null);
-          const firstPreview = firstWeek
-            ? getWeekPreview(planDetail, firstWeek.weekNumber, startDate)
-            : null;
-          setSelectedDayKey(
-            firstPreview?.days.find((day) => !day.isRest)?.key ??
-              firstPreview?.days[0]?.key ??
-              null,
-          );
+          setSelectedDayKey(null);
         })
         .catch((caughtError) => {
           if (controller.signal.aborted || previewRequestRef.current !== requestId) {
@@ -239,7 +243,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [apiConfig, isApiReady, selectedPlanSummary, startDate]);
+  }, [isApiReady, request, selectedPlanSummary]);
 
   function selectPlan(plan: TrainingPlan) {
     setSelectedPlanSummary(plan);
@@ -272,7 +276,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
     setIsAssigning(true);
     setAssignmentError("");
     try {
-      await apiRequest(
+      await request(
         `/clients/${client.id}/assign-plan`,
         {
           method: "POST",
@@ -281,7 +285,6 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
             startDate,
           }),
         },
-        apiConfig,
       );
       notify.success("Plan asignado");
       router.push(`/clients/${client.id}`);
@@ -299,9 +302,7 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
 
   const summary = (
     <AssignmentSummary
-      client={client}
-      isClientBlocked={Boolean(client && !isClientAvailableForAssignment(client))}
-      isLoadingClient={isLoadingClient}
+      clientId={clientId}
       isSubmitting={isAssigning}
       plan={activePlan}
       selectedWeekNumber={selectedWeekNumber}
@@ -329,128 +330,112 @@ export function AssignPlanWorkspace({ clientId }: { clientId: string }) {
       <WorkspaceSplit
         main={
           <div className="flex min-w-0 flex-col gap-5 bg-background p-4 pb-28 md:p-6 xl:pb-6">
-            <ErrorBanner message={clientError} />
+            <ContextStrip
+              client={client}
+              isLoadingClient={isLoadingClient}
+              organizationTimezone={organizationTimezone}
+              startDate={startDate}
+              onStartDateChange={setStartDateOverride}
+            />
 
-            <WorkspacePanel className="overflow-hidden">
-              <div className="border-b p-4 md:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <SectionHeading
-                    description="Elige una plantilla activa para crear la copia editable del cliente."
-                    title="Seleccionar plan"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {isLoadingPlans ? "Buscando planes..." : `${filteredPlans.length} resultados`}
-                  </p>
-                </div>
-                <div className="relative mt-4">
-                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-10"
-                    placeholder="Buscar por nombre, objetivo o nivel"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-              </div>
+            {isClientBlocked ? (
+              <ActiveAssignmentNotice client={client} clientId={clientId} />
+            ) : (
+              <>
+                <ErrorBanner message={clientError} />
 
-              <div className="p-4 md:p-5">
-                <ErrorBanner message={plansError} />
-                {isLoadingPlans ? (
-                  <LoadingPanel label="Cargando planes" />
-                ) : filteredPlans.length ? (
-                  <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-                    {filteredPlans.map((plan) => (
-                      <PlanOptionCard
-                        key={plan.id}
-                        isSelected={plan.id === selectedPlanSummary?.id}
-                        plan={plan}
-                        onSelect={() => selectPlan(plan)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyPanel
-                    description="No hay planes activos que coincidan con la busqueda."
-                    title="Sin resultados"
-                  />
-                )}
-              </div>
-            </WorkspacePanel>
-
-            <WorkspacePanel className="p-4 md:p-5">
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px] md:items-center">
-                <SectionHeading
-                  description="Se inicializa con el dia actual de la organizacion y puede modificarse."
-                  title="Fecha de inicio"
-                />
-                <div>
-                  <Input
-                    aria-label="Fecha de inicio"
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => setStartDateOverride(event.target.value)}
-                  />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Zona horaria: {organizationTimezone}
-                  </p>
-                </div>
-              </div>
-            </WorkspacePanel>
-
-            <WorkspacePanel className="p-4 md:p-5">
-              {isLoadingPreview ? (
-                <LoadingPanel label="Cargando vista previa" />
-              ) : previewError ? (
-                <ErrorBanner message={previewError} />
-              ) : selectedPlanDetail ? (
-                <>
-                  {hasIncompletePlan ? (
-                    <div className="mb-4 rounded-md border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
-                      <AlertTriangleIcon className="mr-2 inline size-4 align-text-bottom" />
-                      Este plan no tiene sesiones programadas. Puedes asignarlo, pero el cliente no vera entrenamientos hasta completarlo.
+                <WorkspacePanel className="overflow-hidden">
+                  <div className="border-b px-4 py-4 md:px-5">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <h2 className="text-base font-semibold">Seleccionar plan</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {isLoadingPlans ? "Buscando planes..." : `${filteredPlans.length} planes`}
+                        </p>
+                      </div>
+                      <div className="relative w-full lg:max-w-sm">
+                        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          className="pl-10"
+                          placeholder="Buscar por nombre, objetivo o nivel"
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </div>
                     </div>
-                  ) : null}
-                  <AssignmentWeekPreview
-                    plan={selectedPlanDetail}
-                    selectedDayKey={selectedDayKey}
-                    selectedWeekNumber={selectedWeekNumber}
-                    startDate={startDate}
-                    onSelectDay={setSelectedDayKey}
-                    onSelectWeek={selectWeek}
-                  />
-                </>
-              ) : (
-                <EmptyPanel
-                  description="Selecciona un plan para cargar su calendario completo."
-                  title="Sin vista previa"
-                />
-              )}
-            </WorkspacePanel>
+                  </div>
 
-            <div className="xl:hidden">{summary}</div>
-            <ErrorBanner message={assignmentError} />
+                  <div className="p-4 md:p-5">
+                    <ErrorBanner message={plansError} />
+                    {isLoadingPlans ? (
+                      <LoadingPanel label="Cargando planes" />
+                    ) : filteredPlans.length ? (
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {filteredPlans.map((plan) => (
+                          <PlanOptionCard
+                            key={plan.id}
+                            isSelected={plan.id === selectedPlanSummary?.id}
+                            plan={plan}
+                            onSelect={() => selectPlan(plan)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyPanel
+                        description="No hay planes activos que coincidan con la búsqueda."
+                        title="Sin resultados"
+                      />
+                    )}
+                  </div>
+                </WorkspacePanel>
+
+                <WorkspacePanel className="mt-1 p-4 md:p-5">
+                  {isLoadingPreview ? (
+                    <LoadingPanel label="Cargando vista previa" />
+                  ) : previewError ? (
+                    <ErrorBanner message={previewError} />
+                  ) : selectedPlanDetail ? (
+                    <>
+                      {hasIncompletePlan ? (
+                        <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                          <AlertTriangleIcon className="mr-2 inline size-4 align-text-bottom" />
+                          Este plan no tiene sesiones programadas. Puedes asignarlo, pero el cliente no verá entrenamientos hasta completarlo.
+                        </div>
+                      ) : null}
+                      <AssignmentWeekPreview
+                        plan={selectedPlanDetail}
+                        selectedDayKey={selectedDayKey}
+                        selectedWeekNumber={selectedWeekNumber}
+                        startDate={startDate}
+                        onSelectDay={setSelectedDayKey}
+                        onSelectWeek={selectWeek}
+                      />
+                    </>
+                  ) : (
+                    <EmptyPanel
+                      description="Selecciona un plan para cargar su calendario completo."
+                      title="Sin vista previa"
+                    />
+                  )}
+                </WorkspacePanel>
+
+                <div className="xl:hidden">{summary}</div>
+                <ErrorBanner message={assignmentError} />
+              </>
+            )}
           </div>
         }
-        side={<div className="hidden p-5 xl:block">{summary}</div>}
+        side={!isClientBlocked ? <div className="hidden p-5 xl:block">{summary}</div> : undefined}
         sideClassName="xl:w-[380px] xl:min-w-[340px]"
       />
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 shadow-lg backdrop-blur xl:hidden">
+      {!isClientBlocked ? <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 shadow-lg backdrop-blur xl:hidden">
         <Button className="w-full" disabled={!canAssign} onClick={assignPlan}>
           {isAssigning ? <Loader2Icon className="size-4 animate-spin" /> : null}
           Asignar plan
           {!isAssigning ? <ArrowRightIcon className="size-4" /> : null}
         </Button>
-      </div>
+      </div> : null}
     </WorkspaceFrame>
-  );
-}
-
-function SectionHeading({ description, title }: { description: string; title: string }) {
-  return (
-    <div>
-      <h2 className="text-base font-semibold">{title}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
   );
 }
 
@@ -469,43 +454,119 @@ function PlanOptionCard({
   return (
     <button
       className={cn(
-        "min-h-40 rounded-md border bg-background p-4 text-left transition hover:border-primary/50",
-        isSelected && "border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]",
+        "rounded-xl border border-transparent bg-background p-4 text-left shadow-[var(--surface-shadow-soft)] transition hover:border-primary/30",
+        isSelected && "border-primary/45 bg-primary/5 shadow-[0_0_0_1px_var(--primary)]",
       )}
       type="button"
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex size-9 items-center justify-center rounded-md border text-primary">
-          <Icon className="size-4" />
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Icon className="size-5" />
         </span>
-        {isSelected ? (
-          <span className="flex items-center gap-1 text-xs font-semibold text-primary">
-            <CheckCircle2Icon className="size-4" />
-            Seleccionado
-          </span>
-        ) : null}
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="line-clamp-1 text-sm font-semibold leading-snug">{facts.name}</p>
+            <Badge variant="secondary">{facts.badge}</Badge>
+          </div>
+          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{facts.goal}</p>
+          <p className="mt-3 text-xs font-medium text-muted-foreground">
+            {facts.level} · {facts.duration}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "mt-1 flex size-5 items-center justify-center rounded-full border",
+            isSelected && "border-primary bg-primary text-primary-foreground",
+          )}
+        >
+          {isSelected ? <CheckCircle2Icon className="size-3.5" /> : null}
+        </span>
       </div>
-      <div className="mt-4 min-w-0">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug">{facts.name}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Badge variant="secondary">{facts.badge}</Badge>
-          <Badge variant="outline">{facts.level}</Badge>
+    </button>
+  );
+}
+
+function ContextStrip({
+  client,
+  isLoadingClient,
+  organizationTimezone,
+  startDate,
+  onStartDateChange,
+}: {
+  client: Client | null;
+  isLoadingClient: boolean;
+  organizationTimezone: string;
+  startDate: string;
+  onStartDateChange: (value: string) => void;
+}) {
+  return (
+    <section className="grid gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow)] md:grid-cols-[minmax(0,1fr)_280px] md:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-primary">
+          {client ? initials(client.name) : isLoadingClient ? <Loader2Icon className="size-4 animate-spin" /> : "JP"}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{client?.name ?? "Juan Pérez"}</p>
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {client
+              ? `${statusLabels[client.operationalStatus]} · ${client.mainGoal || "Sin objetivo"}`
+              : "Cliente"}
+          </p>
         </div>
       </div>
-      <dl className="mt-4 grid gap-2 border-t pt-3 text-[13px]">
-        <FactBlock label="Objetivo" value={facts.goal} />
-        <FactRow label="Duracion" value={facts.duration} />
-      </dl>
-    </button>
+      <div className="grid gap-2">
+        <label className="text-xs font-semibold uppercase text-muted-foreground" htmlFor="assignment-start-date">
+          Fecha de inicio
+        </label>
+        <Input
+          id="assignment-start-date"
+          type="date"
+          value={startDate}
+          onChange={(event) => onStartDateChange(event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">{organizationTimezone}</p>
+      </div>
+    </section>
+  );
+}
+
+function ActiveAssignmentNotice({
+  client,
+  clientId,
+}: {
+  client: Client | null;
+  clientId: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="font-semibold">
+          {client?.name ? `${client.name} ya tiene un plan activo.` : "El cliente ya tiene un plan activo."}
+        </p>
+        <p className="mt-1 text-destructive/80">
+          Finaliza el plan actual antes de asignar uno nuevo.
+        </p>
+      </div>
+      <Button asChild className="shrink-0" variant="outline">
+        <Link href={`/clients/${clientId}/plan-assignment/edit`}>Ver plan actual</Link>
+      </Button>
+    </div>
+  );
+}
+
+function SummaryFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium">{value}</dd>
+    </div>
   );
 }
 
 function AssignmentSummary({
   canAssign,
-  client,
-  isClientBlocked,
-  isLoadingClient,
+  clientId,
   isSubmitting,
   plan,
   selectedWeekNumber,
@@ -514,9 +575,7 @@ function AssignmentSummary({
   onAssign,
 }: {
   canAssign: boolean;
-  client: Client | null;
-  isClientBlocked: boolean;
-  isLoadingClient: boolean;
+  clientId: string;
   isSubmitting: boolean;
   plan: TrainingPlan | null;
   selectedWeekNumber: number | null;
@@ -525,72 +584,43 @@ function AssignmentSummary({
   onAssign: () => void;
 }) {
   return (
-    <WorkspacePanel className="h-fit p-5 xl:sticky xl:top-8" title="Resumen de asignacion">
-      <SummarySection icon={<UserRoundIcon className="size-4" />} title="Cliente">
-        {isLoadingClient ? (
-          <LoadingInline label="Cargando cliente" />
-        ) : client ? (
-          <div className="flex items-start gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-primary">
-              {initials(client.name)}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{client.name}</p>
-              <p className="text-xs text-muted-foreground">{statusLabels[client.operationalStatus]}</p>
-              {client.mainGoal ? (
-                <p className="mt-1 text-xs text-muted-foreground">{client.mainGoal}</p>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Sin cliente</p>
-        )}
-        {isClientBlocked ? (
-          <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            El cliente ya tiene un plan activo. Finaliza el plan actual antes de asignar otro.
-          </div>
-        ) : null}
-      </SummarySection>
-
-      <SummarySection icon={<DumbbellIcon className="size-4" />} title="Plan">
+    <WorkspacePanel className="h-fit p-5 xl:sticky xl:top-8" title="Confirmar asignación">
+      <div>
         {plan ? (
           <div className="space-y-3">
             <div>
               <p className="text-sm font-semibold">{plan.name}</p>
-              <Badge className="mt-2" variant="secondary">
-                {plan.isSystemTemplate ? "Plan base" : "Mi plan"}
-              </Badge>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {plan.isSystemTemplate ? "Plan base" : "Mi plan"} · {getLevelLabel(plan.level)}
+              </p>
             </div>
-            <FactRow label="Nivel" value={plan.level ?? "Sin nivel"} />
-            <FactRow label="Duracion" value={`${plan.durationWeeks} semanas`} />
-            <FactRow
-              label="Semana"
-              value={`${getWeekSessionCount(plan, selectedWeekNumber)} sesiones`}
-            />
+            <dl className="space-y-3 border-t pt-4">
+              <SummaryFact label="Inicio" value={formatDateOnlyEs(startDate) ?? "Sin fecha"} />
+              <SummaryFact
+                label="Final"
+                value={formatDateOnlyEs(getAssignmentEndDate(plan, startDate)) ?? "Sin fecha"}
+              />
+              <SummaryFact label="Duración" value={`${plan.durationWeeks} semanas`} />
+              <SummaryFact
+                label={`Sesiones semana ${selectedWeekNumber ?? 1}`}
+                value={`${getWeekSessionCount(plan, selectedWeekNumber)}`}
+              />
+            </dl>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">Selecciona un plan.</p>
         )}
-      </SummarySection>
+      </div>
 
-      <SummarySection icon={<CalendarDaysIcon className="size-4" />} title="Calendario">
-        <div className="space-y-3">
-          <FactRow label="Inicio" value={formatDate(startDate) ?? "Sin fecha"} />
-          <FactRow
-            label="Final"
-            value={formatDate(getAssignmentEndDate(plan, startDate)) ?? "Sin fecha"}
-          />
-          <FactRow
-            label="Duracion total"
-            value={plan ? `${plan.durationWeeks * 7} dias` : "Sin plan"}
-          />
-          <FactRow label="Primera semana" value={weekRange ?? "Sin rango"} />
-        </div>
-      </SummarySection>
+      {weekRange ? (
+        <p className="mt-4 rounded-xl bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Primera semana: {weekRange}
+        </p>
+      ) : null}
 
-      <div className="mt-5 rounded-md border bg-primary/5 p-3 text-sm text-primary">
+      <div className="mt-5 rounded-xl bg-primary/5 p-3 text-sm text-primary">
         <InfoIcon className="mr-2 inline size-4 align-text-bottom" />
-        Se creara una copia editable. Los cambios no modificaran el plan original.
+        Se creará una copia editable.
       </div>
 
       <div className="mt-5 hidden flex-col gap-3 xl:flex">
@@ -599,67 +629,17 @@ function AssignmentSummary({
           Asignar plan
           {!isSubmitting ? <ArrowRightIcon className="size-4" /> : null}
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/clients/${clientId}`}>Cancelar</Link>
+        </Button>
       </div>
     </WorkspacePanel>
-  );
-}
-
-function SummarySection({
-  children,
-  icon,
-  title,
-}: {
-  children: React.ReactNode;
-  icon: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="border-b py-5 first:pt-0 last:border-b-0">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <span className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          {icon}
-        </span>
-        {title}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function FactBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-1 line-clamp-3 min-w-0 break-words font-medium leading-snug [overflow-wrap:anywhere]">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function FactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-2 text-sm">
-      <dt className="min-w-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words text-right font-medium leading-snug [overflow-wrap:anywhere]">
-        {value}
-      </dd>
-    </div>
   );
 }
 
 function LoadingPanel({ label }: { label: string }) {
   return (
     <div className="flex min-h-32 items-center justify-center rounded-md border bg-background text-sm text-muted-foreground">
-      <Loader2Icon className="mr-2 size-4 animate-spin" />
-      {label}
-    </div>
-  );
-}
-
-function LoadingInline({ label }: { label: string }) {
-  return (
-    <div className="flex items-center text-sm text-muted-foreground">
       <Loader2Icon className="mr-2 size-4 animate-spin" />
       {label}
     </div>
@@ -700,7 +680,7 @@ function createClientFromDetail(
     injuriesNotes: detail.injuriesNotes ?? "",
     generalNotes: detail.generalNotes ?? "",
     access: { status: "none" },
-    currentAssignment,
+    currentAssignment: hasActiveAssignment(currentAssignment) ? currentAssignment : null,
   };
 }
 

@@ -3,9 +3,12 @@ import type { Client, TrainingPlan } from "../../lib/clients/types";
 import {
   canConfirmAssignment,
   createAssignmentInitialState,
+  formatDateOnlyEs,
   getAssignmentEndDate,
   getPlanListFacts,
   getWeekPreview,
+  hasActiveAssignment,
+  isClientAvailableForAssignment,
   resolvePlanDetailSuccess,
   selectPlanSummary,
 } from "./assign-plan-state";
@@ -43,6 +46,22 @@ const activeAssignment = {
   },
   assignedPlan: null,
   sourcePlan: null,
+};
+
+const finishedAssignment = {
+  ...activeAssignment,
+  assignment: {
+    ...activeAssignment.assignment,
+    status: "finished" as const,
+  },
+};
+
+const removedAssignment = {
+  ...activeAssignment,
+  assignment: {
+    ...activeAssignment.assignment,
+    status: "removed" as const,
+  },
 };
 
 function createPlan(overrides: Partial<TrainingPlan> = {}): TrainingPlan {
@@ -179,6 +198,10 @@ describe("assign plan workspace state", () => {
     );
   });
 
+  it("formats date-only values without shifting the day", () => {
+    expect(formatDateOnlyEs("2026-07-12")).toBe("12 jul 2026");
+  });
+
   it("sorts exercise details and exposes alternatives", () => {
     const trainingDay = getWeekPreview(createPlan(), 1, "2026-08-12")?.days[0];
 
@@ -223,6 +246,26 @@ describe("assign plan workspace state", () => {
         previewError: "",
         isAssigning: false,
       }),
+    ).toBe(false);
+  });
+
+  it("only blocks clients with an active assignment status", () => {
+    expect(hasActiveAssignment(null)).toBe(false);
+    expect(hasActiveAssignment(undefined)).toBe(false);
+    expect(hasActiveAssignment(finishedAssignment)).toBe(false);
+    expect(hasActiveAssignment(removedAssignment)).toBe(false);
+    expect(hasActiveAssignment(activeAssignment)).toBe(true);
+
+    expect(isClientAvailableForAssignment(createClient({ currentAssignment: null }))).toBe(true);
+    expect(isClientAvailableForAssignment(createClient({ currentAssignment: undefined }))).toBe(true);
+    expect(
+      isClientAvailableForAssignment(createClient({ currentAssignment: finishedAssignment })),
+    ).toBe(true);
+    expect(
+      isClientAvailableForAssignment(createClient({ currentAssignment: removedAssignment })),
+    ).toBe(true);
+    expect(
+      isClientAvailableForAssignment(createClient({ currentAssignment: activeAssignment })),
     ).toBe(false);
   });
 

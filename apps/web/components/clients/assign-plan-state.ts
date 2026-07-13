@@ -166,9 +166,13 @@ export function getPlanListFacts(plan: TrainingPlan): PlanListFacts {
     badge: plan.isSystemTemplate ? "Plan base" : "Mi plan",
     duration: `${plan.durationWeeks} semanas`,
     goal: plan.goal ?? "Sin objetivo",
-    level: plan.level ? levelLabels[plan.level] ?? plan.level : "Sin nivel",
+    level: getLevelLabel(plan.level),
     name: plan.name,
   };
+}
+
+export function getLevelLabel(level: string | null | undefined) {
+  return level ? levelLabels[level] ?? level : "Sin nivel";
 }
 
 export function getWeekPreview(
@@ -216,6 +220,23 @@ export function getAssignmentEndDate(
   return formatDateOnly(addDays(parseDateOnly(startDate), plan.durationWeeks * 7 - 1));
 }
 
+export function formatDateOnlyEs(value: string | null | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) {
+    return undefined;
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
 export function getFirstWeekRange(
   plan: TrainingPlan | null,
   startDate: string,
@@ -238,7 +259,7 @@ export function getWeekSessionCount(plan: TrainingPlan | null, weekNumber: numbe
 }
 
 export function isClientAvailableForAssignment(client: Client): boolean {
-  return client.currentAssignment === null;
+  return !hasActiveAssignment(client.currentAssignment);
 }
 
 export function canConfirmAssignment({
@@ -268,7 +289,7 @@ export function canConfirmAssignment({
 }
 
 export function hasActiveAssignment(assignment: CurrentPlanAssignment | null | undefined) {
-  return assignment?.assignment.status === "active";
+  return assignment?.assignment?.status === "active";
 }
 
 export function getSortedWeeks(plan: TrainingPlan): TrainingPlanWeek[] {

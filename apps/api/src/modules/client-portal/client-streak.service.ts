@@ -3,7 +3,6 @@ import {
   ClientSessionStatus,
   DayOfWeek,
   TrainingDayType,
-  type ClientSessionLog,
   type ClientTrainingPlanAssignment,
   type TrainingPlan,
   type TrainingPlanDay,

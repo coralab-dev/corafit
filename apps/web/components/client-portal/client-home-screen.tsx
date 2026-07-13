@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ChevronRight,
-  Dumbbell,
   Flame,
   Loader2,
   RotateCcw,
-  UserRound,
 } from "lucide-react";
 import { CoraFitApiError } from "@/lib/api/authenticated-request";
 import {
@@ -131,10 +129,8 @@ export function ClientHomeScreen({ token }: { token: string }) {
         ) : view && data ? (
           <div className="mx-auto max-w-3xl lg:mx-0 lg:max-w-5xl">
             <HomeHeader
-              clientName={data.client.name}
               clientFirstName={view.clientFirstName}
               isRefreshing={isLoading}
-              token={token}
             />
             {view.plan.kind === "active" ? (
               <div className="space-y-4">
@@ -171,37 +167,17 @@ export function ClientHomeScreen({ token }: { token: string }) {
 }
 
 function HomeHeader({
-  clientName,
   clientFirstName,
   isRefreshing,
-  token,
 }: {
-  clientName: string;
   clientFirstName: string;
   isRefreshing: boolean;
-  token: string;
 }) {
   return (
     <header className="mb-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5 lg:hidden">
-          <Dumbbell className="size-6 rotate-[-25deg] text-[var(--portal-accent)]" />
-          <span className="text-2xl font-black tracking-normal">CoraFit</span>
-        </div>
-        <div className="hidden lg:block">
-          {isRefreshing ? <RefreshPill /> : null}
-        </div>
-        <Link
-          aria-label="Abrir perfil"
-          className="flex size-11 items-center justify-center rounded-full bg-[#121722] text-sm font-black text-white shadow-[0_12px_28px_rgba(18,23,34,0.18)] dark:bg-[#f4f6f8] dark:text-[#0b0d0f]"
-          href={`/c/${encodeURIComponent(token)}/profile`}
-        >
-          {initials(clientName) || <UserRound className="size-5" />}
-        </Link>
-      </div>
-      <div className="mt-5 lg:mt-0">
+      <div>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-black tracking-normal lg:text-4xl">
+          <h1 className="text-2xl font-bold tracking-normal lg:text-3xl">
             Hola, {clientFirstName}
           </h1>
           <div className="lg:hidden">{isRefreshing ? <RefreshPill /> : null}</div>
@@ -228,10 +204,10 @@ function TrainingHeroCard({
   if (!hero) {
     return (
       <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-        <p className="text-sm font-black text-[var(--portal-accent)]">
+        <p className="text-sm font-semibold text-[var(--portal-accent)]">
           Semana tranquila
         </p>
-        <h2 className="mt-4 text-3xl font-black tracking-normal">
+        <h2 className="mt-4 text-2xl font-bold tracking-normal">
           No tienes entrenamientos pendientes
         </h2>
       </article>
@@ -240,13 +216,13 @@ function TrainingHeroCard({
 
   return (
     <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
-      <p className="text-sm font-black text-[var(--portal-accent)]">
+      <p className="text-sm font-semibold text-[var(--portal-accent)]">
         {hero.eyebrow}
       </p>
-      <h2 className="mt-4 max-w-2xl text-4xl font-black leading-tight tracking-normal md:text-5xl">
+      <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight tracking-normal md:text-4xl">
         {hero.title}
       </h2>
-      <p className="mt-4 text-base font-black text-[#4e5968] dark:text-[#c7cfdb] md:text-lg">
+      <p className="mt-4 text-base font-semibold text-[#4e5968] dark:text-[#c7cfdb] md:text-lg">
         {hero.detail}
       </p>
       {error ? (
@@ -255,7 +231,7 @@ function TrainingHeroCard({
         </p>
       ) : null}
       <button
-        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-black text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-bold text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
         disabled={isOpening}
         onClick={onAction}
         type="button"
@@ -277,10 +253,10 @@ function CurrentStreakCard({ streak }: { streak: number }) {
         <Flame className="size-6 text-[var(--portal-accent)]" />
       </span>
       <div>
-        <p className="text-sm font-black text-[var(--portal-accent)]">
+        <p className="text-sm font-semibold text-[var(--portal-accent)]">
           Racha actual
         </p>
-        <p className="mt-1 text-lg font-black">
+        <p className="mt-1 text-base font-bold">
           {streak === 0
             ? "Completa tu proxima sesion para iniciar una racha"
             : `${streak} ${plural(streak, "sesion seguida", "sesiones seguidas")}`}
@@ -301,13 +277,13 @@ function WeekSummaryCard({
     <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-normal">Tu semana</h2>
+          <h2 className="text-xl font-bold tracking-normal">Tu semana</h2>
           <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
             {week.weekLabel} · {week.rangeLabel}
           </p>
         </div>
         <Link
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-black text-[var(--portal-accent)]"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[var(--portal-accent)]"
           href={`/c/${encodeURIComponent(token)}/calendar`}
         >
           Ver calendario
@@ -325,8 +301,8 @@ function WeekSummaryCard({
 
       <div className="mt-5">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-base font-black">{week.progressLabel}</p>
-          <p className="text-base font-black">{week.completionPercent}%</p>
+          <p className="text-base font-bold">{week.progressLabel}</p>
+          <p className="text-base font-bold">{week.completionPercent}%</p>
         </div>
         <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#eceff2] dark:bg-[#242b36]">
           <div
@@ -359,10 +335,10 @@ function NextActivityRow({
       type="button"
     >
       <span className="min-w-0">
-        <span className="block text-sm font-black text-[var(--portal-accent)]">
+        <span className="block text-sm font-semibold text-[var(--portal-accent)]">
           Proximo entrenamiento
         </span>
-        <span className="mt-1 block truncate text-base font-black">
+        <span className="mt-1 block truncate text-base font-bold">
           {activity.dateLabel}
         </span>
       </span>
@@ -382,12 +358,12 @@ function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
           : "",
       ].join(" ")}
     >
-      <p className="text-xs font-black uppercase text-[#667080] dark:text-[#c7cfdb]">
+      <p className="text-xs font-semibold uppercase text-[#667080] dark:text-[#c7cfdb]">
         {day.dayLabel}
       </p>
-      <p className="mt-1 text-lg font-black">{day.dateNumber}</p>
+      <p className="mt-1 text-base font-bold">{day.dateNumber}</p>
       <p
-        className="mx-auto mt-4 max-w-full truncate text-center text-xs font-black"
+        className="mx-auto mt-4 max-w-full truncate text-center text-xs font-semibold"
         title={day.sessionName}
       >
         {day.sessionName}
@@ -418,10 +394,10 @@ function PlanStateCard({
 }) {
   return (
     <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-      <p className="text-sm font-black text-[var(--portal-accent)]">
+      <p className="text-sm font-semibold text-[var(--portal-accent)]">
         {plan.kind === "no_plan" ? "Plan en preparacion" : "Tu plan"}
       </p>
-      <h2 className="mt-4 text-3xl font-black tracking-normal">
+      <h2 className="mt-4 text-2xl font-bold tracking-normal">
         {plan.title}
       </h2>
       <p className="mt-3 text-base font-bold leading-7 text-[#4e5968] dark:text-[#c7cfdb]">
@@ -437,13 +413,13 @@ function PlanStateCard({
       {plan.kind === "plan_finished" ? (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <Link
-            className="flex h-12 items-center justify-center rounded-2xl bg-[#121722] text-sm font-black text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+            className="flex h-12 items-center justify-center rounded-2xl bg-[#121722] text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
             href={`/c/${encodeURIComponent(token)}/progress`}
           >
             Ver progreso
           </Link>
           <Link
-            className="flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-black text-[var(--portal-accent)]"
+            className="flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
             href={`/c/${encodeURIComponent(token)}/calendar`}
           >
             Revisar calendario
@@ -452,7 +428,7 @@ function PlanStateCard({
       ) : null}
       {plan.kind === "not_started" && plan.actions.length > 0 ? (
         <Link
-          className="mt-6 flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-black text-[var(--portal-accent)]"
+          className="mt-6 flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
           href={`/c/${encodeURIComponent(token)}/profile`}
         >
           Revisar perfil
@@ -471,15 +447,15 @@ function InitialError({
 }) {
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-[#f2c8c0] bg-white p-6 shadow-sm dark:border-[#4b2b24] dark:bg-[#121722]">
-      <p className="text-sm font-black text-[var(--portal-accent)]">
+      <p className="text-sm font-semibold text-[var(--portal-accent)]">
         Algo salio mal
       </p>
-      <h1 className="mt-3 text-2xl font-black">No pudimos cargar tu inicio</h1>
+      <h1 className="mt-3 text-xl font-bold">No pudimos cargar tu inicio</h1>
       <p className="mt-3 text-sm font-bold leading-6 text-[#667080] dark:text-[#c7cfdb]">
         {message}
       </p>
       <button
-        className="mt-6 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-sm font-black text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+        className="mt-6 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
         onClick={onRetry}
         type="button"
       >
@@ -536,20 +512,11 @@ function HomeSkeleton() {
 
 function RefreshPill() {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-black text-[var(--portal-accent)]">
+    <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--portal-accent)]">
       <Loader2 className="size-3.5 animate-spin" />
       Actualizando
     </span>
   );
-}
-
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.slice(0, 1).toUpperCase())
-    .join("");
 }
 
 function plural(count: number, singular: string, pluralValue: string) {

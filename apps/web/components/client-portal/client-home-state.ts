@@ -38,6 +38,7 @@ export type ClientHomeHeroView = {
 export type ClientHomeWeekView = {
   completedSessions: number;
   completionPercent: number;
+  currentStreak: number;
   days: ClientHomeWeekDayView[];
   openedSessions: number;
   pendingLabel: string;
@@ -268,6 +269,10 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
   return {
     completedSessions: summary.completedSessions,
     completionPercent,
+    currentStreak: calculateCurrentStreak(
+      data.week.days,
+      data.todaySession?.date ?? null,
+    ),
     days: data.week.days.map((day) =>
       buildWeekDayView(day, data.todaySession?.date ?? null),
     ),
@@ -322,6 +327,35 @@ function weekDayTone(
   if (status === "overdue") return "overdue";
   if (status === "pending" && day.canOpen) return "pending";
   return "upcoming";
+}
+
+function calculateCurrentStreak(
+  days: ClientPortalDay[],
+  todayDate: string | null,
+) {
+  if (!todayDate) return 0;
+
+  let streak = 0;
+  let started = false;
+  const visibleDays = [...days]
+    .filter((day) => day.date <= todayDate)
+    .sort((left, right) => right.date.localeCompare(left.date));
+
+  for (const day of visibleDays) {
+    if (!day.session || day.status === "no_session") continue;
+
+    const status = day.log?.status ?? day.status;
+    if (isFinalized(status)) {
+      streak += 1;
+      started = true;
+      continue;
+    }
+
+    if (started) break;
+    return 0;
+  }
+
+  return streak;
 }
 
 function buildNextActivity(

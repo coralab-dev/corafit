@@ -4,14 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle,
-  Check,
   ChevronRight,
-  Clock,
   Dumbbell,
   Loader2,
   RotateCcw,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { CoraFitApiError } from "@/lib/api/authenticated-request";
@@ -140,18 +136,29 @@ export function ClientHomeScreen({ token }: { token: string }) {
               token={token}
             />
             {view.plan.kind === "active" ? (
-              <TrainingCommandCenter
-                actionError={sessionActionError}
-                hero={view.hero}
-                isOpening={isOpeningSession}
-                nextActivity={view.nextActivity}
-                onHeroAction={() =>
-                  void handleSessionAction(view.hero?.day ?? null)
-                }
-                onNextActivity={(day) => void handleSessionAction(day)}
-                token={token}
-                week={view.week}
-              />
+              <div className="space-y-4">
+                <TrainingHeroCard
+                  error={sessionActionError}
+                  hero={view.hero}
+                  isOpening={isOpeningSession}
+                  onAction={() =>
+                    void handleSessionAction(view.hero?.day ?? null)
+                  }
+                />
+                {view.week ? (
+                  <>
+                    <CurrentStreakCard streak={view.week.currentStreak} />
+                    <WeekSummaryCard token={token} week={view.week} />
+                  </>
+                ) : null}
+                {view.nextActivity ? (
+                  <NextActivityRow
+                    activity={view.nextActivity}
+                    isOpening={isOpeningSession}
+                    onOpen={(day) => void handleSessionAction(day)}
+                  />
+                ) : null}
+              </div>
             ) : (
               <PlanStateCard plan={view.plan} token={token} />
             )}
@@ -206,140 +213,158 @@ function HomeHeader({
   );
 }
 
-function TrainingCommandCenter({
-  actionError,
+function TrainingHeroCard({
+  error,
   hero,
   isOpening,
-  nextActivity,
-  onHeroAction,
-  onNextActivity,
+  onAction,
+}: {
+  error: string | null;
+  hero: ClientHomeHeroView | null;
+  isOpening: boolean;
+  onAction: () => void;
+}) {
+  if (!hero) {
+    return (
+      <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
+        <p className="text-sm font-black text-[var(--portal-accent)]">
+          Semana tranquila
+        </p>
+        <h2 className="mt-4 text-3xl font-black tracking-normal">
+          No tienes entrenamientos pendientes
+        </h2>
+      </article>
+    );
+  }
+
+  return (
+    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
+      <p className="text-sm font-black text-[var(--portal-accent)]">
+        {hero.eyebrow}
+      </p>
+      <h2 className="mt-4 max-w-2xl text-4xl font-black leading-tight tracking-normal md:text-5xl">
+        {hero.title}
+      </h2>
+      <p className="mt-4 text-base font-black text-[#4e5968] dark:text-[#c7cfdb] md:text-lg">
+        {hero.detail}
+      </p>
+      {error ? (
+        <p className="mt-4 rounded-2xl border border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] p-3 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
+          {error}
+        </p>
+      ) : null}
+      <button
+        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-black text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+        disabled={isOpening}
+        onClick={onAction}
+        type="button"
+      >
+        {isOpening ? <Loader2 className="size-5 animate-spin" /> : null}
+        {hero.actionLabel}
+      </button>
+    </article>
+  );
+}
+
+function CurrentStreakCard({ streak }: { streak: number }) {
+  return (
+    <article className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-[0_12px_32px_rgba(18,23,34,0.06)] dark:border-[#293140] dark:bg-[#121722]">
+      <span
+        aria-hidden="true"
+        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-2xl"
+      >
+        {"\uD83D\uDD25"}
+      </span>
+      <div>
+        <p className="text-sm font-black text-[var(--portal-accent)]">
+          Racha actual
+        </p>
+        <p className="mt-1 text-lg font-black">
+          {streak} {plural(streak, "sesion seguida", "sesiones seguidas")}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function WeekSummaryCard({
   token,
   week,
 }: {
-  actionError: string | null;
-  hero: ClientHomeHeroView | null;
-  isOpening: boolean;
-  nextActivity: ClientHomeNextActivityView | null;
-  onHeroAction: () => void;
-  onNextActivity: (day: ClientPortalDay) => void;
   token: string;
-  week: ClientHomeWeekView | null;
+  week: ClientHomeWeekView;
 }) {
   return (
-    <section className="overflow-hidden rounded-[1.75rem] border border-[#dfe3e8] bg-white shadow-[0_18px_45px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="p-5 md:p-6 lg:p-7">
-          {hero ? (
-            <div className="flex min-h-[16rem] flex-col">
-              <div className="flex items-start justify-between gap-5">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-[var(--portal-accent)]">
-                    {hero.eyebrow}
-                  </p>
-                  <h2 className="mt-4 text-5xl font-black leading-[0.95] tracking-normal md:text-6xl">
-                    {hero.title}
-                  </h2>
-                </div>
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#121722] text-white shadow-[0_12px_26px_rgba(18,23,34,0.18)] dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]">
-                  <Dumbbell className="size-7 rotate-[-25deg]" />
-                </div>
-              </div>
-              <div className="mt-auto pt-8">
-                <p className="text-lg font-black text-[#4e5968] dark:text-[#c7cfdb]">
-                  {hero.detail}
-                </p>
-                {actionError ? (
-                  <p className="mt-4 rounded-2xl border border-[#e5c1c1] bg-white p-3 text-sm font-bold text-[#9f3529] dark:bg-[#121722]">
-                    {actionError}
-                  </p>
-                ) : null}
-                <button
-                  className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-black text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
-                  disabled={isOpening}
-                  onClick={onHeroAction}
-                  type="button"
-                >
-                  {isOpening ? (
-                    <Loader2 className="size-5 animate-spin" />
-                  ) : null}
-                  {hero.actionLabel}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex min-h-[16rem] flex-col justify-center">
-              <p className="text-sm font-black text-[var(--portal-accent)]">
-                Semana tranquila
-              </p>
-              <h2 className="mt-4 text-4xl font-black tracking-normal">
-                No tienes entrenamientos pendientes
-              </h2>
-            </div>
-          )}
+    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black tracking-normal">Tu semana</h2>
+          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+            {week.weekLabel} · {week.rangeLabel}
+          </p>
         </div>
-        <aside className="border-t border-[#e6e9ed] bg-[#f5f7f9] p-5 dark:border-[#293140] dark:bg-[#171d28] lg:border-l lg:border-t-0">
-          {week ? (
-            <div className="flex h-full flex-col">
-              <p className="text-sm font-black text-[#667080] dark:text-[#c7cfdb]">
-                {week.weekLabel}
-              </p>
-              <p className="mt-2 text-5xl font-black leading-none">
-                {week.completionPercent}%
-              </p>
-              <p className="mt-3 text-sm font-bold leading-6 text-[#667080] dark:text-[#c7cfdb]">
-                {week.progressLabel}
-              </p>
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e5e9ee] dark:bg-[#242b36]">
-                <div
-                  className="h-full rounded-full bg-[#121722] dark:bg-[var(--portal-accent)]"
-                  style={{ width: `${week.completionPercent}%` }}
-                />
-              </div>
-              <Link
-                className="mt-7 inline-flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#121722] shadow-sm dark:bg-[#0d1016] dark:text-[#f4f6f8] lg:mt-auto"
-                href={`/c/${encodeURIComponent(token)}/calendar`}
-              >
-                Ver calendario
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          ) : null}
-        </aside>
+        <Link
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-black text-[var(--portal-accent)]"
+          href={`/c/${encodeURIComponent(token)}/calendar`}
+        >
+          Ver calendario
+          <ChevronRight className="size-4" />
+        </Link>
       </div>
-      {week ? (
-        <div className="border-t border-[#e6e9ed] bg-white p-5 dark:border-[#293140] dark:bg-[#121722] md:p-6">
-          <div className="mb-4">
-            <h2 className="text-lg font-black">Tablero semanal</h2>
-            <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-              {week.rangeLabel} · {week.pendingLabel}
-            </p>
-          </div>
-          <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 md:mx-0 md:grid md:grid-cols-7 md:overflow-visible md:px-0 md:pb-0">
-            {week.days.map((day) => (
-              <WeekDayCard day={day} key={day.date} />
-            ))}
-          </div>
-          {nextActivity ? (
-            <button
-              className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl bg-[#f5f7f9] p-4 text-left transition hover:bg-[#eef2f6] dark:bg-[#171d28] dark:hover:bg-[#1a2230]"
-              disabled={isOpening}
-              onClick={() => onNextActivity(nextActivity.day)}
-              type="button"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-[var(--portal-accent)]">
-                  Proximo entrenamiento
-                </span>
-                <span className="mt-1 block truncate text-base font-black">
-                  {nextActivity.dateLabel}
-                </span>
-              </span>
-              <ChevronRight className="size-6 shrink-0 text-[var(--portal-accent)]" />
-            </button>
-          ) : null}
+
+      <div className="mt-5 overflow-x-auto pb-2">
+        <div className="flex min-w-max snap-x snap-mandatory gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
+          {week.days.map((day) => (
+            <WeekDayCard day={day} key={day.date} />
+          ))}
         </div>
-      ) : null}
-    </section>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-base font-black">{week.progressLabel}</p>
+          <p className="text-base font-black">{week.completionPercent}%</p>
+        </div>
+        <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#eceff2] dark:bg-[#242b36]">
+          <div
+            className="h-full rounded-full bg-[var(--portal-accent)]"
+            style={{ width: `${week.completionPercent}%` }}
+          />
+        </div>
+        <p className="mt-4 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+          {week.pendingLabel}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function NextActivityRow({
+  activity,
+  isOpening,
+  onOpen,
+}: {
+  activity: ClientHomeNextActivityView;
+  isOpening: boolean;
+  onOpen: (day: ClientPortalDay) => void;
+}) {
+  return (
+    <button
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 text-left shadow-[0_12px_32px_rgba(18,23,34,0.06)] transition hover:bg-[#f7f8f9] disabled:opacity-60 dark:border-[#293140] dark:bg-[#121722] dark:hover:bg-[#171d28]"
+      disabled={isOpening}
+      onClick={() => onOpen(activity.day)}
+      type="button"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-black text-[var(--portal-accent)]">
+          Proximo entrenamiento
+        </span>
+        <span className="mt-1 block truncate text-base font-black">
+          {activity.dateLabel}
+        </span>
+      </span>
+      <ChevronRight className="size-6 shrink-0 text-[var(--portal-accent)]" />
+    </button>
   );
 }
 
@@ -347,10 +372,10 @@ function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
   return (
     <div
       className={[
-        "flex min-h-32 w-24 shrink-0 snap-start flex-col items-center rounded-2xl border p-3 text-center md:w-auto",
+        "flex min-h-28 w-24 shrink-0 snap-start flex-col items-center rounded-2xl border p-3 text-center md:w-auto",
         weekDayToneClass(day),
         day.isToday
-          ? "border-[var(--portal-accent)] bg-[#f3f6f9] shadow-[0_10px_24px_rgba(18,23,34,0.10)] dark:bg-[#1a2230]"
+          ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)]"
           : "",
       ].join(" ")}
     >
@@ -358,10 +383,10 @@ function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
         {day.dayLabel}
       </p>
       <p className="mt-1 text-lg font-black">{day.dateNumber}</p>
-      <span className="mt-3 flex size-9 items-center justify-center rounded-full bg-white/80 text-[var(--portal-accent)] shadow-sm dark:bg-[#0d1016]/70">
-        {weekDayIcon(day)}
-      </span>
-      <p className="mt-3 max-w-full truncate text-xs font-black" title={day.sessionName}>
+      <p
+        className="mx-auto mt-4 max-w-full truncate text-center text-xs font-black"
+        title={day.sessionName}
+      >
         {day.sessionName}
       </p>
       <p className="mt-auto max-w-full truncate text-[0.68rem] font-bold text-[#667080] dark:text-[#c7cfdb]">
@@ -372,35 +397,13 @@ function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
 }
 
 function weekDayToneClass(day: ClientHomeWeekDayView) {
-  if (day.tone === "completed") {
-    return "border-[#cce7d2] bg-[#f6fbf7] text-[#14562c] dark:border-[#27543a] dark:bg-[#122018] dark:text-[#bfe7c8]";
-  }
-  if (day.tone === "partial") {
-    return "border-[#d9dee5] bg-[#f6f8fa] text-[#4e5968] dark:border-[#364153] dark:bg-[#171d28] dark:text-[#c7cfdb]";
-  }
   if (day.tone === "active") {
-    return "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)]";
+    return "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[#121722] dark:text-[#f4f6f8]";
   }
   if (day.tone === "overdue") {
-    return "border-[#e5c1c1] bg-[#faf4f4] text-[#8f2f35] dark:border-[#593138] dark:bg-[#24181b] dark:text-[#ffb4b8]";
+    return "border-[var(--portal-accent)] bg-white text-[#121722] dark:bg-[#121722] dark:text-[#f4f6f8]";
   }
-  if (day.tone === "rest") {
-    return "border-[#dbe7dc] bg-[#f4faf4] text-[#3e6b46] dark:border-[#2d4633] dark:bg-[#131d17] dark:text-[#b8d8bd]";
-  }
-  if (day.tone === "upcoming") {
-    return "border-[#e2e5e9] bg-[#f3f6f9] text-[#4e5968] dark:border-[#293140] dark:bg-[#171d28] dark:text-[#c7cfdb]";
-  }
-  return "border-[#d8e0ea] bg-[#f5f8fb] text-[#36516f] dark:border-[#314052] dark:bg-[#171f2a] dark:text-[#c7d8eb]";
-}
-
-function weekDayIcon(day: ClientHomeWeekDayView) {
-  if (day.tone === "completed") return <Check className="size-5" />;
-  if (day.tone === "partial") return <Check className="size-5" />;
-  if (day.tone === "active") return <Dumbbell className="size-5 rotate-[-25deg]" />;
-  if (day.tone === "overdue") return <AlertTriangle className="size-5" />;
-  if (day.tone === "rest") return <Sparkles className="size-5" />;
-  if (day.tone === "upcoming") return <Clock className="size-5" />;
-  return <Dumbbell className="size-5 rotate-[-25deg]" />;
+  return "border-[#e2e5e9] bg-[#f7f8f9] text-[#121722] dark:border-[#293140] dark:bg-[#171d28] dark:text-[#f4f6f8]";
 }
 
 function PlanStateCard({
@@ -486,7 +489,7 @@ function InitialError({
 
 function HomeSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl space-y-5 lg:mx-0 lg:max-w-4xl">
+    <div className="mx-auto max-w-3xl space-y-4 lg:mx-0 lg:max-w-5xl">
       <div className="flex items-center justify-between">
         <div className="h-9 w-32 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
         <div className="size-11 rounded-full bg-[#ece7e3] dark:bg-[#242b36]" />
@@ -496,18 +499,27 @@ function HomeSkeleton() {
         <div className="h-5 w-72 max-w-full rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
       </div>
       <div className="h-64 rounded-2xl bg-[#ece7e3] shadow-sm dark:bg-[#242b36]" />
+      <div className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+        <div className="size-12 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="space-y-2">
+          <div className="h-4 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
+          <div className="h-5 w-36 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
+        </div>
+      </div>
       <div className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
         <div className="flex items-center justify-between">
           <div className="h-6 w-28 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
           <div className="h-5 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
         </div>
-        <div className="-mx-5 mt-5 flex gap-3 overflow-hidden px-5 md:mx-0 md:grid md:grid-cols-7 md:px-0">
-          {Array.from({ length: 7 }).map((_, index) => (
-            <div
-              className="h-32 w-24 shrink-0 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36] md:w-auto"
-              key={index}
-            />
-          ))}
+        <div className="mt-5 overflow-hidden pb-2">
+          <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div
+                className="h-32 w-24 shrink-0 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36] md:w-auto"
+                key={index}
+              />
+            ))}
+          </div>
         </div>
         <div className="mt-5 flex items-center justify-between">
           <div className="h-5 w-48 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
@@ -535,6 +547,10 @@ function initials(name: string) {
     .slice(0, 2)
     .map((part) => part.slice(0, 1).toUpperCase())
     .join("");
+}
+
+function plural(count: number, singular: string, pluralValue: string) {
+  return count === 1 ? singular : pluralValue;
 }
 
 function errorMessage(caught: unknown, fallback: string) {

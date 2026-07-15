@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
   ChevronRight,
   Flame,
   Loader2,
@@ -16,6 +19,9 @@ import {
   type ClientPortalHome,
   type ClientSessionLog,
 } from "@/lib/client-portal/api";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ClientPortalShell } from "./client-portal-shell";
 import {
   buildClientHomeViewModel,
@@ -27,15 +33,27 @@ import {
   type ClientHomeWeekView,
 } from "./client-home-state";
 
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
+type HomeSessionActionSource =
+  | { kind: "hero" }
+  | { date: string; kind: "week"; sessionId: string }
+  | { kind: "next" };
+
+type SessionActionError = {
+  message: string;
+  source: HomeSessionActionSource;
+};
+
 export function ClientHomeScreen({ token }: { token: string }) {
   const router = useRouter();
   const [data, setData] = useState<ClientPortalHome | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [sessionActionError, setSessionActionError] = useState<string | null>(
-    null,
-  );
+  const [sessionActionError, setSessionActionError] =
+    useState<SessionActionError | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
+  const [openingSource, setOpeningSource] =
+    useState<HomeSessionActionSource | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -75,7 +93,10 @@ export function ClientHomeScreen({ token }: { token: string }) {
     }
   }
 
-  async function handleSessionAction(day: ClientPortalDay | null) {
+  async function handleSessionAction(
+    day: ClientPortalDay | null,
+    source: HomeSessionActionSource,
+  ) {
     const action = getClientHomeSessionAction({ day, token });
     setSessionActionError(null);
 
@@ -87,6 +108,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
     if (!day?.session || !day.canOpen) return;
 
     setIsOpeningSession(true);
+    setOpeningSource(source);
     try {
       const log = await clientPortalRequest<ClientSessionLog>(
         `/client-portal/${encodeURIComponent(token)}/session-logs/open`,
@@ -100,11 +122,13 @@ export function ClientHomeScreen({ token }: { token: string }) {
       );
       router.push(`/c/${encodeURIComponent(token)}/session/${log.id}`);
     } catch (caught) {
-      setSessionActionError(
-        errorMessage(caught, "No pudimos abrir la sesion."),
-      );
+      setSessionActionError({
+        message: errorMessage(caught, "No pudimos abrir la sesión."),
+        source,
+      });
     } finally {
       setIsOpeningSession(false);
+      setOpeningSource(null);
     }
   }
 
@@ -116,7 +140,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
       active="home"
       hideCalendarNav={view?.hideCalendarNav}
     >
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section className="px-4 pt-5 md:px-8 lg:px-10 lg:pt-8">
         {isLoading && !data ? (
           <HomeSkeleton />
         ) : loadError && !data ? (
@@ -134,25 +158,53 @@ export function ClientHomeScreen({ token }: { token: string }) {
             />
             {view.plan.kind === "active" ? (
               <div className="space-y-4">
+                {view.week ? <HomeWeekOverviewCard week={view.week} /> : null}
                 <TrainingHeroCard
-                  error={sessionActionError}
+                  error={
+                    sessionActionError?.source.kind === "hero"
+                      ? sessionActionError.message
+                      : null
+                  }
                   hero={view.hero}
-                  isOpening={isOpeningSession}
+                  isActionDisabled={isOpeningSession}
+                  isOpening={openingSource?.kind === "hero"}
                   onAction={() =>
-                    void handleSessionAction(view.hero?.day ?? null)
+                    void handleSessionAction(view.hero?.day ?? null, {
+                      kind: "hero",
+                    })
                   }
                 />
                 {view.week ? (
-                  <>
-                    <CurrentStreakCard streak={view.week.currentStreak} />
-                    <WeekSummaryCard token={token} week={view.week} />
-                  </>
+                  <WeekSessionList
+                    actionError={
+                      sessionActionError?.source.kind === "week"
+                        ? sessionActionError
+                        : null
+                    }
+                    isOpening={isOpeningSession}
+                    onOpen={(day) =>
+                      void handleSessionAction(day, {
+                        date: day.date,
+                        kind: "week",
+                        sessionId: day.session?.id ?? "",
+                      })
+                    }
+                    token={token}
+                    week={view.week}
+                  />
                 ) : null}
                 {view.nextActivity ? (
                   <NextActivityRow
                     activity={view.nextActivity}
+                    error={
+                      sessionActionError?.source.kind === "next"
+                        ? sessionActionError.message
+                        : null
+                    }
                     isOpening={isOpeningSession}
-                    onOpen={(day) => void handleSessionAction(day)}
+                    onOpen={(day) =>
+                      void handleSessionAction(day, { kind: "next" })
+                    }
                   />
                 ) : null}
               </div>
@@ -174,17 +226,23 @@ function HomeHeader({
   isRefreshing: boolean;
 }) {
   return (
-    <header className="mb-6">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-normal lg:text-3xl">
-            Hola, {clientFirstName}
+    <header className="mb-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex min-w-0 items-center gap-2 text-2xl font-semibold tracking-normal text-foreground lg:text-3xl">
+            <span className="truncate">Hola, {clientFirstName}</span>
+            <span
+              aria-hidden="true"
+              className="shrink-0 text-[1.35rem] leading-none lg:text-[1.55rem]"
+            >
+              👋
+            </span>
           </h1>
-          <div className="lg:hidden">{isRefreshing ? <RefreshPill /> : null}</div>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+            Tu entrenamiento, progreso y semana en un solo lugar.
+          </p>
         </div>
-        <p className="mt-2 max-w-xl text-base font-medium leading-7 text-[#4e5968] dark:text-[#c7cfdb]">
-          Tu entrenamiento, progreso y semana en un solo lugar.
-        </p>
+        {isRefreshing ? <RefreshPill /> : null}
       </div>
     </header>
   );
@@ -193,97 +251,150 @@ function HomeHeader({
 function TrainingHeroCard({
   error,
   hero,
+  isActionDisabled,
   isOpening,
   onAction,
 }: {
   error: string | null;
   hero: ClientHomeHeroView | null;
+  isActionDisabled: boolean;
   isOpening: boolean;
   onAction: () => void;
 }) {
   if (!hero) {
     return (
-      <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-        <p className="text-sm font-semibold text-[var(--portal-accent)]">
+      <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+        <span
+          aria-hidden="true"
+          className="flex size-11 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          <CalendarDays className="size-5" />
+        </span>
+        <p className="mt-4 text-xs font-semibold uppercase text-primary">
           Semana tranquila
         </p>
-        <h2 className="mt-4 text-2xl font-bold tracking-normal">
+        <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground md:text-2xl">
           No tienes entrenamientos pendientes
         </h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Tu semana no tiene sesiones por abrir en este momento.
+        </p>
       </article>
     );
   }
 
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        {hero.eyebrow}
-      </p>
-      <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+    <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <p className="text-xs font-semibold uppercase text-primary">
+            {hero.eyebrow}
+          </p>
+          <HomeStatusBadge day={hero.day} />
+        </div>
+      </div>
+      <h2 className="mt-4 text-xl font-semibold leading-tight tracking-normal text-foreground md:text-2xl">
         {hero.title}
       </h2>
-      <p className="mt-4 text-base font-semibold text-[#4e5968] dark:text-[#c7cfdb] md:text-lg">
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
         {hero.detail}
       </p>
       {error ? (
-        <p className="mt-4 rounded-2xl border border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] p-3 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
+        <p className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
           {error}
         </p>
       ) : null}
-      <button
-        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-bold text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
-        disabled={isOpening}
+      <Button
+        className="mt-5 h-11 w-full rounded-xl md:w-auto md:px-5"
+        disabled={isActionDisabled}
         onClick={onAction}
         type="button"
       >
         {isOpening ? <Loader2 className="size-5 animate-spin" /> : null}
         {hero.actionLabel}
-      </button>
+      </Button>
+    </article>
+  );
+}
+
+function HomeWeekOverviewCard({
+  week,
+}: {
+  week: ClientHomeWeekView;
+}) {
+  return (
+    <article className="grid grid-cols-1 gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] min-[420px]:items-center">
+      <CurrentStreakCard streak={week.currentStreak} />
+      <div className="min-w-0 border-t border-border pt-4 min-[420px]:border-l min-[420px]:border-t-0 min-[420px]:pl-4 min-[420px]:pt-0">
+        <p className="text-2xl font-semibold leading-none text-foreground">
+          {week.summaryValue}
+        </p>
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
+          {week.summaryLabel}
+        </p>
+        <div
+          aria-label="Resumen de días de la semana"
+          className="mt-3 grid grid-cols-7 gap-1"
+        >
+          {week.days.map((day) => (
+            <WeekStatusDot day={day} key={day.date} />
+          ))}
+        </div>
+      </div>
     </article>
   );
 }
 
 function CurrentStreakCard({ streak }: { streak: number }) {
   return (
-    <article className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-[0_12px_32px_rgba(18,23,34,0.06)] dark:border-[#293140] dark:bg-[#121722]">
+    <div className="flex items-center gap-3">
       <span
         aria-hidden="true"
-        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)]"
+        className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
       >
-        <Flame className="size-6 text-[var(--portal-accent)]" />
+        <Flame className="size-6" />
       </span>
-      <div>
-        <p className="text-sm font-semibold text-[var(--portal-accent)]">
-          Racha actual
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold leading-none text-foreground">
+          <span>{streak}</span>{" "}
+          <span className="text-base font-medium">
+            {plural(streak, "sesión", "sesiones")}
+          </span>
         </p>
-        <p className="mt-1 text-base font-bold">
-          {streak === 0
-            ? "Completa tu proxima sesion para iniciar una racha"
-            : `${streak} ${plural(streak, "sesion seguida", "sesiones seguidas")}`}
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
+          {streak === 0 ? "Inicia tu racha" : "Racha actual"}
         </p>
       </div>
-    </article>
+    </div>
   );
 }
 
-function WeekSummaryCard({
+function WeekSessionList({
+  actionError,
+  isOpening,
+  onOpen,
   token,
   week,
 }: {
+  actionError: SessionActionError | null;
+  isOpening: boolean;
+  onOpen: (day: ClientPortalDay) => void;
   token: string;
   week: ClientHomeWeekView;
 }) {
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
+    <section className="rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-normal">Tu semana</h2>
-          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+        <div className="min-w-0 px-4 pt-4">
+          <h2 className="text-lg font-semibold tracking-normal text-foreground">
+            Tu semana
+          </h2>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">
             {week.weekLabel} · {week.rangeLabel}
           </p>
         </div>
         <Link
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[var(--portal-accent)]"
+          className="mr-4 mt-4 inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           href={`/c/${encodeURIComponent(token)}/calendar`}
         >
           Ver calendario
@@ -291,98 +402,247 @@ function WeekSummaryCard({
         </Link>
       </div>
 
-      <div className="mt-5 snap-x snap-mandatory overflow-x-auto pb-2">
-        <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
-          {week.days.map((day) => (
-            <WeekDayCard day={day} key={day.date} />
+      {week.sessions.length > 0 ? (
+        <div className="mt-4 divide-y divide-border">
+          {week.sessions.map((day) => (
+            <WeekSessionRow
+              actionError={
+                actionError &&
+                actionError.source.kind === "week" &&
+                actionError.source.date === day.date &&
+                actionError.source.sessionId === day.sourceDay.session?.id
+                  ? actionError.message
+                  : null
+              }
+              day={day}
+              disabled={isOpening}
+              key={`${day.date}-${day.sourceDay.session?.id ?? "rest"}`}
+              onOpen={() => onOpen(day.sourceDay)}
+            />
           ))}
         </div>
-      </div>
-
-      <div className="mt-5">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-base font-bold">{week.progressLabel}</p>
-          <p className="text-base font-bold">{week.completionPercent}%</p>
+      ) : (
+        <div className="px-4 pb-4 pt-5">
+          <p className="rounded-xl bg-accent/45 px-4 py-3 text-sm text-muted-foreground">
+            No tienes sesiones programadas esta semana.
+          </p>
         </div>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#eceff2] dark:bg-[#242b36]">
-          <div
-            className="h-full rounded-full bg-[var(--portal-accent)]"
-            style={{ width: `${week.completionPercent}%` }}
-          />
-        </div>
-        <p className="mt-4 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-          {week.pendingLabel}
-        </p>
-      </div>
-    </article>
+      )}
+    </section>
   );
 }
 
 function NextActivityRow({
   activity,
+  error,
   isOpening,
   onOpen,
 }: {
   activity: ClientHomeNextActivityView;
+  error: string | null;
   isOpening: boolean;
   onOpen: (day: ClientPortalDay) => void;
 }) {
   return (
-    <button
-      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 text-left shadow-[0_12px_32px_rgba(18,23,34,0.06)] transition hover:bg-[#f7f8f9] disabled:opacity-60 dark:border-[#293140] dark:bg-[#121722] dark:hover:bg-[#171d28]"
-      disabled={isOpening}
-      onClick={() => onOpen(activity.day)}
-      type="button"
-    >
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[var(--portal-accent)]">
-          Proximo entrenamiento
-        </span>
-        <span className="mt-1 block truncate text-base font-bold">
-          {activity.dateLabel}
-        </span>
-      </span>
-      <ChevronRight className="size-6 shrink-0 text-[var(--portal-accent)]" />
-    </button>
-  );
-}
-
-function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
-  return (
-    <div
-      className={[
-        "flex min-h-28 w-24 shrink-0 snap-start flex-col items-center rounded-2xl border p-3 text-center md:w-auto",
-        weekDayToneClass(day),
-        day.isToday
-          ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)]"
-          : "",
-      ].join(" ")}
-    >
-      <p className="text-xs font-semibold uppercase text-[#667080] dark:text-[#c7cfdb]">
-        {day.dayLabel}
-      </p>
-      <p className="mt-1 text-base font-bold">{day.dateNumber}</p>
-      <p
-        className="mx-auto mt-4 max-w-full truncate text-center text-xs font-semibold"
-        title={day.sessionName}
+    <div className="rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
+      <button
+        className="flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+        disabled={isOpening}
+        onClick={() => onOpen(activity.day)}
+        type="button"
       >
-        {day.sessionName}
-      </p>
-      <p className="mt-auto max-w-full truncate text-[0.68rem] font-bold text-[#667080] dark:text-[#c7cfdb]">
-        {day.statusLabel}
-      </p>
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          <CalendarDays className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-semibold uppercase text-primary">
+            Próximo entrenamiento
+          </span>
+          <span className="mt-1 block truncate text-base font-semibold text-foreground">
+            {activity.sessionName}
+          </span>
+          <span className="mt-1 block text-sm text-muted-foreground">
+            {activity.dateLabel}
+          </span>
+        </span>
+        <HomeStatusBadge day={activity.day} />
+        <ChevronRight className="size-5 shrink-0 text-primary" />
+      </button>
+      {error ? <InlineActionError message={error} /> : null}
     </div>
   );
 }
 
-function weekDayToneClass(day: ClientHomeWeekDayView) {
-  if (day.tone === "active") {
-    return "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[#121722] dark:text-[#f4f6f8]";
+function WeekSessionRow({
+  actionError,
+  day,
+  disabled,
+  onOpen,
+}: {
+  actionError: string | null;
+  day: ClientHomeWeekDayView;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  const action = day.sourceDay.log
+    ? "abrir el registro"
+    : day.sourceDay.canOpen
+      ? "comenzar la sesión"
+      : "ver la vista previa";
+
+  return (
+    <div>
+      <button
+        aria-label={`${day.dayLabel} ${Number(day.dateNumber)}, ${day.sessionName}: ${day.statusLabel}; ${action}`}
+        className="grid min-h-16 w-full grid-cols-[2.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 px-3 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60 min-[420px]:grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] min-[420px]:gap-3 min-[420px]:px-4"
+        disabled={disabled}
+        onClick={onOpen}
+        title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
+        type="button"
+      >
+        <div className="text-center">
+          <p className="text-[0.65rem] font-semibold uppercase leading-none text-muted-foreground min-[420px]:text-[0.68rem]">
+            {day.dayLabel}
+          </p>
+          <p className="mt-1 text-base font-semibold leading-none text-foreground min-[420px]:text-lg">
+            {Number(day.dateNumber)}
+          </p>
+        </div>
+        <WeekStatusDot day={day} size="lg" />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-foreground">
+            {day.sessionName}
+          </h3>
+          {day.isToday ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">Hoy</p>
+          ) : null}
+        </div>
+        <WeekStatusBadge className="hidden min-[420px]:inline-flex" day={day} />
+        <ChevronRight className="hidden size-4 text-muted-foreground min-[420px]:block" />
+      </button>
+      {actionError ? <InlineActionError message={actionError} /> : null}
+    </div>
+  );
+}
+
+function WeekStatusDot({
+  day,
+  size = "sm",
+}: {
+  day: ClientHomeWeekDayView;
+  size?: "sm" | "lg";
+}) {
+  return (
+    <span
+      aria-label={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}`}
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full border-2",
+        size === "lg" ? "size-8" : "size-5",
+        weekStatusMarkToneClass(day.tone),
+        day.isToday && "ring-2 ring-primary/35 ring-offset-2 ring-offset-card",
+      )}
+      title={`${day.statusLabel}${day.isToday ? " · Hoy" : ""}`}
+    >
+      {day.tone === "rest" ? (
+        <span className="text-sm font-semibold leading-none">-</span>
+      ) : day.tone === "completed" || day.tone === "partial" ? (
+        <Check className={size === "lg" ? "size-4" : "size-3.5"} />
+      ) : day.tone === "overdue" ? (
+        <AlertTriangle className={size === "lg" ? "size-4" : "size-3.5"} />
+      ) : day.tone === "active" ? (
+        <ChevronRight className={size === "lg" ? "size-4" : "size-3.5"} />
+      ) : null}
+    </span>
+  );
+}
+
+function weekStatusMarkToneClass(tone: ClientHomeWeekDayView["tone"]) {
+  if (tone === "completed") {
+    return "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-500 dark:text-emerald-950";
   }
-  if (day.tone === "overdue") {
-    return "border-[var(--portal-accent)] bg-white text-[#121722] dark:bg-[#121722] dark:text-[#f4f6f8]";
+  if (tone === "partial") {
+    return "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950";
   }
-  return "border-[#e2e5e9] bg-[#f7f8f9] text-[#121722] dark:border-[#293140] dark:bg-[#171d28] dark:text-[#f4f6f8]";
+  if (tone === "overdue") {
+    return "border-red-500 text-red-600 dark:border-red-400 dark:text-red-300";
+  }
+  if (tone === "active") {
+    return "border-primary bg-primary text-primary-foreground";
+  }
+  if (tone === "pending") {
+    return "border-primary/80 text-primary";
+  }
+  return "border-border bg-background text-muted-foreground";
+}
+
+function HomeStatusBadge({ day }: { day: ClientPortalDay }) {
+  return (
+    <Badge
+      className="max-w-full justify-center truncate"
+      variant={homeBadgeVariant(day)}
+    >
+      {homeStatusLabel(day)}
+    </Badge>
+  );
+}
+
+function InlineActionError({ message }: { message: string }) {
+  return (
+    <p className="mx-4 mb-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+      {message}
+    </p>
+  );
+}
+
+function WeekStatusBadge({
+  className,
+  day,
+}: {
+  className?: string;
+  day: ClientHomeWeekDayView;
+}) {
+  return (
+    <Badge
+      className={cn("max-w-[6.5rem] justify-center truncate px-2", className)}
+      variant={weekBadgeVariant(day.tone)}
+    >
+      {day.statusLabel}
+    </Badge>
+  );
+}
+
+function weekBadgeVariant(tone: ClientHomeWeekDayView["tone"]): BadgeVariant {
+  if (tone === "completed") return "success";
+  if (tone === "partial") return "warning";
+  if (tone === "overdue") return "danger";
+  if (tone === "active") return "default";
+  if (tone === "pending" || tone === "upcoming") return "outline";
+  return "muted";
+}
+
+function homeBadgeVariant(day: ClientPortalDay): BadgeVariant {
+  const status = day.log?.status ?? day.status;
+  if (!day.session || day.status === "no_session") return "muted";
+  if (status === "completed") return "success";
+  if (status === "partially_completed") return "warning";
+  if (status === "overdue") return "danger";
+  if (status === "opened" || status === "in_progress") return "default";
+  if (status === "pending") return "outline";
+  return "muted";
+}
+
+function homeStatusLabel(day: ClientPortalDay) {
+  const status = day.log?.status ?? day.status;
+  if (!day.session || day.status === "no_session") return "Descanso";
+  if (status === "completed") return "Completada";
+  if (status === "partially_completed") return "Parcial";
+  if (status === "opened" || status === "in_progress") return "En curso";
+  if (status === "overdue") return "Atrasada";
+  if (status === "pending" && day.canOpen) return "Pendiente";
+  return "Próxima";
 }
 
 function PlanStateCard({
@@ -393,18 +653,24 @@ function PlanStateCard({
   token: string;
 }) {
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        {plan.kind === "no_plan" ? "Plan en preparacion" : "Tu plan"}
+    <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+      <span
+        aria-hidden="true"
+        className="flex size-11 items-center justify-center rounded-xl bg-accent text-primary"
+      >
+        <CalendarDays className="size-5" />
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase text-primary">
+        {plan.kind === "no_plan" ? "Plan en preparación" : "Tu plan"}
       </p>
-      <h2 className="mt-4 text-2xl font-bold tracking-normal">
+      <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground md:text-2xl">
         {plan.title}
       </h2>
-      <p className="mt-3 text-base font-bold leading-7 text-[#4e5968] dark:text-[#c7cfdb]">
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
         {plan.description}
       </p>
       {plan.kind === "not_started" ? (
-        <div className="mt-5 grid gap-3 rounded-2xl bg-[#f3f6f9] p-4 text-sm font-bold dark:bg-[#171d28]">
+        <div className="mt-5 grid gap-2 rounded-xl bg-accent/45 p-4 text-sm font-medium text-foreground">
           <span>{plan.planName}</span>
           <span>Inicio: {plan.startDateLabel}</span>
           <span>{plan.durationLabel}</span>
@@ -412,27 +678,24 @@ function PlanStateCard({
       ) : null}
       {plan.kind === "plan_finished" ? (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link
-            className="flex h-12 items-center justify-center rounded-2xl bg-[#121722] text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
-            href={`/c/${encodeURIComponent(token)}/progress`}
-          >
-            Ver progreso
-          </Link>
-          <Link
-            className="flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-            href={`/c/${encodeURIComponent(token)}/calendar`}
-          >
-            Revisar calendario
-          </Link>
+          <Button asChild>
+            <Link href={`/c/${encodeURIComponent(token)}/progress`}>
+              Ver progreso
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/c/${encodeURIComponent(token)}/calendar`}>
+              Revisar calendario
+            </Link>
+          </Button>
         </div>
       ) : null}
       {plan.kind === "not_started" && plan.actions.length > 0 ? (
-        <Link
-          className="mt-6 flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-          href={`/c/${encodeURIComponent(token)}/profile`}
-        >
-          Revisar perfil
-        </Link>
+        <Button asChild className="mt-6 w-full sm:w-auto" variant="outline">
+          <Link href={`/c/${encodeURIComponent(token)}/profile`}>
+            Revisar perfil
+          </Link>
+        </Button>
       ) : null}
     </article>
   );
@@ -446,22 +709,24 @@ function InitialError({
   onRetry: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl border border-[#f2c8c0] bg-white p-6 shadow-sm dark:border-[#4b2b24] dark:bg-[#121722]">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        Algo salio mal
+    <div className="mx-auto max-w-2xl rounded-2xl border border-transparent bg-card p-6 shadow-[var(--surface-shadow-soft)]">
+      <p className="text-xs font-semibold uppercase text-destructive">
+        Algo salió mal
       </p>
-      <h1 className="mt-3 text-xl font-bold">No pudimos cargar tu inicio</h1>
-      <p className="mt-3 text-sm font-bold leading-6 text-[#667080] dark:text-[#c7cfdb]">
+      <h1 className="mt-3 text-xl font-semibold text-foreground">
+        No pudimos cargar tu inicio
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
         {message}
       </p>
-      <button
-        className="mt-6 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+      <Button
+        className="mt-6"
         onClick={onRetry}
         type="button"
       >
         <RotateCcw className="size-4" />
         Reintentar
-      </button>
+      </Button>
     </div>
   );
 }
@@ -470,49 +735,50 @@ function HomeSkeleton() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 lg:mx-0 lg:max-w-5xl">
       <div className="flex items-center justify-between">
-        <div className="h-9 w-32 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="size-11 rounded-full bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="h-8 w-32 rounded-2xl bg-muted" />
+        <div className="h-7 w-28 rounded-full bg-muted" />
       </div>
       <div className="space-y-3">
-        <div className="h-9 w-52 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="h-5 w-72 max-w-full rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="h-5 w-72 max-w-full rounded-2xl bg-muted" />
       </div>
-      <div className="h-64 rounded-2xl bg-[#ece7e3] shadow-sm dark:bg-[#242b36]" />
-      <div className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <div className="size-12 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="space-y-2">
-          <div className="h-4 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-36 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        </div>
-      </div>
-      <div className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <div className="flex items-center justify-between">
-          <div className="h-6 w-28 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        </div>
-        <div className="mt-5 overflow-hidden pb-2">
-          <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <div
-                className="h-32 w-24 shrink-0 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36] md:w-auto"
-                key={index}
-              />
-            ))}
+      <div className="h-32 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
+      <div className="h-56 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
+      <div className="rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]">
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <div className="h-5 w-28 rounded-xl bg-muted" />
+            <div className="mt-2 h-4 w-20 rounded-xl bg-muted" />
           </div>
+          <div className="h-5 w-24 rounded-xl bg-muted" />
         </div>
-        <div className="mt-5 flex items-center justify-between">
-          <div className="h-5 w-48 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-10 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="divide-y divide-border">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              className="grid grid-cols-[3.25rem_2rem_minmax(0,1fr)_4.5rem] items-center gap-3 px-4 py-3"
+              key={index}
+            >
+              <div className="space-y-2">
+                <div className="mx-auto h-3 w-7 rounded-xl bg-muted" />
+                <div className="mx-auto h-5 w-5 rounded-xl bg-muted" />
+              </div>
+              <div className="size-8 rounded-full bg-muted" />
+              <div className="min-w-0 space-y-2">
+                <div className="h-4 w-full rounded-xl bg-muted" />
+                <div className="h-3 w-20 rounded-xl bg-muted" />
+              </div>
+              <div className="h-6 rounded-full bg-muted" />
+            </div>
+          ))}
         </div>
-        <div className="mt-3 h-3 rounded-full bg-[#ece7e3] dark:bg-[#242b36]" />
       </div>
+      <div className="h-20 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
     </div>
   );
 }
 
 function RefreshPill() {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--portal-accent)]">
+    <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-primary">
       <Loader2 className="size-3.5 animate-spin" />
       Actualizando
     </span>

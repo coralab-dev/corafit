@@ -46,6 +46,9 @@ export type ClientHomeWeekView = {
   rangeLabel: string;
   progressLabel: string;
   restDays: number;
+  sessions: ClientHomeWeekDayView[];
+  summaryLabel: string;
+  summaryValue: string;
   totalTrainingSessions: number;
   weekLabel: string;
 };
@@ -54,7 +57,10 @@ export type ClientHomeWeekDayView = {
   date: string;
   dayLabel: string;
   dateNumber: string;
+  isToday: boolean;
+  isRest: boolean;
   sessionName: string;
+  sourceDay: ClientPortalDay;
   statusLabel: string;
   tone:
     | "rest"
@@ -64,8 +70,6 @@ export type ClientHomeWeekDayView = {
     | "active"
     | "completed"
     | "partial";
-  isToday: boolean;
-  isRest: boolean;
 };
 
 export type ClientHomeNextActivityView = {
@@ -111,8 +115,13 @@ export function buildClientHomeViewModel(
   } = {},
 ): ClientHomeViewModel {
   const plan = buildPlanView(data);
+  const week = data.state === "active" ? buildWeekView(data) : null;
   const hero = data.state === "active" ? buildHero(data, options) : null;
-  const nextActivity = buildNextActivity(data, hero?.day ?? null);
+  const nextActivity = buildNextActivity(
+    data,
+    hero?.day ?? null,
+    week?.sessions ?? [],
+  );
 
   return {
     clientFirstName: firstName(data.client.name),
@@ -121,7 +130,7 @@ export function buildClientHomeViewModel(
     hideCalendarNav: data.state === "no_plan",
     nextActivity,
     plan,
-    week: data.state === "active" ? buildWeekView(data) : null,
+    week,
   };
 }
 
@@ -153,9 +162,9 @@ function buildPlanView(data: ClientPortalHome): ClientHomePlanView {
     return {
       actions: [],
       description:
-        "Cuando este listo, aqui veras tu proxima sesion y tu avance semanal.",
+        "Cuando esté listo, aquí verás tu próxima sesión y tu avance semanal.",
       kind: "no_plan",
-      title: "Tu coach esta preparando tu plan",
+      title: "Tu coach está preparando tu plan",
     };
   }
 
@@ -205,7 +214,7 @@ function buildHero(
     return {
       actionLabel: "Ver entrenamiento",
       day: today,
-      detail: "Completaste tu sesion de hoy",
+      detail: today.session.description ?? "Completaste tu sesión de hoy",
       eyebrow: "Entrenamiento completado",
       sessionName: today.session.name,
       title: today.session.name,
@@ -222,8 +231,8 @@ function buildHero(
       day: today,
       detail: progress
         ? `${progress.completedExercises} de ${progress.totalExercises} ejercicios completados`
-        : "Entrenamiento en progreso",
-      eyebrow: "Continua tu entrenamiento",
+        : today.session.description ?? "Entrenamiento en progreso",
+      eyebrow: "Continúa tu entrenamiento",
       sessionName: today.session.name,
       title: today.session.name,
     };
@@ -233,7 +242,7 @@ function buildHero(
     return {
       actionLabel: "Comenzar entrenamiento",
       day: today,
-      detail: `${statusLabel(today.status)} · Hoy`,
+      detail: today.session.description ?? `${statusLabel(today.status)} · Hoy`,
       eyebrow: "Entrenamiento de hoy",
       sessionName: today.session.name,
       title: today.session.name,
@@ -242,14 +251,16 @@ function buildHero(
 
   if (data.nextPendingSession?.session) {
     return {
-      actionLabel: "Ver proximo entrenamiento",
+      actionLabel: "Ver próximo entrenamiento",
       day: data.nextPendingSession,
-      detail: formatLongDate(data.nextPendingSession.date, {
-        capitalizeFirst: true,
-      }),
-      eyebrow: "Hoy toca recuperacion",
+      detail:
+        data.nextPendingSession.session.description ??
+        formatLongDate(data.nextPendingSession.date, {
+          capitalizeFirst: true,
+        }),
+      eyebrow: "Hoy toca recuperación",
       sessionName: data.nextPendingSession.session.name,
-      title: `Tu proximo entrenamiento es ${data.nextPendingSession.session.name}`,
+      title: `Tu próximo entrenamiento es ${data.nextPendingSession.session.name}`,
     };
   }
 
@@ -266,19 +277,28 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
       )
     : 0;
 
+  const days = data.week.days.map((day) =>
+    buildWeekDayView(day, data.todaySession?.date ?? null),
+  );
+
   return {
     completedSessions: summary.completedSessions,
     completionPercent,
     currentStreak: data.streak.current,
-    days: data.week.days.map((day) =>
-      buildWeekDayView(day, data.todaySession?.date ?? null),
-    ),
+    days,
     openedSessions: summary.openedSessions,
-    pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "dia", "dias")} de descanso`,
+    pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "día", "días")} de descanso`,
     pendingSessions: summary.pendingSessions,
     progressLabel: `${summary.completedSessions} de ${summary.totalTrainingSessions} sesiones completadas`,
     rangeLabel: formatWeekRange(data.week.weekStartDate, data.week.weekEndDate),
     restDays: summary.restDays,
+    sessions: days.filter((day) => !day.isRest),
+    summaryLabel: summary.totalTrainingSessions
+      ? "sesiones completadas"
+      : "Sin sesiones esta semana",
+    summaryValue: summary.totalTrainingSessions
+      ? `${summary.completedSessions}/${summary.totalTrainingSessions}`
+      : "—",
     totalTrainingSessions: summary.totalTrainingSessions,
     weekLabel: `Semana ${data.week.weekNumber}`,
   };
@@ -298,6 +318,7 @@ function buildWeekDayView(
     isRest,
     isToday: day.date === todayDate,
     sessionName: day.session?.name ?? "Descanso",
+    sourceDay: day,
     statusLabel: weekDayStatusLabel(day, status),
     tone: weekDayTone(day, status),
   };
@@ -310,7 +331,7 @@ function weekDayStatusLabel(day: ClientPortalDay, status: string) {
   if (status === "opened" || status === "in_progress") return "En curso";
   if (status === "overdue") return "Atrasada";
   if (status === "pending" && day.canOpen) return "Pendiente";
-  return "Proxima";
+  return "Próxima";
 }
 
 function weekDayTone(
@@ -329,13 +350,17 @@ function weekDayTone(
 function buildNextActivity(
   data: ClientPortalHome,
   heroDay: ClientPortalDay | null,
+  visibleSessions: ClientHomeWeekDayView[],
 ): ClientHomeNextActivityView | null {
   const next = data.nextPendingSession;
   if (!next?.session) return null;
   if (heroDay && sameSessionDate(heroDay, next)) return null;
+  if (visibleSessions.some((day) => sameSessionDate(day.sourceDay, next))) {
+    return null;
+  }
 
   return {
-    dateLabel: `${shortWeekdayDate(next)} · ${next.session.name}`,
+    dateLabel: shortWeekdayDate(next),
     day: next,
     sessionName: next.session.name,
   };
@@ -389,11 +414,11 @@ function shortWeekday(dayOfWeek: string) {
   const labels: Record<string, string> = {
     friday: "Vie",
     monday: "Lun",
-    saturday: "Sab",
+    saturday: "Sáb",
     sunday: "Dom",
     thursday: "Jue",
     tuesday: "Mar",
-    wednesday: "Mie",
+    wednesday: "Mié",
   };
   return labels[dayOfWeek] ?? capitalize(dayOfWeek);
 }

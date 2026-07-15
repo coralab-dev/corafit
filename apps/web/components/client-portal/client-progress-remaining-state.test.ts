@@ -13,6 +13,7 @@ import {
   canClientDeleteProgressPhoto,
   deleteProgressPhotoById,
   getVisibleMeasurementFields,
+  shouldAutoLoadProgressTab,
   upsertProgressPhoto,
 } from "./client-progress-remaining-state";
 
@@ -255,5 +256,53 @@ describe("client progress remaining state", () => {
       data: [note({ id: "known-note" })],
       error: "No pudimos cargar notas.",
     });
+  });
+
+  it("auto-loads an initial tab state", () => {
+    expect(
+      shouldAutoLoadProgressTab({
+        data: [],
+        error: null,
+        loaded: false,
+        loading: false,
+        requestId: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not auto-load while loading", () => {
+    expect(
+      shouldAutoLoadProgressTab({
+        data: [],
+        error: null,
+        loaded: false,
+        loading: true,
+        requestId: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not auto-load after data is loaded", () => {
+    expect(
+      shouldAutoLoadProgressTab({
+        data: [photo()],
+        error: null,
+        loaded: true,
+        loading: false,
+        requestId: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not auto-load after an initial error", () => {
+    expect(
+      shouldAutoLoadProgressTab({
+        data: [],
+        error: "No pudimos cargar fotos.",
+        loaded: false,
+        loading: false,
+        requestId: 1,
+      }),
+    ).toBe(false);
   });
 });

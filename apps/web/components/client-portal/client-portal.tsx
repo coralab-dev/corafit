@@ -92,6 +92,7 @@ import {
   canClientDeleteProgressPhoto,
   deleteProgressPhotoById,
   getVisibleMeasurementFields,
+  shouldAutoLoadProgressTab,
   upsertProgressPhoto,
   type ProgressTabState,
 } from "@/components/client-portal/client-progress-remaining-state";
@@ -1717,7 +1718,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
     };
     const state = stateByTab[activeTab];
 
-    if (!state.loaded && !state.loading) {
+    if (shouldAutoLoadProgressTab(state)) {
       void loadProgressTab(activeTab);
     }
   }, [
@@ -2100,38 +2101,38 @@ function PortalWeightSection({
     <div className="mt-5 space-y-6">
       <section
         aria-label="Resumen de peso"
-        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
       >
-        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
-          <div className="flex min-w-0 gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
-              <Scale className="size-6" aria-hidden="true" />
+        <div className="grid grid-cols-2 divide-x divide-border/70">
+          <div className="flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] sm:size-12">
+              <Scale className="size-5 sm:size-6" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-xs font-medium text-muted-foreground sm:text-sm">
                 Último peso
               </p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">
+              <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
                 {summary.latestWeightKg === null
                   ? "Sin registros"
                   : `${summary.latestWeightKg} kg`}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                 {summary.latestRecordedAt
                   ? `Último registro · ${formatWeightRecordedDate(summary.latestRecordedAt)}`
                   : "Sin fecha registrada"}
               </p>
             </div>
           </div>
-          <div className="flex min-w-0 gap-4 sm:pl-5">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-              <ListChecks className="size-6" aria-hidden="true" />
+          <div className="flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground sm:size-12">
+              <ListChecks className="size-5 sm:size-6" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-xs font-medium text-muted-foreground sm:text-sm">
                 Registros visibles
               </p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">
+              <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
                 {summary.visibleCount}
               </p>
             </div>
@@ -2360,10 +2361,10 @@ function SummaryMetric({
   value: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 gap-4", muted && "sm:pl-5")}>
+    <div className={cn("flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5", muted && "")}>
       <span
         className={cn(
-          "flex size-12 shrink-0 items-center justify-center rounded-2xl",
+          "flex size-9 shrink-0 items-center justify-center rounded-2xl sm:size-12 [&_svg]:size-5 sm:[&_svg]:size-6",
           muted
             ? "bg-muted text-muted-foreground"
             : "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]",
@@ -2372,8 +2373,10 @@ function SummaryMetric({
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="mt-1 break-words text-2xl font-semibold text-foreground">
+        <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+          {label}
+        </p>
+        <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
           {value}
         </p>
       </div>
@@ -2444,11 +2447,11 @@ function PortalMeasurementsSection({
       />
       <section
         aria-label="Resumen de medidas"
-        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
       >
-        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+        <div className="grid grid-cols-2 divide-x divide-border/70">
           <SummaryMetric
-            icon={<Ruler className="size-6" aria-hidden="true" />}
+            icon={<Ruler className="size-5 sm:size-6" aria-hidden="true" />}
             label="Último registro"
             value={
               summary.latestRecordedAt
@@ -2457,7 +2460,7 @@ function PortalMeasurementsSection({
             }
           />
           <SummaryMetric
-            icon={<ListChecks className="size-6" aria-hidden="true" />}
+            icon={<ListChecks className="size-5 sm:size-6" aria-hidden="true" />}
             label="Registros visibles"
             value={summary.visibleCount.toString()}
             muted
@@ -2488,7 +2491,7 @@ function PortalMeasurementsSection({
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
                     <Calendar className="size-6" aria-hidden="true" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                     <h3 className="text-xl font-semibold text-foreground">
                       {portalFormatProgressDate(item.recordedAt)}
                     </h3>
@@ -2497,29 +2500,29 @@ function PortalMeasurementsSection({
                         {item.note}
                       </p>
                     ) : null}
-                    {fields.length === 0 ? (
-                      <p className="mt-4 rounded-xl border border-dashed border-border/80 bg-muted/40 p-4 text-sm font-medium text-muted-foreground">
-                        Sin medidas visibles en este registro.
-                      </p>
-                    ) : (
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {fields.map((field) => (
-                          <div
-                            key={field.key}
-                            className="rounded-xl border border-border/70 bg-background/40 p-3"
-                          >
-                            <p className="text-xs font-medium text-muted-foreground">
-                              {field.label}
-                            </p>
-                            <p className="mt-1 text-base font-semibold text-foreground">
-                              {field.value} cm
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
+                {fields.length === 0 ? (
+                  <p className="mt-4 rounded-xl border border-dashed border-border/80 bg-muted/40 p-4 text-sm font-medium text-muted-foreground">
+                    Sin medidas visibles en este registro.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-3">
+                    {fields.map((field) => (
+                      <div
+                        key={field.key}
+                        className="min-w-0 rounded-xl border border-border/70 bg-background/40 p-2.5 sm:p-3"
+                      >
+                        <p className="truncate text-xs font-medium text-muted-foreground">
+                          {field.label}
+                        </p>
+                        <p className="mt-1 break-words text-sm font-semibold text-foreground sm:text-base">
+                          {field.value} cm
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -2558,6 +2561,19 @@ function PortalPhotosSection({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const summary = buildPhotoSummary(items);
   const hasPendingDelete = deletingId !== null;
+  const currentLocalDate = getLocalWeightDateInputValue();
+  const photoFormDirty =
+    file !== null || photoType !== "front" || recordedAt !== currentLocalDate;
+
+  function resetPhotoForm() {
+    setPhotoType("front");
+    setRecordedAt(getLocalWeightDateInputValue());
+    setFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   return (
     <div className="mt-5 space-y-6">
@@ -2568,16 +2584,16 @@ function PortalPhotosSection({
       />
       <section
         aria-label="Resumen de fotos"
-        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
       >
-        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+        <div className="grid grid-cols-2 divide-x divide-border/70">
           <SummaryMetric
-            icon={<Camera className="size-6" aria-hidden="true" />}
+            icon={<Camera className="size-5 sm:size-6" aria-hidden="true" />}
             label="Fotos visibles"
             value={summary.visibleCount.toString()}
           />
           <SummaryMetric
-            icon={<Calendar className="size-6" aria-hidden="true" />}
+            icon={<Calendar className="size-5 sm:size-6" aria-hidden="true" />}
             label="Última foto"
             value={
               summary.latestRecordedAt
@@ -2601,12 +2617,7 @@ function PortalPhotosSection({
           const uploaded = await onUpload(formData);
 
           if (uploaded) {
-            setPhotoType("front");
-            setRecordedAt(getLocalWeightDateInputValue());
-            setFile(null);
-            if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
+            resetPhotoForm();
           }
         }}
       >
@@ -2620,6 +2631,7 @@ function PortalPhotosSection({
           <select
             id="progress-photo-type"
             className="h-10 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={uploading}
             value={photoType}
             onChange={(event) =>
               setPhotoType(event.target.value as ClientPortalProgressPhotoType)
@@ -2636,22 +2648,36 @@ function PortalPhotosSection({
           <Label htmlFor="progress-photo-date">Fecha</Label>
           <Input
             id="progress-photo-date"
+            disabled={uploading}
             type="date"
             value={recordedAt}
             onChange={(event) => setRecordedAt(event.target.value)}
           />
         </div>
         <div className="grid min-w-0 gap-2">
-          <Label htmlFor="progress-photo-file">Foto</Label>
-          <Input
+          <span className="text-sm font-medium leading-none">Foto</span>
+          <input
             ref={fileInputRef}
             accept="image/jpeg,image/png,image/webp"
-            className="file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--portal-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--portal-accent)]"
+            aria-label="Archivo de foto de progreso"
+            className="sr-only"
             id="progress-photo-file"
-            required
             type="file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
+          <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+            <Button
+              disabled={uploading}
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {file ? "Cambiar foto" : "Seleccionar foto"}
+            </Button>
+            <p className="min-w-0 truncate text-sm text-muted-foreground">
+              {file?.name ?? "Ningún archivo seleccionado"}
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground">
             JPG, PNG o WebP. Máximo 8 MB.
           </p>
@@ -2661,17 +2687,24 @@ function PortalPhotosSection({
           Tus fotos se almacenan de forma privada y solo se muestran dentro del
           portal al personal autorizado.
         </p>
-        <Button
-          aria-busy={uploading}
-          className="sm:col-span-2 lg:col-span-3"
-          disabled={uploading || !file}
-          type="submit"
-        >
-          {uploading ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3">
+          {photoFormDirty ? (
+            <Button
+              disabled={uploading}
+              type="button"
+              variant="outline"
+              onClick={resetPhotoForm}
+            >
+              Cancelar
+            </Button>
           ) : null}
-          Subir
-        </Button>
+          <Button aria-busy={uploading} disabled={uploading || !file} type="submit">
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            Subir
+          </Button>
+        </div>
       </form>
       {items.length === 0 ? (
         <PortalEmpty text="Aun no hay fotos de progreso." />
@@ -2698,7 +2731,7 @@ function PortalPhotosSection({
                     <h3 className="text-lg font-semibold text-foreground">
                       {portalPhotoLabels[item.photoType]}
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                       {portalFormatProgressDate(item.recordedAt)}
                     </p>
                   </div>
@@ -2783,16 +2816,16 @@ function PortalNotesSection({
       />
       <section
         aria-label="Resumen de notas"
-        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
       >
-        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+        <div className="grid grid-cols-2 divide-x divide-border/70">
           <SummaryMetric
-            icon={<MessageCircle className="size-6" aria-hidden="true" />}
+            icon={<MessageCircle className="size-5 sm:size-6" aria-hidden="true" />}
             label="Notas visibles"
             value={summary.visibleCount.toString()}
           />
           <SummaryMetric
-            icon={<Calendar className="size-6" aria-hidden="true" />}
+            icon={<Calendar className="size-5 sm:size-6" aria-hidden="true" />}
             label="Última nota"
             value={
               summary.latestCreatedAt

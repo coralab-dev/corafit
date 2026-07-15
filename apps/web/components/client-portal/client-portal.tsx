@@ -8,14 +8,16 @@ import {
   useEffect,
   useRef,
   useState,
-  type ButtonHTMLAttributes,
-  type InputHTMLAttributes,
+  type ComponentProps,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -28,15 +30,23 @@ import {
   Home,
   Info,
   Layers,
+  Lock,
+  ListChecks,
   Loader2,
   MoreHorizontal,
+  Pencil,
+  Ruler,
   PlayCircle,
   RotateCcw,
+  Scale,
   Share2,
   Settings,
+  ShieldCheck,
   Star,
   Sun,
+  Trash2,
   TrendingUp,
+  MessageCircle,
   Moon,
   X,
 } from "lucide-react";
@@ -44,6 +54,48 @@ import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  createLatestCalendarRequestCoordinator,
+  createLatestRequestCoordinator,
+  getActivePendingWeekNavigation,
+  getCalendarProgress,
+  getCalendarWeekNavigationState,
+  getUpcomingCalendarDays,
+  getWeekNavigationTarget,
+  isDateInsideCalendarDays,
+  selectCalendarDay,
+  selectMobileCalendarDay,
+  type CalendarProgress,
+  type CoordinatedRequest,
+  type PendingWeekNavigation,
+  type WeekNavigationDirection,
+} from "@/components/client-portal/client-calendar-state";
+import {
+  buildWeightSummary,
+  canClientManageWeightLog,
+  deleteWeightLogById,
+  formatWeightRecordedDate,
+  getLocalWeightDateInputValue,
+  upsertWeightLog,
+} from "@/components/client-portal/client-progress-weight-state";
+import {
+  applyProgressTabError,
+  applyProgressTabSuccess,
+  buildMeasurementSummary,
+  buildNoteSummary,
+  buildPhotoSummary,
+  canClientDeleteProgressPhoto,
+  deleteProgressPhotoById,
+  getVisibleMeasurementFields,
+  shouldAutoLoadProgressTab,
+  upsertProgressPhoto,
+  type ProgressTabState,
+} from "@/components/client-portal/client-progress-remaining-state";
 import {
   clientPortalRequest,
   clientPortalFormDataRequest,
@@ -90,6 +142,8 @@ type CalendarDayTone =
   | "active"
   | "completed"
   | "partially_completed";
+
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
 const calendarCellToneClasses: Record<CalendarDayTone, string> = {
   rest: "border-[#e6e0db] bg-[#f5f2ef] dark:border-[#293140] dark:bg-[#151a23]",
@@ -142,6 +196,16 @@ const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
   partially_completed: "text-[#9a6a12]",
 };
 
+const mobileCalendarStatusToneClasses: Record<CalendarDayTone, string> = {
+  rest: "border-border bg-background text-muted-foreground",
+  pending: "border-primary/80 text-primary",
+  overdue: "border-red-500 text-red-600 dark:border-red-400 dark:text-red-300",
+  active: "border-primary bg-primary text-primary-foreground",
+  completed:
+    "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-500 dark:text-emerald-950",
+  partially_completed:
+    "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950",
+};
 
 export function PinAccessScreen({ token }: { token: string }) {
   const router = useRouter();
@@ -287,22 +351,127 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const router = useRouter();
   const date = searchParams.get("date");
   const [data, setData] = useState<ClientPortalCalendar | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isWeekRefreshing, setIsWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [pendingWeekNavigation, setPendingWeekNavigation] =
+    useState<PendingWeekNavigation | null>(null);
+  const [selectedProgress, setSelectedProgress] = useState<{
+    logId: string;
+    value: CalendarProgress | null;
+  } | null>(null);
+  const calendarCoordinatorRef = useRef(
+    createLatestCalendarRequestCoordinator<ClientPortalCalendar>(),
+  );
+  const loadedCalendarRef = useRef<ClientPortalCalendar | null>(null);
+  const pendingWeekNavigationRef = useRef<PendingWeekNavigation | null>(null);
+  const pendingMobileFocusDateRef = useRef<string | null>(null);
+  const progressCoordinatorRef = useRef(
+    createLatestRequestCoordinator<CalendarProgress | null>(),
+  );
+  const selectedDateRef = useRef<string | null>(null);
+
+  const updateSelectedDate = useCallback((nextDate: string | null) => {
+    selectedDateRef.current = nextDate;
+    setSelectedDate(nextDate);
+  }, []);
 
   const load = useCallback(() => {
+    const hasLoadedCalendar = Boolean(loadedCalendarRef.current?.calendar);
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
-    clientPortalRequest<ClientPortalCalendar>(
-      `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
-    )
-      .then(setData)
-      .catch((caught) =>
-        setError(errorMessage(caught, "No pudimos cargar el calendario.")),
-      )
-      .finally(() => setLoading(false));
-  }, [date, token]);
+    let cancelled = false;
+    let request: CoordinatedRequest<ClientPortalCalendar> | null = null;
+
+    Promise.resolve()
+      .then(() => {
+        if (cancelled) return;
+
+        const activePendingNavigation = getActivePendingWeekNavigation(
+          pendingWeekNavigationRef.current,
+          date,
+        );
+        if (pendingWeekNavigationRef.current !== activePendingNavigation) {
+          pendingWeekNavigationRef.current = null;
+          setPendingWeekNavigation(null);
+        }
+        if (hasLoadedCalendar) {
+          setIsWeekRefreshing(true);
+        } else {
+          setIsInitialLoading(true);
+        }
+        if (!hasLoadedCalendar) {
+          setError(null);
+        }
+
+        request = calendarCoordinatorRef.current.run({
+          load: (signal) =>
+            clientPortalRequest<ClientPortalCalendar>(
+              `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
+              { signal },
+            ),
+          onError: (caught) => {
+            const message = errorMessage(
+              caught,
+              "No pudimos cargar el calendario.",
+            );
+            pendingWeekNavigationRef.current = null;
+            setPendingWeekNavigation(null);
+
+            if (hasLoadedCalendar) {
+              setRefreshError(message);
+              const loadedAnchorDate =
+                selectedDateRef.current ??
+                loadedCalendarRef.current?.calendar?.referenceDate;
+              if (loadedAnchorDate && date !== loadedAnchorDate) {
+                router.replace(
+                  `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(loadedAnchorDate)}`,
+                  { scroll: false },
+                );
+              }
+            } else {
+              setError(message);
+            }
+          },
+          onResult: (result) => {
+            const nextDays = result.calendar?.days ?? [];
+            const targetDate = date ?? null;
+            const requestedDateForLoadedWeek = isDateInsideCalendarDays(
+              nextDays,
+              targetDate,
+            )
+              ? targetDate
+              : null;
+            const nextSelectedDay = selectMobileCalendarDay(nextDays, {
+              requestedDate: requestedDateForLoadedWeek,
+              selectedDate: null,
+              today: result.calendar?.today ?? "",
+            });
+
+            loadedCalendarRef.current = result;
+            pendingWeekNavigationRef.current = null;
+            setData(result);
+            setError(null);
+            updateSelectedDate(nextSelectedDay?.date ?? null);
+            setSelectedProgress(null);
+            setPendingWeekNavigation(null);
+          },
+        });
+
+        void request.settled.finally(() => {
+          if (cancelled) return;
+          setIsInitialLoading(false);
+          setIsWeekRefreshing(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      request?.cancel();
+    };
+  }, [date, router, token, updateSelectedDate]);
 
   useEffect(load, [load]);
 
@@ -339,15 +508,106 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   }
 
   const days = data?.calendar?.days ?? [];
-  const defaultSelectedDay =
-    days.find((day) => day.date === data?.calendar?.today) ??
-    days.find((day) => day.session) ??
-    days[0];
-  const selectedDay =
-    days.find((day) => day.date === selectedDate) ?? defaultSelectedDay;
+  const requestedDateForLoadedWeek = isDateInsideCalendarDays(days, date)
+    ? date
+    : null;
+  const selectedDay = selectCalendarDay(days, {
+    selectedDate,
+    today: data?.calendar?.today ?? "",
+  });
+  const mobileSelectedDay = selectMobileCalendarDay(days, {
+    requestedDate: requestedDateForLoadedWeek,
+    selectedDate,
+    today: data?.calendar?.today ?? "",
+  });
   const upcomingDays = selectedDay
-    ? days.filter((day) => day.date > selectedDay.date)
+    ? getUpcomingCalendarDays(days, selectedDay.date)
     : [];
+  const mobileUpcomingDays = mobileSelectedDay
+    ? getUpcomingCalendarDays(days, mobileSelectedDay.date)
+    : [];
+  const weekNavigation = data?.calendar
+    ? getCalendarWeekNavigationState({
+        durationWeeks: data.assignment?.assignedPlan.durationWeeks,
+        weekNumber: data.calendar.weekNumber,
+      })
+    : { canNavigateNext: false, canNavigatePrevious: false };
+  const mobileSelectedDate = mobileSelectedDay?.date ?? null;
+  const selectedLogId = mobileSelectedDay?.log?.id ?? null;
+
+  useEffect(() => {
+    if (!selectedLogId) return;
+
+    const logId = selectedLogId;
+    const mobileMedia = window.matchMedia("(max-width: 767px)");
+    let cancelCurrentRequest: () => void = () => undefined;
+
+    function loadSelectedProgress() {
+      cancelCurrentRequest();
+      cancelCurrentRequest = () => undefined;
+      if (!mobileMedia.matches) return;
+
+      const requestKey = `${token}:${logId}`;
+      const request = progressCoordinatorRef.current.run(
+        requestKey,
+        () =>
+          clientPortalRequest<ClientSessionLog>(
+            `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(logId)}`,
+          ).then((log) => getCalendarProgress(log.snapshotData)),
+        (progress) => {
+          setSelectedProgress({ logId, value: progress });
+        },
+      );
+      cancelCurrentRequest = request.cancel;
+      void request.settled;
+    }
+
+    loadSelectedProgress();
+    mobileMedia.addEventListener("change", loadSelectedProgress);
+
+    return () => {
+      cancelCurrentRequest();
+      mobileMedia.removeEventListener("change", loadSelectedProgress);
+    };
+  }, [selectedLogId, token]);
+
+  useEffect(() => {
+    const focusDate = pendingMobileFocusDateRef.current;
+    if (!focusDate || focusDate !== mobileSelectedDate) return;
+
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(mobileCalendarDayId(focusDate))
+        ?.focus({ preventScroll: true });
+      pendingMobileFocusDateRef.current = null;
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [mobileSelectedDate]);
+
+  function selectUpcomingMobileDate(selectedUpcomingDate: string) {
+    pendingMobileFocusDateRef.current = selectedUpcomingDate;
+    updateSelectedDate(selectedUpcomingDate);
+  }
+
+  function navigateWeek(
+    direction: WeekNavigationDirection,
+    anchorDate: string,
+  ) {
+    if (pendingWeekNavigationRef.current) return;
+
+    const targetDate = getWeekNavigationTarget(anchorDate, direction);
+    const nextPendingNavigation = { direction, targetDate };
+    pendingWeekNavigationRef.current = nextPendingNavigation;
+    setPendingWeekNavigation(nextPendingNavigation);
+    setIsWeekRefreshing(true);
+    setError(null);
+    setRefreshError(null);
+    router.push(
+      `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(targetDate)}`,
+      { scroll: false },
+    );
+  }
 
   return (
     <ClientPortalShell token={token} active="calendar">
@@ -360,27 +620,75 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
             Revisa tus sesiones programadas y tu avance de la semana.
           </p>
         </header>
-        {loading ? <ScreenState title="Cargando calendario" compact /> : null}
+        {isInitialLoading ? (
+          <ScreenState title="Cargando calendario" compact />
+        ) : null}
         {error ? <InlineError message={error} /> : null}
+        {refreshError ? <InlineError message={refreshError} /> : null}
         {data?.calendar ? (
           <>
-            <div className="mt-5 flex items-center gap-3 lg:mt-8 lg:max-w-3xl">
+            <header className="md:hidden">
+              <h1 className="truncate text-2xl font-bold tracking-normal text-foreground">
+                Calendario
+              </h1>
+              <div className="mt-2 flex min-h-10 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold capitalize text-primary">
+                    {formatCalendarMonth(
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate,
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Semana {data.calendar.weekNumber}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <WeekButton
+                    anchorDate={
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate
+                    }
+                    busy={pendingWeekNavigation?.direction === "prev"}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigatePrevious
+                    }
+                    direction="prev"
+                    onNavigate={navigateWeek}
+                  />
+                  <WeekButton
+                    anchorDate={
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate
+                    }
+                    busy={pendingWeekNavigation?.direction === "next"}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigateNext
+                    }
+                    direction="next"
+                    onNavigate={navigateWeek}
+                  />
+                </div>
+              </div>
+            </header>
+            <div className="mt-5 hidden items-center gap-3 md:flex lg:mt-8 lg:max-w-3xl">
               <WeekButton
+                anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
+                busy={pendingWeekNavigation?.direction === "prev"}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigatePrevious}
                 direction="prev"
-                date={data.calendar.weekStartDate}
-                token={token}
+                onNavigate={navigateWeek}
               />
             <div className="flex-1 rounded-xl border border-[#ece7e3] bg-white py-3 text-center text-sm font-bold text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]">
                 {formatDate(data.calendar.weekStartDate)} -{" "}
                 {formatDate(data.calendar.weekEndDate)}
               </div>
               <WeekButton
+                anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
+                busy={pendingWeekNavigation?.direction === "next"}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigateNext}
                 direction="next"
-                date={data.calendar.weekEndDate}
-                token={token}
+                onNavigate={navigateWeek}
               />
             </div>
-            <div className="mt-5 space-y-3 lg:hidden">
+            <div className="mt-5 hidden space-y-3 md:block lg:hidden">
               {data.calendar.days.map((day) => (
                 <CalendarDayCard
                   day={day}
@@ -390,13 +698,36 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                 />
               ))}
             </div>
+            {mobileSelectedDay ? (
+              <div className="md:hidden">
+                <MobileCalendarWeekStrip
+                  days={data.calendar.days}
+                  onSelect={updateSelectedDate}
+                  selectedDate={mobileSelectedDay.date}
+                />
+                <MobileSelectedSessionCard
+                  day={mobileSelectedDay}
+                  loading={openingDate === mobileSelectedDay.date}
+                  onOpen={() => void open(mobileSelectedDay)}
+                  progress={
+                    selectedProgress?.logId === selectedLogId
+                      ? selectedProgress.value
+                      : null
+                  }
+                />
+                <MobileUpcomingDays
+                  days={mobileUpcomingDays}
+                  onSelect={selectUpcomingMobileDate}
+                />
+              </div>
+            ) : null}
             <div className="mt-5 hidden grid-cols-7 gap-3 lg:grid">
               {data.calendar.days.map((day) => (
                 <CalendarWeekCell
                   day={day}
                   selected={day.date === selectedDay?.date}
                   key={day.date}
-                  onSelect={() => setSelectedDate(day.date)}
+                  onSelect={() => updateSelectedDate(day.date)}
                 />
               ))}
             </div>
@@ -412,7 +743,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               </div>
             ) : null}
           </>
-        ) : !loading ? (
+        ) : !isInitialLoading ? (
           <EmptyCard title={calendarStateTitle(data?.state)} />
         ) : null}
       </section>
@@ -1243,149 +1574,279 @@ const portalPhotoLabels: Record<ClientPortalProgressPhotoType, string> = {
   side: "Lado",
 };
 
-const portalMeasurementFields = [
-  ["waistCm", "Cintura"],
-  ["hipCm", "Cadera"],
-  ["chestCm", "Pecho"],
-  ["armCm", "Brazo"],
-  ["legCm", "Pierna"],
-  ["gluteCm", "Gluteo"],
-] as const;
+function initialProgressTabState<T>(data: T): ProgressTabState<T> {
+  return {
+    data,
+    error: null,
+    loaded: false,
+    loading: false,
+    requestId: 0,
+  };
+}
 
 export function ClientPortalProgressScreen({ token }: { token: string }) {
   const [activeTab, setActiveTab] = useState<PortalProgressTab>("weight");
-  const [weightLogs, setWeightLogs] = useState<ClientPortalWeightLog[]>([]);
-  const [measurements, setMeasurements] = useState<
-    ClientPortalBodyMeasurement[]
-  >([]);
-  const [photos, setPhotos] = useState<ClientPortalProgressPhoto[]>([]);
-  const [notes, setNotes] = useState<ClientPortalProgressNote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [weightState, setWeightState] = useState(
+    initialProgressTabState<ClientPortalWeightLog[]>([]),
+  );
+  const [measurementState, setMeasurementState] = useState(
+    initialProgressTabState<ClientPortalBodyMeasurement[]>([]),
+  );
+  const [photoState, setPhotoState] = useState(
+    initialProgressTabState<ClientPortalProgressPhoto[]>([]),
+  );
+  const [noteState, setNoteState] = useState(
+    initialProgressTabState<ClientPortalProgressNote[]>([]),
+  );
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [deletingWeightId, setDeletingWeightId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const tabRequestIds = useRef<Record<PortalProgressTab, number>>({
+    measurements: 0,
+    notes: 0,
+    photos: 0,
+    weight: 0,
+  });
 
-  const loadProgress = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const loadProgressTab = useCallback(
+    async (tab: PortalProgressTab) => {
+      const requestId = tabRequestIds.current[tab] + 1;
+      tabRequestIds.current[tab] = requestId;
+
+      const markLoading = <T,>(
+        setState: Dispatch<SetStateAction<ProgressTabState<T>>>,
+      ) => {
+        setState((current) => ({
+          ...current,
+          error: null,
+          loading: true,
+          requestId,
+        }));
+      };
+
       const encoded = encodeURIComponent(token);
-      const [weightResult, measurementResult, photoResult, noteResult] =
-        await Promise.all([
-          clientPortalRequest<ClientPortalWeightLog[]>(
+
+      try {
+        if (tab === "weight") {
+          markLoading(setWeightState);
+          const result = await clientPortalRequest<ClientPortalWeightLog[]>(
             `/client-portal/${encoded}/progress/weight-logs`,
-          ),
-          clientPortalRequest<ClientPortalBodyMeasurement[]>(
+          );
+          setWeightState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        if (tab === "measurements") {
+          markLoading(setMeasurementState);
+          const result = await clientPortalRequest<ClientPortalBodyMeasurement[]>(
             `/client-portal/${encoded}/progress/body-measurements`,
-          ),
-          clientPortalRequest<ClientPortalProgressPhoto[]>(
+          );
+          setMeasurementState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        if (tab === "photos") {
+          markLoading(setPhotoState);
+          const result = await clientPortalRequest<ClientPortalProgressPhoto[]>(
             `/client-portal/${encoded}/progress/photos`,
-          ),
-          clientPortalRequest<ClientPortalProgressNote[]>(
-            `/client-portal/${encoded}/progress/notes`,
-          ),
-        ]);
-      setWeightLogs(weightResult);
-      setMeasurements(measurementResult);
-      setPhotos(photoResult);
-      setNotes(noteResult);
-    } catch (caught) {
-      setError(errorMessage(caught, "No pudimos cargar tu progreso."));
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+          );
+          setPhotoState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        markLoading(setNoteState);
+        const result = await clientPortalRequest<ClientPortalProgressNote[]>(
+          `/client-portal/${encoded}/progress/notes`,
+        );
+        setNoteState((current) =>
+          current.requestId === requestId
+            ? applyProgressTabSuccess(current, result)
+            : current,
+        );
+      } catch (caught) {
+        const message = errorMessage(caught, "No pudimos cargar tu progreso.");
+
+        if (tab === "weight") {
+          setWeightState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else if (tab === "measurements") {
+          setMeasurementState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else if (tab === "photos") {
+          setPhotoState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else {
+          setNoteState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        }
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadProgress();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadProgress]);
+    const stateByTab: Record<PortalProgressTab, ProgressTabState<unknown[]>> = {
+      measurements: measurementState,
+      notes: noteState,
+      photos: photoState,
+      weight: weightState,
+    };
+    const state = stateByTab[activeTab];
+
+    if (shouldAutoLoadProgressTab(state)) {
+      void loadProgressTab(activeTab);
+    }
+  }, [
+    activeTab,
+    loadProgressTab,
+    measurementState,
+    noteState,
+    photoState,
+    weightState,
+  ]);
 
   async function saveWeight(
     input: { note?: string | null; recordedAt: string; weightKg: number },
     id?: string,
-  ) {
-    setSaving(true);
-    setError(null);
+  ): Promise<boolean> {
+    setWeightSaving(true);
+    setWeightState((current) => ({ ...current, error: null }));
     try {
       const encoded = encodeURIComponent(token);
-      await clientPortalRequest(
+      const saved = await clientPortalRequest<ClientPortalWeightLog>(
         `/client-portal/${encoded}/progress/weight-logs${id ? `/${id}` : ""}`,
         {
           method: id ? "PATCH" : "POST",
           body: JSON.stringify(input),
         },
       );
-      await loadProgress();
+      setWeightState((current) => ({
+        ...current,
+        data: upsertWeightLog(current.data, saved),
+      }));
+      return true;
     } catch (caught) {
-      setError(
-        isForbidden(caught)
+      setWeightState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Tu coach no habilito el registro de peso o este registro no es editable."
           : errorMessage(caught, "No pudimos guardar el peso."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setWeightSaving(false);
     }
   }
 
-  async function deleteWeight(id: string) {
-    setSaving(true);
-    setError(null);
+  async function deleteWeight(id: string): Promise<boolean> {
+    if (deletingWeightId !== null) {
+      return false;
+    }
+
+    setDeletingWeightId(id);
+    setWeightState((current) => ({ ...current, error: null }));
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/weight-logs/${id}`,
         { method: "DELETE" },
       );
-      await loadProgress();
+      setWeightState((current) => ({
+        ...current,
+        data: deleteWeightLogById(current.data, id),
+      }));
+      return true;
     } catch (caught) {
-      setError(
-        isForbidden(caught)
+      setWeightState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Solo puedes borrar registros de peso creados por ti."
           : errorMessage(caught, "No pudimos borrar el peso."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setDeletingWeightId(null);
     }
   }
 
-  async function uploadPhoto(formData: FormData) {
-    setSaving(true);
-    setError(null);
+  async function uploadPhoto(formData: FormData): Promise<boolean> {
+    setUploadingPhoto(true);
+    setPhotoState((current) => ({ ...current, error: null }));
     try {
-      await clientPortalFormDataRequest(
+      const saved = await clientPortalFormDataRequest<ClientPortalProgressPhoto>(
         `/client-portal/${encodeURIComponent(token)}/progress/photos`,
         formData,
       );
-      await loadProgress();
+      setPhotoState((current) => ({
+        ...current,
+        data: upsertProgressPhoto(current.data, saved),
+        loaded: true,
+      }));
+      return true;
     } catch (caught) {
-      setError(
-        isForbidden(caught)
+      setPhotoState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "No tienes permiso para subir esta foto."
           : errorMessage(caught, "No pudimos subir la foto."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setUploadingPhoto(false);
     }
   }
 
-  async function deletePhoto(id: string) {
-    setSaving(true);
-    setError(null);
+  async function deletePhoto(id: string): Promise<boolean> {
+    if (deletingPhotoId !== null) {
+      return false;
+    }
+
+    setDeletingPhotoId(id);
+    setPhotoState((current) => ({ ...current, error: null }));
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos/${id}`,
         { method: "DELETE" },
       );
-      await loadProgress();
+      setPhotoState((current) => ({
+        ...current,
+        data: deleteProgressPhotoById(current.data, id),
+      }));
+      return true;
     } catch (caught) {
-      setError(
-        isForbidden(caught)
+      setPhotoState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Solo puedes borrar fotos subidas por ti."
           : errorMessage(caught, "No pudimos borrar la foto."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setDeletingPhotoId(null);
     }
   }
 
@@ -1393,58 +1854,119 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
     <ClientPortalShell token={token} active="progress">
       <section className="px-6 pt-8 md:px-8 lg:px-10 lg:pt-10">
         <div>
-          <h1 className="text-3xl font-black tracking-normal">Tu progreso</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#667080] dark:text-[#aab2bf]">
+          <h1 className="text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+            Tu progreso
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Consulta tus registros compartidos y agrega avances cuando este
             habilitado.
           </p>
         </div>
 
-        <div className="mt-6 grid grid-cols-4 rounded-2xl border border-[#ece7e3] bg-white p-1 text-sm font-bold shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-          {portalProgressTabs.map((tab) => (
-            <button
-              key={tab.key}
-              className={cn(
-                "rounded-xl px-2 py-3 text-[#667080] dark:text-[#aab2bf]",
-                activeTab === tab.key &&
-                  "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] ",
-              )}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          className="mt-6"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as PortalProgressTab)}
+        >
+          <TabsList className="grid h-auto w-full grid-cols-4 rounded-2xl border border-border/70 bg-card p-1 shadow-[var(--surface-shadow-soft)]">
+            {portalProgressTabs.map((tab) => (
+              <TabsTrigger
+                key={tab.key}
+                className="min-h-11 rounded-xl px-2 text-sm font-semibold text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                value={tab.key}
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {error ? (
-          <p className="mt-4 rounded-2xl border border-[#f1c7bd] bg-[#fff6f3] p-4 text-sm font-bold text-[#b63d31]">
-            {error}
-          </p>
-        ) : null}
-        {loading ? <ScreenState title="Cargando progreso" compact /> : null}
-        {!loading && activeTab === "weight" ? (
-          <PortalWeightSection
-            items={weightLogs}
-            saving={saving}
-            onDelete={deleteWeight}
-            onSave={saveWeight}
-          />
-        ) : null}
-        {!loading && activeTab === "measurements" ? (
-          <PortalMeasurementsSection items={measurements} />
-        ) : null}
-        {!loading && activeTab === "photos" ? (
-          <PortalPhotosSection
-            items={photos}
-            saving={saving}
-            onDelete={deletePhoto}
-            onUpload={uploadPhoto}
-          />
-        ) : null}
-        {!loading && activeTab === "notes" ? (
-          <PortalNotesSection items={notes} />
-        ) : null}
+          <TabsContent value="weight">
+            {weightState.loading && !weightState.loaded ? (
+              <ScreenState title="Cargando peso" compact />
+            ) : null}
+            {weightState.error && !weightState.loaded ? (
+              <ProgressTabError
+                loading={weightState.loading}
+                message={weightState.error}
+                onRetry={() => void loadProgressTab("weight")}
+              />
+            ) : null}
+            {weightState.loaded ? (
+              <PortalWeightSection
+                deletingId={deletingWeightId}
+                error={weightState.error}
+                formSaving={weightSaving}
+                items={weightState.data}
+                onDelete={deleteWeight}
+                onSave={saveWeight}
+              />
+            ) : null}
+          </TabsContent>
+          <TabsContent value="measurements">
+            {measurementState.loading && !measurementState.loaded ? (
+              <ScreenState title="Cargando medidas" compact />
+            ) : null}
+            {measurementState.error && !measurementState.loaded ? (
+              <ProgressTabError
+                loading={measurementState.loading}
+                message={measurementState.error}
+                onRetry={() => void loadProgressTab("measurements")}
+              />
+            ) : null}
+            {measurementState.loaded ? (
+              <PortalMeasurementsSection
+                error={measurementState.error}
+                items={measurementState.data}
+                loading={measurementState.loading}
+                onRetry={() => void loadProgressTab("measurements")}
+              />
+            ) : null}
+          </TabsContent>
+          <TabsContent value="photos">
+            {photoState.loading && !photoState.loaded ? (
+              <ScreenState title="Cargando fotos" compact />
+            ) : null}
+            {photoState.error && !photoState.loaded ? (
+              <ProgressTabError
+                loading={photoState.loading}
+                message={photoState.error}
+                onRetry={() => void loadProgressTab("photos")}
+              />
+            ) : null}
+            {photoState.loaded ? (
+              <PortalPhotosSection
+                deletingId={deletingPhotoId}
+                error={photoState.error}
+                items={photoState.data}
+                loading={photoState.loading}
+                uploading={uploadingPhoto}
+                onDelete={deletePhoto}
+                onRetry={() => void loadProgressTab("photos")}
+                onUpload={uploadPhoto}
+              />
+            ) : null}
+          </TabsContent>
+          <TabsContent value="notes">
+            {noteState.loading && !noteState.loaded ? (
+              <ScreenState title="Cargando notas" compact />
+            ) : null}
+            {noteState.error && !noteState.loaded ? (
+              <ProgressTabError
+                loading={noteState.loading}
+                message={noteState.error}
+                onRetry={() => void loadProgressTab("notes")}
+              />
+            ) : null}
+            {noteState.loaded ? (
+              <PortalNotesSection
+                error={noteState.error}
+                items={noteState.data}
+                loading={noteState.loading}
+                onRetry={() => void loadProgressTab("notes")}
+              />
+            ) : null}
+          </TabsContent>
+        </Tabs>
       </section>
     </ClientPortalShell>
   );
@@ -1535,36 +2057,202 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
 }
 
 function PortalWeightSection({
+  deletingId,
+  error,
+  formSaving,
   items,
   onDelete,
   onSave,
-  saving,
 }: {
+  deletingId: string | null;
+  error: string | null;
+  formSaving: boolean;
   items: ClientPortalWeightLog[];
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<boolean>;
   onSave: (
     input: { note?: string | null; recordedAt: string; weightKg: number },
     id?: string,
-  ) => Promise<void>;
-  saving: boolean;
+  ) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState<ClientPortalWeightLog | null>(null);
+  const [confirmDelete, setConfirmDelete] =
+    useState<ClientPortalWeightLog | null>(null);
   const [weightKg, setWeightKg] = useState("");
-  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [recordedAt, setRecordedAt] = useState(getLocalWeightDateInputValue());
   const [note, setNote] = useState("");
+  const summary = buildWeightSummary(items);
+  const hasPendingDelete = deletingId !== null;
+
+  function resetForm() {
+    setEditing(null);
+    setWeightKg("");
+    setRecordedAt(getLocalWeightDateInputValue());
+    setNote("");
+  }
+
   function startEdit(item: ClientPortalWeightLog) {
     setEditing(item);
     setWeightKg(item.weightKg.toString());
-    setRecordedAt(portalDateInput(item.recordedAt));
+    setRecordedAt(item.recordedAt.slice(0, 10));
     setNote(item.note ?? "");
   }
+
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mt-5 space-y-6">
+      <section
+        aria-label="Resumen de peso"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid grid-cols-2 divide-x divide-border/70">
+          <div className="flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] sm:size-12">
+              <Scale className="size-5 sm:size-6" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+                Último peso
+              </p>
+              <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
+                {summary.latestWeightKg === null
+                  ? "Sin registros"
+                  : `${summary.latestWeightKg} kg`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                {summary.latestRecordedAt
+                  ? `Último registro · ${formatWeightRecordedDate(summary.latestRecordedAt)}`
+                  : "Sin fecha registrada"}
+              </p>
+            </div>
+          </div>
+          <div className="flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground sm:size-12">
+              <ListChecks className="size-5 sm:size-6" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+                Registros visibles
+              </p>
+              <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
+                {summary.visibleCount}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {error ? (
+        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <section aria-labelledby="weight-history-title" className="space-y-3">
+        <h2
+          id="weight-history-title"
+          className="text-xl font-semibold text-foreground"
+        >
+          Historial de peso
+        </h2>
+        {items.length === 0 ? (
+          <PortalEmpty text="Aun no hay registros de peso." />
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => {
+              const clientManaged = canClientManageWeightLog(item);
+              const deleting = deletingId === item.id;
+              const savingEditedItem = formSaving && editing?.id === item.id;
+
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 gap-4">
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                        <Scale className="size-6" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-2xl font-semibold text-foreground">
+                          {item.weightKg} kg
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {formatWeightRecordedDate(item.recordedAt)}
+                        </p>
+                        {item.note ? (
+                          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">
+                            {item.note}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+                      <Badge
+                        className="gap-1.5"
+                        variant={clientManaged ? "success" : "info"}
+                      >
+                        {clientManaged ? (
+                          <ShieldCheck className="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <Info className="size-3.5" aria-hidden="true" />
+                        )}
+                        {clientManaged
+                          ? "Registrado por ti"
+                          : "Registrado por coach"}
+                      </Badge>
+                      {clientManaged ? (
+                        <div className="flex w-full gap-2 sm:w-auto">
+                          <Button
+                            className="min-w-0 flex-1 sm:flex-none"
+                            disabled={formSaving}
+                            onClick={() => startEdit(item)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <Pencil className="size-4" aria-hidden="true" />
+                            Editar
+                          </Button>
+                          <Button
+                            aria-busy={deleting}
+                            className="min-w-0 flex-1 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive sm:flex-none"
+                            disabled={hasPendingDelete || savingEditedItem}
+                            onClick={() => {
+                              if (!hasPendingDelete && !savingEditedItem) {
+                                setConfirmDelete(item);
+                              }
+                            }}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {deleting ? (
+                              <Loader2
+                                className="size-4 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Trash2 className="size-4" aria-hidden="true" />
+                            )}
+                            Borrar
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <form
-        className="grid min-w-0 gap-3 rounded-2xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#222936] dark:bg-[#121722] sm:grid-cols-[1fr_1fr_2fr_auto] sm:p-4"
+        className="grid min-w-0 gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:grid-cols-2 sm:p-5"
         onSubmit={async (event) => {
           event.preventDefault();
-          await onSave(
+          const saved = await onSave(
             {
               weightKg: Number(weightKg),
               recordedAt,
@@ -1572,120 +2260,353 @@ function PortalWeightSection({
             },
             editing?.id,
           );
-          setEditing(null);
-          setWeightKg("");
-          setNote("");
+          if (saved) {
+            resetForm();
+          }
         }}
       >
-        <PortalInput
-          label="Kg"
-          min="1"
-          step="0.1"
-          type="number"
-          value={weightKg}
-          onChange={setWeightKg}
-        />
-        <PortalInput
-          label="Fecha"
-          type="date"
-          value={recordedAt}
-          onChange={setRecordedAt}
-        />
-        <PortalInput label="Nota" value={note} onChange={setNote} />
-        <div className="flex gap-2 self-end">
+        <div className="sm:col-span-2">
+          <h2 className="text-xl font-semibold text-foreground">
+            {editing ? "Editar peso" : "Registrar peso"}
+          </h2>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="weight-kg">Kg</Label>
+          <Input
+            id="weight-kg"
+            min="1"
+            required
+            step="0.1"
+            type="number"
+            value={weightKg}
+            onChange={(event) => setWeightKg(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="weight-recorded-at">Fecha</Label>
+          <Input
+            id="weight-recorded-at"
+            required
+            type="date"
+            value={recordedAt}
+            onChange={(event) => setRecordedAt(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2 sm:col-span-2">
+          <Label htmlFor="weight-note">Nota</Label>
+          <textarea
+            id="weight-note"
+            className="min-h-24 w-full resize-y rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="¿Cómo te sentiste?"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
           {editing ? (
-            <PortalButton
-              disabled={saving}
+            <Button
+              disabled={formSaving}
               type="button"
-              variant="secondary"
-              onClick={() => setEditing(null)}
+              variant="outline"
+              onClick={resetForm}
             >
               Cancelar
-            </PortalButton>
+            </Button>
           ) : null}
-          <PortalButton disabled={saving} type="submit">
-            {editing ? "Guardar" : "Registrar"}
-          </PortalButton>
+          <Button aria-busy={formSaving} disabled={formSaving} type="submit">
+            {formSaving ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {editing ? "Guardar cambios" : "Registrar"}
+          </Button>
         </div>
       </form>
-      {items.length === 0 ? (
-        <PortalEmpty text="Aun no hay registros de peso." />
-      ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title={`${item.weightKg} kg`}
-            meta={`${portalFormatDate(item.recordedAt)} / ${item.recordedByType === "client" ? "Registrado por ti" : "Registrado por coach"}`}
-            note={item.note}
-          >
-            {item.recordedByType === "client" ? (
-              <>
-                <PortalButton
-                  type="button"
-                  variant="secondary"
-                  onClick={() => startEdit(item)}
-                >
-                  Editar
-                </PortalButton>
-                <PortalButton
-                  disabled={saving}
-                  type="button"
-                  variant="danger"
-                  onClick={() => void onDelete(item.id)}
-                >
-                  Borrar
-                </PortalButton>
-              </>
-            ) : null}
-          </PortalRecord>
-        ))
-      )}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDelete(null);
+          }
+        }}
+        title="¿Borrar registro de peso?"
+        description="Este registro se eliminará del historial de peso."
+        cancelLabel="Cancelar"
+        confirmLabel="Borrar"
+        isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
+        onConfirm={async () => {
+          if (!confirmDelete || deletingId !== null) return;
+          const deletedId = confirmDelete.id;
+          const wasEditingDeletedRecord = editing?.id === deletedId;
+          const deleted = await onDelete(deletedId);
+
+          if (deleted && wasEditingDeletedRecord) {
+            resetForm();
+          }
+        }}
+      />
     </div>
   );
 }
 
-function PortalMeasurementsSection({
-  items,
+function SummaryMetric({
+  icon,
+  label,
+  muted = false,
+  value,
 }: {
-  items: ClientPortalBodyMeasurement[];
+  icon: ReactNode;
+  label: string;
+  muted?: boolean;
+  value: string;
 }) {
   return (
-    <div className="mt-5 space-y-3">
+    <div className={cn("flex min-w-0 gap-2 px-3 sm:gap-4 sm:px-5", muted && "")}>
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-2xl sm:size-12 [&_svg]:size-5 sm:[&_svg]:size-6",
+          muted
+            ? "bg-muted text-muted-foreground"
+            : "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+          {label}
+        </p>
+        <p className="mt-1 break-words text-lg font-semibold text-foreground sm:text-2xl">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProgressTabError({
+  loading,
+  message,
+  onRetry,
+}: {
+  loading: boolean;
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+      <p className="font-semibold">{message}</p>
+      <Button
+        className="mt-3"
+        disabled={loading}
+        onClick={onRetry}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+        Reintentar
+      </Button>
+    </div>
+  );
+}
+
+function ProgressKnownDataError({
+  error,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  if (!error) return null;
+
+  return <ProgressTabError loading={loading} message={error} onRetry={onRetry} />;
+}
+
+function PortalMeasurementsSection({
+  error,
+  items,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  items: ClientPortalBodyMeasurement[];
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  const summary = buildMeasurementSummary(items);
+
+  return (
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de medidas"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid grid-cols-2 divide-x divide-border/70">
+          <SummaryMetric
+            icon={<Ruler className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Último registro"
+            value={
+              summary.latestRecordedAt
+                ? portalFormatProgressDate(summary.latestRecordedAt)
+                : "Sin registros"
+            }
+          />
+          <SummaryMetric
+            icon={<ListChecks className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Registros visibles"
+            value={summary.visibleCount.toString()}
+            muted
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="measurement-history-title" className="space-y-3">
+        <h2
+          id="measurement-history-title"
+          className="text-xl font-semibold text-foreground"
+        >
+          Historial de medidas
+        </h2>
       {items.length === 0 ? (
         <PortalEmpty text="No hay medidas visibles por ahora." />
       ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title={portalMeasurementSummary(item)}
-            meta={portalFormatDate(item.recordedAt)}
-            note={item.note}
-          />
-        ))
+        <div className="space-y-3">
+          {items.map((item) => {
+            const fields = getVisibleMeasurementFields(item);
+
+            return (
+              <article
+                key={item.id}
+                className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+              >
+                <div className="flex min-w-0 gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                    <Calendar className="size-6" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-semibold text-foreground">
+                      {portalFormatProgressDate(item.recordedAt)}
+                    </h3>
+                    {item.note ? (
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">
+                        {item.note}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                {fields.length === 0 ? (
+                  <p className="mt-4 rounded-xl border border-dashed border-border/80 bg-muted/40 p-4 text-sm font-medium text-muted-foreground">
+                    Sin medidas visibles en este registro.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-3">
+                    {fields.map((field) => (
+                      <div
+                        key={field.key}
+                        className="min-w-0 rounded-xl border border-border/70 bg-background/40 p-2.5 sm:p-3"
+                      >
+                        <p className="truncate text-xs font-medium text-muted-foreground">
+                          {field.label}
+                        </p>
+                        <p className="mt-1 break-words text-sm font-semibold text-foreground sm:text-base">
+                          {field.value} cm
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
       )}
+      </section>
     </div>
   );
 }
 
 function PortalPhotosSection({
+  deletingId,
+  error,
   items,
+  loading,
   onDelete,
+  onRetry,
   onUpload,
-  saving,
+  uploading,
 }: {
+  deletingId: string | null;
+  error: string | null;
   items: ClientPortalProgressPhoto[];
-  onDelete: (id: string) => Promise<void>;
-  onUpload: (formData: FormData) => Promise<void>;
-  saving: boolean;
+  loading: boolean;
+  onDelete: (id: string) => Promise<boolean>;
+  onRetry: () => void;
+  onUpload: (formData: FormData) => Promise<boolean>;
+  uploading: boolean;
 }) {
   const [photoType, setPhotoType] =
     useState<ClientPortalProgressPhotoType>("front");
-  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [recordedAt, setRecordedAt] = useState(getLocalWeightDateInputValue());
   const [file, setFile] = useState<File | null>(null);
+  const [confirmDelete, setConfirmDelete] =
+    useState<ClientPortalProgressPhoto | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const summary = buildPhotoSummary(items);
+  const hasPendingDelete = deletingId !== null;
+  const currentLocalDate = getLocalWeightDateInputValue();
+  const photoFormDirty =
+    file !== null || photoType !== "front" || recordedAt !== currentLocalDate;
+
+  function resetPhotoForm() {
+    setPhotoType("front");
+    setRecordedAt(getLocalWeightDateInputValue());
+    setFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de fotos"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid grid-cols-2 divide-x divide-border/70">
+          <SummaryMetric
+            icon={<Camera className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Fotos visibles"
+            value={summary.visibleCount.toString()}
+          />
+          <SummaryMetric
+            icon={<Calendar className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Última foto"
+            value={
+              summary.latestRecordedAt
+                ? portalFormatProgressDate(summary.latestRecordedAt)
+                : "Sin fotos"
+            }
+            muted
+          />
+        </div>
+      </section>
+
       <form
-        className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#222936] dark:bg-[#121722] sm:grid-cols-[1fr_1fr_2fr_auto]"
+        className="grid gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:grid-cols-2 sm:p-5 lg:grid-cols-[1fr_1fr_2fr]"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) return;
@@ -1693,52 +2614,108 @@ function PortalPhotosSection({
           formData.append("photoType", photoType);
           formData.append("recordedAt", recordedAt);
           formData.append("photo", file);
-          await onUpload(formData);
-          setFile(null);
+          const uploaded = await onUpload(formData);
+
+          if (uploaded) {
+            resetPhotoForm();
+          }
         }}
       >
-        <PortalSelect
-          label="Tipo"
-          value={photoType}
-          options={portalPhotoLabels}
-          onChange={(value) =>
-            setPhotoType(value as ClientPortalProgressPhotoType)
-          }
-        />
-        <PortalInput
-          label="Fecha"
-          type="date"
-          value={recordedAt}
-          onChange={setRecordedAt}
-        />
-        <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-          Foto
+        <div className="sm:col-span-2 lg:col-span-3">
+          <h2 className="text-xl font-semibold text-foreground">
+            Subir foto de progreso
+          </h2>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="progress-photo-type">Tipo</Label>
+          <select
+            id="progress-photo-type"
+            className="h-10 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={uploading}
+            value={photoType}
+            onChange={(event) =>
+              setPhotoType(event.target.value as ClientPortalProgressPhotoType)
+            }
+          >
+            {Object.entries(portalPhotoLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="progress-photo-date">Fecha</Label>
+          <Input
+            id="progress-photo-date"
+            disabled={uploading}
+            type="date"
+            value={recordedAt}
+            onChange={(event) => setRecordedAt(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <span className="text-sm font-medium leading-none">Foto</span>
           <input
+            ref={fileInputRef}
             accept="image/jpeg,image/png,image/webp"
-            className="w-full min-w-0 overflow-hidden rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--portal-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-[var(--portal-accent)] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8] dark:file:bg-[#1f2937] "
-            required
+            aria-label="Archivo de foto de progreso"
+            className="sr-only"
+            id="progress-photo-file"
             type="file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
-        </label>
-        <PortalButton
-          className="w-full sm:self-end"
-          disabled={saving || !file}
-          type="submit"
-        >
-          Subir
-        </PortalButton>
+          <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+            <Button
+              disabled={uploading}
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {file ? "Cambiar foto" : "Seleccionar foto"}
+            </Button>
+            <p className="min-w-0 truncate text-sm text-muted-foreground">
+              {file?.name ?? "Ningún archivo seleccionado"}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG o WebP. Máximo 8 MB.
+          </p>
+        </div>
+        <p className="flex gap-2 text-sm leading-6 text-muted-foreground sm:col-span-2 lg:col-span-3">
+          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          Tus fotos se almacenan de forma privada y solo se muestran dentro del
+          portal al personal autorizado.
+        </p>
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3">
+          {photoFormDirty ? (
+            <Button
+              disabled={uploading}
+              type="button"
+              variant="outline"
+              onClick={resetPhotoForm}
+            >
+              Cancelar
+            </Button>
+          ) : null}
+          <Button aria-busy={uploading} disabled={uploading || !file} type="submit">
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            Subir
+          </Button>
+        </div>
       </form>
       {items.length === 0 ? (
         <PortalEmpty text="Aun no hay fotos de progreso." />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {items.map((item) => (
-            <div
+            <article
               key={item.id}
-              className="overflow-hidden rounded-2xl border border-[#ece7e3] bg-white shadow-sm dark:border-[#222936] dark:bg-[#121722]"
+              className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[var(--surface-shadow-soft)]"
             >
-              <div className="relative aspect-[4/3] w-full">
+              <div className="relative aspect-[4/3] w-full bg-muted">
                 <NextImage
                   alt={`Foto ${portalPhotoLabels[item.photoType]}`}
                   className="object-cover"
@@ -1748,23 +2725,143 @@ function PortalPhotosSection({
                   unoptimized
                 />
               </div>
-              <div className="flex items-center justify-between gap-3 p-4 text-sm font-bold">
-                <span>
-                  {portalPhotoLabels[item.photoType]} /{" "}
-                  {portalFormatDate(item.recordedAt)}
-                </span>
-                {item.uploadedByType === "client" ? (
-                  <PortalButton
-                    disabled={saving}
-                    type="button"
-                    variant="danger"
-                    onClick={() => void onDelete(item.id)}
+              <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {portalPhotoLabels[item.photoType]}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                      {portalFormatProgressDate(item.recordedAt)}
+                    </p>
+                  </div>
+                  <Badge
+                    className="gap-1.5"
+                    variant={item.uploadedByType === "client" ? "success" : "info"}
                   >
+                    {item.uploadedByType === "client"
+                      ? "Subida por ti"
+                      : "Subida por coach"}
+                  </Badge>
+                </div>
+                {canClientDeleteProgressPhoto(item) ? (
+                  <Button
+                    aria-busy={deletingId === item.id}
+                    className="w-full border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={hasPendingDelete}
+                    onClick={() => {
+                      if (!hasPendingDelete) {
+                        setConfirmDelete(item);
+                      }
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    {deletingId === item.id ? (
+                      <Loader2
+                        className="size-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    )}
                     Borrar
-                  </PortalButton>
+                  </Button>
                 ) : null}
               </div>
-            </div>
+            </article>
+          ))}
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDelete(null);
+          }
+        }}
+        title="¿Borrar foto de progreso?"
+        description="Esta foto se eliminará de tu galería de progreso."
+        cancelLabel="Cancelar"
+        confirmLabel="Borrar"
+        isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
+        onConfirm={async () => {
+          if (!confirmDelete || deletingId !== null) return;
+          await onDelete(confirmDelete.id);
+        }}
+      />
+    </div>
+  );
+}
+
+function PortalNotesSection({
+  error,
+  items,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  items: ClientPortalProgressNote[];
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  const summary = buildNoteSummary(items);
+
+  return (
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de notas"
+        className="rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid grid-cols-2 divide-x divide-border/70">
+          <SummaryMetric
+            icon={<MessageCircle className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Notas visibles"
+            value={summary.visibleCount.toString()}
+          />
+          <SummaryMetric
+            icon={<Calendar className="size-5 sm:size-6" aria-hidden="true" />}
+            label="Última nota"
+            value={
+              summary.latestCreatedAt
+                ? portalFormatProgressDate(summary.latestCreatedAt)
+                : "Sin notas"
+            }
+            muted
+          />
+        </div>
+      </section>
+      {items.length === 0 ? (
+        <PortalEmpty text="No hay notas visibles por ahora." />
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+            >
+              <div className="flex min-w-0 gap-4">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                  <MessageCircle className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="muted">Nota de tu coach</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {portalFormatProgressDate(item.createdAt)}
+                    </span>
+                  </div>
+                  <p className="mt-4 whitespace-pre-wrap break-words text-base leading-7 text-foreground">
+                    {item.text}
+                  </p>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )}
@@ -1772,161 +2869,21 @@ function PortalPhotosSection({
   );
 }
 
-function PortalNotesSection({ items }: { items: ClientPortalProgressNote[] }) {
-  return (
-    <div className="mt-5 space-y-3">
-      {items.length === 0 ? (
-        <PortalEmpty text="No hay notas visibles por ahora." />
-      ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title="Nota de tu coach"
-            meta={portalFormatDate(item.createdAt)}
-            note={item.text}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-function PortalRecord({
-  children,
-  meta,
-  note,
-  title,
-}: {
-  children?: ReactNode;
-  meta: string;
-  note?: string | null;
-  title: string;
-}) {
-  return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-black">{title}</h2>
-          <p className="mt-1 text-xs font-bold text-[#667080] dark:text-[#aab2bf]">
-            {meta}
-          </p>
-          {note ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#4a5565] dark:text-[#d6dbe3]">
-              {note}
-            </p>
-          ) : null}
-        </div>
-        {children ? (
-          <div className="flex shrink-0 gap-2">{children}</div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function PortalInput({
-  label,
-  onChange,
-  value,
-  ...props
-}: { label: string; onChange: (value: string) => void; value: string } & Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  "onChange" | "value"
->) {
-  return (
-    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-      {label}
-      <input
-        className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        {...props}
-      />
-    </label>
-  );
-}
-
-function PortalSelect({
-  label,
-  onChange,
-  options,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  options: Record<string, string>;
-  value: string;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-      {label}
-      <select
-        className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {Object.entries(options).map(([key, label]) => (
-          <option key={key} value={key}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function PortalButton({
-  children,
-  className,
-  variant = "primary",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
-}) {
-  return (
-    <button
-      className={cn(
-        "rounded-xl px-4 py-2 text-sm font-black disabled:opacity-60",
-        variant === "primary" &&
-          "bg-[var(--portal-accent)] text-[var(--portal-accent-on)] dark:text-[#0b0d0f]",
-        variant === "secondary" &&
-          "border border-[#e4dfda] bg-white text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]",
-        variant === "danger" &&
-          "bg-[var(--portal-accent-soft)] text-[#b63d31] dark:bg-[#3a1515] dark:text-[#ffb4aa]",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
 function PortalEmpty({ text }: { text: string }) {
   return (
-    <p className="rounded-2xl border border-dashed border-[#e4dfda] bg-white p-5 text-center text-sm font-bold text-[#667080] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#aab2bf]">
+    <p className="rounded-2xl border border-dashed border-border/80 bg-card p-5 text-center text-sm font-semibold text-muted-foreground shadow-[var(--surface-shadow-soft)]">
       {text}
     </p>
   );
 }
 
-function portalDateInput(value?: string) {
-  return value ? value.slice(0, 10) : new Date().toISOString().slice(0, 10);
-}
-
-function portalFormatDate(value: string) {
+function portalFormatProgressDate(value: string) {
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
+    timeZone: "UTC",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function portalMeasurementSummary(item: ClientPortalBodyMeasurement) {
-  const parts = portalMeasurementFields
-    .map(([key, label]) => (item[key] ? `${label} ${item[key]} cm` : null))
-    .filter(Boolean);
-  return parts.length > 0 ? parts.join(" / ") : "Medidas";
 }
 
 function isForbidden(caught: unknown) {
@@ -1935,6 +2892,281 @@ function isForbidden(caught: unknown) {
     caught !== null &&
     "status" in caught &&
     caught.status === 403
+  );
+}
+
+function mobileCalendarDayId(date: string) {
+  return `mobile-calendar-day-${date}`;
+}
+
+function MobileCalendarWeekStrip({
+  days,
+  onSelect,
+  selectedDate,
+}: {
+  days: ClientPortalDay[];
+  onSelect: (date: string) => void;
+  selectedDate: string;
+}) {
+  return (
+    <div
+      aria-label="Días de la semana"
+      className="mt-4 grid snap-x grid-cols-[repeat(7,minmax(44px,1fr))] gap-1 overflow-x-auto rounded-2xl border border-transparent bg-card p-1.5 shadow-[var(--surface-shadow-soft)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+    >
+      {days.map((day) => {
+        const selected = day.date === selectedDate;
+        return (
+          <button
+            aria-label={`${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${statusLabels[day.status]}`}
+            aria-pressed={selected}
+            className={cn(
+              "flex min-h-[5.75rem] min-w-11 snap-start flex-col items-center rounded-xl px-1 py-2 text-center transition-[background,color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+              selected
+                ? "bg-primary text-primary-foreground shadow-[0_10px_24px_color-mix(in_oklab,var(--primary)_20%,transparent)]"
+                : "text-foreground hover:bg-accent/60",
+            )}
+            id={mobileCalendarDayId(day.date)}
+            key={day.date}
+            onClick={() => onSelect(day.date)}
+            type="button"
+          >
+            <span
+              className={cn(
+                "text-[0.65rem] font-semibold uppercase leading-none",
+                selected
+                  ? "text-primary-foreground/90"
+                  : "text-muted-foreground",
+              )}
+            >
+              {shortDay(day.dayOfWeek)}
+            </span>
+            <span className="mt-1 text-xl font-semibold leading-none tracking-normal">
+              {Number(day.date.slice(-2))}
+            </span>
+            <MobileCalendarStatusMark day={day} selected={selected} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileCalendarStatusMark({
+  className,
+  day,
+  selected = false,
+}: {
+  className?: string;
+  day: ClientPortalDay;
+  selected?: boolean;
+}) {
+  const tone = calendarDayTone(day);
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2",
+        selected
+          ? "border-primary-foreground/80 bg-primary-foreground/15 text-primary-foreground"
+          : mobileCalendarStatusToneClasses[tone],
+        className,
+      )}
+    >
+      {!day.session ? (
+        <span className="text-base font-bold leading-none">−</span>
+      ) : day.status === "completed" ||
+        day.status === "partially_completed" ? (
+        <Check className="size-3.5" />
+      ) : day.status === "overdue" ? (
+        <AlertTriangle className="size-3.5" />
+      ) : day.status === "opened" || day.status === "in_progress" ? (
+        <ChevronRight className="size-3.5" />
+      ) : null}
+    </span>
+  );
+}
+
+function MobileSelectedSessionCard({
+  day,
+  loading,
+  onOpen,
+  progress,
+}: {
+  day: ClientPortalDay;
+  loading: boolean;
+  onOpen: () => void;
+  progress: CalendarProgress | null;
+}) {
+  return (
+    <article className="mt-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          {day.session ? (
+            <Dumbbell className="size-5" />
+          ) : (
+            <Calendar className="size-5" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            {formatFullDate(day.date, day.dayOfWeek)}
+          </p>
+          <h2 className="mt-1 text-lg font-bold leading-tight tracking-normal text-foreground">
+            {day.session?.name ?? "Día de recuperación"}
+          </h2>
+        </div>
+        <MobileCalendarStatusBadge day={day} className="shrink-0" />
+      </div>
+
+      {day.session?.description ? (
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          {day.session.description}
+        </p>
+      ) : !day.session ? (
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          No tienes entrenamiento programado para este día.
+        </p>
+      ) : null}
+
+      {day.log && progress ? (
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="text-sm font-semibold text-muted-foreground">
+            Tu progreso
+          </p>
+          <div className="mt-3 flex items-center gap-4">
+            <div
+              aria-label={`${progress.percentage}% completado`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={progress.percentage}
+              className="relative size-20 shrink-0"
+              role="progressbar"
+            >
+              <svg
+                aria-hidden="true"
+                className="size-full -rotate-90"
+                viewBox="0 0 40 40"
+              >
+                <circle
+                  className="fill-none stroke-muted"
+                  cx="20"
+                  cy="20"
+                  pathLength="100"
+                  r="16"
+                  strokeWidth="3"
+                />
+                <circle
+                  className="fill-none stroke-primary"
+                  cx="20"
+                  cy="20"
+                  pathLength="100"
+                  r="16"
+                  strokeDasharray={`${progress.percentage} 100`}
+                  strokeLinecap="round"
+                  strokeWidth="3"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-primary">
+                {progress.percentage}%
+              </span>
+            </div>
+            <div>
+              <p className="text-base font-bold text-foreground">
+                {progress.completed} / {progress.total} ejercicios
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Completados
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {day.session ? (
+        <Button
+          aria-busy={loading}
+          className="mt-5 min-h-12 w-full rounded-xl text-sm font-semibold"
+          disabled={loading}
+          onClick={onOpen}
+          type="button"
+        >
+          {loading ? (
+            <>
+              <Loader2 aria-hidden="true" className="size-5 animate-spin" />
+              <span className="sr-only">Abriendo sesión</span>
+            </>
+          ) : (
+            mobileCalendarDayActionLabel(day)
+          )}
+          {!loading ? <ChevronRight className="size-5" /> : null}
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
+function MobileUpcomingDays({
+  days,
+  onSelect,
+}: {
+  days: ClientPortalDay[];
+  onSelect: (date: string) => void;
+}) {
+  if (!days.length) return null;
+
+  return (
+    <section className="mt-7" aria-labelledby="mobile-upcoming-title">
+      <h2
+        className="text-base font-bold tracking-normal text-foreground"
+        id="mobile-upcoming-title"
+      >
+        Próximas sesiones
+      </h2>
+      <div className="mt-3 overflow-hidden rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
+        {days.map((day) => {
+          const tone = calendarDayTone(day);
+          return (
+            <button
+              aria-label={`Seleccionar ${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${day.session?.name ?? "Descanso"}, ${statusLabels[day.status]}`}
+              className={cn(
+                "grid min-h-16 w-full grid-cols-[2.4rem_1.75rem_minmax(0,1fr)_auto_1rem] items-center gap-2 border-b border-border/70 px-3 py-3 text-left last:border-b-0 hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary",
+                tone === "rest" && "text-muted-foreground",
+              )}
+              key={day.date}
+              onClick={() => onSelect(day.date)}
+              type="button"
+            >
+              <span className="text-center">
+                <span className="block text-[0.65rem] font-medium text-muted-foreground">
+                  {shortDay(day.dayOfWeek)}
+                </span>
+                <span
+                  className={cn(
+                    "block text-base font-semibold",
+                    tone === "rest" ? "text-muted-foreground" : "text-foreground",
+                  )}
+                >
+                  {Number(day.date.slice(-2))}
+                </span>
+              </span>
+              <MobileCalendarStatusMark className="mt-0" day={day} />
+              <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                {day.session?.name ?? "Descanso"}
+              </span>
+              <MobileCalendarStatusBadge
+                day={day}
+                className="max-w-[5.5rem] truncate px-2 text-[0.65rem]"
+              />
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -2118,6 +3350,7 @@ function SelectedSessionCard({
       {day.session ? (
         <div className="flex min-w-0 items-center border-t border-[#ece7e3] pt-6 dark:border-[#293140] xl:min-w-64 xl:border-l xl:border-t-0 xl:pl-8 xl:pt-0">
           <button
+            aria-busy={loading}
             className={cn(
               "flex h-14 w-full items-center justify-center gap-3 rounded-xl px-5 text-base font-bold",
               calendarButtonToneClasses[tone],
@@ -2127,7 +3360,10 @@ function SelectedSessionCard({
             type="button"
           >
             {loading ? (
-              <Loader2 className="size-5 animate-spin" />
+              <>
+                <Loader2 aria-hidden="true" className="size-5 animate-spin" />
+                <span className="sr-only">Abriendo sesión</span>
+              </>
             ) : (
               calendarDayActionLabel(day)
             )}
@@ -2165,8 +3401,8 @@ function UpcomingDays({ days }: { days: ClientPortalDay[] }) {
               </h3>
               <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
                 {day.session
-                  ? "Proxima sesion programada."
-                  : "Dia de recuperacion."}
+                  ? "Próxima sesión programada."
+                  : "Día de recuperación."}
               </p>
             </div>
             <CalendarStatusBadge day={day} />
@@ -2957,26 +4193,37 @@ function SessionBackLink({ href }: { href: string }) {
 }
 
 function WeekButton({
+  anchorDate,
+  busy,
+  disabled,
   direction,
-  date,
-  token,
+  onNavigate,
 }: {
+  anchorDate: string;
+  busy: boolean;
+  disabled: boolean;
   direction: "prev" | "next";
-  date: string;
-  token: string;
+  onNavigate: (direction: WeekNavigationDirection, anchorDate: string) => void;
 }) {
-  const target = addDays(date, direction === "prev" ? -7 : 7);
   return (
-    <Link
-      className="flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] dark:bg-[#121722] dark:text-[#f4f6f8]"
-      href={`/c/${encodeURIComponent(token)}/calendar?date=${target}`}
+    <Button
+      aria-busy={busy}
+      aria-label={direction === "prev" ? "Semana anterior" : "Semana siguiente"}
+      className="size-10 rounded-xl border-border/70 bg-card shadow-[var(--surface-shadow-soft)]"
+      disabled={disabled}
+      onClick={() => onNavigate(direction, anchorDate)}
+      size="icon"
+      type="button"
+      variant="outline"
     >
-      {direction === "prev" ? (
-        <ChevronLeft className="size-6" />
+      {busy ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : direction === "prev" ? (
+        <ChevronLeft className="size-4" />
       ) : (
-        <ChevronRight className="size-6" />
+        <ChevronRight className="size-4" />
       )}
-    </Link>
+    </Button>
   );
 }
 
@@ -3080,6 +4327,14 @@ function shortDay(day: string) {
 function formatDate(date: string) {
   const parsed = new Date(`${date}T00:00:00`);
   return parsed.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function formatCalendarMonth(date: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00.000Z`));
 }
 
 function formatCompletionDateParts(date: string) {
@@ -3197,12 +4452,6 @@ function formatFullDate(date: string, dayOfWeek: string) {
   return `${longDay(dayOfWeek)} ${formatted}`;
 }
 
-function addDays(date: string, days: number) {
-  const parsed = new Date(`${date}T00:00:00`);
-  parsed.setDate(parsed.getDate() + days);
-  return parsed.toISOString().slice(0, 10);
-}
-
 function isFinalized(status?: ClientPortalStatus) {
   return status === "completed" || status === "partially_completed";
 }
@@ -3222,6 +4471,11 @@ function calendarDayActionLabel(day: ClientPortalDay) {
   if (day.status === "overdue") return "Abrir atrasada";
   if (!day.canOpen) return "Vista previa";
   return "Iniciar";
+}
+
+function mobileCalendarDayActionLabel(day: ClientPortalDay) {
+  const label = calendarDayActionLabel(day);
+  return label === "Ver sesion" ? "Ver sesión" : label;
 }
 
 function calendarDayShortLabel(day: ClientPortalDay) {
@@ -3262,6 +4516,36 @@ function CalendarStatusBadge({
       {statusLabels[day.status]}
     </span>
   );
+}
+
+function MobileCalendarStatusBadge({
+  day,
+  className,
+}: {
+  day: ClientPortalDay;
+  className?: string;
+}) {
+  const tone = calendarDayTone(day);
+  return (
+    <Badge
+      variant={mobileCalendarBadgeVariant(tone)}
+      className={cn(
+        "max-w-full justify-center truncate px-2 py-0.5 text-[11px] font-semibold",
+        className,
+      )}
+    >
+      {statusLabels[day.status]}
+    </Badge>
+  );
+}
+
+function mobileCalendarBadgeVariant(tone: CalendarDayTone): BadgeVariant {
+  if (tone === "completed") return "success";
+  if (tone === "overdue") return "danger";
+  if (tone === "partially_completed") return "warning";
+  if (tone === "active") return "default";
+  if (tone === "pending") return "outline";
+  return "muted";
 }
 
 function errorMessage(caught: unknown, fallback: string) {

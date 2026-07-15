@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
+  type ComponentProps,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
@@ -44,13 +45,23 @@ import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
+  createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
+  getActivePendingWeekNavigation,
   getCalendarProgress,
+  getCalendarWeekNavigationState,
   getUpcomingCalendarDays,
+  getWeekNavigationTarget,
+  isDateInsideCalendarDays,
   selectCalendarDay,
   selectMobileCalendarDay,
   type CalendarProgress,
+  type CoordinatedRequest,
+  type PendingWeekNavigation,
+  type WeekNavigationDirection,
 } from "@/components/client-portal/client-calendar-state";
 import {
   clientPortalRequest,
@@ -98,6 +109,8 @@ type CalendarDayTone =
   | "active"
   | "completed"
   | "partially_completed";
+
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
 const calendarCellToneClasses: Record<CalendarDayTone, string> = {
   rest: "border-[#e6e0db] bg-[#f5f2ef] dark:border-[#293140] dark:bg-[#151a23]",
@@ -151,36 +164,15 @@ const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
 };
 
 const mobileCalendarStatusToneClasses: Record<CalendarDayTone, string> = {
-  rest: "border-[#59616c] text-[#59616c] dark:border-[#aab2bf] dark:text-[#d6dbe3]",
-  pending: "border-[#a83229] text-[#a83229] dark:border-[#ffaca3] dark:text-[#ffb4aa]",
-  overdue: "border-[#a61e27] text-[#a61e27] dark:border-[#ff9da2] dark:text-[#ff9da2]",
-  active:
-    "border-[#a83229] bg-[#a83229] text-white dark:border-[#ffb4aa] dark:bg-[#7d2b24] dark:text-white",
+  rest: "border-border bg-background text-muted-foreground",
+  pending: "border-primary/80 text-primary",
+  overdue: "border-red-500 text-red-600 dark:border-red-400 dark:text-red-300",
+  active: "border-primary bg-primary text-primary-foreground",
   completed:
-    "border-[#1f6b3c] bg-[#1f6b3c] text-white dark:border-[#8de1a8] dark:bg-[#245f3a] dark:text-white",
+    "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-500 dark:text-emerald-950",
   partially_completed:
-    "border-[#83500b] bg-[#83500b] text-white dark:border-[#ffd28c] dark:bg-[#704307] dark:text-white",
+    "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950",
 };
-
-const mobileCalendarLabelToneClasses: Record<CalendarDayTone, string> = {
-  rest: "text-[#59616c] dark:text-[#c7cfdb]",
-  pending: "text-[#962d25] dark:text-[#ffb4aa]",
-  overdue: "text-[#a61e27] dark:text-[#ff9da2]",
-  active: "text-[#962d25] dark:text-[#ffb4aa]",
-  completed: "text-[#1f6b3c] dark:text-[#8de1a8]",
-  partially_completed: "text-[#754608] dark:text-[#ffd28c]",
-};
-
-const mobileCalendarBadgeToneClasses: Record<CalendarDayTone, string> = {
-  rest: "bg-[#e4e7eb] text-[#343b45] dark:bg-[#2c3440] dark:text-[#edf0f4]",
-  pending: "bg-[#f7d9d4] text-[#76241d] dark:bg-[#43221e] dark:text-[#ffc0b9]",
-  overdue: "bg-[#f8dadd] text-[#7f1820] dark:bg-[#461f23] dark:text-[#ffadb1]",
-  active: "bg-[#f3d5d1] text-[#702119] dark:bg-[#43221e] dark:text-[#ffc0b9]",
-  completed: "bg-[#d8ecdf] text-[#17522e] dark:bg-[#183525] dark:text-[#9ce7b4]",
-  partially_completed:
-    "bg-[#f3e1c5] text-[#633a04] dark:bg-[#3b2a14] dark:text-[#ffda9d]",
-};
-
 
 export function PinAccessScreen({ token }: { token: string }) {
   const router = useRouter();
@@ -326,30 +318,127 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const router = useRouter();
   const date = searchParams.get("date");
   const [data, setData] = useState<ClientPortalCalendar | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isWeekRefreshing, setIsWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [pendingWeekNavigation, setPendingWeekNavigation] =
+    useState<PendingWeekNavigation | null>(null);
   const [selectedProgress, setSelectedProgress] = useState<{
     logId: string;
     value: CalendarProgress | null;
   } | null>(null);
+  const calendarCoordinatorRef = useRef(
+    createLatestCalendarRequestCoordinator<ClientPortalCalendar>(),
+  );
+  const loadedCalendarRef = useRef<ClientPortalCalendar | null>(null);
+  const pendingWeekNavigationRef = useRef<PendingWeekNavigation | null>(null);
   const pendingMobileFocusDateRef = useRef<string | null>(null);
   const progressCoordinatorRef = useRef(
     createLatestRequestCoordinator<CalendarProgress | null>(),
   );
+  const selectedDateRef = useRef<string | null>(null);
+
+  const updateSelectedDate = useCallback((nextDate: string | null) => {
+    selectedDateRef.current = nextDate;
+    setSelectedDate(nextDate);
+  }, []);
 
   const load = useCallback(() => {
+    const hasLoadedCalendar = Boolean(loadedCalendarRef.current?.calendar);
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
-    clientPortalRequest<ClientPortalCalendar>(
-      `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
-    )
-      .then(setData)
-      .catch((caught) =>
-        setError(errorMessage(caught, "No pudimos cargar el calendario.")),
-      )
-      .finally(() => setLoading(false));
-  }, [date, token]);
+    let cancelled = false;
+    let request: CoordinatedRequest<ClientPortalCalendar> | null = null;
+
+    Promise.resolve()
+      .then(() => {
+        if (cancelled) return;
+
+        const activePendingNavigation = getActivePendingWeekNavigation(
+          pendingWeekNavigationRef.current,
+          date,
+        );
+        if (pendingWeekNavigationRef.current !== activePendingNavigation) {
+          pendingWeekNavigationRef.current = null;
+          setPendingWeekNavigation(null);
+        }
+        if (hasLoadedCalendar) {
+          setIsWeekRefreshing(true);
+        } else {
+          setIsInitialLoading(true);
+        }
+        if (!hasLoadedCalendar) {
+          setError(null);
+        }
+
+        request = calendarCoordinatorRef.current.run({
+          load: (signal) =>
+            clientPortalRequest<ClientPortalCalendar>(
+              `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
+              { signal },
+            ),
+          onError: (caught) => {
+            const message = errorMessage(
+              caught,
+              "No pudimos cargar el calendario.",
+            );
+            pendingWeekNavigationRef.current = null;
+            setPendingWeekNavigation(null);
+
+            if (hasLoadedCalendar) {
+              setRefreshError(message);
+              const loadedAnchorDate =
+                selectedDateRef.current ??
+                loadedCalendarRef.current?.calendar?.referenceDate;
+              if (loadedAnchorDate && date !== loadedAnchorDate) {
+                router.replace(
+                  `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(loadedAnchorDate)}`,
+                  { scroll: false },
+                );
+              }
+            } else {
+              setError(message);
+            }
+          },
+          onResult: (result) => {
+            const nextDays = result.calendar?.days ?? [];
+            const targetDate = date ?? null;
+            const requestedDateForLoadedWeek = isDateInsideCalendarDays(
+              nextDays,
+              targetDate,
+            )
+              ? targetDate
+              : null;
+            const nextSelectedDay = selectMobileCalendarDay(nextDays, {
+              requestedDate: requestedDateForLoadedWeek,
+              selectedDate: null,
+              today: result.calendar?.today ?? "",
+            });
+
+            loadedCalendarRef.current = result;
+            pendingWeekNavigationRef.current = null;
+            setData(result);
+            setError(null);
+            updateSelectedDate(nextSelectedDay?.date ?? null);
+            setSelectedProgress(null);
+            setPendingWeekNavigation(null);
+          },
+        });
+
+        void request.settled.finally(() => {
+          if (cancelled) return;
+          setIsInitialLoading(false);
+          setIsWeekRefreshing(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      request?.cancel();
+    };
+  }, [date, router, token, updateSelectedDate]);
 
   useEffect(load, [load]);
 
@@ -386,12 +475,15 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   }
 
   const days = data?.calendar?.days ?? [];
+  const requestedDateForLoadedWeek = isDateInsideCalendarDays(days, date)
+    ? date
+    : null;
   const selectedDay = selectCalendarDay(days, {
     selectedDate,
     today: data?.calendar?.today ?? "",
   });
   const mobileSelectedDay = selectMobileCalendarDay(days, {
-    requestedDate: date,
+    requestedDate: requestedDateForLoadedWeek,
     selectedDate,
     today: data?.calendar?.today ?? "",
   });
@@ -401,6 +493,12 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const mobileUpcomingDays = mobileSelectedDay
     ? getUpcomingCalendarDays(days, mobileSelectedDay.date)
     : [];
+  const weekNavigation = data?.calendar
+    ? getCalendarWeekNavigationState({
+        durationWeeks: data.assignment?.assignedPlan.durationWeeks,
+        weekNumber: data.calendar.weekNumber,
+      })
+    : { canNavigateNext: false, canNavigatePrevious: false };
   const mobileSelectedDate = mobileSelectedDay?.date ?? null;
   const selectedLogId = mobileSelectedDay?.log?.id ?? null;
 
@@ -456,7 +554,26 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
 
   function selectUpcomingMobileDate(selectedUpcomingDate: string) {
     pendingMobileFocusDateRef.current = selectedUpcomingDate;
-    setSelectedDate(selectedUpcomingDate);
+    updateSelectedDate(selectedUpcomingDate);
+  }
+
+  function navigateWeek(
+    direction: WeekNavigationDirection,
+    anchorDate: string,
+  ) {
+    if (pendingWeekNavigationRef.current) return;
+
+    const targetDate = getWeekNavigationTarget(anchorDate, direction);
+    const nextPendingNavigation = { direction, targetDate };
+    pendingWeekNavigationRef.current = nextPendingNavigation;
+    setPendingWeekNavigation(nextPendingNavigation);
+    setIsWeekRefreshing(true);
+    setError(null);
+    setRefreshError(null);
+    router.push(
+      `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(targetDate)}`,
+      { scroll: false },
+    );
   }
 
   return (
@@ -470,51 +587,72 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
             Revisa tus sesiones programadas y tu avance de la semana.
           </p>
         </header>
-        {loading ? <ScreenState title="Cargando calendario" compact /> : null}
+        {isInitialLoading ? (
+          <ScreenState title="Cargando calendario" compact />
+        ) : null}
         {error ? <InlineError message={error} /> : null}
+        {refreshError ? <InlineError message={refreshError} /> : null}
         {data?.calendar ? (
           <>
             <header className="md:hidden">
-              <h1 className="text-[2.15rem] font-black leading-none tracking-[-0.04em] text-[#09111f] dark:text-[#f4f6f8]">
+              <h1 className="truncate text-2xl font-bold tracking-normal text-foreground">
                 Calendario
               </h1>
-              <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-lg font-bold capitalize text-[var(--portal-accent)]">
-                  {formatCalendarMonth(
-                    mobileSelectedDay?.date ?? data.calendar.referenceDate,
-                  )}
-                </p>
-                <div className="flex shrink-0 items-center gap-1">
-                  <WeekButton
-                    direction="prev"
-                    date={data.calendar.weekStartDate}
-                    token={token}
-                  />
-                  <span className="px-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+              <div className="mt-2 flex min-h-10 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold capitalize text-primary">
+                    {formatCalendarMonth(
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate,
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Semana {data.calendar.weekNumber}
-                  </span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
                   <WeekButton
+                    anchorDate={
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate
+                    }
+                    busy={pendingWeekNavigation?.direction === "prev"}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigatePrevious
+                    }
+                    direction="prev"
+                    onNavigate={navigateWeek}
+                  />
+                  <WeekButton
+                    anchorDate={
+                      mobileSelectedDay?.date ?? data.calendar.referenceDate
+                    }
+                    busy={pendingWeekNavigation?.direction === "next"}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigateNext
+                    }
                     direction="next"
-                    date={data.calendar.weekEndDate}
-                    token={token}
+                    onNavigate={navigateWeek}
                   />
                 </div>
               </div>
             </header>
             <div className="mt-5 hidden items-center gap-3 md:flex lg:mt-8 lg:max-w-3xl">
               <WeekButton
+                anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
+                busy={pendingWeekNavigation?.direction === "prev"}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigatePrevious}
                 direction="prev"
-                date={data.calendar.weekStartDate}
-                token={token}
+                onNavigate={navigateWeek}
               />
             <div className="flex-1 rounded-xl border border-[#ece7e3] bg-white py-3 text-center text-sm font-bold text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]">
                 {formatDate(data.calendar.weekStartDate)} -{" "}
                 {formatDate(data.calendar.weekEndDate)}
               </div>
               <WeekButton
+                anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
+                busy={pendingWeekNavigation?.direction === "next"}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigateNext}
                 direction="next"
-                date={data.calendar.weekEndDate}
-                token={token}
+                onNavigate={navigateWeek}
               />
             </div>
             <div className="mt-5 hidden space-y-3 md:block lg:hidden">
@@ -531,7 +669,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               <div className="md:hidden">
                 <MobileCalendarWeekStrip
                   days={data.calendar.days}
-                  onSelect={setSelectedDate}
+                  onSelect={updateSelectedDate}
                   selectedDate={mobileSelectedDay.date}
                 />
                 <MobileSelectedSessionCard
@@ -556,7 +694,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                   day={day}
                   selected={day.date === selectedDay?.date}
                   key={day.date}
-                  onSelect={() => setSelectedDate(day.date)}
+                  onSelect={() => updateSelectedDate(day.date)}
                 />
               ))}
             </div>
@@ -572,7 +710,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               </div>
             ) : null}
           </>
-        ) : !loading ? (
+        ) : !isInitialLoading ? (
           <EmptyCard title={calendarStateTitle(data?.state)} />
         ) : null}
       </section>
@@ -2113,22 +2251,21 @@ function MobileCalendarWeekStrip({
 }) {
   return (
     <div
-      aria-label="Dias de la semana"
-      className="mt-5 flex gap-0.5 overflow-x-auto rounded-[1.65rem] border border-[#eee8e2] bg-white/80 p-1.5 shadow-[0_14px_40px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]"
+      aria-label="Días de la semana"
+      className="mt-4 grid snap-x grid-cols-[repeat(7,minmax(44px,1fr))] gap-1 overflow-x-auto rounded-2xl border border-transparent bg-card p-1.5 shadow-[var(--surface-shadow-soft)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="group"
     >
       {days.map((day) => {
         const selected = day.date === selectedDate;
-        const tone = calendarDayTone(day);
         return (
           <button
             aria-label={`${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${statusLabels[day.status]}`}
             aria-pressed={selected}
             className={cn(
-              "flex min-h-[8.25rem] min-w-11 flex-1 flex-col items-center rounded-[1.25rem] px-0.5 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)]",
+              "flex min-h-[5.75rem] min-w-11 snap-start flex-col items-center rounded-xl px-1 py-2 text-center transition-[background,color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
               selected
-                ? "bg-[#a83229] text-white shadow-[0_10px_24px_var(--portal-accent-shadow)] dark:bg-[var(--portal-accent)] dark:text-[#0b0d0f]"
-                : "text-[#09111f] hover:bg-[#faf6f2] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]",
+                ? "bg-primary text-primary-foreground shadow-[0_10px_24px_color-mix(in_oklab,var(--primary)_20%,transparent)]"
+                : "text-foreground hover:bg-accent/60",
             )}
             id={mobileCalendarDayId(day.date)}
             key={day.date}
@@ -2137,28 +2274,18 @@ function MobileCalendarWeekStrip({
           >
             <span
               className={cn(
-                "text-[0.62rem] font-black uppercase tracking-[0.08em]",
+                "text-[0.65rem] font-semibold uppercase leading-none",
                 selected
-                  ? "text-white dark:text-[#0b0d0f]"
-                  : "text-[#667080] dark:text-[#c7cfdb]",
+                  ? "text-primary-foreground/90"
+                  : "text-muted-foreground",
               )}
             >
               {shortDay(day.dayOfWeek)}
             </span>
-            <span className="mt-1 text-[1.65rem] font-black leading-none tracking-[-0.04em]">
+            <span className="mt-1 text-xl font-semibold leading-none tracking-normal">
               {Number(day.date.slice(-2))}
             </span>
             <MobileCalendarStatusMark day={day} selected={selected} />
-            <span
-              className={cn(
-                "mt-1.5 max-w-full text-[0.5rem] font-bold leading-[0.62rem] [overflow-wrap:anywhere]",
-                selected
-                  ? "text-white dark:text-[#0b0d0f]"
-                  : mobileCalendarLabelToneClasses[tone],
-              )}
-            >
-              {statusLabels[day.status]}
-            </span>
           </button>
         );
       })}
@@ -2180,9 +2307,9 @@ function MobileCalendarStatusMark({
     <span
       aria-hidden="true"
       className={cn(
-        "mt-3 flex size-7 shrink-0 items-center justify-center rounded-full border-2",
+        "mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2",
         selected
-          ? "border-white/80 bg-white/15 text-white dark:border-[#0b0d0f]/70 dark:bg-[#0b0d0f]/10 dark:text-[#0b0d0f]"
+          ? "border-primary-foreground/80 bg-primary-foreground/15 text-primary-foreground"
           : mobileCalendarStatusToneClasses[tone],
         className,
       )}
@@ -2191,11 +2318,11 @@ function MobileCalendarStatusMark({
         <span className="text-base font-bold leading-none">−</span>
       ) : day.status === "completed" ||
         day.status === "partially_completed" ? (
-        <Check className="size-4" />
+        <Check className="size-3.5" />
       ) : day.status === "overdue" ? (
-        <AlertTriangle className="size-4" />
+        <AlertTriangle className="size-3.5" />
       ) : day.status === "opened" || day.status === "in_progress" ? (
-        <ChevronRight className="size-4" />
+        <ChevronRight className="size-3.5" />
       ) : null}
     </span>
   );
@@ -2212,40 +2339,43 @@ function MobileSelectedSessionCard({
   onOpen: () => void;
   progress: CalendarProgress | null;
 }) {
-  const tone = calendarDayTone(day);
   return (
-    <article className="mt-5 rounded-[1.65rem] border border-[#eee8e2] bg-white p-5 shadow-[0_18px_44px_rgba(45,34,26,0.09)] dark:border-[#293140] dark:bg-[#121722] dark:shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
-      <div className="flex min-w-0 items-start gap-3.5">
+    <article className="mt-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+      <div className="flex min-w-0 items-start gap-3">
         <span
           aria-hidden="true"
-          className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
         >
           {day.session ? (
-            <Dumbbell className="size-6" />
+            <Dumbbell className="size-5" />
           ) : (
-            <Calendar className="size-6" />
+            <Calendar className="size-5" />
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-[#667080] dark:text-[#c7cfdb]">
+          <p className="text-xs font-medium text-muted-foreground">
             {formatFullDate(day.date, day.dayOfWeek)}
           </p>
-          <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.025em] text-[#09111f] dark:text-[#f4f6f8]">
-            {day.session?.name ?? "Descanso"}
+          <h2 className="mt-1 text-lg font-bold leading-tight tracking-normal text-foreground">
+            {day.session?.name ?? "Día de recuperación"}
           </h2>
         </div>
         <MobileCalendarStatusBadge day={day} className="shrink-0" />
       </div>
 
       {day.session?.description ? (
-        <p className="mt-4 text-sm font-medium leading-6 text-[#4f5866] dark:text-[#c7cfdb]">
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
           {day.session.description}
+        </p>
+      ) : !day.session ? (
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          No tienes entrenamiento programado para este día.
         </p>
       ) : null}
 
       {day.log && progress ? (
-        <div className="mt-5 border-t border-[#eee8e2] pt-5 dark:border-[#293140]">
-          <p className="text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="text-sm font-semibold text-muted-foreground">
             Tu progreso
           </p>
           <div className="mt-3 flex items-center gap-4">
@@ -2263,7 +2393,7 @@ function MobileSelectedSessionCard({
                 viewBox="0 0 40 40"
               >
                 <circle
-                  className="fill-none stroke-[#f0e9e3] dark:stroke-[#293140]"
+                  className="fill-none stroke-muted"
                   cx="20"
                   cy="20"
                   pathLength="100"
@@ -2271,7 +2401,7 @@ function MobileSelectedSessionCard({
                   strokeWidth="3"
                 />
                 <circle
-                  className="fill-none stroke-[var(--portal-accent)]"
+                  className="fill-none stroke-primary"
                   cx="20"
                   cy="20"
                   pathLength="100"
@@ -2281,15 +2411,15 @@ function MobileSelectedSessionCard({
                   strokeWidth="3"
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-[var(--portal-accent)]">
+              <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-primary">
                 {progress.percentage}%
               </span>
             </div>
             <div>
-              <p className="text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
+              <p className="text-base font-bold text-foreground">
                 {progress.completed} / {progress.total} ejercicios
               </p>
-              <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Completados
               </p>
             </div>
@@ -2298,12 +2428,9 @@ function MobileSelectedSessionCard({
       ) : null}
 
       {day.session ? (
-        <button
+        <Button
           aria-busy={loading}
-          className={cn(
-            "mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-5 text-base font-black transition-transform active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] disabled:opacity-60",
-            calendarButtonToneClasses[tone],
-          )}
+          className="mt-5 min-h-12 w-full rounded-xl text-sm font-semibold"
           disabled={loading}
           onClick={onOpen}
           type="button"
@@ -2317,7 +2444,7 @@ function MobileSelectedSessionCard({
             mobileCalendarDayActionLabel(day)
           )}
           {!loading ? <ChevronRight className="size-5" /> : null}
-        </button>
+        </Button>
       ) : null}
     </article>
   );
@@ -2335,38 +2462,50 @@ function MobileUpcomingDays({
   return (
     <section className="mt-7" aria-labelledby="mobile-upcoming-title">
       <h2
-        className="text-xl font-black tracking-[-0.025em] text-[#09111f] dark:text-[#f4f6f8]"
+        className="text-base font-bold tracking-normal text-foreground"
         id="mobile-upcoming-title"
       >
         Próximas sesiones
       </h2>
-      <div className="mt-3 overflow-hidden rounded-[1.4rem] border border-[#eee8e2] bg-white shadow-[0_14px_36px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]">
-        {days.map((day) => (
-          <button
-            aria-label={`Seleccionar ${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${day.session?.name ?? "Descanso"}, ${statusLabels[day.status]}`}
-            className="grid min-h-16 w-full grid-cols-[3.1rem_2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#eee8e2] px-3 py-3 text-left last:border-b-0 hover:bg-[#faf6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--portal-accent)] dark:border-[#293140] dark:hover:bg-[#1a202b]"
-            key={day.date}
-            onClick={() => onSelect(day.date)}
-            type="button"
-          >
-            <span className="text-center">
-              <span className="block text-[0.65rem] font-bold text-[#667080] dark:text-[#c7cfdb]">
-                {shortDay(day.dayOfWeek)}
+      <div className="mt-3 overflow-hidden rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
+        {days.map((day) => {
+          const tone = calendarDayTone(day);
+          return (
+            <button
+              aria-label={`Seleccionar ${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${day.session?.name ?? "Descanso"}, ${statusLabels[day.status]}`}
+              className={cn(
+                "grid min-h-16 w-full grid-cols-[2.4rem_1.75rem_minmax(0,1fr)_auto_1rem] items-center gap-2 border-b border-border/70 px-3 py-3 text-left last:border-b-0 hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary",
+                tone === "rest" && "text-muted-foreground",
+              )}
+              key={day.date}
+              onClick={() => onSelect(day.date)}
+              type="button"
+            >
+              <span className="text-center">
+                <span className="block text-[0.65rem] font-medium text-muted-foreground">
+                  {shortDay(day.dayOfWeek)}
+                </span>
+                <span
+                  className={cn(
+                    "block text-base font-semibold",
+                    tone === "rest" ? "text-muted-foreground" : "text-foreground",
+                  )}
+                >
+                  {Number(day.date.slice(-2))}
+                </span>
               </span>
-              <span className="block text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
-                {Number(day.date.slice(-2))}
+              <MobileCalendarStatusMark className="mt-0" day={day} />
+              <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                {day.session?.name ?? "Descanso"}
               </span>
-            </span>
-            <MobileCalendarStatusMark className="mt-0" day={day} />
-            <span className="min-w-0 truncate text-sm font-black text-[#09111f] dark:text-[#f4f6f8]">
-              {day.session?.name ?? "Descanso"}
-            </span>
-            <MobileCalendarStatusBadge
-              day={day}
-              className="px-2 text-[0.65rem]"
-            />
-          </button>
-        ))}
+              <MobileCalendarStatusBadge
+                day={day}
+                className="max-w-[5.5rem] truncate px-2 text-[0.65rem]"
+              />
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -2603,8 +2742,8 @@ function UpcomingDays({ days }: { days: ClientPortalDay[] }) {
               </h3>
               <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
                 {day.session
-                  ? "Proxima sesion programada."
-                  : "Dia de recuperacion."}
+                  ? "Próxima sesión programada."
+                  : "Día de recuperación."}
               </p>
             </div>
             <CalendarStatusBadge day={day} />
@@ -3395,27 +3534,37 @@ function SessionBackLink({ href }: { href: string }) {
 }
 
 function WeekButton({
+  anchorDate,
+  busy,
+  disabled,
   direction,
-  date,
-  token,
+  onNavigate,
 }: {
+  anchorDate: string;
+  busy: boolean;
+  disabled: boolean;
   direction: "prev" | "next";
-  date: string;
-  token: string;
+  onNavigate: (direction: WeekNavigationDirection, anchorDate: string) => void;
 }) {
-  const target = addDays(date, direction === "prev" ? -7 : 7);
   return (
-    <Link
+    <Button
+      aria-busy={busy}
       aria-label={direction === "prev" ? "Semana anterior" : "Semana siguiente"}
-      className="flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] dark:bg-[#121722] dark:text-[#f4f6f8]"
-      href={`/c/${encodeURIComponent(token)}/calendar?date=${target}`}
+      className="size-10 rounded-xl border-border/70 bg-card shadow-[var(--surface-shadow-soft)]"
+      disabled={disabled}
+      onClick={() => onNavigate(direction, anchorDate)}
+      size="icon"
+      type="button"
+      variant="outline"
     >
-      {direction === "prev" ? (
-        <ChevronLeft className="size-6" />
+      {busy ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : direction === "prev" ? (
+        <ChevronLeft className="size-4" />
       ) : (
-        <ChevronRight className="size-6" />
+        <ChevronRight className="size-4" />
       )}
-    </Link>
+    </Button>
   );
 }
 
@@ -3644,12 +3793,6 @@ function formatFullDate(date: string, dayOfWeek: string) {
   return `${longDay(dayOfWeek)} ${formatted}`;
 }
 
-function addDays(date: string, days: number) {
-  const parsed = new Date(`${date}T00:00:00`);
-  parsed.setDate(parsed.getDate() + days);
-  return parsed.toISOString().slice(0, 10);
-}
-
 function isFinalized(status?: ClientPortalStatus) {
   return status === "completed" || status === "partially_completed";
 }
@@ -3725,16 +3868,25 @@ function MobileCalendarStatusBadge({
 }) {
   const tone = calendarDayTone(day);
   return (
-    <span
+    <Badge
+      variant={mobileCalendarBadgeVariant(tone)}
       className={cn(
-        "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-black",
-        mobileCalendarBadgeToneClasses[tone],
+        "max-w-full justify-center truncate px-2 py-0.5 text-[11px] font-semibold",
         className,
       )}
     >
       {statusLabels[day.status]}
-    </span>
+    </Badge>
   );
+}
+
+function mobileCalendarBadgeVariant(tone: CalendarDayTone): BadgeVariant {
+  if (tone === "completed") return "success";
+  if (tone === "overdue") return "danger";
+  if (tone === "partially_completed") return "warning";
+  if (tone === "active") return "default";
+  if (tone === "pending") return "outline";
+  return "muted";
 }
 
 function errorMessage(caught: unknown, fallback: string) {

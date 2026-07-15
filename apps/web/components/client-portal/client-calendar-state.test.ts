@@ -4,11 +4,17 @@ import type {
   ClientSessionSnapshot,
 } from "@/lib/client-portal/api";
 import {
+  createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
+  getActivePendingWeekNavigation,
   getCalendarProgress,
+  getCalendarWeekNavigationState,
   getUpcomingCalendarDays,
+  getWeekNavigationTarget,
+  isDateInsideCalendarDays,
   selectCalendarDay,
   selectMobileCalendarDay,
+  shiftCalendarDate,
 } from "./client-calendar-state";
 
 function deferred<T>() {
@@ -90,6 +96,175 @@ function snapshot(
 }
 
 describe("client calendar state", () => {
+  test("calendar request coordinator suppresses older responses", async () => {
+    const pendingB = deferred<string>();
+    const pendingC = deferred<string>();
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const requestB = coordinator.run({
+      load: () => pendingB.promise,
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+    const requestC = coordinator.run({
+      load: () => pendingC.promise,
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    pendingB.resolve("week-b");
+    pendingC.resolve("week-c");
+
+    await expect(requestB.settled).resolves.toBeNull();
+    await expect(requestC.settled).resolves.toBe("week-c");
+    expect(delivered).toEqual(["week-c"]);
+    expect(errors).toEqual([]);
+  });
+
+  test("calendar request coordinator aborts without applying data or visible errors", async () => {
+    const pending = deferred<string>();
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const request = coordinator.run({
+      load: (signal) => {
+        signal.addEventListener("abort", () =>
+          pending.reject(new DOMException("Aborted", "AbortError")),
+        );
+        return pending.promise;
+      },
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    request.cancel();
+
+    await expect(request.settled).resolves.toBeNull();
+    expect(delivered).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test("calendar request coordinator reports the latest non-abort error", async () => {
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const request = coordinator.run({
+      load: () => Promise.reject(new Error("refresh failed")),
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    await expect(request.settled).resolves.toBeNull();
+    expect(delivered).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(Error);
+  });
+
+  test("pending week navigation only remains active for the current URL date", () => {
+    const pending = {
+      direction: "next" as const,
+      targetDate: "2026-07-21",
+    };
+
+    expect(getActivePendingWeekNavigation(pending, "2026-07-21")).toBe(
+      pending,
+    );
+    expect(getActivePendingWeekNavigation(pending, "2026-07-14")).toBeNull();
+    expect(getActivePendingWeekNavigation(pending, null)).toBeNull();
+  });
+
+  test("previous week navigation is disabled on week one", () => {
+    expect(
+      getCalendarWeekNavigationState({
+        durationWeeks: 6,
+        weekNumber: 1,
+      }),
+    ).toEqual({
+      canNavigateNext: true,
+      canNavigatePrevious: false,
+    });
+  });
+
+  test("next week navigation is disabled on the last plan week", () => {
+    expect(
+      getCalendarWeekNavigationState({
+        durationWeeks: 6,
+        weekNumber: 6,
+      }),
+    ).toEqual({
+      canNavigateNext: false,
+      canNavigatePrevious: true,
+    });
+  });
+
+  test("week navigation shifts exactly seven days from the selected anchor", () => {
+    expect(getWeekNavigationTarget("2026-07-14", "next")).toBe("2026-07-21");
+    expect(getWeekNavigationTarget("2026-07-14", "prev")).toBe("2026-07-07");
+  });
+
+  test("date key shifting preserves weekdays across month, year, and February boundaries", () => {
+    expect(shiftCalendarDate("2026-01-29", 7)).toBe("2026-02-05");
+    expect(shiftCalendarDate("2026-01-03", -7)).toBe("2025-12-27");
+    expect(shiftCalendarDate("2024-02-26", 7)).toBe("2024-03-04");
+    expect(shiftCalendarDate("2026-03-01", -7)).toBe("2026-02-22");
+  });
+
+  test("date key shifting uses UTC date math instead of local timezone offsets", () => {
+    expect(shiftCalendarDate("2026-03-08", 7)).toBe("2026-03-15");
+    expect(shiftCalendarDate("2026-11-01", 7)).toBe("2026-11-08");
+  });
+
+  test("detects whether a requested date belongs to loaded calendar days", () => {
+    const days = [
+      day("2026-07-13"),
+      day("2026-07-14"),
+      day("2026-07-15"),
+    ];
+
+    expect(isDateInsideCalendarDays(days, "2026-07-14")).toBe(true);
+    expect(isDateInsideCalendarDays(days, "2026-07-20")).toBe(false);
+    expect(isDateInsideCalendarDays(days, null)).toBe(false);
+  });
+
+  test("ignoring an out-of-week requested date keeps old week selection stable", () => {
+    const rest = day("2026-07-13", { session: null });
+    const selected = day("2026-07-14");
+    const later = day("2026-07-15");
+    const days = [rest, selected, later];
+    const requestedDate = "2026-07-21";
+    const requestedDateForLoadedWeek = isDateInsideCalendarDays(
+      days,
+      requestedDate,
+    )
+      ? requestedDate
+      : null;
+
+    expect(
+      selectMobileCalendarDay(days, {
+        requestedDate: requestedDateForLoadedWeek,
+        selectedDate: "2026-07-14",
+        today: "2026-07-13",
+      }),
+    ).toBe(selected);
+  });
+
+  test("selects the navigation target when the new week arrives", () => {
+    const target = day("2026-07-21");
+    const days = [day("2026-07-20"), target, day("2026-07-22")];
+
+    expect(
+      selectMobileCalendarDay(days, {
+        requestedDate: "2026-07-21",
+        selectedDate: null,
+        today: "2026-07-20",
+      }),
+    ).toBe(target);
+  });
+
   test("progress coordinator caches the same request key", async () => {
     const pending = deferred<number>();
     const delivered: Array<number | null> = [];

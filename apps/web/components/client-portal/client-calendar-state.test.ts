@@ -4,7 +4,9 @@ import type {
   ClientSessionSnapshot,
 } from "@/lib/client-portal/api";
 import {
+  createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
+  getActivePendingWeekNavigation,
   getCalendarProgress,
   getUpcomingCalendarDays,
   getWeekNavigationTarget,
@@ -93,6 +95,87 @@ function snapshot(
 }
 
 describe("client calendar state", () => {
+  test("calendar request coordinator suppresses older responses", async () => {
+    const pendingB = deferred<string>();
+    const pendingC = deferred<string>();
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const requestB = coordinator.run({
+      load: () => pendingB.promise,
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+    const requestC = coordinator.run({
+      load: () => pendingC.promise,
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    pendingB.resolve("week-b");
+    pendingC.resolve("week-c");
+
+    await expect(requestB.settled).resolves.toBeNull();
+    await expect(requestC.settled).resolves.toBe("week-c");
+    expect(delivered).toEqual(["week-c"]);
+    expect(errors).toEqual([]);
+  });
+
+  test("calendar request coordinator aborts without applying data or visible errors", async () => {
+    const pending = deferred<string>();
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const request = coordinator.run({
+      load: (signal) => {
+        signal.addEventListener("abort", () =>
+          pending.reject(new DOMException("Aborted", "AbortError")),
+        );
+        return pending.promise;
+      },
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    request.cancel();
+
+    await expect(request.settled).resolves.toBeNull();
+    expect(delivered).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test("calendar request coordinator reports the latest non-abort error", async () => {
+    const delivered: string[] = [];
+    const errors: unknown[] = [];
+    const coordinator = createLatestCalendarRequestCoordinator<string>();
+
+    const request = coordinator.run({
+      load: () => Promise.reject(new Error("refresh failed")),
+      onError: (error) => errors.push(error),
+      onResult: (value) => delivered.push(value),
+    });
+
+    await expect(request.settled).resolves.toBeNull();
+    expect(delivered).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(Error);
+  });
+
+  test("pending week navigation only remains active for the current URL date", () => {
+    const pending = {
+      direction: "next" as const,
+      targetDate: "2026-07-21",
+    };
+
+    expect(getActivePendingWeekNavigation(pending, "2026-07-21")).toBe(
+      pending,
+    );
+    expect(getActivePendingWeekNavigation(pending, "2026-07-14")).toBeNull();
+    expect(getActivePendingWeekNavigation(pending, null)).toBeNull();
+  });
+
   test("week navigation shifts exactly seven days from the selected anchor", () => {
     expect(getWeekNavigationTarget("2026-07-14", "next")).toBe("2026-07-21");
     expect(getWeekNavigationTarget("2026-07-14", "prev")).toBe("2026-07-07");

@@ -48,7 +48,9 @@ import { ClientPortalShell } from "@/components/client-portal/client-portal-shel
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
+  getActivePendingWeekNavigation,
   getCalendarProgress,
   getUpcomingCalendarDays,
   getWeekNavigationTarget,
@@ -56,6 +58,8 @@ import {
   selectCalendarDay,
   selectMobileCalendarDay,
   type CalendarProgress,
+  type CoordinatedRequest,
+  type PendingWeekNavigation,
   type WeekNavigationDirection,
 } from "@/components/client-portal/client-calendar-state";
 import {
@@ -318,20 +322,17 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [pendingWeekNavigation, setPendingWeekNavigation] = useState<{
-    direction: WeekNavigationDirection;
-    targetDate: string;
-  } | null>(null);
+  const [pendingWeekNavigation, setPendingWeekNavigation] =
+    useState<PendingWeekNavigation | null>(null);
   const [selectedProgress, setSelectedProgress] = useState<{
     logId: string;
     value: CalendarProgress | null;
   } | null>(null);
-  const calendarRequestIdRef = useRef(0);
+  const calendarCoordinatorRef = useRef(
+    createLatestCalendarRequestCoordinator<ClientPortalCalendar>(),
+  );
   const loadedCalendarRef = useRef<ClientPortalCalendar | null>(null);
-  const pendingWeekNavigationRef = useRef<{
-    direction: WeekNavigationDirection;
-    targetDate: string;
-  } | null>(null);
+  const pendingWeekNavigationRef = useRef<PendingWeekNavigation | null>(null);
   const pendingMobileFocusDateRef = useRef<string | null>(null);
   const progressCoordinatorRef = useRef(
     createLatestRequestCoordinator<CalendarProgress | null>(),
@@ -344,15 +345,23 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   }, []);
 
   const load = useCallback(() => {
-    const requestId = ++calendarRequestIdRef.current;
-    const controller = new AbortController();
     const hasLoadedCalendar = Boolean(loadedCalendarRef.current?.calendar);
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
+    let cancelled = false;
+    let request: CoordinatedRequest<ClientPortalCalendar> | null = null;
 
     Promise.resolve()
       .then(() => {
-        if (requestId !== calendarRequestIdRef.current) return null;
+        if (cancelled) return;
 
+        const activePendingNavigation = getActivePendingWeekNavigation(
+          pendingWeekNavigationRef.current,
+          date,
+        );
+        if (pendingWeekNavigationRef.current !== activePendingNavigation) {
+          pendingWeekNavigationRef.current = null;
+          setPendingWeekNavigation(null);
+        }
         if (hasLoadedCalendar) {
           setIsWeekRefreshing(true);
         } else {
@@ -360,72 +369,63 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
         }
         setError(null);
 
-        return clientPortalRequest<ClientPortalCalendar>(
-          `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
-          { signal: controller.signal },
-        );
-      })
-      .then((result) => {
-        if (!result) return;
-        if (requestId !== calendarRequestIdRef.current) return;
+        request = calendarCoordinatorRef.current.run({
+          load: (signal) =>
+            clientPortalRequest<ClientPortalCalendar>(
+              `/client-portal/${encodeURIComponent(token)}/calendar${query}`,
+              { signal },
+            ),
+          onError: (caught) => {
+            setError(errorMessage(caught, "No pudimos cargar el calendario."));
+            pendingWeekNavigationRef.current = null;
+            setPendingWeekNavigation(null);
 
-        const nextDays = result.calendar?.days ?? [];
-        const targetDate =
-          pendingWeekNavigationRef.current?.targetDate ?? date ?? null;
-        const requestedDateForLoadedWeek = isDateInsideCalendarDays(
-          nextDays,
-          targetDate,
-        )
-          ? targetDate
-          : null;
-        const nextSelectedDay = selectMobileCalendarDay(nextDays, {
-          requestedDate: requestedDateForLoadedWeek,
-          selectedDate: null,
-          today: result.calendar?.today ?? "",
+            if (hasLoadedCalendar) {
+              const loadedAnchorDate =
+                selectedDateRef.current ??
+                loadedCalendarRef.current?.calendar?.referenceDate;
+              if (loadedAnchorDate && date !== loadedAnchorDate) {
+                router.replace(
+                  `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(loadedAnchorDate)}`,
+                  { scroll: false },
+                );
+              }
+            }
+          },
+          onResult: (result) => {
+            const nextDays = result.calendar?.days ?? [];
+            const targetDate = date ?? null;
+            const requestedDateForLoadedWeek = isDateInsideCalendarDays(
+              nextDays,
+              targetDate,
+            )
+              ? targetDate
+              : null;
+            const nextSelectedDay = selectMobileCalendarDay(nextDays, {
+              requestedDate: requestedDateForLoadedWeek,
+              selectedDate: null,
+              today: result.calendar?.today ?? "",
+            });
+
+            loadedCalendarRef.current = result;
+            pendingWeekNavigationRef.current = null;
+            setData(result);
+            updateSelectedDate(nextSelectedDay?.date ?? null);
+            setSelectedProgress(null);
+            setPendingWeekNavigation(null);
+          },
         });
 
-        loadedCalendarRef.current = result;
-        pendingWeekNavigationRef.current = null;
-        setData(result);
-        updateSelectedDate(nextSelectedDay?.date ?? null);
-        setSelectedProgress(null);
-        setPendingWeekNavigation(null);
-      })
-      .catch((caught) => {
-        if (
-          requestId !== calendarRequestIdRef.current ||
-          isAbortError(caught)
-        ) {
-          return;
-        }
-
-        setError(errorMessage(caught, "No pudimos cargar el calendario."));
-        pendingWeekNavigationRef.current = null;
-        setPendingWeekNavigation(null);
-
-        if (hasLoadedCalendar) {
-          const loadedAnchorDate =
-            selectedDateRef.current ??
-            loadedCalendarRef.current?.calendar?.referenceDate;
-          if (loadedAnchorDate && date !== loadedAnchorDate) {
-            router.replace(
-              `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(loadedAnchorDate)}`,
-              { scroll: false },
-            );
-          }
-        }
-      })
-      .finally(() => {
-        if (requestId !== calendarRequestIdRef.current) return;
-        setIsInitialLoading(false);
-        setIsWeekRefreshing(false);
+        void request.settled.finally(() => {
+          if (cancelled) return;
+          setIsInitialLoading(false);
+          setIsWeekRefreshing(false);
+        });
       });
 
     return () => {
-      if (requestId === calendarRequestIdRef.current) {
-        calendarRequestIdRef.current += 1;
-      }
-      controller.abort();
+      cancelled = true;
+      request?.cancel();
     };
   }, [date, router, token, updateSelectedDate]);
 
@@ -2211,10 +2211,6 @@ function isForbidden(caught: unknown) {
     "status" in caught &&
     caught.status === 403
   );
-}
-
-function isAbortError(caught: unknown) {
-  return caught instanceof DOMException && caught.name === "AbortError";
 }
 
 function mobileCalendarDayId(date: string) {

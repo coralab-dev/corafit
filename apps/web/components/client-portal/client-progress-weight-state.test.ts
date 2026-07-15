@@ -4,6 +4,7 @@ import {
   buildWeightSummary,
   canClientManageWeightLog,
   deleteWeightLogById,
+  formatWeightRecordedDate,
   upsertWeightLog,
 } from "./client-progress-weight-state";
 
@@ -60,6 +61,33 @@ describe("client progress weight state", () => {
     expect(result.map((item) => item.id)).toEqual(["latest", "older", "oldest"]);
   });
 
+  it("places a newly created record first when recordedAt ties", () => {
+    const recordedAt = "2024-05-18T08:30:00.000Z";
+    const result = upsertWeightLog(
+      [
+        weightLog({ id: "existing-1", recordedAt }),
+        weightLog({ id: "existing-2", recordedAt }),
+      ],
+      weightLog({ id: "new", recordedAt, weightKg: 73.1 }),
+    );
+
+    expect(result.map((item) => item.id)).toEqual([
+      "new",
+      "existing-1",
+      "existing-2",
+    ]);
+  });
+
+  it("summarizes the newly created weight when recordedAt ties", () => {
+    const recordedAt = "2024-05-18T08:30:00.000Z";
+    const result = upsertWeightLog(
+      [weightLog({ id: "existing", recordedAt, weightKg: 72.4 })],
+      weightLog({ id: "new", recordedAt, weightKg: 73.1 }),
+    );
+
+    expect(buildWeightSummary(result).latestWeightKg).toBe(73.1);
+  });
+
   it("replaces an edited record by id without duplicating it", () => {
     const result = upsertWeightLog(
       [
@@ -85,6 +113,34 @@ describe("client progress weight state", () => {
     expect(result.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
+  it("preserves previous order when editing with the same recordedAt", () => {
+    const recordedAt = "2024-05-18T08:30:00.000Z";
+    const result = upsertWeightLog(
+      [
+        weightLog({ id: "first", recordedAt }),
+        weightLog({ id: "second", recordedAt, weightKg: 71.8 }),
+      ],
+      weightLog({ id: "second", recordedAt, weightKg: 72.2 }),
+    );
+
+    expect(result.map((item) => item.id)).toEqual(["first", "second"]);
+    expect(result.find((item) => item.id === "second")?.weightKg).toBe(72.2);
+  });
+
+  it("does not duplicate records when editing with the same recordedAt", () => {
+    const recordedAt = "2024-05-18T08:30:00.000Z";
+    const result = upsertWeightLog(
+      [
+        weightLog({ id: "first", recordedAt }),
+        weightLog({ id: "second", recordedAt }),
+      ],
+      weightLog({ id: "second", recordedAt, weightKg: 72.2 }),
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result.filter((item) => item.id === "second")).toHaveLength(1);
+  });
+
   it("deletes only the target id", () => {
     const result = deleteWeightLogById(
       [
@@ -107,6 +163,12 @@ describe("client progress weight state", () => {
   it("keeps coach records read-only", () => {
     expect(canClientManageWeightLog(weightLog({ recordedByType: "coach" }))).toBe(
       false,
+    );
+  });
+
+  it("formats midnight UTC as the captured weight date", () => {
+    expect(formatWeightRecordedDate("2024-05-18T00:00:00.000Z")).toBe(
+      "18 may 2024",
     );
   });
 });

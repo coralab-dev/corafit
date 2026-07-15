@@ -54,7 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
@@ -75,6 +75,8 @@ import {
   buildWeightSummary,
   canClientManageWeightLog,
   deleteWeightLogById,
+  formatWeightRecordedDate,
+  getLocalWeightDateInputValue,
   upsertWeightLog,
 } from "@/components/client-portal/client-progress-weight-state";
 import {
@@ -1577,7 +1579,8 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
   const [weightSaving, setWeightSaving] = useState(false);
   const [deletingWeightId, setDeletingWeightId] = useState<string | null>(null);
   const [initialError, setInitialError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [weightError, setWeightError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
@@ -1622,7 +1625,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
     id?: string,
   ): Promise<boolean> {
     setWeightSaving(true);
-    setActionError(null);
+    setWeightError(null);
     try {
       const encoded = encodeURIComponent(token);
       const saved = await clientPortalRequest<ClientPortalWeightLog>(
@@ -1635,7 +1638,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       setWeightLogs((current) => upsertWeightLog(current, saved));
       return true;
     } catch (caught) {
-      setActionError(
+      setWeightError(
         isForbidden(caught)
           ? "Tu coach no habilito el registro de peso o este registro no es editable."
           : errorMessage(caught, "No pudimos guardar el peso."),
@@ -1647,8 +1650,12 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
   }
 
   async function deleteWeight(id: string): Promise<boolean> {
+    if (deletingWeightId !== null) {
+      return false;
+    }
+
     setDeletingWeightId(id);
-    setActionError(null);
+    setWeightError(null);
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/weight-logs/${id}`,
@@ -1657,7 +1664,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       setWeightLogs((current) => deleteWeightLogById(current, id));
       return true;
     } catch (caught) {
-      setActionError(
+      setWeightError(
         isForbidden(caught)
           ? "Solo puedes borrar registros de peso creados por ti."
           : errorMessage(caught, "No pudimos borrar el peso."),
@@ -1670,7 +1677,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
 
   async function uploadPhoto(formData: FormData) {
     setSaving(true);
-    setActionError(null);
+    setPhotoError(null);
     try {
       await clientPortalFormDataRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos`,
@@ -1678,7 +1685,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       );
       await loadProgress();
     } catch (caught) {
-      setActionError(
+      setPhotoError(
         isForbidden(caught)
           ? "No tienes permiso para subir esta foto."
           : errorMessage(caught, "No pudimos subir la foto."),
@@ -1690,7 +1697,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
 
   async function deletePhoto(id: string) {
     setSaving(true);
-    setActionError(null);
+    setPhotoError(null);
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos/${id}`,
@@ -1698,7 +1705,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       );
       await loadProgress();
     } catch (caught) {
-      setActionError(
+      setPhotoError(
         isForbidden(caught)
           ? "Solo puedes borrar fotos subidas por ti."
           : errorMessage(caught, "No pudimos borrar la foto."),
@@ -1737,53 +1744,54 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
               </TabsTrigger>
             ))}
           </TabsList>
-        </Tabs>
 
-        {initialError ? (
-          <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
-            <p className="font-semibold">{initialError}</p>
-            <Button
-              className="mt-3"
-              disabled={loading}
-              onClick={() => void loadProgress()}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-              Reintentar
-            </Button>
-          </div>
-        ) : null}
-        {actionError ? (
-          <p className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
-            {actionError}
-          </p>
-        ) : null}
-        {loading ? <ScreenState title="Cargando progreso" compact /> : null}
-        {!loading && !initialError && activeTab === "weight" ? (
-          <PortalWeightSection
-            deletingId={deletingWeightId}
-            formSaving={weightSaving}
-            items={weightLogs}
-            onDelete={deleteWeight}
-            onSave={saveWeight}
-          />
-        ) : null}
-        {!loading && !initialError && activeTab === "measurements" ? (
-          <PortalMeasurementsSection items={measurements} />
-        ) : null}
-        {!loading && !initialError && activeTab === "photos" ? (
-          <PortalPhotosSection
-            items={photos}
-            saving={saving}
-            onDelete={deletePhoto}
-            onUpload={uploadPhoto}
-          />
-        ) : null}
-        {!loading && !initialError && activeTab === "notes" ? (
-          <PortalNotesSection items={notes} />
-        ) : null}
+          {initialError ? (
+            <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+              <p className="font-semibold">{initialError}</p>
+              <Button
+                className="mt-3"
+                disabled={loading}
+                onClick={() => void loadProgress()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+                Reintentar
+              </Button>
+            </div>
+          ) : null}
+          {loading ? <ScreenState title="Cargando progreso" compact /> : null}
+          {!loading && !initialError ? (
+            <>
+            <TabsContent value="weight">
+              <PortalWeightSection
+                deletingId={deletingWeightId}
+                error={weightError}
+                formSaving={weightSaving}
+                items={weightLogs}
+                onDelete={deleteWeight}
+                onSave={saveWeight}
+              />
+            </TabsContent>
+            <TabsContent value="measurements">
+              <PortalMeasurementsSection items={measurements} />
+            </TabsContent>
+            <TabsContent value="photos">
+              <PortalPhotosSection
+                error={photoError}
+                items={photos}
+                saving={saving}
+                onDelete={deletePhoto}
+                onUpload={uploadPhoto}
+              />
+            </TabsContent>
+            <TabsContent value="notes">
+              <PortalNotesSection items={notes} />
+            </TabsContent>
+            </>
+          ) : null}
+        </Tabs>
       </section>
     </ClientPortalShell>
   );
@@ -1875,12 +1883,14 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
 
 function PortalWeightSection({
   deletingId,
+  error,
   formSaving,
   items,
   onDelete,
   onSave,
 }: {
   deletingId: string | null;
+  error: string | null;
   formSaving: boolean;
   items: ClientPortalWeightLog[];
   onDelete: (id: string) => Promise<boolean>;
@@ -1893,21 +1903,22 @@ function PortalWeightSection({
   const [confirmDelete, setConfirmDelete] =
     useState<ClientPortalWeightLog | null>(null);
   const [weightKg, setWeightKg] = useState("");
-  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [recordedAt, setRecordedAt] = useState(getLocalWeightDateInputValue());
   const [note, setNote] = useState("");
   const summary = buildWeightSummary(items);
+  const hasPendingDelete = deletingId !== null;
 
   function resetForm() {
     setEditing(null);
     setWeightKg("");
-    setRecordedAt(portalDateInput());
+    setRecordedAt(getLocalWeightDateInputValue());
     setNote("");
   }
 
   function startEdit(item: ClientPortalWeightLog) {
     setEditing(item);
     setWeightKg(item.weightKg.toString());
-    setRecordedAt(portalDateInput(item.recordedAt));
+    setRecordedAt(item.recordedAt.slice(0, 10));
     setNote(item.note ?? "");
   }
 
@@ -1933,7 +1944,7 @@ function PortalWeightSection({
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {summary.latestRecordedAt
-                  ? `Último registro · ${portalFormatDate(summary.latestRecordedAt)}`
+                  ? `Último registro · ${formatWeightRecordedDate(summary.latestRecordedAt)}`
                   : "Sin fecha registrada"}
               </p>
             </div>
@@ -1953,6 +1964,12 @@ function PortalWeightSection({
           </div>
         </div>
       </section>
+
+      {error ? (
+        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          {error}
+        </p>
+      ) : null}
 
       <section aria-labelledby="weight-history-title" className="space-y-3">
         <h2
@@ -1984,7 +2001,7 @@ function PortalWeightSection({
                           {item.weightKg} kg
                         </h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {portalFormatDateTime(item.recordedAt)}
+                          {formatWeightRecordedDate(item.recordedAt)}
                         </p>
                         {item.note ? (
                           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">
@@ -2024,8 +2041,12 @@ function PortalWeightSection({
                           <Button
                             aria-busy={deleting}
                             className="min-w-0 flex-1 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive sm:flex-none"
-                            disabled={deleting}
-                            onClick={() => setConfirmDelete(item)}
+                            disabled={hasPendingDelete}
+                            onClick={() => {
+                              if (!hasPendingDelete) {
+                                setConfirmDelete(item);
+                              }
+                            }}
                             size="sm"
                             type="button"
                             variant="outline"
@@ -2138,7 +2159,7 @@ function PortalWeightSection({
         confirmLabel="Borrar"
         isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
         onConfirm={async () => {
-          if (!confirmDelete) return;
+          if (!confirmDelete || deletingId !== null) return;
           await onDelete(confirmDelete.id);
         }}
       />
@@ -2170,11 +2191,13 @@ function PortalMeasurementsSection({
 }
 
 function PortalPhotosSection({
+  error,
   items,
   onDelete,
   onUpload,
   saving,
 }: {
+  error: string | null;
   items: ClientPortalProgressPhoto[];
   onDelete: (id: string) => Promise<void>;
   onUpload: (formData: FormData) => Promise<void>;
@@ -2186,6 +2209,11 @@ function PortalPhotosSection({
   const [file, setFile] = useState<File | null>(null);
   return (
     <div className="mt-5 space-y-4">
+      {error ? (
+        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <form
         className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#222936] dark:bg-[#121722] sm:grid-cols-[1fr_1fr_2fr_auto]"
         onSubmit={async (event) => {
@@ -2419,16 +2447,6 @@ function portalDateInput(value?: string) {
 function portalFormatDate(value: string) {
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function portalFormatDateTime(value: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
     month: "short",
     year: "numeric",
   }).format(new Date(value));

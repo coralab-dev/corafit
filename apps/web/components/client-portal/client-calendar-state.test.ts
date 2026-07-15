@@ -7,6 +7,7 @@ import {
   getCalendarProgress,
   getUpcomingCalendarDays,
   selectCalendarDay,
+  selectMobileCalendarDay,
 } from "./client-calendar-state";
 
 function day(
@@ -78,7 +79,7 @@ function snapshot(
 }
 
 describe("client calendar state", () => {
-  test("uses selected date, requested date, today, first session, and first day", () => {
+  test("desktop ignores query date while mobile honors it", () => {
     const rest = day("2026-07-13", { session: null });
     const training = day("2026-07-14");
     const later = day("2026-07-15");
@@ -86,34 +87,48 @@ describe("client calendar state", () => {
 
     expect(
       selectCalendarDay(days, {
-        requestedDate: "2026-07-14",
-        selectedDate: "2026-07-15",
+        selectedDate: null,
+        today: "2026-07-13",
+      }),
+    ).toBe(rest);
+    expect(
+      selectMobileCalendarDay(days, {
+        requestedDate: "2026-07-15",
+        selectedDate: null,
         today: "2026-07-13",
       }),
     ).toBe(later);
+  });
+
+  test("mobile falls back through stale selections, today, sessions, and days", () => {
+    const rest = day("2026-07-13", { session: null });
+    const training = day("2026-07-14");
+    const later = day("2026-07-15");
+    const days = [rest, training, later];
+
     expect(
-      selectCalendarDay(days, {
+      selectMobileCalendarDay(days, {
         requestedDate: "2026-07-15",
         selectedDate: "2026-07-20",
         today: "2026-07-14",
       }),
     ).toBe(later);
     expect(
-      selectCalendarDay(days, {
+      selectMobileCalendarDay(days, {
         requestedDate: null,
         selectedDate: null,
         today: "2026-07-13",
       }),
     ).toBe(rest);
     expect(
-      selectCalendarDay(days, {
+      selectMobileCalendarDay(days, {
         requestedDate: null,
         selectedDate: null,
         today: "2026-07-20",
       }),
     ).toBe(training);
     expect(
-      selectCalendarDay([rest], {
+      selectMobileCalendarDay([rest], {
         requestedDate: null,
         selectedDate: null,
         today: "2026-07-20",

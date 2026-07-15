@@ -52,6 +52,8 @@ export function ClientHomeScreen({ token }: { token: string }) {
   const [sessionActionError, setSessionActionError] =
     useState<SessionActionError | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
+  const [openingSource, setOpeningSource] =
+    useState<HomeSessionActionSource | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -106,6 +108,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
     if (!day?.session || !day.canOpen) return;
 
     setIsOpeningSession(true);
+    setOpeningSource(source);
     try {
       const log = await clientPortalRequest<ClientSessionLog>(
         `/client-portal/${encodeURIComponent(token)}/session-logs/open`,
@@ -125,6 +128,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
       });
     } finally {
       setIsOpeningSession(false);
+      setOpeningSource(null);
     }
   }
 
@@ -162,7 +166,8 @@ export function ClientHomeScreen({ token }: { token: string }) {
                       : null
                   }
                   hero={view.hero}
-                  isOpening={isOpeningSession}
+                  isActionDisabled={isOpeningSession}
+                  isOpening={openingSource?.kind === "hero"}
                   onAction={() =>
                     void handleSessionAction(view.hero?.day ?? null, {
                       kind: "hero",
@@ -246,11 +251,13 @@ function HomeHeader({
 function TrainingHeroCard({
   error,
   hero,
+  isActionDisabled,
   isOpening,
   onAction,
 }: {
   error: string | null;
   hero: ClientHomeHeroView | null;
+  isActionDisabled: boolean;
   isOpening: boolean;
   onAction: () => void;
 }) {
@@ -299,7 +306,7 @@ function TrainingHeroCard({
       ) : null}
       <Button
         className="mt-5 h-11 w-full rounded-xl md:w-auto md:px-5"
-        disabled={isOpening}
+        disabled={isActionDisabled}
         onClick={onAction}
         type="button"
       >
@@ -490,17 +497,17 @@ function WeekSessionRow({
     <div>
       <button
         aria-label={`${day.dayLabel} ${Number(day.dateNumber)}, ${day.sessionName}: ${day.statusLabel}; ${action}`}
-        className="grid min-h-16 w-full grid-cols-[2.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 px-3 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60 min-[360px]:grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] min-[360px]:gap-3 min-[360px]:px-4"
+        className="grid min-h-16 w-full grid-cols-[2.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 px-3 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60 min-[420px]:grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] min-[420px]:gap-3 min-[420px]:px-4"
         disabled={disabled}
         onClick={onOpen}
         title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
         type="button"
       >
         <div className="text-center">
-          <p className="text-[0.65rem] font-semibold uppercase leading-none text-muted-foreground min-[360px]:text-[0.68rem]">
+          <p className="text-[0.65rem] font-semibold uppercase leading-none text-muted-foreground min-[420px]:text-[0.68rem]">
             {day.dayLabel}
           </p>
-          <p className="mt-1 text-base font-semibold leading-none text-foreground min-[360px]:text-lg">
+          <p className="mt-1 text-base font-semibold leading-none text-foreground min-[420px]:text-lg">
             {Number(day.dateNumber)}
           </p>
         </div>
@@ -513,8 +520,8 @@ function WeekSessionRow({
             <p className="mt-0.5 text-xs text-muted-foreground">Hoy</p>
           ) : null}
         </div>
-        <WeekStatusBadge className="hidden min-[360px]:inline-flex" day={day} />
-        <ChevronRight className="hidden size-4 text-muted-foreground min-[360px]:block" />
+        <WeekStatusBadge className="hidden min-[420px]:inline-flex" day={day} />
+        <ChevronRight className="hidden size-4 text-muted-foreground min-[420px]:block" />
       </button>
       {actionError ? <InlineActionError message={actionError} /> : null}
     </div>

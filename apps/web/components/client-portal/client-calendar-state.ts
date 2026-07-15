@@ -9,6 +9,50 @@ export type CalendarProgress = {
   total: number;
 };
 
+export type CoordinatedRequest<T> = {
+  cancel: () => void;
+  settled: Promise<T | null>;
+};
+
+export function createLatestRequestCoordinator<T>() {
+  const cache = new Map<string, Promise<T | null>>();
+  let generation = 0;
+
+  return {
+    run(
+      key: string,
+      load: () => Promise<T>,
+      onResult: (value: T | null) => void,
+    ): CoordinatedRequest<T> {
+      const requestGeneration = ++generation;
+      let cancelled = false;
+      let request = cache.get(key);
+
+      if (!request) {
+        request = Promise.resolve()
+          .then(load)
+          .catch(() => null);
+        cache.set(key, request);
+      }
+
+      const settled = request.then((value) => {
+        if (cancelled || requestGeneration !== generation) return null;
+        onResult(value);
+        return value;
+      });
+
+      return {
+        cancel() {
+          if (cancelled) return;
+          cancelled = true;
+          if (requestGeneration === generation) generation += 1;
+        },
+        settled,
+      };
+    },
+  };
+}
+
 export function selectCalendarDay(
   days: ClientPortalDay[],
   {

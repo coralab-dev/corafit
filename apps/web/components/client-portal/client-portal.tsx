@@ -8,15 +8,16 @@ import {
   useEffect,
   useRef,
   useState,
-  type ButtonHTMLAttributes,
   type ComponentProps,
-  type InputHTMLAttributes,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -29,10 +30,12 @@ import {
   Home,
   Info,
   Layers,
+  Lock,
   ListChecks,
   Loader2,
   MoreHorizontal,
   Pencil,
+  Ruler,
   PlayCircle,
   RotateCcw,
   Scale,
@@ -43,6 +46,7 @@ import {
   Sun,
   Trash2,
   TrendingUp,
+  MessageCircle,
   Moon,
   X,
 } from "lucide-react";
@@ -79,6 +83,18 @@ import {
   getLocalWeightDateInputValue,
   upsertWeightLog,
 } from "@/components/client-portal/client-progress-weight-state";
+import {
+  applyProgressTabError,
+  applyProgressTabSuccess,
+  buildMeasurementSummary,
+  buildNoteSummary,
+  buildPhotoSummary,
+  canClientDeleteProgressPhoto,
+  deleteProgressPhotoById,
+  getVisibleMeasurementFields,
+  upsertProgressPhoto,
+  type ProgressTabState,
+} from "@/components/client-portal/client-progress-remaining-state";
 import {
   clientPortalRequest,
   clientPortalFormDataRequest,
@@ -1557,75 +1573,168 @@ const portalPhotoLabels: Record<ClientPortalProgressPhotoType, string> = {
   side: "Lado",
 };
 
-const portalMeasurementFields = [
-  ["waistCm", "Cintura"],
-  ["hipCm", "Cadera"],
-  ["chestCm", "Pecho"],
-  ["armCm", "Brazo"],
-  ["legCm", "Pierna"],
-  ["gluteCm", "Gluteo"],
-] as const;
+function initialProgressTabState<T>(data: T): ProgressTabState<T> {
+  return {
+    data,
+    error: null,
+    loaded: false,
+    loading: false,
+    requestId: 0,
+  };
+}
 
 export function ClientPortalProgressScreen({ token }: { token: string }) {
   const [activeTab, setActiveTab] = useState<PortalProgressTab>("weight");
-  const [weightLogs, setWeightLogs] = useState<ClientPortalWeightLog[]>([]);
-  const [measurements, setMeasurements] = useState<
-    ClientPortalBodyMeasurement[]
-  >([]);
-  const [photos, setPhotos] = useState<ClientPortalProgressPhoto[]>([]);
-  const [notes, setNotes] = useState<ClientPortalProgressNote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [weightState, setWeightState] = useState(
+    initialProgressTabState<ClientPortalWeightLog[]>([]),
+  );
+  const [measurementState, setMeasurementState] = useState(
+    initialProgressTabState<ClientPortalBodyMeasurement[]>([]),
+  );
+  const [photoState, setPhotoState] = useState(
+    initialProgressTabState<ClientPortalProgressPhoto[]>([]),
+  );
+  const [noteState, setNoteState] = useState(
+    initialProgressTabState<ClientPortalProgressNote[]>([]),
+  );
   const [weightSaving, setWeightSaving] = useState(false);
   const [deletingWeightId, setDeletingWeightId] = useState<string | null>(null);
-  const [initialError, setInitialError] = useState<string | null>(null);
-  const [weightError, setWeightError] = useState<string | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const tabRequestIds = useRef<Record<PortalProgressTab, number>>({
+    measurements: 0,
+    notes: 0,
+    photos: 0,
+    weight: 0,
+  });
 
-  const loadProgress = useCallback(async () => {
-    setLoading(true);
-    setInitialError(null);
-    try {
+  const loadProgressTab = useCallback(
+    async (tab: PortalProgressTab) => {
+      const requestId = tabRequestIds.current[tab] + 1;
+      tabRequestIds.current[tab] = requestId;
+
+      const markLoading = <T,>(
+        setState: Dispatch<SetStateAction<ProgressTabState<T>>>,
+      ) => {
+        setState((current) => ({
+          ...current,
+          error: null,
+          loading: true,
+          requestId,
+        }));
+      };
+
       const encoded = encodeURIComponent(token);
-      const [weightResult, measurementResult, photoResult, noteResult] =
-        await Promise.all([
-          clientPortalRequest<ClientPortalWeightLog[]>(
+
+      try {
+        if (tab === "weight") {
+          markLoading(setWeightState);
+          const result = await clientPortalRequest<ClientPortalWeightLog[]>(
             `/client-portal/${encoded}/progress/weight-logs`,
-          ),
-          clientPortalRequest<ClientPortalBodyMeasurement[]>(
+          );
+          setWeightState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        if (tab === "measurements") {
+          markLoading(setMeasurementState);
+          const result = await clientPortalRequest<ClientPortalBodyMeasurement[]>(
             `/client-portal/${encoded}/progress/body-measurements`,
-          ),
-          clientPortalRequest<ClientPortalProgressPhoto[]>(
+          );
+          setMeasurementState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        if (tab === "photos") {
+          markLoading(setPhotoState);
+          const result = await clientPortalRequest<ClientPortalProgressPhoto[]>(
             `/client-portal/${encoded}/progress/photos`,
-          ),
-          clientPortalRequest<ClientPortalProgressNote[]>(
-            `/client-portal/${encoded}/progress/notes`,
-          ),
-        ]);
-      setWeightLogs(weightResult);
-      setMeasurements(measurementResult);
-      setPhotos(photoResult);
-      setNotes(noteResult);
-    } catch (caught) {
-      setInitialError(errorMessage(caught, "No pudimos cargar tu progreso."));
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+          );
+          setPhotoState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabSuccess(current, result)
+              : current,
+          );
+          return;
+        }
+
+        markLoading(setNoteState);
+        const result = await clientPortalRequest<ClientPortalProgressNote[]>(
+          `/client-portal/${encoded}/progress/notes`,
+        );
+        setNoteState((current) =>
+          current.requestId === requestId
+            ? applyProgressTabSuccess(current, result)
+            : current,
+        );
+      } catch (caught) {
+        const message = errorMessage(caught, "No pudimos cargar tu progreso.");
+
+        if (tab === "weight") {
+          setWeightState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else if (tab === "measurements") {
+          setMeasurementState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else if (tab === "photos") {
+          setPhotoState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        } else {
+          setNoteState((current) =>
+            current.requestId === requestId
+              ? applyProgressTabError(current, message)
+              : current,
+          );
+        }
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadProgress();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadProgress]);
+    const stateByTab: Record<PortalProgressTab, ProgressTabState<unknown[]>> = {
+      measurements: measurementState,
+      notes: noteState,
+      photos: photoState,
+      weight: weightState,
+    };
+    const state = stateByTab[activeTab];
+
+    if (!state.loaded && !state.loading) {
+      void loadProgressTab(activeTab);
+    }
+  }, [
+    activeTab,
+    loadProgressTab,
+    measurementState,
+    noteState,
+    photoState,
+    weightState,
+  ]);
 
   async function saveWeight(
     input: { note?: string | null; recordedAt: string; weightKg: number },
     id?: string,
   ): Promise<boolean> {
     setWeightSaving(true);
-    setWeightError(null);
+    setWeightState((current) => ({ ...current, error: null }));
     try {
       const encoded = encodeURIComponent(token);
       const saved = await clientPortalRequest<ClientPortalWeightLog>(
@@ -1635,14 +1744,18 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
           body: JSON.stringify(input),
         },
       );
-      setWeightLogs((current) => upsertWeightLog(current, saved));
+      setWeightState((current) => ({
+        ...current,
+        data: upsertWeightLog(current.data, saved),
+      }));
       return true;
     } catch (caught) {
-      setWeightError(
-        isForbidden(caught)
+      setWeightState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Tu coach no habilito el registro de peso o este registro no es editable."
           : errorMessage(caught, "No pudimos guardar el peso."),
-      );
+      }));
       return false;
     } finally {
       setWeightSaving(false);
@@ -1655,63 +1768,84 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
     }
 
     setDeletingWeightId(id);
-    setWeightError(null);
+    setWeightState((current) => ({ ...current, error: null }));
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/weight-logs/${id}`,
         { method: "DELETE" },
       );
-      setWeightLogs((current) => deleteWeightLogById(current, id));
+      setWeightState((current) => ({
+        ...current,
+        data: deleteWeightLogById(current.data, id),
+      }));
       return true;
     } catch (caught) {
-      setWeightError(
-        isForbidden(caught)
+      setWeightState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Solo puedes borrar registros de peso creados por ti."
           : errorMessage(caught, "No pudimos borrar el peso."),
-      );
+      }));
       return false;
     } finally {
       setDeletingWeightId(null);
     }
   }
 
-  async function uploadPhoto(formData: FormData) {
-    setSaving(true);
-    setPhotoError(null);
+  async function uploadPhoto(formData: FormData): Promise<boolean> {
+    setUploadingPhoto(true);
+    setPhotoState((current) => ({ ...current, error: null }));
     try {
-      await clientPortalFormDataRequest(
+      const saved = await clientPortalFormDataRequest<ClientPortalProgressPhoto>(
         `/client-portal/${encodeURIComponent(token)}/progress/photos`,
         formData,
       );
-      await loadProgress();
+      setPhotoState((current) => ({
+        ...current,
+        data: upsertProgressPhoto(current.data, saved),
+        loaded: true,
+      }));
+      return true;
     } catch (caught) {
-      setPhotoError(
-        isForbidden(caught)
+      setPhotoState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "No tienes permiso para subir esta foto."
           : errorMessage(caught, "No pudimos subir la foto."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setUploadingPhoto(false);
     }
   }
 
-  async function deletePhoto(id: string) {
-    setSaving(true);
-    setPhotoError(null);
+  async function deletePhoto(id: string): Promise<boolean> {
+    if (deletingPhotoId !== null) {
+      return false;
+    }
+
+    setDeletingPhotoId(id);
+    setPhotoState((current) => ({ ...current, error: null }));
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos/${id}`,
         { method: "DELETE" },
       );
-      await loadProgress();
+      setPhotoState((current) => ({
+        ...current,
+        data: deleteProgressPhotoById(current.data, id),
+      }));
+      return true;
     } catch (caught) {
-      setPhotoError(
-        isForbidden(caught)
+      setPhotoState((current) => ({
+        ...current,
+        error: isForbidden(caught)
           ? "Solo puedes borrar fotos subidas por ti."
           : errorMessage(caught, "No pudimos borrar la foto."),
-      );
+      }));
+      return false;
     } finally {
-      setSaving(false);
+      setDeletingPhotoId(null);
     }
   }
 
@@ -1745,52 +1879,92 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
             ))}
           </TabsList>
 
-          {initialError ? (
-            <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
-              <p className="font-semibold">{initialError}</p>
-              <Button
-                className="mt-3"
-                disabled={loading}
-                onClick={() => void loadProgress()}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-                Reintentar
-              </Button>
-            </div>
-          ) : null}
-          {loading ? <ScreenState title="Cargando progreso" compact /> : null}
-          {!loading && !initialError ? (
-            <>
-            <TabsContent value="weight">
+          <TabsContent value="weight">
+            {weightState.loading && !weightState.loaded ? (
+              <ScreenState title="Cargando peso" compact />
+            ) : null}
+            {weightState.error && !weightState.loaded ? (
+              <ProgressTabError
+                loading={weightState.loading}
+                message={weightState.error}
+                onRetry={() => void loadProgressTab("weight")}
+              />
+            ) : null}
+            {weightState.loaded ? (
               <PortalWeightSection
                 deletingId={deletingWeightId}
-                error={weightError}
+                error={weightState.error}
                 formSaving={weightSaving}
-                items={weightLogs}
+                items={weightState.data}
                 onDelete={deleteWeight}
                 onSave={saveWeight}
               />
-            </TabsContent>
-            <TabsContent value="measurements">
-              <PortalMeasurementsSection items={measurements} />
-            </TabsContent>
-            <TabsContent value="photos">
+            ) : null}
+          </TabsContent>
+          <TabsContent value="measurements">
+            {measurementState.loading && !measurementState.loaded ? (
+              <ScreenState title="Cargando medidas" compact />
+            ) : null}
+            {measurementState.error && !measurementState.loaded ? (
+              <ProgressTabError
+                loading={measurementState.loading}
+                message={measurementState.error}
+                onRetry={() => void loadProgressTab("measurements")}
+              />
+            ) : null}
+            {measurementState.loaded ? (
+              <PortalMeasurementsSection
+                error={measurementState.error}
+                items={measurementState.data}
+                loading={measurementState.loading}
+                onRetry={() => void loadProgressTab("measurements")}
+              />
+            ) : null}
+          </TabsContent>
+          <TabsContent value="photos">
+            {photoState.loading && !photoState.loaded ? (
+              <ScreenState title="Cargando fotos" compact />
+            ) : null}
+            {photoState.error && !photoState.loaded ? (
+              <ProgressTabError
+                loading={photoState.loading}
+                message={photoState.error}
+                onRetry={() => void loadProgressTab("photos")}
+              />
+            ) : null}
+            {photoState.loaded ? (
               <PortalPhotosSection
-                error={photoError}
-                items={photos}
-                saving={saving}
+                deletingId={deletingPhotoId}
+                error={photoState.error}
+                items={photoState.data}
+                loading={photoState.loading}
+                uploading={uploadingPhoto}
                 onDelete={deletePhoto}
+                onRetry={() => void loadProgressTab("photos")}
                 onUpload={uploadPhoto}
               />
-            </TabsContent>
-            <TabsContent value="notes">
-              <PortalNotesSection items={notes} />
-            </TabsContent>
-            </>
-          ) : null}
+            ) : null}
+          </TabsContent>
+          <TabsContent value="notes">
+            {noteState.loading && !noteState.loaded ? (
+              <ScreenState title="Cargando notas" compact />
+            ) : null}
+            {noteState.error && !noteState.loaded ? (
+              <ProgressTabError
+                loading={noteState.loading}
+                message={noteState.error}
+                onRetry={() => void loadProgressTab("notes")}
+              />
+            ) : null}
+            {noteState.loaded ? (
+              <PortalNotesSection
+                error={noteState.error}
+                items={noteState.data}
+                loading={noteState.loading}
+                onRetry={() => void loadProgressTab("notes")}
+              />
+            ) : null}
+          </TabsContent>
         </Tabs>
       </section>
     </ClientPortalShell>
@@ -2174,55 +2348,249 @@ function PortalWeightSection({
   );
 }
 
-function PortalMeasurementsSection({
-  items,
+function SummaryMetric({
+  icon,
+  label,
+  muted = false,
+  value,
 }: {
-  items: ClientPortalBodyMeasurement[];
+  icon: ReactNode;
+  label: string;
+  muted?: boolean;
+  value: string;
 }) {
   return (
-    <div className="mt-5 space-y-3">
+    <div className={cn("flex min-w-0 gap-4", muted && "sm:pl-5")}>
+      <span
+        className={cn(
+          "flex size-12 shrink-0 items-center justify-center rounded-2xl",
+          muted
+            ? "bg-muted text-muted-foreground"
+            : "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="mt-1 break-words text-2xl font-semibold text-foreground">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProgressTabError({
+  loading,
+  message,
+  onRetry,
+}: {
+  loading: boolean;
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+      <p className="font-semibold">{message}</p>
+      <Button
+        className="mt-3"
+        disabled={loading}
+        onClick={onRetry}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+        Reintentar
+      </Button>
+    </div>
+  );
+}
+
+function ProgressKnownDataError({
+  error,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  if (!error) return null;
+
+  return <ProgressTabError loading={loading} message={error} onRetry={onRetry} />;
+}
+
+function PortalMeasurementsSection({
+  error,
+  items,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  items: ClientPortalBodyMeasurement[];
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  const summary = buildMeasurementSummary(items);
+
+  return (
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de medidas"
+        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+          <SummaryMetric
+            icon={<Ruler className="size-6" aria-hidden="true" />}
+            label="Último registro"
+            value={
+              summary.latestRecordedAt
+                ? portalFormatProgressDate(summary.latestRecordedAt)
+                : "Sin registros"
+            }
+          />
+          <SummaryMetric
+            icon={<ListChecks className="size-6" aria-hidden="true" />}
+            label="Registros visibles"
+            value={summary.visibleCount.toString()}
+            muted
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="measurement-history-title" className="space-y-3">
+        <h2
+          id="measurement-history-title"
+          className="text-xl font-semibold text-foreground"
+        >
+          Historial de medidas
+        </h2>
       {items.length === 0 ? (
         <PortalEmpty text="No hay medidas visibles por ahora." />
       ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title={portalMeasurementSummary(item)}
-            meta={portalFormatDate(item.recordedAt)}
-            note={item.note}
-          />
-        ))
+        <div className="space-y-3">
+          {items.map((item) => {
+            const fields = getVisibleMeasurementFields(item);
+
+            return (
+              <article
+                key={item.id}
+                className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+              >
+                <div className="flex min-w-0 gap-4">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                    <Calendar className="size-6" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-semibold text-foreground">
+                      {portalFormatProgressDate(item.recordedAt)}
+                    </h3>
+                    {item.note ? (
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">
+                        {item.note}
+                      </p>
+                    ) : null}
+                    {fields.length === 0 ? (
+                      <p className="mt-4 rounded-xl border border-dashed border-border/80 bg-muted/40 p-4 text-sm font-medium text-muted-foreground">
+                        Sin medidas visibles en este registro.
+                      </p>
+                    ) : (
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {fields.map((field) => (
+                          <div
+                            key={field.key}
+                            className="rounded-xl border border-border/70 bg-background/40 p-3"
+                          >
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {field.label}
+                            </p>
+                            <p className="mt-1 text-base font-semibold text-foreground">
+                              {field.value} cm
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
+      </section>
     </div>
   );
 }
 
 function PortalPhotosSection({
+  deletingId,
   error,
   items,
+  loading,
   onDelete,
+  onRetry,
   onUpload,
-  saving,
+  uploading,
 }: {
+  deletingId: string | null;
   error: string | null;
   items: ClientPortalProgressPhoto[];
-  onDelete: (id: string) => Promise<void>;
-  onUpload: (formData: FormData) => Promise<void>;
-  saving: boolean;
+  loading: boolean;
+  onDelete: (id: string) => Promise<boolean>;
+  onRetry: () => void;
+  onUpload: (formData: FormData) => Promise<boolean>;
+  uploading: boolean;
 }) {
   const [photoType, setPhotoType] =
     useState<ClientPortalProgressPhotoType>("front");
-  const [recordedAt, setRecordedAt] = useState(portalDateInput());
+  const [recordedAt, setRecordedAt] = useState(getLocalWeightDateInputValue());
   const [file, setFile] = useState<File | null>(null);
+  const [confirmDelete, setConfirmDelete] =
+    useState<ClientPortalProgressPhoto | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const summary = buildPhotoSummary(items);
+  const hasPendingDelete = deletingId !== null;
+
   return (
-    <div className="mt-5 space-y-4">
-      {error ? (
-        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
-          {error}
-        </p>
-      ) : null}
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de fotos"
+        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+          <SummaryMetric
+            icon={<Camera className="size-6" aria-hidden="true" />}
+            label="Fotos visibles"
+            value={summary.visibleCount.toString()}
+          />
+          <SummaryMetric
+            icon={<Calendar className="size-6" aria-hidden="true" />}
+            label="Última foto"
+            value={
+              summary.latestRecordedAt
+                ? portalFormatProgressDate(summary.latestRecordedAt)
+                : "Sin fotos"
+            }
+            muted
+          />
+        </div>
+      </section>
+
       <form
-        className="grid gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#222936] dark:bg-[#121722] sm:grid-cols-[1fr_1fr_2fr_auto]"
+        className="grid gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:grid-cols-2 sm:p-5 lg:grid-cols-[1fr_1fr_2fr]"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) return;
@@ -2230,52 +2598,91 @@ function PortalPhotosSection({
           formData.append("photoType", photoType);
           formData.append("recordedAt", recordedAt);
           formData.append("photo", file);
-          await onUpload(formData);
-          setFile(null);
+          const uploaded = await onUpload(formData);
+
+          if (uploaded) {
+            setPhotoType("front");
+            setRecordedAt(getLocalWeightDateInputValue());
+            setFile(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+          }
         }}
       >
-        <PortalSelect
-          label="Tipo"
-          value={photoType}
-          options={portalPhotoLabels}
-          onChange={(value) =>
-            setPhotoType(value as ClientPortalProgressPhotoType)
-          }
-        />
-        <PortalInput
-          label="Fecha"
-          type="date"
-          value={recordedAt}
-          onChange={setRecordedAt}
-        />
-        <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-          Foto
-          <input
+        <div className="sm:col-span-2 lg:col-span-3">
+          <h2 className="text-xl font-semibold text-foreground">
+            Subir foto de progreso
+          </h2>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="progress-photo-type">Tipo</Label>
+          <select
+            id="progress-photo-type"
+            className="h-10 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            value={photoType}
+            onChange={(event) =>
+              setPhotoType(event.target.value as ClientPortalProgressPhotoType)
+            }
+          >
+            {Object.entries(portalPhotoLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="progress-photo-date">Fecha</Label>
+          <Input
+            id="progress-photo-date"
+            type="date"
+            value={recordedAt}
+            onChange={(event) => setRecordedAt(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="progress-photo-file">Foto</Label>
+          <Input
+            ref={fileInputRef}
             accept="image/jpeg,image/png,image/webp"
-            className="w-full min-w-0 overflow-hidden rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--portal-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-[var(--portal-accent)] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8] dark:file:bg-[#1f2937] "
+            className="file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--portal-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--portal-accent)]"
+            id="progress-photo-file"
             required
             type="file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
-        </label>
-        <PortalButton
-          className="w-full sm:self-end"
-          disabled={saving || !file}
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG o WebP. Máximo 8 MB.
+          </p>
+        </div>
+        <p className="flex gap-2 text-sm leading-6 text-muted-foreground sm:col-span-2 lg:col-span-3">
+          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          Tus fotos se almacenan de forma privada y solo se muestran dentro del
+          portal al personal autorizado.
+        </p>
+        <Button
+          aria-busy={uploading}
+          className="sm:col-span-2 lg:col-span-3"
+          disabled={uploading || !file}
           type="submit"
         >
+          {uploading ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : null}
           Subir
-        </PortalButton>
+        </Button>
       </form>
       {items.length === 0 ? (
         <PortalEmpty text="Aun no hay fotos de progreso." />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {items.map((item) => (
-            <div
+            <article
               key={item.id}
-              className="overflow-hidden rounded-2xl border border-[#ece7e3] bg-white shadow-sm dark:border-[#222936] dark:bg-[#121722]"
+              className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[var(--surface-shadow-soft)]"
             >
-              <div className="relative aspect-[4/3] w-full">
+              <div className="relative aspect-[4/3] w-full bg-muted">
                 <NextImage
                   alt={`Foto ${portalPhotoLabels[item.photoType]}`}
                   className="object-cover"
@@ -2285,23 +2692,143 @@ function PortalPhotosSection({
                   unoptimized
                 />
               </div>
-              <div className="flex items-center justify-between gap-3 p-4 text-sm font-bold">
-                <span>
-                  {portalPhotoLabels[item.photoType]} /{" "}
-                  {portalFormatDate(item.recordedAt)}
-                </span>
-                {item.uploadedByType === "client" ? (
-                  <PortalButton
-                    disabled={saving}
-                    type="button"
-                    variant="danger"
-                    onClick={() => void onDelete(item.id)}
+              <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {portalPhotoLabels[item.photoType]}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {portalFormatProgressDate(item.recordedAt)}
+                    </p>
+                  </div>
+                  <Badge
+                    className="gap-1.5"
+                    variant={item.uploadedByType === "client" ? "success" : "info"}
                   >
+                    {item.uploadedByType === "client"
+                      ? "Subida por ti"
+                      : "Subida por coach"}
+                  </Badge>
+                </div>
+                {canClientDeleteProgressPhoto(item) ? (
+                  <Button
+                    aria-busy={deletingId === item.id}
+                    className="w-full border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={hasPendingDelete}
+                    onClick={() => {
+                      if (!hasPendingDelete) {
+                        setConfirmDelete(item);
+                      }
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    {deletingId === item.id ? (
+                      <Loader2
+                        className="size-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    )}
                     Borrar
-                  </PortalButton>
+                  </Button>
                 ) : null}
               </div>
-            </div>
+            </article>
+          ))}
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDelete(null);
+          }
+        }}
+        title="¿Borrar foto de progreso?"
+        description="Esta foto se eliminará de tu galería de progreso."
+        cancelLabel="Cancelar"
+        confirmLabel="Borrar"
+        isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
+        onConfirm={async () => {
+          if (!confirmDelete || deletingId !== null) return;
+          await onDelete(confirmDelete.id);
+        }}
+      />
+    </div>
+  );
+}
+
+function PortalNotesSection({
+  error,
+  items,
+  loading,
+  onRetry,
+}: {
+  error: string | null;
+  items: ClientPortalProgressNote[];
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  const summary = buildNoteSummary(items);
+
+  return (
+    <div className="mt-5 space-y-6">
+      <ProgressKnownDataError
+        error={error}
+        loading={loading}
+        onRetry={onRetry}
+      />
+      <section
+        aria-label="Resumen de notas"
+        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+          <SummaryMetric
+            icon={<MessageCircle className="size-6" aria-hidden="true" />}
+            label="Notas visibles"
+            value={summary.visibleCount.toString()}
+          />
+          <SummaryMetric
+            icon={<Calendar className="size-6" aria-hidden="true" />}
+            label="Última nota"
+            value={
+              summary.latestCreatedAt
+                ? portalFormatProgressDate(summary.latestCreatedAt)
+                : "Sin notas"
+            }
+            muted
+          />
+        </div>
+      </section>
+      {items.length === 0 ? (
+        <PortalEmpty text="No hay notas visibles por ahora." />
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+            >
+              <div className="flex min-w-0 gap-4">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                  <MessageCircle className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="muted">Nota de tu coach</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {portalFormatProgressDate(item.createdAt)}
+                    </span>
+                  </div>
+                  <p className="mt-4 whitespace-pre-wrap break-words text-base leading-7 text-foreground">
+                    {item.text}
+                  </p>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )}
@@ -2309,161 +2836,21 @@ function PortalPhotosSection({
   );
 }
 
-function PortalNotesSection({ items }: { items: ClientPortalProgressNote[] }) {
-  return (
-    <div className="mt-5 space-y-3">
-      {items.length === 0 ? (
-        <PortalEmpty text="No hay notas visibles por ahora." />
-      ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title="Nota de tu coach"
-            meta={portalFormatDate(item.createdAt)}
-            note={item.text}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-function PortalRecord({
-  children,
-  meta,
-  note,
-  title,
-}: {
-  children?: ReactNode;
-  meta: string;
-  note?: string | null;
-  title: string;
-}) {
-  return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-black">{title}</h2>
-          <p className="mt-1 text-xs font-bold text-[#667080] dark:text-[#aab2bf]">
-            {meta}
-          </p>
-          {note ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#4a5565] dark:text-[#d6dbe3]">
-              {note}
-            </p>
-          ) : null}
-        </div>
-        {children ? (
-          <div className="flex shrink-0 gap-2">{children}</div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function PortalInput({
-  label,
-  onChange,
-  value,
-  ...props
-}: { label: string; onChange: (value: string) => void; value: string } & Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  "onChange" | "value"
->) {
-  return (
-    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-      {label}
-      <input
-        className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        {...props}
-      />
-    </label>
-  );
-}
-
-function PortalSelect({
-  label,
-  onChange,
-  options,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  options: Record<string, string>;
-  value: string;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
-      {label}
-      <select
-        className="w-full min-w-0 rounded-xl border border-[#e4dfda] bg-white px-3 py-2 text-sm text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {Object.entries(options).map(([key, label]) => (
-          <option key={key} value={key}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function PortalButton({
-  children,
-  className,
-  variant = "primary",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
-}) {
-  return (
-    <button
-      className={cn(
-        "rounded-xl px-4 py-2 text-sm font-black disabled:opacity-60",
-        variant === "primary" &&
-          "bg-[var(--portal-accent)] text-[var(--portal-accent-on)] dark:text-[#0b0d0f]",
-        variant === "secondary" &&
-          "border border-[#e4dfda] bg-white text-[#121722] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#f4f6f8]",
-        variant === "danger" &&
-          "bg-[var(--portal-accent-soft)] text-[#b63d31] dark:bg-[#3a1515] dark:text-[#ffb4aa]",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
 function PortalEmpty({ text }: { text: string }) {
   return (
-    <p className="rounded-2xl border border-dashed border-[#e4dfda] bg-white p-5 text-center text-sm font-bold text-[#667080] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#aab2bf]">
+    <p className="rounded-2xl border border-dashed border-border/80 bg-card p-5 text-center text-sm font-semibold text-muted-foreground shadow-[var(--surface-shadow-soft)]">
       {text}
     </p>
   );
 }
 
-function portalDateInput(value?: string) {
-  return value ? value.slice(0, 10) : new Date().toISOString().slice(0, 10);
-}
-
-function portalFormatDate(value: string) {
+function portalFormatProgressDate(value: string) {
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
+    timeZone: "UTC",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function portalMeasurementSummary(item: ClientPortalBodyMeasurement) {
-  const parts = portalMeasurementFields
-    .map(([key, label]) => (item[key] ? `${label} ${item[key]} cm` : null))
-    .filter(Boolean);
-  return parts.length > 0 ? parts.join(" / ") : "Medidas";
 }
 
 function isForbidden(caught: unknown) {

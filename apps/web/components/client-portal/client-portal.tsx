@@ -29,14 +29,19 @@ import {
   Home,
   Info,
   Layers,
+  ListChecks,
   Loader2,
   MoreHorizontal,
+  Pencil,
   PlayCircle,
   RotateCcw,
+  Scale,
   Share2,
   Settings,
+  ShieldCheck,
   Star,
   Sun,
+  Trash2,
   TrendingUp,
   Moon,
   X,
@@ -47,6 +52,9 @@ import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createLatestCalendarRequestCoordinator,
   createLatestRequestCoordinator,
@@ -63,6 +71,12 @@ import {
   type PendingWeekNavigation,
   type WeekNavigationDirection,
 } from "@/components/client-portal/client-calendar-state";
+import {
+  buildWeightSummary,
+  canClientManageWeightLog,
+  deleteWeightLogById,
+  upsertWeightLog,
+} from "@/components/client-portal/client-progress-weight-state";
 import {
   clientPortalRequest,
   clientPortalFormDataRequest,
@@ -1560,11 +1574,14 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
   const [notes, setNotes] = useState<ClientPortalProgressNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [deletingWeightId, setDeletingWeightId] = useState<string | null>(null);
+  const [initialError, setInitialError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setInitialError(null);
     try {
       const encoded = encodeURIComponent(token);
       const [weightResult, measurementResult, photoResult, noteResult] =
@@ -1587,7 +1604,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       setPhotos(photoResult);
       setNotes(noteResult);
     } catch (caught) {
-      setError(errorMessage(caught, "No pudimos cargar tu progreso."));
+      setInitialError(errorMessage(caught, "No pudimos cargar tu progreso."));
     } finally {
       setLoading(false);
     }
@@ -1603,53 +1620,57 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
   async function saveWeight(
     input: { note?: string | null; recordedAt: string; weightKg: number },
     id?: string,
-  ) {
-    setSaving(true);
-    setError(null);
+  ): Promise<boolean> {
+    setWeightSaving(true);
+    setActionError(null);
     try {
       const encoded = encodeURIComponent(token);
-      await clientPortalRequest(
+      const saved = await clientPortalRequest<ClientPortalWeightLog>(
         `/client-portal/${encoded}/progress/weight-logs${id ? `/${id}` : ""}`,
         {
           method: id ? "PATCH" : "POST",
           body: JSON.stringify(input),
         },
       );
-      await loadProgress();
+      setWeightLogs((current) => upsertWeightLog(current, saved));
+      return true;
     } catch (caught) {
-      setError(
+      setActionError(
         isForbidden(caught)
           ? "Tu coach no habilito el registro de peso o este registro no es editable."
           : errorMessage(caught, "No pudimos guardar el peso."),
       );
+      return false;
     } finally {
-      setSaving(false);
+      setWeightSaving(false);
     }
   }
 
-  async function deleteWeight(id: string) {
-    setSaving(true);
-    setError(null);
+  async function deleteWeight(id: string): Promise<boolean> {
+    setDeletingWeightId(id);
+    setActionError(null);
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/weight-logs/${id}`,
         { method: "DELETE" },
       );
-      await loadProgress();
+      setWeightLogs((current) => deleteWeightLogById(current, id));
+      return true;
     } catch (caught) {
-      setError(
+      setActionError(
         isForbidden(caught)
           ? "Solo puedes borrar registros de peso creados por ti."
           : errorMessage(caught, "No pudimos borrar el peso."),
       );
+      return false;
     } finally {
-      setSaving(false);
+      setDeletingWeightId(null);
     }
   }
 
   async function uploadPhoto(formData: FormData) {
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       await clientPortalFormDataRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos`,
@@ -1657,7 +1678,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       );
       await loadProgress();
     } catch (caught) {
-      setError(
+      setActionError(
         isForbidden(caught)
           ? "No tienes permiso para subir esta foto."
           : errorMessage(caught, "No pudimos subir la foto."),
@@ -1669,7 +1690,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
 
   async function deletePhoto(id: string) {
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       await clientPortalRequest(
         `/client-portal/${encodeURIComponent(token)}/progress/photos/${id}`,
@@ -1677,7 +1698,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
       );
       await loadProgress();
     } catch (caught) {
-      setError(
+      setActionError(
         isForbidden(caught)
           ? "Solo puedes borrar fotos subidas por ti."
           : errorMessage(caught, "No pudimos borrar la foto."),
@@ -1691,48 +1712,68 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
     <ClientPortalShell token={token} active="progress">
       <section className="px-6 pt-8 md:px-8 lg:px-10 lg:pt-10">
         <div>
-          <h1 className="text-3xl font-black tracking-normal">Tu progreso</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#667080] dark:text-[#aab2bf]">
+          <h1 className="text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+            Tu progreso
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Consulta tus registros compartidos y agrega avances cuando este
             habilitado.
           </p>
         </div>
 
-        <div className="mt-6 grid grid-cols-4 rounded-2xl border border-[#ece7e3] bg-white p-1 text-sm font-bold shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-          {portalProgressTabs.map((tab) => (
-            <button
-              key={tab.key}
-              className={cn(
-                "rounded-xl px-2 py-3 text-[#667080] dark:text-[#aab2bf]",
-                activeTab === tab.key &&
-                  "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] ",
-              )}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          className="mt-6"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as PortalProgressTab)}
+        >
+          <TabsList className="grid h-auto w-full grid-cols-4 rounded-2xl border border-border/70 bg-card p-1 shadow-[var(--surface-shadow-soft)]">
+            {portalProgressTabs.map((tab) => (
+              <TabsTrigger
+                key={tab.key}
+                className="min-h-11 rounded-xl px-2 text-sm font-semibold text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                value={tab.key}
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {error ? (
-          <p className="mt-4 rounded-2xl border border-[#f1c7bd] bg-[#fff6f3] p-4 text-sm font-bold text-[#b63d31]">
-            {error}
+        {initialError ? (
+          <div className="mt-5 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+            <p className="font-semibold">{initialError}</p>
+            <Button
+              className="mt-3"
+              disabled={loading}
+              onClick={() => void loadProgress()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+              Reintentar
+            </Button>
+          </div>
+        ) : null}
+        {actionError ? (
+          <p className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+            {actionError}
           </p>
         ) : null}
         {loading ? <ScreenState title="Cargando progreso" compact /> : null}
-        {!loading && activeTab === "weight" ? (
+        {!loading && !initialError && activeTab === "weight" ? (
           <PortalWeightSection
+            deletingId={deletingWeightId}
+            formSaving={weightSaving}
             items={weightLogs}
-            saving={saving}
             onDelete={deleteWeight}
             onSave={saveWeight}
           />
         ) : null}
-        {!loading && activeTab === "measurements" ? (
+        {!loading && !initialError && activeTab === "measurements" ? (
           <PortalMeasurementsSection items={measurements} />
         ) : null}
-        {!loading && activeTab === "photos" ? (
+        {!loading && !initialError && activeTab === "photos" ? (
           <PortalPhotosSection
             items={photos}
             saving={saving}
@@ -1740,7 +1781,7 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
             onUpload={uploadPhoto}
           />
         ) : null}
-        {!loading && activeTab === "notes" ? (
+        {!loading && !initialError && activeTab === "notes" ? (
           <PortalNotesSection items={notes} />
         ) : null}
       </section>
@@ -1833,36 +1874,188 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
 }
 
 function PortalWeightSection({
+  deletingId,
+  formSaving,
   items,
   onDelete,
   onSave,
-  saving,
 }: {
+  deletingId: string | null;
+  formSaving: boolean;
   items: ClientPortalWeightLog[];
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<boolean>;
   onSave: (
     input: { note?: string | null; recordedAt: string; weightKg: number },
     id?: string,
-  ) => Promise<void>;
-  saving: boolean;
+  ) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState<ClientPortalWeightLog | null>(null);
+  const [confirmDelete, setConfirmDelete] =
+    useState<ClientPortalWeightLog | null>(null);
   const [weightKg, setWeightKg] = useState("");
   const [recordedAt, setRecordedAt] = useState(portalDateInput());
   const [note, setNote] = useState("");
+  const summary = buildWeightSummary(items);
+
+  function resetForm() {
+    setEditing(null);
+    setWeightKg("");
+    setRecordedAt(portalDateInput());
+    setNote("");
+  }
+
   function startEdit(item: ClientPortalWeightLog) {
     setEditing(item);
     setWeightKg(item.weightKg.toString());
     setRecordedAt(portalDateInput(item.recordedAt));
     setNote(item.note ?? "");
   }
+
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mt-5 space-y-6">
+      <section
+        aria-label="Resumen de peso"
+        className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 sm:divide-x sm:divide-border/70">
+          <div className="flex min-w-0 gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+              <Scale className="size-6" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">
+                Último peso
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {summary.latestWeightKg === null
+                  ? "Sin registros"
+                  : `${summary.latestWeightKg} kg`}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {summary.latestRecordedAt
+                  ? `Último registro · ${portalFormatDate(summary.latestRecordedAt)}`
+                  : "Sin fecha registrada"}
+              </p>
+            </div>
+          </div>
+          <div className="flex min-w-0 gap-4 sm:pl-5">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+              <ListChecks className="size-6" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Registros visibles
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {summary.visibleCount}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="weight-history-title" className="space-y-3">
+        <h2
+          id="weight-history-title"
+          className="text-xl font-semibold text-foreground"
+        >
+          Historial de peso
+        </h2>
+        {items.length === 0 ? (
+          <PortalEmpty text="Aun no hay registros de peso." />
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => {
+              const clientManaged = canClientManageWeightLog(item);
+              const deleting = deletingId === item.id;
+
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)]"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 gap-4">
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]">
+                        <Scale className="size-6" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="text-2xl font-semibold text-foreground">
+                          {item.weightKg} kg
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {portalFormatDateTime(item.recordedAt)}
+                        </p>
+                        {item.note ? (
+                          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">
+                            {item.note}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+                      <Badge
+                        className="gap-1.5"
+                        variant={clientManaged ? "success" : "info"}
+                      >
+                        {clientManaged ? (
+                          <ShieldCheck className="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <Info className="size-3.5" aria-hidden="true" />
+                        )}
+                        {clientManaged
+                          ? "Registrado por ti"
+                          : "Registrado por coach"}
+                      </Badge>
+                      {clientManaged ? (
+                        <div className="flex w-full gap-2 sm:w-auto">
+                          <Button
+                            className="min-w-0 flex-1 sm:flex-none"
+                            disabled={formSaving}
+                            onClick={() => startEdit(item)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <Pencil className="size-4" aria-hidden="true" />
+                            Editar
+                          </Button>
+                          <Button
+                            aria-busy={deleting}
+                            className="min-w-0 flex-1 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive sm:flex-none"
+                            disabled={deleting}
+                            onClick={() => setConfirmDelete(item)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {deleting ? (
+                              <Loader2
+                                className="size-4 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Trash2 className="size-4" aria-hidden="true" />
+                            )}
+                            Borrar
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <form
-        className="grid min-w-0 gap-3 rounded-2xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#222936] dark:bg-[#121722] sm:grid-cols-[1fr_1fr_2fr_auto] sm:p-4"
+        className="grid min-w-0 gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:grid-cols-2 sm:p-5"
         onSubmit={async (event) => {
           event.preventDefault();
-          await onSave(
+          const saved = await onSave(
             {
               weightKg: Number(weightKg),
               recordedAt,
@@ -1870,74 +2063,85 @@ function PortalWeightSection({
             },
             editing?.id,
           );
-          setEditing(null);
-          setWeightKg("");
-          setNote("");
+          if (saved) {
+            resetForm();
+          }
         }}
       >
-        <PortalInput
-          label="Kg"
-          min="1"
-          step="0.1"
-          type="number"
-          value={weightKg}
-          onChange={setWeightKg}
-        />
-        <PortalInput
-          label="Fecha"
-          type="date"
-          value={recordedAt}
-          onChange={setRecordedAt}
-        />
-        <PortalInput label="Nota" value={note} onChange={setNote} />
-        <div className="flex gap-2 self-end">
+        <div className="sm:col-span-2">
+          <h2 className="text-xl font-semibold text-foreground">
+            {editing ? "Editar peso" : "Registrar peso"}
+          </h2>
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="weight-kg">Kg</Label>
+          <Input
+            id="weight-kg"
+            min="1"
+            required
+            step="0.1"
+            type="number"
+            value={weightKg}
+            onChange={(event) => setWeightKg(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2">
+          <Label htmlFor="weight-recorded-at">Fecha</Label>
+          <Input
+            id="weight-recorded-at"
+            required
+            type="date"
+            value={recordedAt}
+            onChange={(event) => setRecordedAt(event.target.value)}
+          />
+        </div>
+        <div className="grid min-w-0 gap-2 sm:col-span-2">
+          <Label htmlFor="weight-note">Nota</Label>
+          <textarea
+            id="weight-note"
+            className="min-h-24 w-full resize-y rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="¿Cómo te sentiste?"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
           {editing ? (
-            <PortalButton
-              disabled={saving}
+            <Button
+              disabled={formSaving}
               type="button"
-              variant="secondary"
-              onClick={() => setEditing(null)}
+              variant="outline"
+              onClick={resetForm}
             >
               Cancelar
-            </PortalButton>
+            </Button>
           ) : null}
-          <PortalButton disabled={saving} type="submit">
-            {editing ? "Guardar" : "Registrar"}
-          </PortalButton>
+          <Button aria-busy={formSaving} disabled={formSaving} type="submit">
+            {formSaving ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {editing ? "Guardar cambios" : "Registrar"}
+          </Button>
         </div>
       </form>
-      {items.length === 0 ? (
-        <PortalEmpty text="Aun no hay registros de peso." />
-      ) : (
-        items.map((item) => (
-          <PortalRecord
-            key={item.id}
-            title={`${item.weightKg} kg`}
-            meta={`${portalFormatDate(item.recordedAt)} / ${item.recordedByType === "client" ? "Registrado por ti" : "Registrado por coach"}`}
-            note={item.note}
-          >
-            {item.recordedByType === "client" ? (
-              <>
-                <PortalButton
-                  type="button"
-                  variant="secondary"
-                  onClick={() => startEdit(item)}
-                >
-                  Editar
-                </PortalButton>
-                <PortalButton
-                  disabled={saving}
-                  type="button"
-                  variant="danger"
-                  onClick={() => void onDelete(item.id)}
-                >
-                  Borrar
-                </PortalButton>
-              </>
-            ) : null}
-          </PortalRecord>
-        ))
-      )}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDelete(null);
+          }
+        }}
+        title="¿Borrar registro de peso?"
+        description="Este registro se eliminará del historial de peso."
+        cancelLabel="Cancelar"
+        confirmLabel="Borrar"
+        isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
+        onConfirm={async () => {
+          if (!confirmDelete) return;
+          await onDelete(confirmDelete.id);
+        }}
+      />
     </div>
   );
 }
@@ -2215,6 +2419,16 @@ function portalDateInput(value?: string) {
 function portalFormatDate(value: string) {
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function portalFormatDateTime(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     month: "short",
     year: "numeric",
   }).format(new Date(value));

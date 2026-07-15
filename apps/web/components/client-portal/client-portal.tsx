@@ -45,6 +45,12 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 import {
+  getCalendarProgress,
+  getUpcomingCalendarDays,
+  selectCalendarDay,
+  type CalendarProgress,
+} from "@/components/client-portal/client-calendar-state";
+import {
   clientPortalRequest,
   clientPortalFormDataRequest,
   verifyPin,
@@ -140,6 +146,28 @@ const calendarLabelToneClasses: Record<CalendarDayTone, string> = {
   active: "text-[var(--portal-accent)]",
   completed: "text-[var(--portal-accent)]",
   partially_completed: "text-[#9a6a12]",
+};
+
+const mobileCalendarStatusToneClasses: Record<CalendarDayTone, string> = {
+  rest: "border-[#cfc9c3] text-[#8b929d] dark:border-[#5f6a7b] dark:text-[#c7cfdb]",
+  pending:
+    "border-[var(--portal-accent)] text-[var(--portal-accent)]",
+  overdue: "border-[#e5484d] text-[#d92d35] dark:text-[#ff8d91]",
+  active:
+    "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
+  completed:
+    "border-[#49a96c] bg-[#49a96c] text-white dark:border-[#70c58e] dark:bg-[#70c58e] dark:text-[#07150c]",
+  partially_completed:
+    "border-[#df8616] bg-[#df8616] text-white dark:border-[#f0b45e] dark:bg-[#f0b45e] dark:text-[#211302]",
+};
+
+const mobileCalendarLabelToneClasses: Record<CalendarDayTone, string> = {
+  rest: "text-[#777e89] dark:text-[#aab2bf]",
+  pending: "text-[var(--portal-accent)]",
+  overdue: "text-[#d92d35] dark:text-[#ff8d91]",
+  active: "text-[var(--portal-accent)]",
+  completed: "text-[#378655] dark:text-[#70c58e]",
+  partially_completed: "text-[#ad650e] dark:text-[#f0b45e]",
 };
 
 
@@ -291,6 +319,13 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedProgress, setSelectedProgress] = useState<{
+    logId: string;
+    value: CalendarProgress | null;
+  } | null>(null);
+  const progressRequestsRef = useRef(
+    new Map<string, Promise<CalendarProgress | null>>(),
+  );
 
   const load = useCallback(() => {
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
@@ -339,19 +374,84 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   }
 
   const days = data?.calendar?.days ?? [];
-  const defaultSelectedDay =
-    days.find((day) => day.date === data?.calendar?.today) ??
-    days.find((day) => day.session) ??
-    days[0];
-  const selectedDay =
-    days.find((day) => day.date === selectedDate) ?? defaultSelectedDay;
+  const selectedDay = selectCalendarDay(
+    days,
+    selectedDate,
+    data?.calendar?.today ?? "",
+  );
   const upcomingDays = selectedDay
-    ? days.filter((day) => day.date > selectedDay.date)
+    ? getUpcomingCalendarDays(days, selectedDay.date)
     : [];
+  const selectedLogId = selectedDay?.log?.id ?? null;
+
+  useEffect(() => {
+    if (!selectedLogId) return;
+
+    let active = true;
+    const logId = selectedLogId;
+    const mobileMedia = window.matchMedia("(max-width: 767px)");
+
+    function loadSelectedProgress() {
+      if (!mobileMedia.matches) return;
+
+      const requestKey = `${token}:${logId}`;
+      let request = progressRequestsRef.current.get(requestKey);
+      if (!request) {
+        request = clientPortalRequest<ClientSessionLog>(
+          `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(logId)}`,
+        )
+          .then((log) => getCalendarProgress(log.snapshotData))
+          .catch(() => null);
+        progressRequestsRef.current.set(requestKey, request);
+      }
+
+      void request.then((progress) => {
+        if (active)
+          setSelectedProgress({ logId, value: progress });
+      });
+    }
+
+    loadSelectedProgress();
+    mobileMedia.addEventListener("change", loadSelectedProgress);
+
+    return () => {
+      active = false;
+      mobileMedia.removeEventListener("change", loadSelectedProgress);
+    };
+  }, [selectedLogId, token]);
 
   return (
     <ClientPortalShell token={token} active="calendar">
-      <section className="px-6 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section className="px-4 pt-5 md:px-8 md:pt-6 lg:px-10 lg:pt-8">
+        <header className="md:hidden">
+          <h1 className="text-[2.15rem] font-black leading-none tracking-[-0.04em] text-[#09111f] dark:text-[#f4f6f8]">
+            Calendario
+          </h1>
+          {data?.calendar ? (
+            <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-lg font-bold capitalize text-[var(--portal-accent)]">
+                {formatCalendarMonth(
+                  selectedDay?.date ?? data.calendar.referenceDate,
+                )}
+              </p>
+              <div className="flex shrink-0 items-center gap-1">
+                <WeekButton
+                  direction="prev"
+                  date={data.calendar.weekStartDate}
+                  token={token}
+                />
+                <span className="px-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+                  Semana {data.calendar.weekNumber}
+                </span>
+                <WeekButton
+                  direction="next"
+                  date={data.calendar.weekEndDate}
+                  token={token}
+                />
+              </div>
+            </div>
+          ) : null}
+        </header>
         <header className="hidden lg:block">
           <h1 className="text-4xl font-bold tracking-normal text-[#09111f]">
             Calendario
@@ -364,7 +464,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
         {error ? <InlineError message={error} /> : null}
         {data?.calendar ? (
           <>
-            <div className="mt-5 flex items-center gap-3 lg:mt-8 lg:max-w-3xl">
+            <div className="mt-5 hidden items-center gap-3 md:flex lg:mt-8 lg:max-w-3xl">
               <WeekButton
                 direction="prev"
                 date={data.calendar.weekStartDate}
@@ -380,7 +480,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                 token={token}
               />
             </div>
-            <div className="mt-5 space-y-3 lg:hidden">
+            <div className="mt-5 hidden space-y-3 md:block lg:hidden">
               {data.calendar.days.map((day) => (
                 <CalendarDayCard
                   day={day}
@@ -390,6 +490,30 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                 />
               ))}
             </div>
+            {selectedDay ? (
+              <div className="md:hidden">
+                <MobileCalendarWeekStrip
+                  days={data.calendar.days}
+                  onSelect={setSelectedDate}
+                  selectedDate={selectedDay.date}
+                />
+                <MobileSelectedSessionCard
+                  day={selectedDay}
+                  loading={openingDate === selectedDay.date}
+                  onOpen={() => void open(selectedDay)}
+                  progress={
+                    selectedProgress?.logId === selectedLogId
+                      ? selectedProgress.value
+                      : null
+                  }
+                />
+                <MobileUpcomingDays
+                  days={upcomingDays}
+                  onSelect={setSelectedDate}
+                  selectedDate={selectedDay.date}
+                />
+              </div>
+            ) : null}
             <div className="mt-5 hidden grid-cols-7 gap-3 lg:grid">
               {data.calendar.days.map((day) => (
                 <CalendarWeekCell
@@ -1938,6 +2062,271 @@ function isForbidden(caught: unknown) {
   );
 }
 
+function MobileCalendarWeekStrip({
+  days,
+  onSelect,
+  selectedDate,
+}: {
+  days: ClientPortalDay[];
+  onSelect: (date: string) => void;
+  selectedDate: string;
+}) {
+  return (
+    <div
+      aria-label="Dias de la semana"
+      className="mt-5 grid grid-cols-7 gap-0.5 rounded-[1.65rem] border border-[#eee8e2] bg-white/80 p-1.5 shadow-[0_14px_40px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]"
+      role="group"
+    >
+      {days.map((day) => {
+        const selected = day.date === selectedDate;
+        const tone = calendarDayTone(day);
+        return (
+          <button
+            aria-label={`${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${statusLabels[day.status]}`}
+            aria-pressed={selected}
+            className={cn(
+              "flex min-h-[8.25rem] min-w-0 flex-col items-center rounded-[1.25rem] px-0.5 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)]",
+              selected
+                ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)]"
+                : "text-[#09111f] hover:bg-[#faf6f2] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]",
+            )}
+            key={day.date}
+            onClick={() => onSelect(day.date)}
+            type="button"
+          >
+            <span
+              className={cn(
+                "text-[0.62rem] font-black uppercase tracking-[0.08em]",
+                selected
+                  ? "text-[var(--portal-accent-on)]"
+                  : "text-[#667080] dark:text-[#c7cfdb]",
+              )}
+            >
+              {shortDay(day.dayOfWeek)}
+            </span>
+            <span className="mt-1 text-[1.65rem] font-black leading-none tracking-[-0.04em]">
+              {Number(day.date.slice(-2))}
+            </span>
+            <MobileCalendarStatusMark day={day} selected={selected} />
+            <span
+              className={cn(
+                "mt-1.5 max-w-full text-[0.5rem] font-bold leading-[0.62rem] [overflow-wrap:anywhere]",
+                selected
+                  ? "text-[var(--portal-accent-on)]"
+                  : mobileCalendarLabelToneClasses[tone],
+              )}
+            >
+              {statusLabels[day.status]}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileCalendarStatusMark({
+  className,
+  day,
+  selected = false,
+}: {
+  className?: string;
+  day: ClientPortalDay;
+  selected?: boolean;
+}) {
+  const tone = calendarDayTone(day);
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "mt-3 flex size-7 shrink-0 items-center justify-center rounded-full border-2",
+        selected
+          ? "border-white/80 bg-white/15 text-white dark:border-[#0b0d0f]/70 dark:bg-[#0b0d0f]/10 dark:text-[#0b0d0f]"
+          : mobileCalendarStatusToneClasses[tone],
+        className,
+      )}
+    >
+      {!day.session ? (
+        <span className="text-base font-bold leading-none">−</span>
+      ) : day.status === "completed" ||
+        day.status === "partially_completed" ? (
+        <Check className="size-4" />
+      ) : day.status === "overdue" ? (
+        <AlertTriangle className="size-4" />
+      ) : day.status === "opened" || day.status === "in_progress" ? (
+        <ChevronRight className="size-4" />
+      ) : null}
+    </span>
+  );
+}
+
+function MobileSelectedSessionCard({
+  day,
+  loading,
+  onOpen,
+  progress,
+}: {
+  day: ClientPortalDay;
+  loading: boolean;
+  onOpen: () => void;
+  progress: CalendarProgress | null;
+}) {
+  const tone = calendarDayTone(day);
+  return (
+    <article className="mt-5 rounded-[1.65rem] border border-[#eee8e2] bg-white p-5 shadow-[0_18px_44px_rgba(45,34,26,0.09)] dark:border-[#293140] dark:bg-[#121722] dark:shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span
+          aria-hidden="true"
+          className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]"
+        >
+          {day.session ? (
+            <Dumbbell className="size-6" />
+          ) : (
+            <Calendar className="size-6" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-[#667080] dark:text-[#c7cfdb]">
+            {formatFullDate(day.date, day.dayOfWeek)}
+          </p>
+          <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.025em] text-[#09111f] dark:text-[#f4f6f8]">
+            {day.session?.name ?? "Descanso"}
+          </h2>
+        </div>
+        <CalendarStatusBadge day={day} className="shrink-0" />
+      </div>
+
+      {day.session?.description ? (
+        <p className="mt-4 text-sm font-medium leading-6 text-[#4f5866] dark:text-[#c7cfdb]">
+          {day.session.description}
+        </p>
+      ) : null}
+
+      {day.log && progress ? (
+        <div className="mt-5 border-t border-[#eee8e2] pt-5 dark:border-[#293140]">
+          <p className="text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+            Tu progreso
+          </p>
+          <div className="mt-3 flex items-center gap-4">
+            <div
+              aria-label={`${progress.percentage}% completado`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={progress.percentage}
+              className="relative size-20 shrink-0"
+              role="progressbar"
+            >
+              <svg
+                aria-hidden="true"
+                className="size-full -rotate-90"
+                viewBox="0 0 40 40"
+              >
+                <circle
+                  className="fill-none stroke-[#f0e9e3] dark:stroke-[#293140]"
+                  cx="20"
+                  cy="20"
+                  pathLength="100"
+                  r="16"
+                  strokeWidth="3"
+                />
+                <circle
+                  className="fill-none stroke-[var(--portal-accent)]"
+                  cx="20"
+                  cy="20"
+                  pathLength="100"
+                  r="16"
+                  strokeDasharray={`${progress.percentage} 100`}
+                  strokeLinecap="round"
+                  strokeWidth="3"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-[var(--portal-accent)]">
+                {progress.percentage}%
+              </span>
+            </div>
+            <div>
+              <p className="text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
+                {progress.completed} / {progress.total} ejercicios
+              </p>
+              <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
+                Completados
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {day.session ? (
+        <button
+          className={cn(
+            "mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-5 text-base font-black transition-transform active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] disabled:opacity-60",
+            calendarButtonToneClasses[tone],
+          )}
+          disabled={loading}
+          onClick={onOpen}
+          type="button"
+        >
+          {loading ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            calendarDayActionLabel(day)
+          )}
+          {!loading ? <ChevronRight className="size-5" /> : null}
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
+function MobileUpcomingDays({
+  days,
+  onSelect,
+  selectedDate,
+}: {
+  days: ClientPortalDay[];
+  onSelect: (date: string) => void;
+  selectedDate: string;
+}) {
+  if (!days.length) return null;
+
+  return (
+    <section className="mt-7" aria-labelledby="mobile-upcoming-title">
+      <h2
+        className="text-xl font-black tracking-[-0.025em] text-[#09111f] dark:text-[#f4f6f8]"
+        id="mobile-upcoming-title"
+      >
+        Próximas sesiones
+      </h2>
+      <div className="mt-3 overflow-hidden rounded-[1.4rem] border border-[#eee8e2] bg-white shadow-[0_14px_36px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]">
+        {days.map((day) => (
+          <button
+            aria-label={`Seleccionar ${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${day.session?.name ?? "Descanso"}, ${statusLabels[day.status]}`}
+            aria-pressed={day.date === selectedDate}
+            className="grid min-h-16 w-full grid-cols-[3.1rem_2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#eee8e2] px-3 py-3 text-left last:border-b-0 hover:bg-[#faf6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--portal-accent)] dark:border-[#293140] dark:hover:bg-[#1a202b]"
+            key={day.date}
+            onClick={() => onSelect(day.date)}
+            type="button"
+          >
+            <span className="text-center">
+              <span className="block text-[0.65rem] font-bold text-[#667080] dark:text-[#c7cfdb]">
+                {shortDay(day.dayOfWeek)}
+              </span>
+              <span className="block text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
+                {Number(day.date.slice(-2))}
+              </span>
+            </span>
+            <MobileCalendarStatusMark className="mt-0" day={day} />
+            <span className="min-w-0 truncate text-sm font-black text-[#09111f] dark:text-[#f4f6f8]">
+              {day.session?.name ?? "Descanso"}
+            </span>
+            <CalendarStatusBadge day={day} className="px-2 text-[0.65rem]" />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CalendarDayCard({
   day,
   loading,
@@ -2968,7 +3357,8 @@ function WeekButton({
   const target = addDays(date, direction === "prev" ? -7 : 7);
   return (
     <Link
-      className="flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] dark:bg-[#121722] dark:text-[#f4f6f8]"
+      aria-label={direction === "prev" ? "Semana anterior" : "Semana siguiente"}
+      className="flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] dark:bg-[#121722] dark:text-[#f4f6f8]"
       href={`/c/${encodeURIComponent(token)}/calendar?date=${target}`}
     >
       {direction === "prev" ? (
@@ -3080,6 +3470,14 @@ function shortDay(day: string) {
 function formatDate(date: string) {
   const parsed = new Date(`${date}T00:00:00`);
   return parsed.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function formatCalendarMonth(date: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00.000Z`));
 }
 
 function formatCompletionDateParts(date: string) {
@@ -3218,7 +3616,7 @@ function calendarDayTone(day: ClientPortalDay): CalendarDayTone {
 
 function calendarDayActionLabel(day: ClientPortalDay) {
   if (!day.session) return "Descanso";
-  if (day.log) return isFinalized(day.log.status) ? "Ver sesion" : "Continuar";
+  if (day.log) return isFinalized(day.log.status) ? "Ver sesión" : "Continuar";
   if (day.status === "overdue") return "Abrir atrasada";
   if (!day.canOpen) return "Vista previa";
   return "Iniciar";

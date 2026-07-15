@@ -133,3 +133,7 @@ export function applyProgressTabError<T>(
     loading: false,
   };
 }
+
+export function shouldAutoLoadProgressTab<T>(state: ProgressTabState<T>) {
+  return !state.loaded && !state.loading && !state.error;
+}

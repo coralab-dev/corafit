@@ -155,6 +155,67 @@ describe('AdminController', () => {
     ]);
   });
 
+  it('delegates protected subscription updates to AdminService', async () => {
+    const adminService = {
+      getStatus: vi.fn(),
+      updateOrganizationSubscription: vi
+        .fn()
+        .mockResolvedValue({ id: 'organization-id', plan: { code: 'pro' } }),
+    };
+    const controller = new AdminController(
+      adminService as never,
+      {} as never,
+      {} as never,
+    );
+    const handler = Object.getOwnPropertyDescriptor(
+      AdminController.prototype,
+      'updateOrganizationSubscription',
+    )?.value as () => unknown;
+
+    await expect(
+      controller.updateOrganizationSubscription('organization-id', {
+        planCode: 'pro',
+      }),
+    ).resolves.toEqual({ id: 'organization-id', plan: { code: 'pro' } });
+    expect(adminService.updateOrganizationSubscription).toHaveBeenCalledWith(
+      'organization-id',
+      { planCode: 'pro' },
+    );
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(
+      'organizations/:organizationId/subscription',
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+      PlatformAdminGuard,
+    ]);
+  });
+
+  it('delegates protected subscription plan listings to AdminService', async () => {
+    const adminService = {
+      getStatus: vi.fn(),
+      listSubscriptionPlans: vi.fn().mockResolvedValue([{ code: 'starter' }]),
+    };
+    const controller = new AdminController(
+      adminService as never,
+      {} as never,
+      {} as never,
+    );
+    const handler = Object.getOwnPropertyDescriptor(
+      AdminController.prototype,
+      'listSubscriptionPlans',
+    )?.value as () => unknown;
+
+    await expect(controller.listSubscriptionPlans()).resolves.toEqual([
+      { code: 'starter' },
+    ]);
+    expect(adminService.listSubscriptionPlans).toHaveBeenCalledWith();
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(
+      'subscription-plans',
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+      PlatformAdminGuard,
+    ]);
+  });
+
   it('keeps admin exercises protected by PlatformAdminGuard', () => {
     expect(
       Reflect.getMetadata(

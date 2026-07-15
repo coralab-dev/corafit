@@ -29,6 +29,13 @@ type PrismaServiceMock = {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
   };
+  organizationSubscription: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
+  subscriptionPlan: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+  };
 };
 
 describe('AdminService', () => {
@@ -68,6 +75,47 @@ describe('AdminService', () => {
         update: vi.fn().mockResolvedValue({
           ...organization,
           status: OrganizationStatus.suspended,
+        }),
+      },
+      organizationSubscription: {
+        upsert: vi.fn().mockResolvedValue({
+          id: 'subscription-id',
+          organizationId: 'organization-id',
+          subscriptionPlanId: 'pro-plan-id',
+          status: SubscriptionStatus.active,
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          renewsAt: new Date('2026-02-01T00:00:00.000Z'),
+          cancelledAt: null,
+        }),
+      },
+      subscriptionPlan: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'founder-plan-id',
+            code: 'founder',
+            name: 'Founder',
+            priceMonthly: 0,
+            currency: 'MXN',
+            clientLimit: 30,
+            memberLimit: 1,
+            isPublic: false,
+            status: SubscriptionPlanStatus.active,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ]),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'pro-plan-id',
+          code: 'pro',
+          name: 'Pro',
+          priceMonthly: 0,
+          currency: 'MXN',
+          clientLimit: 30,
+          memberLimit: 1,
+          isPublic: true,
+          status: SubscriptionPlanStatus.active,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
         }),
       },
       organizationSubscription: {

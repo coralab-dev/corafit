@@ -78,18 +78,47 @@ function snapshot(
 }
 
 describe("client calendar state", () => {
-  test("uses a requested date, then today, first session, and first day", () => {
+  test("uses selected date, requested date, today, first session, and first day", () => {
     const rest = day("2026-07-13", { session: null });
     const training = day("2026-07-14");
     const later = day("2026-07-15");
     const days = [rest, training, later];
 
-    expect(selectCalendarDay(days, "2026-07-15", "2026-07-14")).toBe(
-      later,
-    );
-    expect(selectCalendarDay(days, null, "2026-07-14")).toBe(training);
-    expect(selectCalendarDay(days, null, "2026-07-20")).toBe(training);
-    expect(selectCalendarDay([rest], null, "2026-07-20")).toBe(rest);
+    expect(
+      selectCalendarDay(days, {
+        requestedDate: "2026-07-14",
+        selectedDate: "2026-07-15",
+        today: "2026-07-13",
+      }),
+    ).toBe(later);
+    expect(
+      selectCalendarDay(days, {
+        requestedDate: "2026-07-15",
+        selectedDate: "2026-07-20",
+        today: "2026-07-14",
+      }),
+    ).toBe(later);
+    expect(
+      selectCalendarDay(days, {
+        requestedDate: null,
+        selectedDate: null,
+        today: "2026-07-13",
+      }),
+    ).toBe(rest);
+    expect(
+      selectCalendarDay(days, {
+        requestedDate: null,
+        selectedDate: null,
+        today: "2026-07-20",
+      }),
+    ).toBe(training);
+    expect(
+      selectCalendarDay([rest], {
+        requestedDate: null,
+        selectedDate: null,
+        today: "2026-07-20",
+      }),
+    ).toBe(rest);
   });
 
   test("returns only days after the selected day in the returned week", () => {

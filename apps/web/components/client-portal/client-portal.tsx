@@ -374,11 +374,11 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   }
 
   const days = data?.calendar?.days ?? [];
-  const selectedDay = selectCalendarDay(
-    days,
+  const selectedDay = selectCalendarDay(days, {
+    requestedDate: date,
     selectedDate,
-    data?.calendar?.today ?? "",
-  );
+    today: data?.calendar?.today ?? "",
+  });
   const upcomingDays = selectedDay
     ? getUpcomingCalendarDays(days, selectedDay.date)
     : [];
@@ -422,36 +422,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token} active="calendar">
-      <section className="px-4 pt-5 md:px-8 md:pt-6 lg:px-10 lg:pt-8">
-        <header className="md:hidden">
-          <h1 className="text-[2.15rem] font-black leading-none tracking-[-0.04em] text-[#09111f] dark:text-[#f4f6f8]">
-            Calendario
-          </h1>
-          {data?.calendar ? (
-            <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
-              <p className="min-w-0 truncate text-lg font-bold capitalize text-[var(--portal-accent)]">
-                {formatCalendarMonth(
-                  selectedDay?.date ?? data.calendar.referenceDate,
-                )}
-              </p>
-              <div className="flex shrink-0 items-center gap-1">
-                <WeekButton
-                  direction="prev"
-                  date={data.calendar.weekStartDate}
-                  token={token}
-                />
-                <span className="px-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-                  Semana {data.calendar.weekNumber}
-                </span>
-                <WeekButton
-                  direction="next"
-                  date={data.calendar.weekEndDate}
-                  token={token}
-                />
-              </div>
-            </div>
-          ) : null}
-        </header>
+      <section className="px-6 pt-6 md:px-8 lg:px-10 lg:pt-8">
         <header className="hidden lg:block">
           <h1 className="text-4xl font-bold tracking-normal text-[#09111f]">
             Calendario
@@ -464,6 +435,33 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
         {error ? <InlineError message={error} /> : null}
         {data?.calendar ? (
           <>
+            <header className="md:hidden">
+              <h1 className="text-[2.15rem] font-black leading-none tracking-[-0.04em] text-[#09111f] dark:text-[#f4f6f8]">
+                Calendario
+              </h1>
+              <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-lg font-bold capitalize text-[var(--portal-accent)]">
+                  {formatCalendarMonth(
+                    selectedDay?.date ?? data.calendar.referenceDate,
+                  )}
+                </p>
+                <div className="flex shrink-0 items-center gap-1">
+                  <WeekButton
+                    direction="prev"
+                    date={data.calendar.weekStartDate}
+                    token={token}
+                  />
+                  <span className="px-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+                    Semana {data.calendar.weekNumber}
+                  </span>
+                  <WeekButton
+                    direction="next"
+                    date={data.calendar.weekEndDate}
+                    token={token}
+                  />
+                </div>
+              </div>
+            </header>
             <div className="mt-5 hidden items-center gap-3 md:flex lg:mt-8 lg:max-w-3xl">
               <WeekButton
                 direction="prev"
@@ -2074,7 +2072,7 @@ function MobileCalendarWeekStrip({
   return (
     <div
       aria-label="Dias de la semana"
-      className="mt-5 grid grid-cols-7 gap-0.5 rounded-[1.65rem] border border-[#eee8e2] bg-white/80 p-1.5 shadow-[0_14px_40px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]"
+      className="mt-5 flex gap-0.5 overflow-x-auto rounded-[1.65rem] border border-[#eee8e2] bg-white/80 p-1.5 shadow-[0_14px_40px_rgba(45,34,26,0.07)] dark:border-[#293140] dark:bg-[#121722]"
       role="group"
     >
       {days.map((day) => {
@@ -2085,7 +2083,7 @@ function MobileCalendarWeekStrip({
             aria-label={`${longDay(day.dayOfWeek)} ${Number(day.date.slice(-2))}: ${statusLabels[day.status]}`}
             aria-pressed={selected}
             className={cn(
-              "flex min-h-[8.25rem] min-w-0 flex-col items-center rounded-[1.25rem] px-0.5 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)]",
+              "flex min-h-[8.25rem] min-w-11 flex-1 flex-col items-center rounded-[1.25rem] px-0.5 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)]",
               selected
                 ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)]"
                 : "text-[#09111f] hover:bg-[#faf6f2] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]",
@@ -2269,7 +2267,7 @@ function MobileSelectedSessionCard({
           {loading ? (
             <Loader2 className="size-5 animate-spin" />
           ) : (
-            calendarDayActionLabel(day)
+            mobileCalendarDayActionLabel(day)
           )}
           {!loading ? <ChevronRight className="size-5" /> : null}
         </button>
@@ -3616,10 +3614,15 @@ function calendarDayTone(day: ClientPortalDay): CalendarDayTone {
 
 function calendarDayActionLabel(day: ClientPortalDay) {
   if (!day.session) return "Descanso";
-  if (day.log) return isFinalized(day.log.status) ? "Ver sesión" : "Continuar";
+  if (day.log) return isFinalized(day.log.status) ? "Ver sesion" : "Continuar";
   if (day.status === "overdue") return "Abrir atrasada";
   if (!day.canOpen) return "Vista previa";
   return "Iniciar";
+}
+
+function mobileCalendarDayActionLabel(day: ClientPortalDay) {
+  const label = calendarDayActionLabel(day);
+  return label === "Ver sesion" ? "Ver sesión" : label;
 }
 
 function calendarDayShortLabel(day: ClientPortalDay) {

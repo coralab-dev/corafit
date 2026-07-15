@@ -236,10 +236,7 @@ describe("client home state", () => {
       eyebrow: "Entrenamiento completado",
       title: "Push",
     });
-    expect(view.nextActivity).toMatchObject({
-      dateLabel: "Mié 15",
-      sessionName: "Pierna",
-    });
+    expect(view.nextActivity).toBeNull();
   });
 
   test("rest day with upcoming session points to recovery and the next date", () => {
@@ -395,6 +392,9 @@ describe("client home state", () => {
       currentStreak: 0,
       pendingLabel: "0 pendientes · 7 días de descanso",
       progressLabel: "0 de 0 sesiones completadas",
+      sessions: [],
+      summaryLabel: "Sin sesiones esta semana",
+      summaryValue: "—",
       weekLabel: "Semana 2",
     });
   });
@@ -497,7 +497,10 @@ describe("client home state", () => {
 
     expect(view.week?.days).toHaveLength(7);
     expect(view.week?.sessions).toHaveLength(6);
-    expect(view.week?.summaryFractionLabel).toBe("2/6");
+    expect(view.week).toMatchObject({
+      summaryLabel: "sesiones completadas",
+      summaryValue: "2/6",
+    });
     expect(view.week?.sessions.map((day) => day.sessionName)).toEqual([
       "Push",
       longName,
@@ -579,5 +582,144 @@ describe("client home state", () => {
     }));
 
     expect(view.week?.currentStreak).toBe(9);
+  });
+
+  test("weekly session rows keep the original source day for actions", () => {
+    const sourceDay = day({
+      canOpen: false,
+      date: "2026-07-15",
+      dayOfWeek: "wednesday",
+      session: {
+        coachNote: null,
+        description: null,
+        id: "session-leg",
+        name: "Pierna",
+      },
+    });
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: null,
+      todaySession: null,
+      week: {
+        days: [
+          day({
+            date: "2026-07-13",
+            dayOfWeek: "monday",
+            session: null,
+            status: "no_session",
+          }),
+          sourceDay,
+        ],
+        summary: {
+          completedSessions: 0,
+          openedSessions: 0,
+          pendingSessions: 1,
+          restDays: 1,
+          totalTrainingSessions: 1,
+        },
+        weekEndDate: "2026-07-19",
+        weekNumber: 2,
+        weekStartDate: "2026-07-13",
+      },
+    }));
+
+    expect(view.week?.sessions).toHaveLength(1);
+    expect(view.week?.sessions[0]?.sourceDay).toBe(sourceDay);
+  });
+
+  test("next activity is hidden when it already appears in the current week", () => {
+    const weeklyNext = day({
+      date: "2026-07-15",
+      dayOfWeek: "wednesday",
+      session: {
+        coachNote: null,
+        description: null,
+        id: "session-leg",
+        name: "Pierna",
+      },
+    });
+
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: weeklyNext,
+      todaySession: day({
+        date: "2026-07-13",
+        session: null,
+        status: "no_session",
+      }),
+    }));
+
+    expect(view.hero?.day).toBe(weeklyNext);
+    expect(view.nextActivity).toBeNull();
+  });
+
+  test("next activity appears when it is outside the current week", () => {
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: day({
+        date: "2026-07-22",
+        dayOfWeek: "wednesday",
+        session: {
+          coachNote: null,
+          description: null,
+          id: "session-future",
+          name: "Futuro",
+        },
+      }),
+      todaySession: day({
+        canOpen: true,
+        date: "2026-07-13",
+      }),
+    }));
+
+    expect(view.nextActivity).toMatchObject({
+      dateLabel: "Mié 22",
+      sessionName: "Futuro",
+    });
+  });
+
+  test("next activity does not deduplicate by matching session name only", () => {
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: day({
+        date: "2026-07-22",
+        dayOfWeek: "wednesday",
+        session: {
+          coachNote: null,
+          description: null,
+          id: "session-push-future",
+          name: "Push",
+        },
+      }),
+      todaySession: day({
+        canOpen: true,
+        date: "2026-07-13",
+      }),
+    }));
+
+    expect(view.nextActivity).toMatchObject({
+      dateLabel: "Mié 22",
+      sessionName: "Push",
+    });
+  });
+
+  test("next activity does not deduplicate when the date matches but session id differs", () => {
+    const view = buildClientHomeViewModel(home({
+      nextPendingSession: day({
+        date: "2026-07-15",
+        dayOfWeek: "wednesday",
+        session: {
+          coachNote: null,
+          description: null,
+          id: "session-other",
+          name: "Pierna variante",
+        },
+      }),
+      todaySession: day({
+        canOpen: true,
+        date: "2026-07-13",
+      }),
+    }));
+
+    expect(view.nextActivity).toMatchObject({
+      dateLabel: "Mié 15",
+      sessionName: "Pierna variante",
+    });
   });
 });

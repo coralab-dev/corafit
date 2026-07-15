@@ -8,7 +8,6 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Dumbbell,
   Flame,
   Loader2,
   RotateCcw,
@@ -152,7 +151,14 @@ export function ClientHomeScreen({ token }: { token: string }) {
                     void handleSessionAction(view.hero?.day ?? null)
                   }
                 />
-                {view.week ? <WeekSessionList token={token} week={view.week} /> : null}
+                {view.week ? (
+                  <WeekSessionList
+                    isOpening={isOpeningSession}
+                    onOpen={(day) => void handleSessionAction(day)}
+                    token={token}
+                    week={view.week}
+                  />
+                ) : null}
                 {view.nextActivity ? (
                   <NextActivityRow
                     activity={view.nextActivity}
@@ -182,8 +188,14 @@ function HomeHeader({
     <header className="mb-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-normal text-foreground lg:text-3xl">
-            Hola, {clientFirstName}
+          <h1 className="flex min-w-0 items-center gap-2 text-2xl font-semibold tracking-normal text-foreground lg:text-3xl">
+            <span className="truncate">Hola, {clientFirstName}</span>
+            <span
+              aria-hidden="true"
+              className="shrink-0 text-[1.35rem] leading-none lg:text-[1.55rem]"
+            >
+              👋
+            </span>
           </h1>
           <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
             Tu entrenamiento, progreso y semana en un solo lugar.
@@ -230,13 +242,7 @@ function TrainingHeroCard({
 
   return (
     <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
-        >
-          <Dumbbell className="size-6" />
-        </span>
+      <div className="flex min-w-0 items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <p className="text-xs font-semibold uppercase text-primary">
             {hero.eyebrow}
@@ -274,18 +280,18 @@ function HomeWeekOverviewCard({
   week: ClientHomeWeekView;
 }) {
   return (
-    <article className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] items-center gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+    <article className="grid grid-cols-1 gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] min-[360px]:items-center">
       <CurrentStreakCard streak={week.currentStreak} />
-      <div className="min-w-0 border-l border-border pl-4">
+      <div className="min-w-0 border-t border-border pt-4 min-[360px]:border-l min-[360px]:border-t-0 min-[360px]:pl-4 min-[360px]:pt-0">
         <p className="text-2xl font-semibold leading-none text-foreground">
-          {week.summaryFractionLabel}
+          {week.summaryValue}
         </p>
         <p className="mt-1 text-xs font-medium text-muted-foreground">
-          sesiones completadas
+          {week.summaryLabel}
         </p>
         <div
           aria-label="Resumen de días de la semana"
-          className="mt-3 flex items-center gap-1.5"
+          className="mt-3 grid grid-cols-7 gap-1"
         >
           {week.days.map((day) => (
             <WeekStatusDot day={day} key={day.date} />
@@ -306,8 +312,11 @@ function CurrentStreakCard({ streak }: { streak: number }) {
         <Flame className="size-6" />
       </span>
       <div className="min-w-0">
-        <p className="whitespace-nowrap text-2xl font-semibold leading-none text-foreground">
-          {streak} {plural(streak, "sesión", "sesiones")}
+        <p className="text-2xl font-semibold leading-none text-foreground">
+          <span>{streak}</span>{" "}
+          <span className="text-base font-medium">
+            {plural(streak, "sesión", "sesiones")}
+          </span>
         </p>
         <p className="mt-1 text-xs font-medium text-muted-foreground">
           {streak === 0 ? "Inicia tu racha" : "Racha actual"}
@@ -318,9 +327,13 @@ function CurrentStreakCard({ streak }: { streak: number }) {
 }
 
 function WeekSessionList({
+  isOpening,
+  onOpen,
   token,
   week,
 }: {
+  isOpening: boolean;
+  onOpen: (day: ClientPortalDay) => void;
   token: string;
   week: ClientHomeWeekView;
 }) {
@@ -347,7 +360,12 @@ function WeekSessionList({
       {week.sessions.length > 0 ? (
         <div className="mt-4 divide-y divide-border">
           {week.sessions.map((day) => (
-            <WeekSessionRow day={day} key={day.date} />
+            <WeekSessionRow
+              day={day}
+              disabled={isOpening}
+              key={day.date}
+              onOpen={() => onOpen(day.sourceDay)}
+            />
           ))}
         </div>
       ) : (
@@ -400,11 +418,29 @@ function NextActivityRow({
   );
 }
 
-function WeekSessionRow({ day }: { day: ClientHomeWeekDayView }) {
+function WeekSessionRow({
+  day,
+  disabled,
+  onOpen,
+}: {
+  day: ClientHomeWeekDayView;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  const action = day.sourceDay.log
+    ? "abrir el registro"
+    : day.sourceDay.canOpen
+      ? "comenzar la sesión"
+      : "ver la vista previa";
+
   return (
-    <div
-      className="grid grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
+    <button
+      aria-label={`${day.dayLabel} ${Number(day.dateNumber)}, ${day.sessionName}: ${day.statusLabel}; ${action}`}
+      className="grid min-h-16 w-full grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] items-center gap-3 px-4 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
+      disabled={disabled}
+      onClick={onOpen}
       title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
+      type="button"
     >
       <div className="text-center">
         <p className="text-[0.68rem] font-semibold uppercase leading-none text-muted-foreground">
@@ -419,12 +455,13 @@ function WeekSessionRow({ day }: { day: ClientHomeWeekDayView }) {
         <h3 className="truncate text-sm font-semibold text-foreground">
           {day.sessionName}
         </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {day.isToday ? "Hoy" : day.statusLabel}
-        </p>
+        {day.isToday ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">Hoy</p>
+        ) : null}
       </div>
       <WeekStatusBadge day={day} />
-    </div>
+      <ChevronRight className="size-4 text-muted-foreground" />
+    </button>
   );
 }
 
@@ -440,7 +477,7 @@ function WeekStatusDot({
       aria-label={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}`}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full border-2",
-        size === "lg" ? "size-8" : "size-6",
+        size === "lg" ? "size-8" : "size-5",
         weekStatusMarkToneClass(day.tone),
         day.isToday && "ring-2 ring-primary/35 ring-offset-2 ring-offset-card",
       )}

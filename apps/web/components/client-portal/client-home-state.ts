@@ -47,7 +47,8 @@ export type ClientHomeWeekView = {
   progressLabel: string;
   restDays: number;
   sessions: ClientHomeWeekDayView[];
-  summaryFractionLabel: string;
+  summaryLabel: string;
+  summaryValue: string;
   totalTrainingSessions: number;
   weekLabel: string;
 };
@@ -56,7 +57,10 @@ export type ClientHomeWeekDayView = {
   date: string;
   dayLabel: string;
   dateNumber: string;
+  isToday: boolean;
+  isRest: boolean;
   sessionName: string;
+  sourceDay: ClientPortalDay;
   statusLabel: string;
   tone:
     | "rest"
@@ -66,8 +70,6 @@ export type ClientHomeWeekDayView = {
     | "active"
     | "completed"
     | "partial";
-  isToday: boolean;
-  isRest: boolean;
 };
 
 export type ClientHomeNextActivityView = {
@@ -113,8 +115,13 @@ export function buildClientHomeViewModel(
   } = {},
 ): ClientHomeViewModel {
   const plan = buildPlanView(data);
+  const week = data.state === "active" ? buildWeekView(data) : null;
   const hero = data.state === "active" ? buildHero(data, options) : null;
-  const nextActivity = buildNextActivity(data, hero?.day ?? null);
+  const nextActivity = buildNextActivity(
+    data,
+    hero?.day ?? null,
+    week?.sessions ?? [],
+  );
 
   return {
     clientFirstName: firstName(data.client.name),
@@ -123,7 +130,7 @@ export function buildClientHomeViewModel(
     hideCalendarNav: data.state === "no_plan",
     nextActivity,
     plan,
-    week: data.state === "active" ? buildWeekView(data) : null,
+    week,
   };
 }
 
@@ -286,7 +293,12 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
     rangeLabel: formatWeekRange(data.week.weekStartDate, data.week.weekEndDate),
     restDays: summary.restDays,
     sessions: days.filter((day) => !day.isRest),
-    summaryFractionLabel: `${summary.completedSessions}/${summary.totalTrainingSessions}`,
+    summaryLabel: summary.totalTrainingSessions
+      ? "sesiones completadas"
+      : "Sin sesiones esta semana",
+    summaryValue: summary.totalTrainingSessions
+      ? `${summary.completedSessions}/${summary.totalTrainingSessions}`
+      : "—",
     totalTrainingSessions: summary.totalTrainingSessions,
     weekLabel: `Semana ${data.week.weekNumber}`,
   };
@@ -306,6 +318,7 @@ function buildWeekDayView(
     isRest,
     isToday: day.date === todayDate,
     sessionName: day.session?.name ?? "Descanso",
+    sourceDay: day,
     statusLabel: weekDayStatusLabel(day, status),
     tone: weekDayTone(day, status),
   };
@@ -337,10 +350,14 @@ function weekDayTone(
 function buildNextActivity(
   data: ClientPortalHome,
   heroDay: ClientPortalDay | null,
+  visibleSessions: ClientHomeWeekDayView[],
 ): ClientHomeNextActivityView | null {
   const next = data.nextPendingSession;
   if (!next?.session) return null;
   if (heroDay && sameSessionDate(heroDay, next)) return null;
+  if (visibleSessions.some((day) => sameSessionDate(day.sourceDay, next))) {
+    return null;
+  }
 
   return {
     dateLabel: shortWeekdayDate(next),

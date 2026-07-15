@@ -153,9 +153,9 @@ function buildPlanView(data: ClientPortalHome): ClientHomePlanView {
     return {
       actions: [],
       description:
-        "Cuando este listo, aqui veras tu proxima sesion y tu avance semanal.",
+        "Cuando esté listo, aquí verás tu próxima sesión y tu avance semanal.",
       kind: "no_plan",
-      title: "Tu coach esta preparando tu plan",
+      title: "Tu coach está preparando tu plan",
     };
   }
 
@@ -205,7 +205,7 @@ function buildHero(
     return {
       actionLabel: "Ver entrenamiento",
       day: today,
-      detail: "Completaste tu sesion de hoy",
+      detail: today.session.description ?? "Completaste tu sesión de hoy",
       eyebrow: "Entrenamiento completado",
       sessionName: today.session.name,
       title: today.session.name,
@@ -222,8 +222,8 @@ function buildHero(
       day: today,
       detail: progress
         ? `${progress.completedExercises} de ${progress.totalExercises} ejercicios completados`
-        : "Entrenamiento en progreso",
-      eyebrow: "Continua tu entrenamiento",
+        : today.session.description ?? "Entrenamiento en progreso",
+      eyebrow: "Continúa tu entrenamiento",
       sessionName: today.session.name,
       title: today.session.name,
     };
@@ -233,7 +233,7 @@ function buildHero(
     return {
       actionLabel: "Comenzar entrenamiento",
       day: today,
-      detail: `${statusLabel(today.status)} · Hoy`,
+      detail: today.session.description ?? `${statusLabel(today.status)} · Hoy`,
       eyebrow: "Entrenamiento de hoy",
       sessionName: today.session.name,
       title: today.session.name,
@@ -242,14 +242,16 @@ function buildHero(
 
   if (data.nextPendingSession?.session) {
     return {
-      actionLabel: "Ver proximo entrenamiento",
+      actionLabel: "Ver próximo entrenamiento",
       day: data.nextPendingSession,
-      detail: formatLongDate(data.nextPendingSession.date, {
-        capitalizeFirst: true,
-      }),
-      eyebrow: "Hoy toca recuperacion",
+      detail:
+        data.nextPendingSession.session.description ??
+        formatLongDate(data.nextPendingSession.date, {
+          capitalizeFirst: true,
+        }),
+      eyebrow: "Hoy toca recuperación",
       sessionName: data.nextPendingSession.session.name,
-      title: `Tu proximo entrenamiento es ${data.nextPendingSession.session.name}`,
+      title: `Tu próximo entrenamiento es ${data.nextPendingSession.session.name}`,
     };
   }
 
@@ -274,7 +276,7 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
       buildWeekDayView(day, data.todaySession?.date ?? null),
     ),
     openedSessions: summary.openedSessions,
-    pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "dia", "dias")} de descanso`,
+    pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "día", "días")} de descanso`,
     pendingSessions: summary.pendingSessions,
     progressLabel: `${summary.completedSessions} de ${summary.totalTrainingSessions} sesiones completadas`,
     rangeLabel: formatWeekRange(data.week.weekStartDate, data.week.weekEndDate),
@@ -310,7 +312,7 @@ function weekDayStatusLabel(day: ClientPortalDay, status: string) {
   if (status === "opened" || status === "in_progress") return "En curso";
   if (status === "overdue") return "Atrasada";
   if (status === "pending" && day.canOpen) return "Pendiente";
-  return "Proxima";
+  return "Próxima";
 }
 
 function weekDayTone(
@@ -335,7 +337,7 @@ function buildNextActivity(
   if (heroDay && sameSessionDate(heroDay, next)) return null;
 
   return {
-    dateLabel: `${shortWeekdayDate(next)} · ${next.session.name}`,
+    dateLabel: shortWeekdayDate(next),
     day: next,
     sessionName: next.session.name,
   };
@@ -389,11 +391,11 @@ function shortWeekday(dayOfWeek: string) {
   const labels: Record<string, string> = {
     friday: "Vie",
     monday: "Lun",
-    saturday: "Sab",
+    saturday: "Sáb",
     sunday: "Dom",
     thursday: "Jue",
     tuesday: "Mar",
-    wednesday: "Mie",
+    wednesday: "Mié",
   };
   return labels[dayOfWeek] ?? capitalize(dayOfWeek);
 }

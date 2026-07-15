@@ -139,7 +139,7 @@ describe("client home state", () => {
     expect(view.plan).toMatchObject({ kind: "no_plan" });
     expect(view.hideCalendarNav).toBe(true);
     expect(view.plan).toMatchObject({
-      title: "Tu coach esta preparando tu plan",
+      title: "Tu coach está preparando tu plan",
     });
     expect(view.hero).toBeNull();
     expect(view.week).toBeNull();
@@ -163,16 +163,27 @@ describe("client home state", () => {
   });
 
   test("active pending today shows a start workout hero", () => {
-    const view = buildClientHomeViewModel(home());
+    const view = buildClientHomeViewModel(home({
+      todaySession: day({
+        canOpen: true,
+        date: "2026-07-13",
+        session: {
+          coachNote: null,
+          description: "Empuje, tracción y estabilidad para tren superior.",
+          id: "session-push",
+          name: "Push",
+        },
+      }),
+    }));
 
     expect(view.plan.kind).toBe("active");
     expect(view.hero).toMatchObject({
       actionLabel: "Comenzar entrenamiento",
+      detail: "Empuje, tracción y estabilidad para tren superior.",
       eyebrow: "Entrenamiento de hoy",
       sessionName: "Push",
       title: "Push",
     });
-    expect(view.hero?.detail).toBe("Pendiente · Hoy");
   });
 
   test("today in progress shows completed exercise progress and continue label", () => {
@@ -199,7 +210,7 @@ describe("client home state", () => {
     expect(view.hero).toMatchObject({
       actionLabel: "Continuar entrenamiento",
       detail: "3 de 6 ejercicios completados",
-      eyebrow: "Continua tu entrenamiento",
+      eyebrow: "Continúa tu entrenamiento",
       title: "Push",
     });
   });
@@ -221,12 +232,12 @@ describe("client home state", () => {
 
     expect(view.hero).toMatchObject({
       actionLabel: "Ver entrenamiento",
-      detail: "Completaste tu sesion de hoy",
+      detail: "Completaste tu sesión de hoy",
       eyebrow: "Entrenamiento completado",
       title: "Push",
     });
     expect(view.nextActivity).toMatchObject({
-      dateLabel: "Mie 15 · Pierna",
+      dateLabel: "Mié 15",
       sessionName: "Pierna",
     });
   });
@@ -251,10 +262,10 @@ describe("client home state", () => {
     }));
 
     expect(view.hero).toMatchObject({
-      actionLabel: "Ver proximo entrenamiento",
+      actionLabel: "Ver próximo entrenamiento",
       detail: "Martes 14 de julio",
-      eyebrow: "Hoy toca recuperacion",
-      title: "Tu proximo entrenamiento es Pull",
+      eyebrow: "Hoy toca recuperación",
+      title: "Tu próximo entrenamiento es Pull",
     });
     expect(view.nextActivity).toBeNull();
   });
@@ -382,7 +393,7 @@ describe("client home state", () => {
     expect(view.week).toMatchObject({
       completionPercent: 0,
       currentStreak: 0,
-      pendingLabel: "0 pendientes · 7 dias de descanso",
+      pendingLabel: "0 pendientes · 7 días de descanso",
       progressLabel: "0 de 0 sesiones completadas",
       weekLabel: "Semana 2",
     });
@@ -502,7 +513,7 @@ describe("client home state", () => {
       {
         isToday: true,
         sessionName: longName,
-        statusLabel: "Proxima",
+        statusLabel: "Próxima",
         tone: "upcoming",
       },
       {

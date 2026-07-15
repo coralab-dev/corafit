@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
   ChevronRight,
+  Dumbbell,
   Flame,
   Loader2,
   RotateCcw,
@@ -16,6 +20,9 @@ import {
   type ClientPortalHome,
   type ClientSessionLog,
 } from "@/lib/client-portal/api";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ClientPortalShell } from "./client-portal-shell";
 import {
   buildClientHomeViewModel,
@@ -26,6 +33,8 @@ import {
   type ClientHomeWeekDayView,
   type ClientHomeWeekView,
 } from "./client-home-state";
+
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
 export function ClientHomeScreen({ token }: { token: string }) {
   const router = useRouter();
@@ -101,7 +110,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
       router.push(`/c/${encodeURIComponent(token)}/session/${log.id}`);
     } catch (caught) {
       setSessionActionError(
-        errorMessage(caught, "No pudimos abrir la sesion."),
+        errorMessage(caught, "No pudimos abrir la sesión."),
       );
     } finally {
       setIsOpeningSession(false);
@@ -116,7 +125,7 @@ export function ClientHomeScreen({ token }: { token: string }) {
       active="home"
       hideCalendarNav={view?.hideCalendarNav}
     >
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section className="px-4 pt-5 md:px-8 lg:px-10 lg:pt-8">
         {isLoading && !data ? (
           <HomeSkeleton />
         ) : loadError && !data ? (
@@ -134,20 +143,19 @@ export function ClientHomeScreen({ token }: { token: string }) {
             />
             {view.plan.kind === "active" ? (
               <div className="space-y-4">
-                <TrainingHeroCard
-                  error={sessionActionError}
-                  hero={view.hero}
-                  isOpening={isOpeningSession}
-                  onAction={() =>
-                    void handleSessionAction(view.hero?.day ?? null)
-                  }
-                />
-                {view.week ? (
-                  <>
-                    <CurrentStreakCard streak={view.week.currentStreak} />
-                    <WeekSummaryCard token={token} week={view.week} />
-                  </>
-                ) : null}
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+                  <TrainingHeroCard
+                    error={sessionActionError}
+                    hero={view.hero}
+                    isOpening={isOpeningSession}
+                    onAction={() =>
+                      void handleSessionAction(view.hero?.day ?? null)
+                    }
+                  />
+                  {view.week ? (
+                    <HomeWeekOverviewCard token={token} week={view.week} />
+                  ) : null}
+                </div>
                 {view.nextActivity ? (
                   <NextActivityRow
                     activity={view.nextActivity}
@@ -174,17 +182,17 @@ function HomeHeader({
   isRefreshing: boolean;
 }) {
   return (
-    <header className="mb-6">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-normal lg:text-3xl">
+    <header className="mb-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-semibold tracking-normal text-foreground lg:text-3xl">
             Hola, {clientFirstName}
           </h1>
-          <div className="lg:hidden">{isRefreshing ? <RefreshPill /> : null}</div>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+            Tu entrenamiento, progreso y semana en un solo lugar.
+          </p>
         </div>
-        <p className="mt-2 max-w-xl text-base font-medium leading-7 text-[#4e5968] dark:text-[#c7cfdb]">
-          Tu entrenamiento, progreso y semana en un solo lugar.
-        </p>
+        {isRefreshing ? <RefreshPill /> : null}
       </div>
     </header>
   );
@@ -203,66 +211,101 @@ function TrainingHeroCard({
 }) {
   if (!hero) {
     return (
-      <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-        <p className="text-sm font-semibold text-[var(--portal-accent)]">
+      <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+        <span
+          aria-hidden="true"
+          className="flex size-11 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          <CalendarDays className="size-5" />
+        </span>
+        <p className="mt-4 text-xs font-semibold uppercase text-primary">
           Semana tranquila
         </p>
-        <h2 className="mt-4 text-2xl font-bold tracking-normal">
+        <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground md:text-2xl">
           No tienes entrenamientos pendientes
         </h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Tu semana no tiene sesiones por abrir en este momento.
+        </p>
       </article>
     );
   }
 
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        {hero.eyebrow}
-      </p>
-      <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight tracking-normal md:text-4xl">
-        {hero.title}
-      </h2>
-      <p className="mt-4 text-base font-semibold text-[#4e5968] dark:text-[#c7cfdb] md:text-lg">
-        {hero.detail}
-      </p>
+    <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          <Dumbbell className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase text-primary">
+              {hero.eyebrow}
+            </p>
+            <HomeStatusBadge day={hero.day} />
+          </div>
+          <h2 className="mt-3 text-xl font-semibold leading-tight tracking-normal text-foreground md:text-2xl">
+            {hero.title}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {hero.detail}
+          </p>
+        </div>
+      </div>
       {error ? (
-        <p className="mt-4 rounded-2xl border border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] p-3 text-sm font-bold text-[#121722] dark:text-[#f4f6f8]">
+        <p className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
           {error}
         </p>
       ) : null}
-      <button
-        className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-base font-bold text-white shadow-[0_14px_30px_rgba(18,23,34,0.2)] transition hover:-translate-y-0.5 disabled:opacity-60 dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+      <Button
+        className="mt-5 h-11 w-full rounded-xl md:w-auto md:px-5"
         disabled={isOpening}
         onClick={onAction}
         type="button"
       >
         {isOpening ? <Loader2 className="size-5 animate-spin" /> : null}
         {hero.actionLabel}
-      </button>
+      </Button>
+    </article>
+  );
+}
+
+function HomeWeekOverviewCard({
+  token,
+  week,
+}: {
+  token: string;
+  week: ClientHomeWeekView;
+}) {
+  return (
+    <article className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] md:p-5">
+      <CurrentStreakCard streak={week.currentStreak} />
+      <WeekSummaryCard token={token} week={week} />
     </article>
   );
 }
 
 function CurrentStreakCard({ streak }: { streak: number }) {
   return (
-    <article className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-[0_12px_32px_rgba(18,23,34,0.06)] dark:border-[#293140] dark:bg-[#121722]">
+    <div className="flex items-center gap-3 border-b border-border pb-4">
       <span
         aria-hidden="true"
-        className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)]"
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
       >
-        <Flame className="size-6 text-[var(--portal-accent)]" />
+        <Flame className="size-5" />
       </span>
-      <div>
-        <p className="text-sm font-semibold text-[var(--portal-accent)]">
-          Racha actual
+      <div className="min-w-0">
+        <p className="text-lg font-semibold leading-none text-foreground">
+          {streak} {plural(streak, "sesión", "sesiones")}
         </p>
-        <p className="mt-1 text-base font-bold">
-          {streak === 0
-            ? "Completa tu proxima sesion para iniciar una racha"
-            : `${streak} ${plural(streak, "sesion seguida", "sesiones seguidas")}`}
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
+          {streak === 0 ? "Inicia tu racha" : "Racha actual"}
         </p>
       </div>
-    </article>
+    </div>
   );
 }
 
@@ -274,16 +317,18 @@ function WeekSummaryCard({
   week: ClientHomeWeekView;
 }) {
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722] md:p-6">
+    <div className="pt-4">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-normal">Tu semana</h2>
-          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-normal text-foreground">
+            Tu semana
+          </h2>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">
             {week.weekLabel} · {week.rangeLabel}
           </p>
         </div>
         <Link
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[var(--portal-accent)]"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           href={`/c/${encodeURIComponent(token)}/calendar`}
         >
           Ver calendario
@@ -291,30 +336,45 @@ function WeekSummaryCard({
         </Link>
       </div>
 
-      <div className="mt-5 snap-x snap-mandatory overflow-x-auto pb-2">
-        <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
-          {week.days.map((day) => (
-            <WeekDayCard day={day} key={day.date} />
-          ))}
-        </div>
+      <div
+        aria-label="Resumen de días de la semana"
+        className="mt-4 grid grid-cols-7 gap-1"
+      >
+        {week.days.map((day) => (
+          <WeekDayCard day={day} key={day.date} />
+        ))}
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-base font-bold">{week.progressLabel}</p>
-          <p className="text-base font-bold">{week.completionPercent}%</p>
+          <p className="text-sm font-medium text-muted-foreground">
+            Avance semanal
+          </p>
+          <p className="text-sm font-semibold text-foreground">
+            {week.completionPercent}%
+          </p>
         </div>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#eceff2] dark:bg-[#242b36]">
+        <div
+          aria-label={`${week.completionPercent}% de avance semanal`}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={week.completionPercent}
+          className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+        >
           <div
-            className="h-full rounded-full bg-[var(--portal-accent)]"
+            className="h-full rounded-full bg-primary"
             style={{ width: `${week.completionPercent}%` }}
           />
         </div>
-        <p className="mt-4 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          {week.progressLabel}
+        </p>
+        <p className="text-xs leading-5 text-muted-foreground">
           {week.pendingLabel}
         </p>
       </div>
-    </article>
+    </div>
   );
 }
 
@@ -329,20 +389,30 @@ function NextActivityRow({
 }) {
   return (
     <button
-      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#ece7e3] bg-white p-4 text-left shadow-[0_12px_32px_rgba(18,23,34,0.06)] transition hover:bg-[#f7f8f9] disabled:opacity-60 dark:border-[#293140] dark:bg-[#121722] dark:hover:bg-[#171d28]"
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent bg-card p-4 text-left shadow-[var(--surface-shadow-soft)] transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
       disabled={isOpening}
       onClick={() => onOpen(activity.day)}
       type="button"
     >
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[var(--portal-accent)]">
-          Proximo entrenamiento
+      <span
+        aria-hidden="true"
+        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+      >
+        <CalendarDays className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold uppercase text-primary">
+          Próximo entrenamiento
         </span>
-        <span className="mt-1 block truncate text-base font-bold">
+        <span className="mt-1 block truncate text-base font-semibold text-foreground">
+          {activity.sessionName}
+        </span>
+        <span className="mt-1 block text-sm text-muted-foreground">
           {activity.dateLabel}
         </span>
       </span>
-      <ChevronRight className="size-6 shrink-0 text-[var(--portal-accent)]" />
+      <HomeStatusBadge day={activity.day} />
+      <ChevronRight className="size-5 shrink-0 text-primary" />
     </button>
   );
 }
@@ -350,39 +420,103 @@ function NextActivityRow({
 function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
   return (
     <div
-      className={[
-        "flex min-h-28 w-24 shrink-0 snap-start flex-col items-center rounded-2xl border p-3 text-center md:w-auto",
-        weekDayToneClass(day),
-        day.isToday
-          ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)]"
-          : "",
-      ].join(" ")}
+      aria-label={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
+      className={cn(
+        "flex min-h-[4.75rem] min-w-0 flex-col items-center rounded-xl px-1 py-2 text-center",
+        day.isToday ? "bg-primary text-primary-foreground" : "bg-accent/45",
+      )}
+      title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
     >
-      <p className="text-xs font-semibold uppercase text-[#667080] dark:text-[#c7cfdb]">
+      <p
+        className={cn(
+          "text-[0.63rem] font-semibold uppercase leading-none",
+          day.isToday ? "text-primary-foreground/85" : "text-muted-foreground",
+        )}
+      >
         {day.dayLabel}
       </p>
-      <p className="mt-1 text-base font-bold">{day.dateNumber}</p>
-      <p
-        className="mx-auto mt-4 max-w-full truncate text-center text-xs font-semibold"
-        title={day.sessionName}
-      >
-        {day.sessionName}
+      <p className="mt-1 text-base font-semibold leading-none">
+        {Number(day.dateNumber)}
       </p>
-      <p className="mt-auto max-w-full truncate text-[0.68rem] font-bold text-[#667080] dark:text-[#c7cfdb]">
-        {day.statusLabel}
-      </p>
+      <HomeWeekStatusMark day={day} />
     </div>
   );
 }
 
-function weekDayToneClass(day: ClientHomeWeekDayView) {
-  if (day.tone === "active") {
-    return "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[#121722] dark:text-[#f4f6f8]";
+function HomeWeekStatusMark({ day }: { day: ClientHomeWeekDayView }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2",
+        day.isToday
+          ? "border-primary-foreground/80 bg-primary-foreground/15 text-primary-foreground"
+          : weekStatusMarkToneClass(day.tone),
+      )}
+    >
+      {day.tone === "rest" ? (
+        <span className="text-base font-semibold leading-none">-</span>
+      ) : day.tone === "completed" || day.tone === "partial" ? (
+        <Check className="size-3.5" />
+      ) : day.tone === "overdue" ? (
+        <AlertTriangle className="size-3.5" />
+      ) : day.tone === "active" ? (
+        <ChevronRight className="size-3.5" />
+      ) : null}
+    </span>
+  );
+}
+
+function weekStatusMarkToneClass(tone: ClientHomeWeekDayView["tone"]) {
+  if (tone === "completed") {
+    return "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-500 dark:text-emerald-950";
   }
-  if (day.tone === "overdue") {
-    return "border-[var(--portal-accent)] bg-white text-[#121722] dark:bg-[#121722] dark:text-[#f4f6f8]";
+  if (tone === "partial") {
+    return "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950";
   }
-  return "border-[#e2e5e9] bg-[#f7f8f9] text-[#121722] dark:border-[#293140] dark:bg-[#171d28] dark:text-[#f4f6f8]";
+  if (tone === "overdue") {
+    return "border-red-500 text-red-600 dark:border-red-400 dark:text-red-300";
+  }
+  if (tone === "active") {
+    return "border-primary bg-primary text-primary-foreground";
+  }
+  if (tone === "pending") {
+    return "border-primary/80 text-primary";
+  }
+  return "border-border bg-background text-muted-foreground";
+}
+
+function HomeStatusBadge({ day }: { day: ClientPortalDay }) {
+  return (
+    <Badge
+      className="max-w-full justify-center truncate"
+      variant={homeBadgeVariant(day)}
+    >
+      {homeStatusLabel(day)}
+    </Badge>
+  );
+}
+
+function homeBadgeVariant(day: ClientPortalDay): BadgeVariant {
+  const status = day.log?.status ?? day.status;
+  if (!day.session || day.status === "no_session") return "muted";
+  if (status === "completed") return "success";
+  if (status === "partially_completed") return "warning";
+  if (status === "overdue") return "danger";
+  if (status === "opened" || status === "in_progress") return "default";
+  if (status === "pending") return "outline";
+  return "muted";
+}
+
+function homeStatusLabel(day: ClientPortalDay) {
+  const status = day.log?.status ?? day.status;
+  if (!day.session || day.status === "no_session") return "Descanso";
+  if (status === "completed") return "Completada";
+  if (status === "partially_completed") return "Parcial";
+  if (status === "opened" || status === "in_progress") return "En curso";
+  if (status === "overdue") return "Atrasada";
+  if (status === "pending" && day.canOpen) return "Pendiente";
+  return "Próxima";
 }
 
 function PlanStateCard({
@@ -393,18 +527,24 @@ function PlanStateCard({
   token: string;
 }) {
   return (
-    <article className="rounded-2xl border border-[#ece7e3] bg-white p-6 shadow-[0_16px_42px_rgba(18,23,34,0.08)] dark:border-[#293140] dark:bg-[#121722]">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        {plan.kind === "no_plan" ? "Plan en preparacion" : "Tu plan"}
+    <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+      <span
+        aria-hidden="true"
+        className="flex size-11 items-center justify-center rounded-xl bg-accent text-primary"
+      >
+        <CalendarDays className="size-5" />
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase text-primary">
+        {plan.kind === "no_plan" ? "Plan en preparación" : "Tu plan"}
       </p>
-      <h2 className="mt-4 text-2xl font-bold tracking-normal">
+      <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground md:text-2xl">
         {plan.title}
       </h2>
-      <p className="mt-3 text-base font-bold leading-7 text-[#4e5968] dark:text-[#c7cfdb]">
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
         {plan.description}
       </p>
       {plan.kind === "not_started" ? (
-        <div className="mt-5 grid gap-3 rounded-2xl bg-[#f3f6f9] p-4 text-sm font-bold dark:bg-[#171d28]">
+        <div className="mt-5 grid gap-2 rounded-xl bg-accent/45 p-4 text-sm font-medium text-foreground">
           <span>{plan.planName}</span>
           <span>Inicio: {plan.startDateLabel}</span>
           <span>{plan.durationLabel}</span>
@@ -412,27 +552,24 @@ function PlanStateCard({
       ) : null}
       {plan.kind === "plan_finished" ? (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link
-            className="flex h-12 items-center justify-center rounded-2xl bg-[#121722] text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
-            href={`/c/${encodeURIComponent(token)}/progress`}
-          >
-            Ver progreso
-          </Link>
-          <Link
-            className="flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-            href={`/c/${encodeURIComponent(token)}/calendar`}
-          >
-            Revisar calendario
-          </Link>
+          <Button asChild>
+            <Link href={`/c/${encodeURIComponent(token)}/progress`}>
+              Ver progreso
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/c/${encodeURIComponent(token)}/calendar`}>
+              Revisar calendario
+            </Link>
+          </Button>
         </div>
       ) : null}
       {plan.kind === "not_started" && plan.actions.length > 0 ? (
-        <Link
-          className="mt-6 flex h-12 items-center justify-center rounded-2xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-          href={`/c/${encodeURIComponent(token)}/profile`}
-        >
-          Revisar perfil
-        </Link>
+        <Button asChild className="mt-6 w-full sm:w-auto" variant="outline">
+          <Link href={`/c/${encodeURIComponent(token)}/profile`}>
+            Revisar perfil
+          </Link>
+        </Button>
       ) : null}
     </article>
   );
@@ -446,22 +583,24 @@ function InitialError({
   onRetry: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl border border-[#f2c8c0] bg-white p-6 shadow-sm dark:border-[#4b2b24] dark:bg-[#121722]">
-      <p className="text-sm font-semibold text-[var(--portal-accent)]">
-        Algo salio mal
+    <div className="mx-auto max-w-2xl rounded-2xl border border-transparent bg-card p-6 shadow-[var(--surface-shadow-soft)]">
+      <p className="text-xs font-semibold uppercase text-destructive">
+        Algo salió mal
       </p>
-      <h1 className="mt-3 text-xl font-bold">No pudimos cargar tu inicio</h1>
-      <p className="mt-3 text-sm font-bold leading-6 text-[#667080] dark:text-[#c7cfdb]">
+      <h1 className="mt-3 text-xl font-semibold text-foreground">
+        No pudimos cargar tu inicio
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
         {message}
       </p>
-      <button
-        className="mt-6 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#121722] px-5 text-sm font-bold text-white dark:bg-[var(--portal-accent)] dark:text-[var(--portal-accent-on)]"
+      <Button
+        className="mt-6"
         onClick={onRetry}
         type="button"
       >
         <RotateCcw className="size-4" />
         Reintentar
-      </button>
+      </Button>
     </div>
   );
 }
@@ -470,41 +609,36 @@ function HomeSkeleton() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 lg:mx-0 lg:max-w-5xl">
       <div className="flex items-center justify-between">
-        <div className="h-9 w-32 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="size-11 rounded-full bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="h-8 w-32 rounded-2xl bg-muted" />
+        <div className="h-7 w-28 rounded-full bg-muted" />
       </div>
       <div className="space-y-3">
-        <div className="h-9 w-52 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="h-5 w-72 max-w-full rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="h-5 w-72 max-w-full rounded-2xl bg-muted" />
       </div>
-      <div className="h-64 rounded-2xl bg-[#ece7e3] shadow-sm dark:bg-[#242b36]" />
-      <div className="flex items-center gap-4 rounded-2xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <div className="size-12 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        <div className="space-y-2">
-          <div className="h-4 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-36 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-        </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="h-52 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
+        <div className="h-64 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
       </div>
-      <div className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+      <div className="rounded-2xl bg-card p-5 shadow-[var(--surface-shadow-soft)]">
         <div className="flex items-center justify-between">
-          <div className="h-6 w-28 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-24 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
+          <div className="h-6 w-28 rounded-xl bg-muted" />
+          <div className="h-5 w-24 rounded-xl bg-muted" />
         </div>
         <div className="mt-5 overflow-hidden pb-2">
-          <div className="flex min-w-max gap-3 px-0.5 md:grid md:min-w-0 md:grid-cols-7">
+          <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: 7 }).map((_, index) => (
               <div
-                className="h-32 w-24 shrink-0 rounded-2xl bg-[#ece7e3] dark:bg-[#242b36] md:w-auto"
+                className="h-20 rounded-xl bg-muted"
                 key={index}
               />
             ))}
           </div>
         </div>
         <div className="mt-5 flex items-center justify-between">
-          <div className="h-5 w-48 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
-          <div className="h-5 w-10 rounded-xl bg-[#ece7e3] dark:bg-[#242b36]" />
+          <div className="h-5 w-48 rounded-xl bg-muted" />
+          <div className="h-5 w-10 rounded-xl bg-muted" />
         </div>
-        <div className="mt-3 h-3 rounded-full bg-[#ece7e3] dark:bg-[#242b36]" />
+        <div className="mt-3 h-2 rounded-full bg-muted" />
       </div>
     </div>
   );
@@ -512,7 +646,7 @@ function HomeSkeleton() {
 
 function RefreshPill() {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--portal-accent)]">
+    <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-primary">
       <Loader2 className="size-3.5 animate-spin" />
       Actualizando
     </span>

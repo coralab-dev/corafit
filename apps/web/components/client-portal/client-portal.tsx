@@ -1985,6 +1985,7 @@ function PortalWeightSection({
             {items.map((item) => {
               const clientManaged = canClientManageWeightLog(item);
               const deleting = deletingId === item.id;
+              const savingEditedItem = formSaving && editing?.id === item.id;
 
               return (
                 <article
@@ -2041,9 +2042,9 @@ function PortalWeightSection({
                           <Button
                             aria-busy={deleting}
                             className="min-w-0 flex-1 border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive sm:flex-none"
-                            disabled={hasPendingDelete}
+                            disabled={hasPendingDelete || savingEditedItem}
                             onClick={() => {
-                              if (!hasPendingDelete) {
+                              if (!hasPendingDelete && !savingEditedItem) {
                                 setConfirmDelete(item);
                               }
                             }}
@@ -2160,7 +2161,13 @@ function PortalWeightSection({
         isLoading={confirmDelete ? deletingId === confirmDelete.id : false}
         onConfirm={async () => {
           if (!confirmDelete || deletingId !== null) return;
-          await onDelete(confirmDelete.id);
+          const deletedId = confirmDelete.id;
+          const wasEditingDeletedRecord = editing?.id === deletedId;
+          const deleted = await onDelete(deletedId);
+
+          if (deleted && wasEditingDeletedRecord) {
+            resetForm();
+          }
         }}
       />
     </div>

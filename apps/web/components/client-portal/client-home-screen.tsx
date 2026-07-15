@@ -34,15 +34,23 @@ import {
 } from "./client-home-state";
 
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
+type HomeSessionActionSource =
+  | { kind: "hero" }
+  | { date: string; kind: "week"; sessionId: string }
+  | { kind: "next" };
+
+type SessionActionError = {
+  message: string;
+  source: HomeSessionActionSource;
+};
 
 export function ClientHomeScreen({ token }: { token: string }) {
   const router = useRouter();
   const [data, setData] = useState<ClientPortalHome | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [sessionActionError, setSessionActionError] = useState<string | null>(
-    null,
-  );
+  const [sessionActionError, setSessionActionError] =
+    useState<SessionActionError | null>(null);
   const [isOpeningSession, setIsOpeningSession] = useState(false);
 
   useEffect(() => {
@@ -83,7 +91,10 @@ export function ClientHomeScreen({ token }: { token: string }) {
     }
   }
 
-  async function handleSessionAction(day: ClientPortalDay | null) {
+  async function handleSessionAction(
+    day: ClientPortalDay | null,
+    source: HomeSessionActionSource,
+  ) {
     const action = getClientHomeSessionAction({ day, token });
     setSessionActionError(null);
 
@@ -108,9 +119,10 @@ export function ClientHomeScreen({ token }: { token: string }) {
       );
       router.push(`/c/${encodeURIComponent(token)}/session/${log.id}`);
     } catch (caught) {
-      setSessionActionError(
-        errorMessage(caught, "No pudimos abrir la sesión."),
-      );
+      setSessionActionError({
+        message: errorMessage(caught, "No pudimos abrir la sesión."),
+        source,
+      });
     } finally {
       setIsOpeningSession(false);
     }
@@ -144,17 +156,34 @@ export function ClientHomeScreen({ token }: { token: string }) {
               <div className="space-y-4">
                 {view.week ? <HomeWeekOverviewCard week={view.week} /> : null}
                 <TrainingHeroCard
-                  error={sessionActionError}
+                  error={
+                    sessionActionError?.source.kind === "hero"
+                      ? sessionActionError.message
+                      : null
+                  }
                   hero={view.hero}
                   isOpening={isOpeningSession}
                   onAction={() =>
-                    void handleSessionAction(view.hero?.day ?? null)
+                    void handleSessionAction(view.hero?.day ?? null, {
+                      kind: "hero",
+                    })
                   }
                 />
                 {view.week ? (
                   <WeekSessionList
+                    actionError={
+                      sessionActionError?.source.kind === "week"
+                        ? sessionActionError
+                        : null
+                    }
                     isOpening={isOpeningSession}
-                    onOpen={(day) => void handleSessionAction(day)}
+                    onOpen={(day) =>
+                      void handleSessionAction(day, {
+                        date: day.date,
+                        kind: "week",
+                        sessionId: day.session?.id ?? "",
+                      })
+                    }
                     token={token}
                     week={view.week}
                   />
@@ -162,8 +191,15 @@ export function ClientHomeScreen({ token }: { token: string }) {
                 {view.nextActivity ? (
                   <NextActivityRow
                     activity={view.nextActivity}
+                    error={
+                      sessionActionError?.source.kind === "next"
+                        ? sessionActionError.message
+                        : null
+                    }
                     isOpening={isOpeningSession}
-                    onOpen={(day) => void handleSessionAction(day)}
+                    onOpen={(day) =>
+                      void handleSessionAction(day, { kind: "next" })
+                    }
                   />
                 ) : null}
               </div>
@@ -280,9 +316,9 @@ function HomeWeekOverviewCard({
   week: ClientHomeWeekView;
 }) {
   return (
-    <article className="grid grid-cols-1 gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] min-[360px]:items-center">
+    <article className="grid grid-cols-1 gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] min-[420px]:items-center">
       <CurrentStreakCard streak={week.currentStreak} />
-      <div className="min-w-0 border-t border-border pt-4 min-[360px]:border-l min-[360px]:border-t-0 min-[360px]:pl-4 min-[360px]:pt-0">
+      <div className="min-w-0 border-t border-border pt-4 min-[420px]:border-l min-[420px]:border-t-0 min-[420px]:pl-4 min-[420px]:pt-0">
         <p className="text-2xl font-semibold leading-none text-foreground">
           {week.summaryValue}
         </p>
@@ -327,11 +363,13 @@ function CurrentStreakCard({ streak }: { streak: number }) {
 }
 
 function WeekSessionList({
+  actionError,
   isOpening,
   onOpen,
   token,
   week,
 }: {
+  actionError: SessionActionError | null;
   isOpening: boolean;
   onOpen: (day: ClientPortalDay) => void;
   token: string;
@@ -361,9 +399,17 @@ function WeekSessionList({
         <div className="mt-4 divide-y divide-border">
           {week.sessions.map((day) => (
             <WeekSessionRow
+              actionError={
+                actionError &&
+                actionError.source.kind === "week" &&
+                actionError.source.date === day.date &&
+                actionError.source.sessionId === day.sourceDay.session?.id
+                  ? actionError.message
+                  : null
+              }
               day={day}
               disabled={isOpening}
-              key={day.date}
+              key={`${day.date}-${day.sourceDay.session?.id ?? "rest"}`}
               onOpen={() => onOpen(day.sourceDay)}
             />
           ))}
@@ -381,48 +427,55 @@ function WeekSessionList({
 
 function NextActivityRow({
   activity,
+  error,
   isOpening,
   onOpen,
 }: {
   activity: ClientHomeNextActivityView;
+  error: string | null;
   isOpening: boolean;
   onOpen: (day: ClientPortalDay) => void;
 }) {
   return (
-    <button
-      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent bg-card p-4 text-left shadow-[var(--surface-shadow-soft)] transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
-      disabled={isOpening}
-      onClick={() => onOpen(activity.day)}
-      type="button"
-    >
-      <span
-        aria-hidden="true"
-        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+    <div className="rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
+      <button
+        className="flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+        disabled={isOpening}
+        onClick={() => onOpen(activity.day)}
+        type="button"
       >
-        <CalendarDays className="size-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs font-semibold uppercase text-primary">
-          Próximo entrenamiento
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+        >
+          <CalendarDays className="size-5" />
         </span>
-        <span className="mt-1 block truncate text-base font-semibold text-foreground">
-          {activity.sessionName}
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-semibold uppercase text-primary">
+            Próximo entrenamiento
+          </span>
+          <span className="mt-1 block truncate text-base font-semibold text-foreground">
+            {activity.sessionName}
+          </span>
+          <span className="mt-1 block text-sm text-muted-foreground">
+            {activity.dateLabel}
+          </span>
         </span>
-        <span className="mt-1 block text-sm text-muted-foreground">
-          {activity.dateLabel}
-        </span>
-      </span>
-      <HomeStatusBadge day={activity.day} />
-      <ChevronRight className="size-5 shrink-0 text-primary" />
-    </button>
+        <HomeStatusBadge day={activity.day} />
+        <ChevronRight className="size-5 shrink-0 text-primary" />
+      </button>
+      {error ? <InlineActionError message={error} /> : null}
+    </div>
   );
 }
 
 function WeekSessionRow({
+  actionError,
   day,
   disabled,
   onOpen,
 }: {
+  actionError: string | null;
   day: ClientHomeWeekDayView;
   disabled: boolean;
   onOpen: () => void;
@@ -434,34 +487,37 @@ function WeekSessionRow({
       : "ver la vista previa";
 
   return (
-    <button
-      aria-label={`${day.dayLabel} ${Number(day.dateNumber)}, ${day.sessionName}: ${day.statusLabel}; ${action}`}
-      className="grid min-h-16 w-full grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] items-center gap-3 px-4 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
-      disabled={disabled}
-      onClick={onOpen}
-      title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
-      type="button"
-    >
-      <div className="text-center">
-        <p className="text-[0.68rem] font-semibold uppercase leading-none text-muted-foreground">
-          {day.dayLabel}
-        </p>
-        <p className="mt-1 text-lg font-semibold leading-none text-foreground">
-          {Number(day.dateNumber)}
-        </p>
-      </div>
-      <WeekStatusDot day={day} size="lg" />
-      <div className="min-w-0">
-        <h3 className="truncate text-sm font-semibold text-foreground">
-          {day.sessionName}
-        </h3>
-        {day.isToday ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">Hoy</p>
-        ) : null}
-      </div>
-      <WeekStatusBadge day={day} />
-      <ChevronRight className="size-4 text-muted-foreground" />
-    </button>
+    <div>
+      <button
+        aria-label={`${day.dayLabel} ${Number(day.dateNumber)}, ${day.sessionName}: ${day.statusLabel}; ${action}`}
+        className="grid min-h-16 w-full grid-cols-[2.5rem_1.75rem_minmax(0,1fr)] items-center gap-2 px-3 py-3 text-left transition hover:bg-accent/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60 min-[360px]:grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto_1rem] min-[360px]:gap-3 min-[360px]:px-4"
+        disabled={disabled}
+        onClick={onOpen}
+        title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
+        type="button"
+      >
+        <div className="text-center">
+          <p className="text-[0.65rem] font-semibold uppercase leading-none text-muted-foreground min-[360px]:text-[0.68rem]">
+            {day.dayLabel}
+          </p>
+          <p className="mt-1 text-base font-semibold leading-none text-foreground min-[360px]:text-lg">
+            {Number(day.dateNumber)}
+          </p>
+        </div>
+        <WeekStatusDot day={day} size="lg" />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-foreground">
+            {day.sessionName}
+          </h3>
+          {day.isToday ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">Hoy</p>
+          ) : null}
+        </div>
+        <WeekStatusBadge className="hidden min-[360px]:inline-flex" day={day} />
+        <ChevronRight className="hidden size-4 text-muted-foreground min-[360px]:block" />
+      </button>
+      {actionError ? <InlineActionError message={actionError} /> : null}
+    </div>
   );
 }
 
@@ -526,10 +582,24 @@ function HomeStatusBadge({ day }: { day: ClientPortalDay }) {
   );
 }
 
-function WeekStatusBadge({ day }: { day: ClientHomeWeekDayView }) {
+function InlineActionError({ message }: { message: string }) {
+  return (
+    <p className="mx-4 mb-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+      {message}
+    </p>
+  );
+}
+
+function WeekStatusBadge({
+  className,
+  day,
+}: {
+  className?: string;
+  day: ClientHomeWeekDayView;
+}) {
   return (
     <Badge
-      className="max-w-[6.5rem] justify-center truncate px-2"
+      className={cn("max-w-[6.5rem] justify-center truncate px-2", className)}
       variant={weekBadgeVariant(day.tone)}
     >
       {day.statusLabel}

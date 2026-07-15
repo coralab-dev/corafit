@@ -8,6 +8,7 @@ import {
   createLatestRequestCoordinator,
   getActivePendingWeekNavigation,
   getCalendarProgress,
+  getCalendarWeekNavigationState,
   getUpcomingCalendarDays,
   getWeekNavigationTarget,
   isDateInsideCalendarDays,
@@ -174,6 +175,30 @@ describe("client calendar state", () => {
     );
     expect(getActivePendingWeekNavigation(pending, "2026-07-14")).toBeNull();
     expect(getActivePendingWeekNavigation(pending, null)).toBeNull();
+  });
+
+  test("previous week navigation is disabled on week one", () => {
+    expect(
+      getCalendarWeekNavigationState({
+        durationWeeks: 6,
+        weekNumber: 1,
+      }),
+    ).toEqual({
+      canNavigateNext: true,
+      canNavigatePrevious: false,
+    });
+  });
+
+  test("next week navigation is disabled on the last plan week", () => {
+    expect(
+      getCalendarWeekNavigationState({
+        durationWeeks: 6,
+        weekNumber: 6,
+      }),
+    ).toEqual({
+      canNavigateNext: false,
+      canNavigatePrevious: true,
+    });
   });
 
   test("week navigation shifts exactly seven days from the selected anchor", () => {

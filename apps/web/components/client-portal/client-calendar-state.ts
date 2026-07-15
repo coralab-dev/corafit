@@ -196,6 +196,21 @@ export function getActivePendingWeekNavigation(
   return pending?.targetDate === date ? pending : null;
 }
 
+export function getCalendarWeekNavigationState({
+  durationWeeks,
+  weekNumber,
+}: {
+  durationWeeks: number | null | undefined;
+  weekNumber: number;
+}) {
+  const lastWeekNumber = durationWeeks ?? weekNumber;
+
+  return {
+    canNavigateNext: weekNumber < lastWeekNumber,
+    canNavigatePrevious: weekNumber > 1,
+  };
+}
+
 export function isDateInsideCalendarDays(
   days: ClientPortalDay[],
   date: string | null,

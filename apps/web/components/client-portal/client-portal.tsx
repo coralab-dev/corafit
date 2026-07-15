@@ -52,6 +52,7 @@ import {
   createLatestRequestCoordinator,
   getActivePendingWeekNavigation,
   getCalendarProgress,
+  getCalendarWeekNavigationState,
   getUpcomingCalendarDays,
   getWeekNavigationTarget,
   isDateInsideCalendarDays,
@@ -320,6 +321,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isWeekRefreshing, setIsWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [openingDate, setOpeningDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [pendingWeekNavigation, setPendingWeekNavigation] =
@@ -367,7 +369,9 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
         } else {
           setIsInitialLoading(true);
         }
-        setError(null);
+        if (!hasLoadedCalendar) {
+          setError(null);
+        }
 
         request = calendarCoordinatorRef.current.run({
           load: (signal) =>
@@ -376,11 +380,15 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               { signal },
             ),
           onError: (caught) => {
-            setError(errorMessage(caught, "No pudimos cargar el calendario."));
+            const message = errorMessage(
+              caught,
+              "No pudimos cargar el calendario.",
+            );
             pendingWeekNavigationRef.current = null;
             setPendingWeekNavigation(null);
 
             if (hasLoadedCalendar) {
+              setRefreshError(message);
               const loadedAnchorDate =
                 selectedDateRef.current ??
                 loadedCalendarRef.current?.calendar?.referenceDate;
@@ -390,6 +398,8 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                   { scroll: false },
                 );
               }
+            } else {
+              setError(message);
             }
           },
           onResult: (result) => {
@@ -410,6 +420,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
             loadedCalendarRef.current = result;
             pendingWeekNavigationRef.current = null;
             setData(result);
+            setError(null);
             updateSelectedDate(nextSelectedDay?.date ?? null);
             setSelectedProgress(null);
             setPendingWeekNavigation(null);
@@ -482,6 +493,12 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const mobileUpcomingDays = mobileSelectedDay
     ? getUpcomingCalendarDays(days, mobileSelectedDay.date)
     : [];
+  const weekNavigation = data?.calendar
+    ? getCalendarWeekNavigationState({
+        durationWeeks: data.assignment?.assignedPlan.durationWeeks,
+        weekNumber: data.calendar.weekNumber,
+      })
+    : { canNavigateNext: false, canNavigatePrevious: false };
   const mobileSelectedDate = mobileSelectedDay?.date ?? null;
   const selectedLogId = mobileSelectedDay?.log?.id ?? null;
 
@@ -552,6 +569,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
     setPendingWeekNavigation(nextPendingNavigation);
     setIsWeekRefreshing(true);
     setError(null);
+    setRefreshError(null);
     router.push(
       `/c/${encodeURIComponent(token)}/calendar?date=${encodeURIComponent(targetDate)}`,
       { scroll: false },
@@ -573,6 +591,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
           <ScreenState title="Cargando calendario" compact />
         ) : null}
         {error ? <InlineError message={error} /> : null}
+        {refreshError ? <InlineError message={refreshError} /> : null}
         {data?.calendar ? (
           <>
             <header className="md:hidden">
@@ -596,7 +615,9 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                       mobileSelectedDay?.date ?? data.calendar.referenceDate
                     }
                     busy={pendingWeekNavigation?.direction === "prev"}
-                    disabled={isWeekRefreshing}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigatePrevious
+                    }
                     direction="prev"
                     onNavigate={navigateWeek}
                   />
@@ -605,7 +626,9 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                       mobileSelectedDay?.date ?? data.calendar.referenceDate
                     }
                     busy={pendingWeekNavigation?.direction === "next"}
-                    disabled={isWeekRefreshing}
+                    disabled={
+                      isWeekRefreshing || !weekNavigation.canNavigateNext
+                    }
                     direction="next"
                     onNavigate={navigateWeek}
                   />
@@ -616,7 +639,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               <WeekButton
                 anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
                 busy={pendingWeekNavigation?.direction === "prev"}
-                disabled={isWeekRefreshing}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigatePrevious}
                 direction="prev"
                 onNavigate={navigateWeek}
               />
@@ -627,7 +650,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               <WeekButton
                 anchorDate={selectedDay?.date ?? data.calendar.referenceDate}
                 busy={pendingWeekNavigation?.direction === "next"}
-                disabled={isWeekRefreshing}
+                disabled={isWeekRefreshing || !weekNavigation.canNavigateNext}
                 direction="next"
                 onNavigate={navigateWeek}
               />

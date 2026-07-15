@@ -2631,6 +2631,7 @@ function PortalPhotosSection({
           <select
             id="progress-photo-type"
             className="h-10 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            disabled={uploading}
             value={photoType}
             onChange={(event) =>
               setPhotoType(event.target.value as ClientPortalProgressPhotoType)
@@ -2647,24 +2648,26 @@ function PortalPhotosSection({
           <Label htmlFor="progress-photo-date">Fecha</Label>
           <Input
             id="progress-photo-date"
+            disabled={uploading}
             type="date"
             value={recordedAt}
             onChange={(event) => setRecordedAt(event.target.value)}
           />
         </div>
         <div className="grid min-w-0 gap-2">
-          <Label htmlFor="progress-photo-file">Foto</Label>
+          <span className="text-sm font-medium leading-none">Foto</span>
           <input
             ref={fileInputRef}
             accept="image/jpeg,image/png,image/webp"
+            aria-label="Archivo de foto de progreso"
             className="sr-only"
             id="progress-photo-file"
-            required
             type="file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <Button
+              disabled={uploading}
               type="button"
               variant="outline"
               onClick={() => fileInputRef.current?.click()}

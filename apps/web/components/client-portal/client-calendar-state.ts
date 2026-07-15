@@ -9,6 +9,8 @@ export type CalendarProgress = {
   total: number;
 };
 
+export type WeekNavigationDirection = "prev" | "next";
+
 export type CoordinatedRequest<T> = {
   cancel: () => void;
   settled: Promise<T | null>;
@@ -95,6 +97,30 @@ export function getUpcomingCalendarDays(
   selectedDate: string,
 ) {
   return days.filter((day) => day.date > selectedDate);
+}
+
+export function shiftCalendarDate(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  const shiftedYear = shifted.getUTCFullYear();
+  const shiftedMonth = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const shiftedDay = String(shifted.getUTCDate()).padStart(2, "0");
+
+  return `${shiftedYear}-${shiftedMonth}-${shiftedDay}`;
+}
+
+export function getWeekNavigationTarget(
+  anchorDate: string,
+  direction: WeekNavigationDirection,
+) {
+  return shiftCalendarDate(anchorDate, direction === "prev" ? -7 : 7);
+}
+
+export function isDateInsideCalendarDays(
+  days: ClientPortalDay[],
+  date: string | null,
+) {
+  return Boolean(date && days.some((day) => day.date === date));
 }
 
 export function getCalendarProgress(

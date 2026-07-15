@@ -12,6 +12,24 @@ export type CalendarProgress = {
 export function selectCalendarDay(
   days: ClientPortalDay[],
   {
+    selectedDate,
+    today,
+  }: {
+    selectedDate: string | null;
+    today: string;
+  },
+) {
+  return (
+    days.find((day) => day.date === selectedDate) ??
+    days.find((day) => day.date === today) ??
+    days.find((day) => day.session) ??
+    days[0]
+  );
+}
+
+export function selectMobileCalendarDay(
+  days: ClientPortalDay[],
+  {
     requestedDate,
     selectedDate,
     today,
@@ -24,9 +42,7 @@ export function selectCalendarDay(
   return (
     days.find((day) => day.date === selectedDate) ??
     days.find((day) => day.date === requestedDate) ??
-    days.find((day) => day.date === today) ??
-    days.find((day) => day.session) ??
-    days[0]
+    selectCalendarDay(days, { selectedDate: null, today })
   );
 }
 

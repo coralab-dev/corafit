@@ -48,6 +48,7 @@ import {
   getCalendarProgress,
   getUpcomingCalendarDays,
   selectCalendarDay,
+  selectMobileCalendarDay,
   type CalendarProgress,
 } from "@/components/client-portal/client-calendar-state";
 import {
@@ -375,6 +376,10 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
 
   const days = data?.calendar?.days ?? [];
   const selectedDay = selectCalendarDay(days, {
+    selectedDate,
+    today: data?.calendar?.today ?? "",
+  });
+  const mobileSelectedDay = selectMobileCalendarDay(days, {
     requestedDate: date,
     selectedDate,
     today: data?.calendar?.today ?? "",
@@ -382,7 +387,10 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
   const upcomingDays = selectedDay
     ? getUpcomingCalendarDays(days, selectedDay.date)
     : [];
-  const selectedLogId = selectedDay?.log?.id ?? null;
+  const mobileUpcomingDays = mobileSelectedDay
+    ? getUpcomingCalendarDays(days, mobileSelectedDay.date)
+    : [];
+  const selectedLogId = mobileSelectedDay?.log?.id ?? null;
 
   useEffect(() => {
     if (!selectedLogId) return;
@@ -442,7 +450,7 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
               <div className="mt-3 flex min-h-11 items-center justify-between gap-3">
                 <p className="min-w-0 truncate text-lg font-bold capitalize text-[var(--portal-accent)]">
                   {formatCalendarMonth(
-                    selectedDay?.date ?? data.calendar.referenceDate,
+                    mobileSelectedDay?.date ?? data.calendar.referenceDate,
                   )}
                 </p>
                 <div className="flex shrink-0 items-center gap-1">
@@ -488,17 +496,17 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                 />
               ))}
             </div>
-            {selectedDay ? (
+            {mobileSelectedDay ? (
               <div className="md:hidden">
                 <MobileCalendarWeekStrip
                   days={data.calendar.days}
                   onSelect={setSelectedDate}
-                  selectedDate={selectedDay.date}
+                  selectedDate={mobileSelectedDay.date}
                 />
                 <MobileSelectedSessionCard
-                  day={selectedDay}
-                  loading={openingDate === selectedDay.date}
-                  onOpen={() => void open(selectedDay)}
+                  day={mobileSelectedDay}
+                  loading={openingDate === mobileSelectedDay.date}
+                  onOpen={() => void open(mobileSelectedDay)}
                   progress={
                     selectedProgress?.logId === selectedLogId
                       ? selectedProgress.value
@@ -506,9 +514,9 @@ export function WeeklyCalendarScreen({ token }: { token: string }) {
                   }
                 />
                 <MobileUpcomingDays
-                  days={upcomingDays}
+                  days={mobileUpcomingDays}
                   onSelect={setSelectedDate}
-                  selectedDate={selectedDay.date}
+                  selectedDate={mobileSelectedDay.date}
                 />
               </div>
             ) : null}

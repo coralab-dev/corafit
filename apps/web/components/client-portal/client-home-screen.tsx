@@ -143,19 +143,16 @@ export function ClientHomeScreen({ token }: { token: string }) {
             />
             {view.plan.kind === "active" ? (
               <div className="space-y-4">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-                  <TrainingHeroCard
-                    error={sessionActionError}
-                    hero={view.hero}
-                    isOpening={isOpeningSession}
-                    onAction={() =>
-                      void handleSessionAction(view.hero?.day ?? null)
-                    }
-                  />
-                  {view.week ? (
-                    <HomeWeekOverviewCard token={token} week={view.week} />
-                  ) : null}
-                </div>
+                {view.week ? <HomeWeekOverviewCard week={view.week} /> : null}
+                <TrainingHeroCard
+                  error={sessionActionError}
+                  hero={view.hero}
+                  isOpening={isOpeningSession}
+                  onAction={() =>
+                    void handleSessionAction(view.hero?.day ?? null)
+                  }
+                />
+                {view.week ? <WeekSessionList token={token} week={view.week} /> : null}
                 {view.nextActivity ? (
                   <NextActivityRow
                     activity={view.nextActivity}
@@ -233,28 +230,26 @@ function TrainingHeroCard({
 
   return (
     <article className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden="true"
           className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
         >
           <Dumbbell className="size-6" />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase text-primary">
-              {hero.eyebrow}
-            </p>
-            <HomeStatusBadge day={hero.day} />
-          </div>
-          <h2 className="mt-3 text-xl font-semibold leading-tight tracking-normal text-foreground md:text-2xl">
-            {hero.title}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {hero.detail}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <p className="text-xs font-semibold uppercase text-primary">
+            {hero.eyebrow}
           </p>
+          <HomeStatusBadge day={hero.day} />
         </div>
       </div>
+      <h2 className="mt-4 text-xl font-semibold leading-tight tracking-normal text-foreground md:text-2xl">
+        {hero.title}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {hero.detail}
+      </p>
       {error ? (
         <p className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
           {error}
@@ -274,31 +269,44 @@ function TrainingHeroCard({
 }
 
 function HomeWeekOverviewCard({
-  token,
   week,
 }: {
-  token: string;
   week: ClientHomeWeekView;
 }) {
   return (
-    <article className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] md:p-5">
+    <article className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] items-center gap-4 rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
       <CurrentStreakCard streak={week.currentStreak} />
-      <WeekSummaryCard token={token} week={week} />
+      <div className="min-w-0 border-l border-border pl-4">
+        <p className="text-2xl font-semibold leading-none text-foreground">
+          {week.summaryFractionLabel}
+        </p>
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
+          sesiones completadas
+        </p>
+        <div
+          aria-label="Resumen de días de la semana"
+          className="mt-3 flex items-center gap-1.5"
+        >
+          {week.days.map((day) => (
+            <WeekStatusDot day={day} key={day.date} />
+          ))}
+        </div>
+      </div>
     </article>
   );
 }
 
 function CurrentStreakCard({ streak }: { streak: number }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border pb-4">
+    <div className="flex items-center gap-3">
       <span
         aria-hidden="true"
-        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
+        className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
       >
-        <Flame className="size-5" />
+        <Flame className="size-6" />
       </span>
       <div className="min-w-0">
-        <p className="text-lg font-semibold leading-none text-foreground">
+        <p className="whitespace-nowrap text-2xl font-semibold leading-none text-foreground">
           {streak} {plural(streak, "sesión", "sesiones")}
         </p>
         <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -309,7 +317,7 @@ function CurrentStreakCard({ streak }: { streak: number }) {
   );
 }
 
-function WeekSummaryCard({
+function WeekSessionList({
   token,
   week,
 }: {
@@ -317,9 +325,9 @@ function WeekSummaryCard({
   week: ClientHomeWeekView;
 }) {
   return (
-    <div className="pt-4">
+    <section className="rounded-2xl border border-transparent bg-card shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 px-4 pt-4">
           <h2 className="text-lg font-semibold tracking-normal text-foreground">
             Tu semana
           </h2>
@@ -328,7 +336,7 @@ function WeekSummaryCard({
           </p>
         </div>
         <Link
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="mr-4 mt-4 inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           href={`/c/${encodeURIComponent(token)}/calendar`}
         >
           Ver calendario
@@ -336,45 +344,20 @@ function WeekSummaryCard({
         </Link>
       </div>
 
-      <div
-        aria-label="Resumen de días de la semana"
-        className="mt-4 grid grid-cols-7 gap-1"
-      >
-        {week.days.map((day) => (
-          <WeekDayCard day={day} key={day.date} />
-        ))}
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm font-medium text-muted-foreground">
-            Avance semanal
-          </p>
-          <p className="text-sm font-semibold text-foreground">
-            {week.completionPercent}%
+      {week.sessions.length > 0 ? (
+        <div className="mt-4 divide-y divide-border">
+          {week.sessions.map((day) => (
+            <WeekSessionRow day={day} key={day.date} />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 pb-4 pt-5">
+          <p className="rounded-xl bg-accent/45 px-4 py-3 text-sm text-muted-foreground">
+            No tienes sesiones programadas esta semana.
           </p>
         </div>
-        <div
-          aria-label={`${week.completionPercent}% de avance semanal`}
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={week.completionPercent}
-          className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-        >
-          <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${week.completionPercent}%` }}
-          />
-        </div>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          {week.progressLabel}
-        </p>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {week.pendingLabel}
-        </p>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }
 
@@ -417,51 +400,60 @@ function NextActivityRow({
   );
 }
 
-function WeekDayCard({ day }: { day: ClientHomeWeekDayView }) {
+function WeekSessionRow({ day }: { day: ClientHomeWeekDayView }) {
   return (
     <div
-      aria-label={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
-      className={cn(
-        "flex min-h-[4.75rem] min-w-0 flex-col items-center rounded-xl px-1 py-2 text-center",
-        day.isToday ? "bg-primary text-primary-foreground" : "bg-accent/45",
-      )}
+      className="grid grid-cols-[3.25rem_2rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
       title={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}. ${day.sessionName}`}
     >
-      <p
-        className={cn(
-          "text-[0.63rem] font-semibold uppercase leading-none",
-          day.isToday ? "text-primary-foreground/85" : "text-muted-foreground",
-        )}
-      >
-        {day.dayLabel}
-      </p>
-      <p className="mt-1 text-base font-semibold leading-none">
-        {Number(day.dateNumber)}
-      </p>
-      <HomeWeekStatusMark day={day} />
+      <div className="text-center">
+        <p className="text-[0.68rem] font-semibold uppercase leading-none text-muted-foreground">
+          {day.dayLabel}
+        </p>
+        <p className="mt-1 text-lg font-semibold leading-none text-foreground">
+          {Number(day.dateNumber)}
+        </p>
+      </div>
+      <WeekStatusDot day={day} size="lg" />
+      <div className="min-w-0">
+        <h3 className="truncate text-sm font-semibold text-foreground">
+          {day.sessionName}
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {day.isToday ? "Hoy" : day.statusLabel}
+        </p>
+      </div>
+      <WeekStatusBadge day={day} />
     </div>
   );
 }
 
-function HomeWeekStatusMark({ day }: { day: ClientHomeWeekDayView }) {
+function WeekStatusDot({
+  day,
+  size = "sm",
+}: {
+  day: ClientHomeWeekDayView;
+  size?: "sm" | "lg";
+}) {
   return (
     <span
-      aria-hidden="true"
+      aria-label={`${day.dayLabel} ${day.dateNumber}: ${day.statusLabel}`}
       className={cn(
-        "mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2",
-        day.isToday
-          ? "border-primary-foreground/80 bg-primary-foreground/15 text-primary-foreground"
-          : weekStatusMarkToneClass(day.tone),
+        "flex shrink-0 items-center justify-center rounded-full border-2",
+        size === "lg" ? "size-8" : "size-6",
+        weekStatusMarkToneClass(day.tone),
+        day.isToday && "ring-2 ring-primary/35 ring-offset-2 ring-offset-card",
       )}
+      title={`${day.statusLabel}${day.isToday ? " · Hoy" : ""}`}
     >
       {day.tone === "rest" ? (
-        <span className="text-base font-semibold leading-none">-</span>
+        <span className="text-sm font-semibold leading-none">-</span>
       ) : day.tone === "completed" || day.tone === "partial" ? (
-        <Check className="size-3.5" />
+        <Check className={size === "lg" ? "size-4" : "size-3.5"} />
       ) : day.tone === "overdue" ? (
-        <AlertTriangle className="size-3.5" />
+        <AlertTriangle className={size === "lg" ? "size-4" : "size-3.5"} />
       ) : day.tone === "active" ? (
-        <ChevronRight className="size-3.5" />
+        <ChevronRight className={size === "lg" ? "size-4" : "size-3.5"} />
       ) : null}
     </span>
   );
@@ -495,6 +487,26 @@ function HomeStatusBadge({ day }: { day: ClientPortalDay }) {
       {homeStatusLabel(day)}
     </Badge>
   );
+}
+
+function WeekStatusBadge({ day }: { day: ClientHomeWeekDayView }) {
+  return (
+    <Badge
+      className="max-w-[6.5rem] justify-center truncate px-2"
+      variant={weekBadgeVariant(day.tone)}
+    >
+      {day.statusLabel}
+    </Badge>
+  );
+}
+
+function weekBadgeVariant(tone: ClientHomeWeekDayView["tone"]): BadgeVariant {
+  if (tone === "completed") return "success";
+  if (tone === "partial") return "warning";
+  if (tone === "overdue") return "danger";
+  if (tone === "active") return "default";
+  if (tone === "pending" || tone === "upcoming") return "outline";
+  return "muted";
 }
 
 function homeBadgeVariant(day: ClientPortalDay): BadgeVariant {
@@ -615,31 +627,37 @@ function HomeSkeleton() {
       <div className="space-y-3">
         <div className="h-5 w-72 max-w-full rounded-2xl bg-muted" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="h-52 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
-        <div className="h-64 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
-      </div>
-      <div className="rounded-2xl bg-card p-5 shadow-[var(--surface-shadow-soft)]">
-        <div className="flex items-center justify-between">
-          <div className="h-6 w-28 rounded-xl bg-muted" />
+      <div className="h-32 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
+      <div className="h-56 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
+      <div className="rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]">
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <div className="h-5 w-28 rounded-xl bg-muted" />
+            <div className="mt-2 h-4 w-20 rounded-xl bg-muted" />
+          </div>
           <div className="h-5 w-24 rounded-xl bg-muted" />
         </div>
-        <div className="mt-5 overflow-hidden pb-2">
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <div
-                className="h-20 rounded-xl bg-muted"
-                key={index}
-              />
-            ))}
-          </div>
+        <div className="divide-y divide-border">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              className="grid grid-cols-[3.25rem_2rem_minmax(0,1fr)_4.5rem] items-center gap-3 px-4 py-3"
+              key={index}
+            >
+              <div className="space-y-2">
+                <div className="mx-auto h-3 w-7 rounded-xl bg-muted" />
+                <div className="mx-auto h-5 w-5 rounded-xl bg-muted" />
+              </div>
+              <div className="size-8 rounded-full bg-muted" />
+              <div className="min-w-0 space-y-2">
+                <div className="h-4 w-full rounded-xl bg-muted" />
+                <div className="h-3 w-20 rounded-xl bg-muted" />
+              </div>
+              <div className="h-6 rounded-full bg-muted" />
+            </div>
+          ))}
         </div>
-        <div className="mt-5 flex items-center justify-between">
-          <div className="h-5 w-48 rounded-xl bg-muted" />
-          <div className="h-5 w-10 rounded-xl bg-muted" />
-        </div>
-        <div className="mt-3 h-2 rounded-full bg-muted" />
       </div>
+      <div className="h-20 rounded-2xl bg-card shadow-[var(--surface-shadow-soft)]" />
     </div>
   );
 }

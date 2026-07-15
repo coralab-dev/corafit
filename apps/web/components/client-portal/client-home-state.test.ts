@@ -496,6 +496,16 @@ describe("client home state", () => {
     }));
 
     expect(view.week?.days).toHaveLength(7);
+    expect(view.week?.sessions).toHaveLength(6);
+    expect(view.week?.summaryFractionLabel).toBe("2/6");
+    expect(view.week?.sessions.map((day) => day.sessionName)).toEqual([
+      "Push",
+      longName,
+      "Push",
+      "Push",
+      "Push",
+      "Push",
+    ]);
     expect(view.week?.days).toMatchObject([
       {
         dateNumber: "13",

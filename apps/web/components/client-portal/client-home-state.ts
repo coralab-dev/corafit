@@ -46,6 +46,8 @@ export type ClientHomeWeekView = {
   rangeLabel: string;
   progressLabel: string;
   restDays: number;
+  sessions: ClientHomeWeekDayView[];
+  summaryFractionLabel: string;
   totalTrainingSessions: number;
   weekLabel: string;
 };
@@ -268,19 +270,23 @@ function buildWeekView(data: ClientPortalHome): ClientHomeWeekView | null {
       )
     : 0;
 
+  const days = data.week.days.map((day) =>
+    buildWeekDayView(day, data.todaySession?.date ?? null),
+  );
+
   return {
     completedSessions: summary.completedSessions,
     completionPercent,
     currentStreak: data.streak.current,
-    days: data.week.days.map((day) =>
-      buildWeekDayView(day, data.todaySession?.date ?? null),
-    ),
+    days,
     openedSessions: summary.openedSessions,
     pendingLabel: `${summary.pendingSessions} ${plural(summary.pendingSessions, "pendiente", "pendientes")} · ${summary.restDays} ${plural(summary.restDays, "día", "días")} de descanso`,
     pendingSessions: summary.pendingSessions,
     progressLabel: `${summary.completedSessions} de ${summary.totalTrainingSessions} sesiones completadas`,
     rangeLabel: formatWeekRange(data.week.weekStartDate, data.week.weekEndDate),
     restDays: summary.restDays,
+    sessions: days.filter((day) => !day.isRest),
+    summaryFractionLabel: `${summary.completedSessions}/${summary.totalTrainingSessions}`,
     totalTrainingSessions: summary.totalTrainingSessions,
     weekLabel: `Semana ${data.week.weekNumber}`,
   };

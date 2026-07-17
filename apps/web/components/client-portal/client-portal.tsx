@@ -16,7 +16,6 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
-  BookOpen,
   Calendar,
   CalendarClock,
   Camera,
@@ -934,7 +933,8 @@ export function SessionScreen({
       <section
         className={cn(
           "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
-          !detailOpen && "flex min-h-[calc(100dvh-5rem)] flex-col",
+          !detailOpen &&
+            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-[calc(100dvh+2.5rem+env(safe-area-inset-bottom))] flex-col",
         )}
       >
         {!detailOpen ? (
@@ -1005,31 +1005,29 @@ export function SessionScreen({
                 ) : (
                   <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>
                 )}
-                <div className="sticky bottom-0 z-20 mt-auto px-4 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
-                  <div className="grid grid-cols-1 gap-2 rounded-2xl border border-border/70 bg-card/95 p-2 shadow-[var(--surface-shadow-soft)] backdrop-blur min-[350px]:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                    <Button
-                      className="h-12 min-w-0 px-3"
-                      disabled={finalizing}
-                      onClick={() =>
-                        router.push(`/c/${encodeURIComponent(token)}/home`)
-                      }
-                      variant="outline"
-                    >
-                      <Home className="size-4" /> Salir por ahora
-                    </Button>
-                    <Button
-                      className="h-12 min-w-0 px-3 shadow-[0_10px_24px_var(--portal-accent-shadow)]"
-                      disabled={finalizing || total === 0}
-                      onClick={() => requestFinalize(completed.length, total)}
-                    >
-                      {finalizing ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="size-4" />
-                      )}{" "}
-                      Finalizar sesión
-                    </Button>
-                  </div>
+                <div className="sticky bottom-0 z-20 -mx-5 mt-auto space-y-2 border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 lg:hidden">
+                  <Button
+                    className="h-12 w-full"
+                    disabled={finalizing || total === 0}
+                    onClick={() => requestFinalize(completed.length, total)}
+                  >
+                    {finalizing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="size-4" />
+                    )}{" "}
+                    Finalizar sesión
+                  </Button>
+                  <Button
+                    className="h-12 w-full"
+                    disabled={finalizing}
+                    onClick={() =>
+                      router.push(`/c/${encodeURIComponent(token)}/home`)
+                    }
+                    variant="ghost"
+                  >
+                    <Home className="size-4" /> Salir por ahora
+                  </Button>
                 </div>
               </div>
             )}
@@ -1139,7 +1137,8 @@ export function SessionPreviewScreen({ token }: { token: string }) {
       <section
         className={cn(
           "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
-          !detailOpen && "flex min-h-[calc(100dvh-5rem)] flex-col",
+          !detailOpen &&
+            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-[calc(100dvh+2.5rem+env(safe-area-inset-bottom))] flex-col",
         )}
       >
         {!detailOpen ? (
@@ -1204,16 +1203,14 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                     />
                   ))}
                 </div> : <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>}
-                <div className="sticky bottom-0 z-20 mt-auto px-4 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
-                  <div className="rounded-2xl border border-border/70 bg-card/95 p-2 shadow-[var(--surface-shadow-soft)] backdrop-blur">
-                    <Button
-                      className="h-12 w-full whitespace-normal"
-                      disabled
-                      variant="secondary"
-                    >
-                      Disponible en la fecha programada
-                    </Button>
-                  </div>
+                <div className="sticky bottom-0 z-20 -mx-5 mt-auto border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 lg:hidden">
+                  <Button
+                    className="h-12 w-full whitespace-normal"
+                    disabled
+                    variant="secondary"
+                  >
+                    Disponible en la fecha programada
+                  </Button>
                 </div>
               </div>
             )}
@@ -3439,49 +3436,43 @@ function SessionOverviewCard({
         : "Todo listo para finalizar";
 
   return (
-    <section className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <BookOpen className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-foreground">
-              {readOnly ? "Vista de lectura" : "Progreso de la sesión"}
-            </h2>
-            <p className="mt-1 text-sm leading-5 text-muted-foreground">
-              {readOnly ? "Revisa tu rutina antes de la fecha programada." : statusMessage}
-            </p>
-          </div>
-        </div>
-        <div className="flex min-w-0 items-center gap-3 sm:justify-end">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Dumbbell className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 sm:min-w-32">
-            <p className="text-base font-bold text-foreground">{exerciseLabel}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {readOnly ? "En esta rutina" : `${completedCount} completados`}
-            </p>
-          </div>
-        </div>
+    <section className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="min-w-0 text-base font-bold text-foreground">
+          {readOnly ? "Vista de lectura" : "Progreso de la sesión"}
+        </h2>
+        <span className="shrink-0 text-sm font-bold text-foreground">
+          {readOnly ? exerciseLabel : `${completedCount} de ${total}`}
+        </span>
       </div>
       {readOnly ? (
-        <div className="mt-5 h-1.5 rounded-full bg-muted" aria-hidden="true" />
+        <>
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            Revisa la rutina antes de la fecha programada.
+          </p>
+          <div className="mt-3 h-1.5 rounded-full bg-muted" aria-hidden="true" />
+        </>
       ) : (
-        <div className="mt-5 flex items-center gap-3">
+        <>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="min-w-0 text-sm leading-5 text-muted-foreground">
+              {statusMessage}
+            </p>
+            <span className="shrink-0 text-sm font-bold text-foreground">
+              {percentage}%
+            </span>
+          </div>
           <div
             aria-label={`${percentage}% de la sesión completada`}
             aria-valuemax={100}
             aria-valuemin={0}
             aria-valuenow={percentage}
-            className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+            className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
             role="progressbar"
           >
             <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percentage}%` }} />
           </div>
-          <span className="w-10 shrink-0 text-right text-sm font-bold text-foreground">{percentage}%</span>
-        </div>
+        </>
       )}
     </section>
   );
@@ -3530,13 +3521,7 @@ function SessionProgressPanel({
                 : "Todo listo para finalizar."}
         </p>
         <div className="mt-6 space-y-3">
-          <Button className="h-12 w-full" variant="outline"
-            disabled={finalizing}
-            onClick={onSave}
-          >
-            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Salir por ahora"}
-          </Button>
-          <Button className="h-12 w-full whitespace-normal shadow-[0_10px_24px_var(--portal-accent-shadow)]"
+          <Button className="h-12 w-full whitespace-normal"
             disabled={finalizing || readOnly || total === 0}
             onClick={onFinalize}
             variant={readOnly ? "secondary" : "default"}
@@ -3549,6 +3534,12 @@ function SessionProgressPanel({
               <CheckCircle2 className="size-4" />
             )}
             {readOnly ? null : "Finalizar sesión"}
+          </Button>
+          <Button className="h-12 w-full" variant="outline"
+            disabled={finalizing}
+            onClick={onSave}
+          >
+            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Salir por ahora"}
           </Button>
         </div>
       </div>

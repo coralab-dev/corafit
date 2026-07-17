@@ -114,6 +114,7 @@ import {
   type ClientSessionPreview,
   type CompletionCard,
 } from "@/lib/client-portal/api";
+import { getYouTubeEmbedUrl } from "@/lib/youtube";
 export { ClientHomeScreen } from "@/components/client-portal/client-home-screen";
 export { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 
@@ -932,9 +933,8 @@ export function SessionScreen({
     <ClientPortalShell token={token}>
       <section
         className={cn(
-          "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
-          !detailOpen &&
-            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-dvh flex-col lg:mb-0 lg:min-h-0",
+          "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] px-5 pt-6 md:px-8 lg:mb-0 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-dvh flex-col lg:min-h-0",
         )}
       >
         {!detailOpen ? (
@@ -1137,9 +1137,8 @@ export function SessionPreviewScreen({ token }: { token: string }) {
     <ClientPortalShell token={token}>
       <section
         className={cn(
-          "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
-          !detailOpen &&
-            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-dvh flex-col lg:mb-0 lg:min-h-0",
+          "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] px-5 pt-6 md:px-8 lg:mb-0 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-dvh flex-col lg:min-h-0",
         )}
       >
         {!detailOpen ? (
@@ -3675,49 +3674,58 @@ function ClientExerciseDetailView({
   return (
     <article>
       <div className="flex items-center justify-between gap-3">
-        <button
+        <Button
           aria-label="Volver"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]"
+          className="shrink-0"
           onClick={onBack}
+          size="icon"
           type="button"
+          variant="outline"
         >
           <ArrowLeft className="size-5" />
-        </button>
+        </Button>
         <div className="min-w-0 text-center">
-          <p className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+          <p className="truncate text-base font-bold text-foreground">
             Detalle del ejercicio
           </p>
-          <p className="mt-1 text-xs font-bold text-[#8b929d] dark:text-[#c7cfdb]">
-            Sesion cliente
-          </p>
         </div>
-        <div className="size-11 shrink-0" aria-hidden="true" />
+        <div className="size-10 shrink-0" aria-hidden="true" />
       </div>
 
       <div className="mt-7">
         <div className="flex items-center justify-between gap-4 text-sm font-bold">
-          <span className="text-[#09111f] dark:text-[#f4f6f8]">
+          <span className="text-foreground">
             Ejercicio {index + 1} de {total}
           </span>
-          <span className="text-[#4e5968] dark:text-[#c7cfdb]">
+          <span className="text-muted-foreground">
             {Math.round(progress)}% completado
           </span>
         </div>
-        <div className="mt-3 h-2 rounded-full bg-[#eceff2] dark:bg-[#242b36]">
+        <div
+          aria-label={`${Math.round(progress)}% de la sesión completada`}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={Math.round(progress)}
+          className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+        >
           <div
-            className="h-2 rounded-full bg-[var(--portal-accent)]"
+            className="h-full rounded-full bg-primary transition-[width]"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-8 flex items-end justify-between gap-4">
-        <h1 className="min-w-0 text-4xl font-black leading-tight tracking-normal text-[#09111f] dark:text-[#f4f6f8] md:text-5xl">
+      <div className="mt-7 flex items-end justify-between gap-4">
+        <h1 className="min-w-0 break-words text-2xl font-black leading-tight tracking-normal text-foreground sm:text-3xl md:text-4xl">
           {exercise.exercise.name}
         </h1>
       </div>
 
-      <ExerciseMediaHero exercise={exercise.exercise} />
+      <ExerciseMediaHero
+        exercise={exercise.exercise}
+        key={exercise.sessionExerciseId}
+      />
       <ExerciseMetricGrid exercise={exercise} />
 
       <div className="mt-6 space-y-4">
@@ -3755,49 +3763,53 @@ function ClientExerciseDetailView({
       </div>
 
       <div className="mt-6 hidden items-center justify-between gap-3 lg:flex">
-        <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
+        <Button
           disabled={index === 0}
           onClick={onPrevious}
           type="button"
+          variant="outline"
         >
           <ChevronLeft className="size-4" /> Anterior
-        </button>
-        <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
+        </Button>
+        <Button
           disabled={index >= total - 1}
           onClick={onNext}
           type="button"
+          variant="outline"
         >
           Siguiente <ChevronRight className="size-4" />
-        </button>
+        </Button>
       </div>
 
-      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-[#ece7e3] bg-white/95 px-5 py-4 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
+      <div className="sticky bottom-0 z-20 -mx-5 mt-6 border-t border-border/50 bg-background/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 md:px-8 lg:hidden">
         {readOnly ? (
-          <button
-            className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
+          <Button
+            className="h-14 w-full whitespace-normal text-center"
             disabled
             type="button"
+            variant="secondary"
           >
             Disponible en la fecha programada
-          </button>
+          </Button>
         ) : completed ? (
-          <button
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#121722] text-sm font-bold text-white disabled:opacity-60"
+          <Button
+            className="h-14 w-full whitespace-normal"
             disabled={index >= total - 1}
             onClick={onNext}
             type="button"
+            variant="default"
           >
-            <Check className="size-5" />{" "}
+            <Check className="size-5" />
             {index >= total - 1 ? "Completado" : "Siguiente"}
-          </button>
+          </Button>
         ) : (
-          <button
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60"
+          <Button
+            aria-busy={loading}
+            className="h-14 w-full whitespace-normal"
             disabled={loading}
             onClick={onComplete}
             type="button"
+            variant="default"
           >
             {loading ? (
               <Loader2 className="size-5 animate-spin" />
@@ -3805,24 +3817,26 @@ function ClientExerciseDetailView({
               <Check className="size-5" />
             )}{" "}
             Marcar completado
-          </button>
+          </Button>
         )}
         {!readOnly ? (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#ece7e3] text-xs font-bold text-[#4e5968] dark:border-[#3a4354] dark:text-[#c7cfdb]"
+          <div className="mt-3 grid grid-cols-1 gap-3 min-[22rem]:grid-cols-2">
+            <Button
+              className="h-11 min-w-0 whitespace-normal text-center text-xs"
               onClick={onSave}
               type="button"
+              variant="outline"
             >
               <Home className="size-4" /> Guardar y salir
-            </button>
-            <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#f1c7bd] text-xs font-bold text-[var(--portal-accent)]"
+            </Button>
+            <Button
+              className="h-11 min-w-0 whitespace-normal text-center text-xs"
               onClick={onFinalize}
               type="button"
+              variant="outline"
             >
-              <RotateCcw className="size-4" /> Finalizar sesion
-            </button>
+              <CheckCircle2 className="size-4 text-primary" /> Finalizar sesión
+            </Button>
           </div>
         ) : null}
       </div>
@@ -3836,99 +3850,128 @@ function ExerciseMediaHero({
   exercise: ClientSessionExercise["exercise"];
 }) {
   const [isImageOpen, setIsImageOpen] = useState(false);
+  const [mediaMode, setMediaMode] = useState<"image" | "video">(
+    exercise.mediaUrl ? "image" : "video",
+  );
+  const embedUrl = getYouTubeEmbedUrl(exercise.videoUrl);
+  const hasImage = Boolean(exercise.mediaUrl);
+  const hasVideo = Boolean(exercise.videoUrl);
 
-  if (!exercise.mediaUrl && !exercise.videoUrl) {
+  if (!hasImage && !hasVideo) {
     return (
-      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#121722]">
+      <div className="mt-5 flex aspect-video min-h-56 items-center justify-center rounded-2xl border border-dashed border-border bg-muted text-center">
         <div>
-          <FileText className="mx-auto size-8 text-[#8b929d] dark:text-[#c7cfdb]" />
-          <p className="mt-3 text-sm font-bold text-[#4e5968] dark:text-[#c7cfdb]">
-            Sin demostracion adjunta
+          <FileText className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-bold text-muted-foreground">
+            Sin demostración adjunta
           </p>
         </div>
       </div>
     );
   }
 
-  if (!exercise.mediaUrl && exercise.videoUrl) {
-    return (
-      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-[#ece7e3] bg-[#121722] p-5 text-white shadow-sm">
-        <a
-          className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f] dark:bg-[#f4f6f8] dark:text-[#09111f]"
-          href={exercise.videoUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <PlayCircle className="size-5 text-[var(--portal-accent)]" /> Ver
-          demostracion
-        </a>
-      </div>
-    );
-  }
-
-  if (!exercise.mediaUrl) {
-    return null;
-  }
-
   const imageUrl = exercise.mediaUrl;
+  const showImage = Boolean(imageUrl) && (mediaMode === "image" || !embedUrl);
+  const showVideo = mediaMode === "video" && Boolean(embedUrl);
 
   return (
     <div className="mt-5">
-      <button
-        className="relative block aspect-[16/10] min-h-56 w-full overflow-hidden rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] shadow-sm dark:border-[#293140] dark:bg-[#121722]"
-        type="button"
-        aria-label={`Ampliar imagen de ${exercise.name}`}
-        onClick={() => setIsImageOpen(true)}
-      >
-        <NextImage
-          alt={`Demostracion de ${exercise.name}`}
-          className="size-full object-cover"
-          fill
-          sizes="(max-width: 640px) 100vw, 560px"
-          src={imageUrl}
-          unoptimized
-        />
-      </button>
-      {exercise.videoUrl ? (
-        <a
-          className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f] dark:border-[#3a4354] dark:bg-[#121722] dark:text-[#f4f6f8]"
-          href={exercise.videoUrl}
-          rel="noreferrer"
-          target="_blank"
+      {hasImage && hasVideo ? (
+        <div className="mb-3 flex w-fit items-center gap-1 rounded-xl border border-border/60 bg-card p-1">
+          <Button
+            aria-pressed={mediaMode === "image"}
+            onClick={() => setMediaMode("image")}
+            size="sm"
+            type="button"
+            variant={mediaMode === "image" ? "secondary" : "ghost"}
+          >
+            <Camera className="size-4" /> Imagen
+          </Button>
+          <Button
+            aria-pressed={mediaMode === "video"}
+            onClick={() => setMediaMode("video")}
+            size="sm"
+            type="button"
+            variant={mediaMode === "video" ? "secondary" : "ghost"}
+          >
+            <PlayCircle className="size-4" /> Video
+          </Button>
+        </div>
+      ) : null}
+      {showImage ? (
+        <button
+          className="relative block aspect-video min-h-56 w-full overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-[var(--surface-shadow-soft)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
+          type="button"
+          aria-label={`Ampliar imagen de ${exercise.name}`}
+          onClick={() => setIsImageOpen(true)}
         >
-          <PlayCircle className="size-5 text-[var(--portal-accent)]" /> Ver
-          video
-        </a>
+          <NextImage
+            alt={`Demostración de ${exercise.name}`}
+            className="size-full object-cover"
+            fill
+            sizes="(max-width: 640px) 100vw, 560px"
+            src={imageUrl!}
+            unoptimized
+          />
+        </button>
+      ) : showVideo ? (
+        <div className="aspect-video overflow-hidden rounded-2xl border border-border/60 bg-foreground shadow-[var(--surface-shadow-soft)]">
+          <iframe
+            allow="encrypted-media; picture-in-picture"
+            allowFullScreen
+            className="size-full"
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src={embedUrl!}
+            title={`Video de demostración de ${exercise.name}`}
+          />
+        </div>
+      ) : (
+        <div className="flex aspect-video min-h-56 items-center justify-center rounded-2xl border border-border/60 bg-foreground p-5 text-center text-background shadow-[var(--surface-shadow-soft)]">
+          <div>
+            <PlayCircle className="mx-auto size-8" />
+            <p className="mt-3 text-sm font-bold">Video no disponible aquí</p>
+          </div>
+        </div>
+      )}
+      {exercise.videoUrl && (mediaMode === "video" || !hasImage) ? (
+        <Button asChild className="mt-3" size="sm" variant="outline">
+          <a href={exercise.videoUrl} rel="noreferrer" target="_blank">
+            <PlayCircle className="size-4 text-primary" /> Abrir en YouTube
+          </a>
+        </Button>
       ) : null}
       {isImageOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#09111f]/95 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/95 p-4"
           role="dialog"
           aria-modal="true"
           aria-label={`Imagen completa de ${exercise.name}`}
           onClick={() => setIsImageOpen(false)}
         >
-          <button
-            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] shadow-lg dark:bg-[#f4f6f8]"
+          <Button
+            className="absolute right-4 top-4 z-10"
             type="button"
             aria-label="Cerrar imagen"
             onClick={(event) => {
               event.stopPropagation();
               setIsImageOpen(false);
             }}
+            size="icon"
+            variant="secondary"
           >
             <X className="size-5" />
-          </button>
+          </Button>
           <div
             className="relative h-[calc(100dvh-7rem)] w-full max-w-3xl"
             onClick={(event) => event.stopPropagation()}
           >
             <NextImage
-              alt={`Demostracion de ${exercise.name}`}
+              alt={`Demostración de ${exercise.name}`}
               className="object-contain"
               fill
               sizes="100vw"
-              src={imageUrl}
+              src={imageUrl!}
               unoptimized
             />
           </div>
@@ -3964,14 +4007,14 @@ function ExerciseMetricGrid({ exercise }: { exercise: ClientSessionExercise }) {
         const Icon = metric.icon;
         return (
           <div
-            className="min-h-28 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]"
+            className="min-h-28 min-w-0 rounded-xl border border-border/60 bg-card p-4 shadow-[var(--surface-shadow-soft)]"
             key={metric.label}
           >
-            <Icon className="size-6 text-[var(--portal-accent)]" />
-            <p className="mt-3 text-xs font-bold leading-4 text-[#667080] dark:text-[#c7cfdb]">
+            <Icon className="size-6 text-primary" />
+            <p className="mt-3 break-words text-xs font-bold leading-4 text-muted-foreground">
               {metric.label}
             </p>
-            <p className="mt-1 text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+            <p className="mt-1 break-words text-base font-extrabold text-foreground">
               {metric.value}
             </p>
           </div>
@@ -3993,33 +4036,36 @@ function ExerciseInfoCard({
   muted?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const contentId = `exercise-info-${title.toLowerCase().replaceAll(" ", "-")}`;
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+    <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-[var(--surface-shadow-soft)]">
       <button
-        className="flex w-full items-center gap-3 text-left"
+        aria-controls={contentId}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
         onClick={() => setExpanded((current) => !current)}
         type="button"
       >
-        <span className="text-[var(--portal-accent)]">{icon}</span>
-        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">{title}</h2>
+        <span className="text-primary">{icon}</span>
+        <h2 className="text-xl font-extrabold text-foreground">{title}</h2>
         <ChevronDown
           className={cn(
-            "ml-auto size-5 text-[#667080] transition dark:text-[#c7cfdb]",
+            "ml-auto size-5 text-muted-foreground transition-transform duration-200",
             !expanded && "-rotate-90",
           )}
         />
       </button>
-      {expanded ? (
-        <p
-          className={cn(
-            "mt-3 whitespace-pre-line text-base leading-7",
-            muted ? "text-[#8b929d] dark:text-[#8893a3]" : "text-[#4e5968] dark:text-[#d6dbe3]",
-          )}
-        >
-          {value}
-        </p>
-      ) : null}
+      <p
+        id={contentId}
+        hidden={!expanded}
+        className={cn(
+          "mt-3 whitespace-pre-line text-base leading-7",
+          muted ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {value}
+      </p>
     </section>
   );
 }
@@ -4041,6 +4087,8 @@ function AlternativeSuggestion({
 }) {
   const isSelected = selectedAlternativeId === alternative.id;
   const [showDetails, setShowDetails] = useState(false);
+  const detailsId = `alternative-details-${alternative.id}`;
+  const alternativeEmbedUrl = getYouTubeEmbedUrl(alternative.exercise.videoUrl);
   const canView = Boolean(
     alternative.exercise.mediaUrl ||
     alternative.exercise.videoUrl ||
@@ -4048,71 +4096,120 @@ function AlternativeSuggestion({
   );
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+    <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-center gap-3">
-        <RotateCcw className="size-7 text-[var(--portal-accent)]" />
-        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+        <RotateCcw className="size-7 text-primary" />
+        <h2 className="text-xl font-extrabold text-foreground">
           Alternativa sugerida
         </h2>
       </div>
-      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-[0_8px_22px_rgba(18,23,34,0.06)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-border/60 bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:grid-cols-[9.5rem_minmax(0,1fr)]">
         <AlternativeMediaPreview alternative={alternative} />
-        <div className="min-w-0 rounded-xl border border-[#f0eeee] bg-white p-3 dark:border-[#293140] dark:bg-[#121722]">
+        <div className="min-w-0 rounded-xl border border-border/60 bg-card p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-lg font-extrabold leading-snug text-[#09111f] dark:text-[#f4f6f8]">
+              <h3 className="break-words text-lg font-extrabold leading-snug text-foreground">
                 {alternative.exercise.name}
               </h3>
               {alternative.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#667080] dark:text-[#c7cfdb]">
+                <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
                   {alternative.note}
                 </p>
               ) : null}
-              <p className="mt-2 text-sm font-semibold text-[#667080] dark:text-[#c7cfdb]">
+              <p className="mt-2 break-words text-sm font-semibold text-muted-foreground">
                 {exercise.sets ?? "-"} series x {exercise.reps} reps ·{" "}
                 {exercise.restSeconds ?? "-"} seg descanso
               </p>
             </div>
             {isSelected ? (
-              <span className="shrink-0 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
+              <Badge
+                className="border-primary/20 bg-primary/10 text-primary"
+                variant="outline"
+              >
                 En uso
-              </span>
+              </Badge>
             ) : null}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {alternative.exercise.videoUrl ? (
-              <a
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
-                href={alternative.exercise.videoUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Ver video
-              </a>
-            ) : canView ? (
-              <button
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
+              <Button
+                aria-controls={detailsId}
+                aria-expanded={showDetails}
+                className="h-11 min-w-0 whitespace-normal text-center"
                 onClick={() => setShowDetails((current) => !current)}
                 type="button"
+                variant="outline"
+              >
+                <PlayCircle className="size-4 text-primary" />
+                {showDetails ? "Ocultar video" : "Ver video"}
+              </Button>
+            ) : canView ? (
+              <Button
+                aria-controls={detailsId}
+                aria-expanded={showDetails}
+                className="h-11 min-w-0 whitespace-normal text-center"
+                onClick={() => setShowDetails((current) => !current)}
+                type="button"
+                variant="outline"
               >
                 Ver alternativa
-              </button>
+              </Button>
             ) : null}
             {!readOnly ? (
-              <button
-                className="flex h-11 items-center justify-center rounded-xl border border-[var(--portal-accent)] text-sm font-extrabold text-[var(--portal-accent)] disabled:opacity-60"
+              <Button
+                className="h-11 min-w-0 whitespace-normal text-center"
                 disabled={loading || isSelected}
                 onClick={() => onUseAlternative(alternative.id)}
                 type="button"
+                variant="outline"
               >
                 {isSelected ? "En uso" : "Usar alternativa"}
-              </button>
+              </Button>
             ) : null}
           </div>
-          {showDetails && alternative.exercise.instructions ? (
-            <p className="mt-4 whitespace-pre-line rounded-xl bg-[#f7f4f1] p-4 text-sm leading-6 text-[#4e5968] dark:bg-[#0d1016] dark:text-[#d6dbe3]">
-              {alternative.exercise.instructions}
-            </p>
+          {showDetails ? (
+            <div
+              className="mt-4 space-y-4 rounded-xl bg-muted p-4 text-sm leading-6 text-foreground"
+              id={detailsId}
+            >
+              {alternative.exercise.videoUrl ? (
+                alternativeEmbedUrl ? (
+                  <div className="aspect-video overflow-hidden rounded-lg bg-foreground">
+                    <iframe
+                      allow="encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      className="size-full"
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      src={alternativeEmbedUrl}
+                      title={`Video de demostración de ${alternative.exercise.name}`}
+                    />
+                  </div>
+                ) : (
+                  <p>
+                    El video no se puede reproducir aquí. Puedes abrirlo en
+                    YouTube.
+                  </p>
+                )
+              ) : null}
+              {alternative.exercise.instructions ? (
+                <p className="whitespace-pre-line">
+                  {alternative.exercise.instructions}
+                </p>
+              ) : null}
+              {alternative.exercise.videoUrl ? (
+                <Button asChild size="sm" variant="outline">
+                  <a
+                    href={alternative.exercise.videoUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <PlayCircle className="size-4 text-primary" /> Abrir en
+                    YouTube
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -4127,11 +4224,11 @@ function AlternativeMediaPreview({
 }) {
   if (!alternative.exercise.mediaUrl && !alternative.exercise.videoUrl) {
     return (
-      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#0d1016]">
+      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-border bg-muted text-center">
         <div className="px-3">
-          <FileText className="mx-auto size-6 text-[#8b929d] dark:text-[#c7cfdb]" />
-          <p className="mt-2 text-xs font-bold leading-5 text-[#667080] dark:text-[#c7cfdb]">
-            Sin demostracion adjunta
+          <FileText className="mx-auto size-6 text-muted-foreground" />
+          <p className="mt-2 text-xs font-bold leading-5 text-muted-foreground">
+            Sin demostración adjunta
           </p>
         </div>
       </div>
@@ -4141,20 +4238,20 @@ function AlternativeMediaPreview({
   if (!alternative.exercise.mediaUrl && alternative.exercise.videoUrl) {
     return (
       <a
-        className="flex h-full min-h-32 items-center justify-center rounded-xl bg-[#121722] text-white"
+        className="flex h-full min-h-32 items-center justify-center rounded-xl bg-foreground text-background"
         href={alternative.exercise.videoUrl}
         rel="noreferrer"
         target="_blank"
         aria-label={`Ver alternativa ${alternative.exercise.name}`}
       >
-        <PlayCircle className="size-9 text-white" />
+        <PlayCircle className="size-9" />
       </a>
     );
   }
 
   return (
     <div
-      className="h-full min-h-32 rounded-xl bg-[#f4f1ef] bg-cover bg-center"
+      className="h-full min-h-32 rounded-xl bg-muted bg-cover bg-center"
       role="img"
       aria-label={`Demostracion de ${alternative.exercise.name}`}
       style={{ backgroundImage: `url(${alternative.exercise.mediaUrl})` }}
@@ -4179,10 +4276,10 @@ function ExerciseMiniNavigation({
 
   return (
     <nav
-      className="mt-6 hidden rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:block"
+      className="mt-6 hidden rounded-xl border border-border/60 bg-card p-3 shadow-[var(--surface-shadow-soft)] lg:block"
       aria-label="Ejercicios de la sesion"
     >
-      <p className="px-2 pb-2 text-xs font-bold uppercase text-[#8b929d] dark:text-[#c7cfdb]">
+      <p className="px-2 pb-2 text-xs font-bold uppercase text-muted-foreground">
         {readOnly ? "Vista previa" : "Ejercicios"}
       </p>
       <div className="space-y-2">
@@ -4190,29 +4287,31 @@ function ExerciseMiniNavigation({
           const isActive = itemIndex === activeIndex;
           const isCompleted = completedIds.includes(exercise.sessionExerciseId);
           return (
-            <button
+            <Button
+              aria-current={isActive ? "step" : undefined}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
+                "h-auto w-full justify-start gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
                 isActive
-                  ? "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]"
-                  : "text-[#4e5968] hover:bg-[#f7f4f1] dark:text-[#c7cfdb] dark:hover:bg-[#1a202b]",
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               key={exercise.sessionExerciseId}
               onClick={() => onSelect(itemIndex)}
               type="button"
+              variant="ghost"
             >
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-xs",
                   isCompleted
-                    ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]"
-                    : "bg-[#eceff2] text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]",
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 {isCompleted ? <Check className="size-4" /> : itemIndex + 1}
               </span>
               <span className="truncate">{exercise.exercise.name}</span>
-            </button>
+            </Button>
           );
         })}
       </div>

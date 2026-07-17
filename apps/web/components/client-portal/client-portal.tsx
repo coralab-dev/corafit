@@ -959,7 +959,6 @@ export function SessionScreen({
                 onComplete={() =>
                   void complete(activeExercise.sessionExerciseId)
                 }
-                onFinalize={() => requestFinalize(completed.length, total)}
                 onNext={() =>
                   setActiveExerciseIndex((current) =>
                     Math.min(current + 1, total - 1),
@@ -967,9 +966,6 @@ export function SessionScreen({
                 }
                 onPrevious={() =>
                   setActiveExerciseIndex((current) => Math.max(current - 1, 0))
-                }
-                onSave={() =>
-                  router.push(`/c/${encodeURIComponent(token)}/home`)
                 }
                 onUseAlternative={(alternativeId) =>
                   void applyAlternative(
@@ -1165,7 +1161,6 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 loading={false}
                 onBack={() => setDetailOpen(false)}
                 onComplete={() => undefined}
-                onFinalize={() => undefined}
                 onNext={() =>
                   setActiveExerciseIndex((current) =>
                     Math.min(current + 1, total - 1),
@@ -1173,9 +1168,6 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 }
                 onPrevious={() =>
                   setActiveExerciseIndex((current) => Math.max(current - 1, 0))
-                }
-                onSave={() =>
-                  router.push(`/c/${encodeURIComponent(token)}/calendar`)
                 }
                 onUseAlternative={() => undefined}
                 readOnly
@@ -3645,8 +3637,6 @@ function ClientExerciseDetailView({
   onPrevious,
   onComplete,
   onUseAlternative,
-  onSave,
-  onFinalize,
 }: {
   exercise: ClientSessionExercise;
   index: number;
@@ -3661,8 +3651,6 @@ function ClientExerciseDetailView({
   onPrevious: () => void;
   onComplete: () => void;
   onUseAlternative: (alternativeId: string) => void;
-  onSave: () => void;
-  onFinalize: () => void;
 }) {
   const progress = total ? (completedCount / total) * 100 : 0;
   const selectedAlternative = exercise.alternatives.find(
@@ -3685,7 +3673,7 @@ function ClientExerciseDetailView({
           <ArrowLeft className="size-5" />
         </Button>
         <div className="min-w-0 text-center">
-          <p className="truncate text-base font-bold text-foreground">
+          <p className="truncate text-base font-semibold text-foreground">
             Detalle del ejercicio
           </p>
         </div>
@@ -3693,11 +3681,11 @@ function ClientExerciseDetailView({
       </div>
 
       <div className="mt-7">
-        <div className="flex items-center justify-between gap-4 text-sm font-bold">
-          <span className="text-foreground">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-semibold text-foreground">
             Ejercicio {index + 1} de {total}
           </span>
-          <span className="text-muted-foreground">
+          <span className="text-sm font-medium text-muted-foreground">
             {Math.round(progress)}% completado
           </span>
         </div>
@@ -3717,7 +3705,7 @@ function ClientExerciseDetailView({
       </div>
 
       <div className="mt-7 flex items-end justify-between gap-4">
-        <h1 className="min-w-0 break-words text-2xl font-black leading-tight tracking-normal text-foreground sm:text-3xl md:text-4xl">
+        <h1 className="min-w-0 break-words text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-3xl">
           {exercise.exercise.name}
         </h1>
       </div>
@@ -3781,65 +3769,44 @@ function ClientExerciseDetailView({
         </Button>
       </div>
 
-      <div className="sticky bottom-0 z-20 -mx-5 mt-6 border-t border-border/50 bg-background/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 md:px-8 lg:hidden">
-        {readOnly ? (
-          <Button
-            className="h-14 w-full whitespace-normal text-center"
-            disabled
-            type="button"
-            variant="secondary"
-          >
-            Disponible en la fecha programada
-          </Button>
-        ) : completed ? (
-          <Button
-            className="h-14 w-full whitespace-normal"
-            disabled={index >= total - 1}
-            onClick={onNext}
-            type="button"
-            variant="default"
-          >
-            <Check className="size-5" />
-            {index >= total - 1 ? "Completado" : "Siguiente"}
-          </Button>
-        ) : (
-          <Button
-            aria-busy={loading}
-            className="h-14 w-full whitespace-normal"
-            disabled={loading}
-            onClick={onComplete}
-            type="button"
-            variant="default"
-          >
-            {loading ? (
-              <Loader2 className="size-5 animate-spin" />
-            ) : (
-              <Check className="size-5" />
-            )}{" "}
-            Marcar completado
-          </Button>
-        )}
-        {!readOnly ? (
-          <div className="mt-3 grid grid-cols-1 gap-3 min-[22rem]:grid-cols-2">
+      {!readOnly ? (
+        <div className="sticky bottom-0 z-20 -mx-5 mt-6 border-t border-border/50 bg-background/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 md:px-8 lg:hidden">
+          {completed ? (
             <Button
-              className="h-11 min-w-0 whitespace-normal text-center text-xs"
-              onClick={onSave}
+              className="h-14 w-full whitespace-normal"
+              onClick={index >= total - 1 ? onBack : onNext}
               type="button"
-              variant="outline"
+              variant="default"
             >
-              <Home className="size-4" /> Guardar y salir
+              {index >= total - 1 ? (
+                <>
+                  <ArrowLeft className="size-5" /> Volver a la sesión
+                </>
+              ) : (
+                <>
+                  <Check className="size-5" /> Siguiente
+                </>
+              )}
             </Button>
+          ) : (
             <Button
-              className="h-11 min-w-0 whitespace-normal text-center text-xs"
-              onClick={onFinalize}
+              aria-busy={loading}
+              className="h-14 w-full whitespace-normal"
+              disabled={loading}
+              onClick={onComplete}
               type="button"
-              variant="outline"
+              variant="default"
             >
-              <CheckCircle2 className="size-4 text-primary" /> Finalizar sesión
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Check className="size-5" />
+              )}{" "}
+              Marcar completado
             </Button>
-          </div>
-        ) : null}
-      </div>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -4011,10 +3978,10 @@ function ExerciseMetricGrid({ exercise }: { exercise: ClientSessionExercise }) {
             key={metric.label}
           >
             <Icon className="size-6 text-primary" />
-            <p className="mt-3 break-words text-xs font-bold leading-4 text-muted-foreground">
+            <p className="mt-3 break-words text-xs font-medium leading-4 text-muted-foreground">
               {metric.label}
             </p>
-            <p className="mt-1 break-words text-base font-extrabold text-foreground">
+            <p className="mt-1 break-words text-base font-semibold text-foreground">
               {metric.value}
             </p>
           </div>
@@ -4048,7 +4015,7 @@ function ExerciseInfoCard({
         type="button"
       >
         <span className="text-primary">{icon}</span>
-        <h2 className="text-xl font-extrabold text-foreground">{title}</h2>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
         <ChevronDown
           className={cn(
             "ml-auto size-5 text-muted-foreground transition-transform duration-200",
@@ -4060,7 +4027,7 @@ function ExerciseInfoCard({
         id={contentId}
         hidden={!expanded}
         className={cn(
-          "mt-3 whitespace-pre-line text-base leading-7",
+          "mt-3 whitespace-pre-line text-sm leading-6 sm:text-base sm:leading-7",
           muted ? "text-muted-foreground" : "text-foreground",
         )}
       >
@@ -4099,7 +4066,7 @@ function AlternativeSuggestion({
     <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-center gap-3">
         <RotateCcw className="size-7 text-primary" />
-        <h2 className="text-xl font-extrabold text-foreground">
+        <h2 className="text-base font-semibold text-foreground">
           Alternativa sugerida
         </h2>
       </div>
@@ -4108,7 +4075,7 @@ function AlternativeSuggestion({
         <div className="min-w-0 rounded-xl border border-border/60 bg-card p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words text-lg font-extrabold leading-snug text-foreground">
+              <h3 className="break-words text-base font-semibold leading-snug text-foreground">
                 {alternative.exercise.name}
               </h3>
               {alternative.note ? (
@@ -4116,7 +4083,7 @@ function AlternativeSuggestion({
                   {alternative.note}
                 </p>
               ) : null}
-              <p className="mt-2 break-words text-sm font-semibold text-muted-foreground">
+              <p className="mt-2 break-words text-sm font-medium text-muted-foreground">
                 {exercise.sets ?? "-"} series x {exercise.reps} reps ·{" "}
                 {exercise.restSeconds ?? "-"} seg descanso
               </p>
@@ -4227,7 +4194,7 @@ function AlternativeMediaPreview({
       <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-border bg-muted text-center">
         <div className="px-3">
           <FileText className="mx-auto size-6 text-muted-foreground" />
-          <p className="mt-2 text-xs font-bold leading-5 text-muted-foreground">
+          <p className="mt-2 text-xs font-medium leading-5 text-muted-foreground">
             Sin demostración adjunta
           </p>
         </div>
@@ -4279,7 +4246,7 @@ function ExerciseMiniNavigation({
       className="mt-6 hidden rounded-xl border border-border/60 bg-card p-3 shadow-[var(--surface-shadow-soft)] lg:block"
       aria-label="Ejercicios de la sesion"
     >
-      <p className="px-2 pb-2 text-xs font-bold uppercase text-muted-foreground">
+      <p className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">
         {readOnly ? "Vista previa" : "Ejercicios"}
       </p>
       <div className="space-y-2">
@@ -4290,7 +4257,7 @@ function ExerciseMiniNavigation({
             <Button
               aria-current={isActive ? "step" : undefined}
               className={cn(
-                "h-auto w-full justify-start gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
+                "h-auto w-full justify-start gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",

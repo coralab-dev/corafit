@@ -16,7 +16,9 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   Calendar,
+  CalendarClock,
   Camera,
   Check,
   ChevronDown,
@@ -968,69 +970,54 @@ export function SessionScreen({
                 selectedAlternativeId={selectedAlternativeId}
                 total={total}
               />
-            ) : activeExercise ? (
+            ) : (
               <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:hidden">
-                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
-                    <span>Progreso de la sesion</span>
-                    <span>
-                      {completed.length} / {total}
-                    </span>
+                <SessionOverviewCard completedCount={completed.length} total={total} />
+                {activeExercise ? (
+                  <div className="mt-4 space-y-3">
+                    {log.snapshotData.exercises.map((exercise, index) => (
+                      <SessionExerciseListCard
+                        completed={completed.includes(exercise.sessionExerciseId)}
+                        exercise={exercise}
+                        index={index}
+                        key={exercise.sessionExerciseId}
+                        loading={busyId === exercise.sessionExerciseId}
+                        onComplete={() => void complete(exercise.sessionExerciseId)}
+                        onOpen={() => {
+                          setActiveExerciseIndex(index);
+                          setDetailOpen(true);
+                        }}
+                        total={total}
+                      />
+                    ))}
                   </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
-                    <div
-                      className="h-2 rounded-full bg-[var(--portal-accent)]"
-                      style={{
-                        width: `${total ? (completed.length / total) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3 lg:mt-0">
-                  {log.snapshotData.exercises.map((exercise, index) => (
-                    <SessionExerciseListCard
-                      completed={completed.includes(exercise.sessionExerciseId)}
-                      exercise={exercise}
-                      index={index}
-                      key={exercise.sessionExerciseId}
-                      loading={busyId === exercise.sessionExerciseId}
-                      onComplete={() =>
-                        void complete(exercise.sessionExerciseId)
-                      }
-                      onOpen={() => {
-                        setActiveExerciseIndex(index);
-                        setDetailOpen(true);
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
-                  <button
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
+                ) : (
+                  <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>
+                )}
+                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-border/70 bg-card/95 px-5 py-5 backdrop-blur lg:hidden">
+                  <Button
+                    className="h-14 min-w-0 px-3"
                     onClick={() =>
                       router.push(`/c/${encodeURIComponent(token)}/home`)
                     }
-                    type="button"
+                    variant="outline"
                   >
                     <Home className="size-4" /> Guardar y salir
-                  </button>
-                  <button
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60"
-                    disabled={finalizing}
+                  </Button>
+                  <Button
+                    className="h-14 min-w-0 px-3 shadow-[0_10px_24px_var(--portal-accent-shadow)]"
+                    disabled={finalizing || total === 0}
                     onClick={() => requestFinalize(completed.length, total)}
-                    type="button"
                   >
                     {finalizing ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <RotateCcw className="size-4" />
                     )}{" "}
-                    Finalizar sesion
-                  </button>
+                    Finalizar sesión
+                  </Button>
                 </div>
               </>
-            ) : (
-              <EmptyCard title="No hay ejercicios en esta sesion." />
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -1140,9 +1127,9 @@ export function SessionPreviewScreen({ token }: { token: string }) {
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31] dark:border-[#4b2b24] dark:bg-[#271716] dark:text-[#ffb4a8]">
-          Esta sesion esta programada para despues. Puedes revisar ejercicios y
-          notas, pero todavia no se puede iniciar.
+        <div className="mt-6 flex gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm font-medium leading-6 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
+          <CalendarClock className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+          <p>Esta sesión está programada para después. Puedes revisar ejercicios y notas, pero todavía no se puede iniciar.</p>
         </div>
         <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
@@ -1172,16 +1159,10 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 selectedAlternativeId={null}
                 total={total}
               />
-            ) : activeExercise ? (
+            ) : (
               <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
-                    <span>Vista de lectura</span>
-                    <span>{total} ejercicios</span>
-                  </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]" />
-                </div>
-                <div className="mt-4 space-y-3">
+                <SessionOverviewCard readOnly completedCount={0} total={total} />
+                {activeExercise ? <div className="mt-4 space-y-3">
                   {preview.snapshotData.exercises.map((exercise, index) => (
                     <SessionExerciseListCard
                       completed={false}
@@ -1195,21 +1176,20 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                         setActiveExerciseIndex(index);
                         setDetailOpen(true);
                       }}
+                      total={total}
                     />
                   ))}
-                </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
-                  <button
-                    className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
+                </div> : <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>}
+                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-border/70 bg-card/95 px-5 py-5 backdrop-blur lg:hidden">
+                  <Button
+                    className="h-14 w-full whitespace-normal"
                     disabled
-                    type="button"
+                    variant="secondary"
                   >
                     Disponible en la fecha programada
-                  </button>
+                  </Button>
                 </div>
               </>
-            ) : (
-              <EmptyCard title="No hay ejercicios en esta sesion." />
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -3413,6 +3393,74 @@ function UpcomingDays({ days }: { days: ClientPortalDay[] }) {
   );
 }
 
+function SessionOverviewCard({
+  completedCount,
+  readOnly = false,
+  total,
+}: {
+  completedCount: number;
+  readOnly?: boolean;
+  total: number;
+}) {
+  const percentage = total ? Math.round((completedCount / total) * 100) : 0;
+  const remaining = Math.max(total - completedCount, 0);
+  const exerciseLabel = `${total} ${total === 1 ? "ejercicio" : "ejercicios"}`;
+  const statusMessage =
+    completedCount === 0
+      ? "Comienza con el primer ejercicio"
+      : remaining > 0
+        ? `${remaining} ${remaining === 1 ? "ejercicio restante" : "ejercicios restantes"}`
+        : "Todo listo para finalizar";
+
+  return (
+    <section className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <BookOpen className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-foreground">
+              {readOnly ? "Vista de lectura" : "Progreso de la sesión"}
+            </h2>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              {readOnly ? "Revisa tu rutina antes de la fecha programada." : statusMessage}
+            </p>
+          </div>
+        </div>
+        <div className="flex min-w-0 items-center gap-3 sm:justify-end">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Dumbbell className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 sm:min-w-32">
+            <p className="text-base font-bold text-foreground">{exerciseLabel}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {readOnly ? "En esta rutina" : `${completedCount} completados`}
+            </p>
+          </div>
+        </div>
+      </div>
+      {readOnly ? (
+        <div className="mt-5 h-1.5 rounded-full bg-muted" aria-hidden="true" />
+      ) : (
+        <div className="mt-5 flex items-center gap-3">
+          <div
+            aria-label={`${percentage}% de la sesión completada`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={percentage}
+            className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+          >
+            <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percentage}%` }} />
+          </div>
+          <span className="w-10 shrink-0 text-right text-sm font-bold text-foreground">{percentage}%</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SessionProgressPanel({
   completedCount,
   finalizing,
@@ -3430,56 +3478,41 @@ function SessionProgressPanel({
   readOnly?: boolean;
   total: number;
 }) {
-  const progress = total ? (completedCount / total) * 100 : 0;
+  const progress = total ? Math.round((completedCount / total) * 100) : 0;
 
   return (
     <aside className="hidden lg:sticky lg:top-8 lg:block">
-      <div className="rounded-xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <p className="text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">Progreso actual</p>
+      <div className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)]">
+        <p className="text-sm font-bold text-muted-foreground">{readOnly ? "Vista de lectura" : "Progreso actual"}</p>
         <div className="mt-3 flex items-end justify-between gap-4">
           <div>
-            <p className="text-3xl font-bold text-[#09111f] dark:text-[#f4f6f8]">
-              {completedCount}/{total}
-            </p>
-            <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
-              ejercicios completados
-            </p>
+            <p className="text-3xl font-bold text-foreground">{readOnly ? total : `${completedCount}/${total}`}</p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">{readOnly ? (total === 1 ? "ejercicio" : "ejercicios") : "ejercicios completados"}</p>
           </div>
-          <span className="rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
-            {Math.round(progress)}%
-          </span>
+          {!readOnly ? <Badge variant="muted">{progress}%</Badge> : null}
         </div>
-        <div className="mt-5 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
-          <div
-            className="h-2 rounded-full bg-[var(--portal-accent)]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="mt-4 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
+        {!readOnly ? <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${progress}% de la sesión completada`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+        </div> : null}
+        <p className="mt-4 text-sm font-medium text-muted-foreground">
           {readOnly
-            ? "Vista previa de la sesion programada."
+            ? "Sesión programada"
             : pendingCount > 0
-              ? `${pendingCount} ejercicios pendientes.`
-              : "Todos los ejercicios estan listos para finalizar."}
+              ? completedCount === 0 ? "Comienza con el primer ejercicio." : `${pendingCount} ${pendingCount === 1 ? "ejercicio pendiente" : "ejercicios pendientes"}.`
+              : completedCount === 0
+                ? "Comienza con el primer ejercicio."
+                : "Todo listo para finalizar."}
         </p>
         <div className="mt-6 space-y-3">
-          <button
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
+          <Button className="h-12 w-full" variant="outline"
             onClick={onSave}
-            type="button"
           >
-            <Home className="size-4" /> Guardar y salir
-          </button>
-          <button
-            className={cn(
-              "flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60",
-              readOnly
-                ? "bg-[#ece7e3] text-[#667080] shadow-none dark:bg-[#242b36] dark:text-[#c7cfdb]"
-                : "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
-            )}
-            disabled={finalizing || readOnly}
+            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Guardar y salir"}
+          </Button>
+          <Button className="h-12 w-full whitespace-normal shadow-[0_10px_24px_var(--portal-accent-shadow)]"
+            disabled={finalizing || readOnly || total === 0}
             onClick={onFinalize}
-            type="button"
+            variant={readOnly ? "secondary" : "default"}
           >
             {readOnly ? (
               "Disponible en la fecha programada"
@@ -3488,8 +3521,8 @@ function SessionProgressPanel({
             ) : (
               <RotateCcw className="size-4" />
             )}
-            {readOnly ? null : "Finalizar sesion"}
-          </button>
+            {readOnly ? null : "Finalizar sesión"}
+          </Button>
         </div>
       </div>
     </aside>
@@ -3505,6 +3538,7 @@ function SessionExerciseListCard({
   completed,
   loading,
   readOnly = false,
+  total,
   onComplete,
   onOpen,
 }: {
@@ -3513,49 +3547,49 @@ function SessionExerciseListCard({
   completed: boolean;
   loading: boolean;
   readOnly?: boolean;
+  total: number;
   onComplete: () => void;
   onOpen: () => void;
 }) {
   return (
-    <article className="flex min-h-24 items-center gap-4 rounded-xl border border-[#d8d1ca] bg-white p-4 shadow-sm transition hover:border-[#c9cdd3] dark:border-[#293140] dark:bg-[#121722] dark:hover:border-[#3a4354]">
+    <article className="flex min-h-24 min-w-0 items-center gap-2 rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:gap-3 sm:p-4">
       <button
-        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+        aria-label={`Abrir detalle de ${exercise.exercise.name}, ejercicio ${index + 1} de ${total}${readOnly ? ", modo lectura" : ""}`}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 sm:gap-4"
         onClick={onOpen}
         type="button"
       >
         <div
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-            completed
-              ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]"
-              : "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]",
+            "flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary sm:size-11",
+            completed && !readOnly && "bg-primary text-primary-foreground",
           )}
         >
-          {completed ? <Check className="size-4" /> : index + 1}
+          {completed && !readOnly ? <Check className="size-4" /> : index + 1}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+          <h3 className="text-base font-bold leading-5 text-foreground sm:text-lg">
             {exercise.exercise.name}
           </h3>
-          <p className="mt-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-            {exercise.sets ?? "-"} series x {exercise.reps} reps
+          <p className="mt-1.5 text-sm font-medium leading-5 text-muted-foreground">
+            {exercise.sets ?? "-"} series × {exercise.reps}
           </p>
-          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-            {exercise.restSeconds ?? "-"} seg descanso
+          <p className="mt-0.5 text-sm font-medium leading-5 text-muted-foreground">
+            {exercise.restSeconds != null ? `${exercise.restSeconds} seg de descanso` : "Sin descanso indicado"}
           </p>
         </div>
+        {readOnly ? <Badge variant="muted">Lectura</Badge> : null}
+        <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
-      {readOnly ? (
-        <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]">
-          Lectura
-        </div>
-      ) : (
-        <button
-          aria-label="Completar ejercicio"
+      {!readOnly ? (
+        <div className="flex shrink-0 items-center">
+          <button
+          aria-busy={loading}
+          aria-label={`Marcar ${exercise.exercise.name} como completado`}
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#8b929d] bg-white text-[#09111f] dark:border-[#5f6a7b] dark:bg-[#0d1016] dark:text-[#f4f6f8]",
+            "flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35",
             completed &&
-              "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
+              "border-primary bg-primary text-primary-foreground",
           )}
           disabled={completed || loading}
           onClick={onComplete}
@@ -3566,8 +3600,9 @@ function SessionExerciseListCard({
           ) : completed ? (
             <Check className="size-5" />
           ) : null}
-        </button>
-      )}
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }

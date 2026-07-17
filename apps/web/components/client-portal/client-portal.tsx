@@ -21,6 +21,7 @@ import {
   CalendarClock,
   Camera,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -930,13 +931,23 @@ export function SessionScreen({
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section
+        className={cn(
+          "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-[calc(100dvh-5rem)] flex-col",
+        )}
+      >
         {!detailOpen ? (
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
+        <div
+          className={cn(
+            "mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
+            !detailOpen && "flex flex-1 flex-col",
+          )}
+        >
+          <div className={cn("min-w-0", !detailOpen && "flex flex-1 flex-col")}>
             {detailOpen && activeExercise ? (
               <ClientExerciseDetailView
                 completed={completed.includes(activeExercise.sessionExerciseId)}
@@ -971,7 +982,7 @@ export function SessionScreen({
                 total={total}
               />
             ) : (
-              <>
+              <div className="flex flex-1 flex-col">
                 <SessionOverviewCard completedCount={completed.length} total={total} />
                 {activeExercise ? (
                   <div className="mt-4 space-y-3">
@@ -994,30 +1005,33 @@ export function SessionScreen({
                 ) : (
                   <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>
                 )}
-                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-border/70 bg-card/95 px-5 py-5 backdrop-blur lg:hidden">
-                  <Button
-                    className="h-14 min-w-0 px-3"
-                    onClick={() =>
-                      router.push(`/c/${encodeURIComponent(token)}/home`)
-                    }
-                    variant="outline"
-                  >
-                    <Home className="size-4" /> Guardar y salir
-                  </Button>
-                  <Button
-                    className="h-14 min-w-0 px-3 shadow-[0_10px_24px_var(--portal-accent-shadow)]"
-                    disabled={finalizing || total === 0}
-                    onClick={() => requestFinalize(completed.length, total)}
-                  >
-                    {finalizing ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <RotateCcw className="size-4" />
-                    )}{" "}
-                    Finalizar sesión
-                  </Button>
+                <div className="sticky bottom-0 z-20 mt-auto px-4 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
+                  <div className="grid grid-cols-1 gap-2 rounded-2xl border border-border/70 bg-card/95 p-2 shadow-[var(--surface-shadow-soft)] backdrop-blur min-[350px]:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                    <Button
+                      className="h-12 min-w-0 px-3"
+                      disabled={finalizing}
+                      onClick={() =>
+                        router.push(`/c/${encodeURIComponent(token)}/home`)
+                      }
+                      variant="outline"
+                    >
+                      <Home className="size-4" /> Salir por ahora
+                    </Button>
+                    <Button
+                      className="h-12 min-w-0 px-3 shadow-[0_10px_24px_var(--portal-accent-shadow)]"
+                      disabled={finalizing || total === 0}
+                      onClick={() => requestFinalize(completed.length, total)}
+                    >
+                      {finalizing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="size-4" />
+                      )}{" "}
+                      Finalizar sesión
+                    </Button>
+                  </div>
                 </div>
-              </>
+              </div>
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -1122,7 +1136,12 @@ export function SessionPreviewScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section
+        className={cn(
+          "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-[calc(100dvh-5rem)] flex-col",
+        )}
+      >
         {!detailOpen ? (
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
@@ -1131,8 +1150,13 @@ export function SessionPreviewScreen({ token }: { token: string }) {
           <CalendarClock className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
           <p>Esta sesión está programada para después. Puedes revisar ejercicios y notas, pero todavía no se puede iniciar.</p>
         </div>
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
+        <div
+          className={cn(
+            "mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
+            !detailOpen && "flex flex-1 flex-col",
+          )}
+        >
+          <div className={cn("min-w-0", !detailOpen && "flex flex-1 flex-col")}>
             {detailOpen && activeExercise ? (
               <ClientExerciseDetailView
                 completed={false}
@@ -1160,7 +1184,7 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 total={total}
               />
             ) : (
-              <>
+              <div className="flex flex-1 flex-col">
                 <SessionOverviewCard readOnly completedCount={0} total={total} />
                 {activeExercise ? <div className="mt-4 space-y-3">
                   {preview.snapshotData.exercises.map((exercise, index) => (
@@ -1180,16 +1204,18 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                     />
                   ))}
                 </div> : <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>}
-                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-border/70 bg-card/95 px-5 py-5 backdrop-blur lg:hidden">
-                  <Button
-                    className="h-14 w-full whitespace-normal"
-                    disabled
-                    variant="secondary"
-                  >
-                    Disponible en la fecha programada
-                  </Button>
+                <div className="sticky bottom-0 z-20 mt-auto px-4 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
+                  <div className="rounded-2xl border border-border/70 bg-card/95 p-2 shadow-[var(--surface-shadow-soft)] backdrop-blur">
+                    <Button
+                      className="h-12 w-full whitespace-normal"
+                      disabled
+                      variant="secondary"
+                    >
+                      Disponible en la fecha programada
+                    </Button>
+                  </div>
                 </div>
-              </>
+              </div>
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -3505,9 +3531,10 @@ function SessionProgressPanel({
         </p>
         <div className="mt-6 space-y-3">
           <Button className="h-12 w-full" variant="outline"
+            disabled={finalizing}
             onClick={onSave}
           >
-            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Guardar y salir"}
+            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Salir por ahora"}
           </Button>
           <Button className="h-12 w-full whitespace-normal shadow-[0_10px_24px_var(--portal-accent-shadow)]"
             disabled={finalizing || readOnly || total === 0}
@@ -3519,7 +3546,7 @@ function SessionProgressPanel({
             ) : finalizing ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <RotateCcw className="size-4" />
+              <CheckCircle2 className="size-4" />
             )}
             {readOnly ? null : "Finalizar sesión"}
           </Button>

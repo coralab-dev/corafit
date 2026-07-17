@@ -3499,8 +3499,6 @@ function SessionProgressPanel({
   total: number;
 }) {
   const progress = total ? Math.round((completedCount / total) * 100) : 0;
-  const statusMessage = "No hay ejercicios en esta sesión";
-
   return (
     <aside className="hidden lg:sticky lg:top-8 lg:block">
       <div className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)]">
@@ -3516,15 +3514,17 @@ function SessionProgressPanel({
           <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
         </div> : null}
         <p className="mt-4 text-sm font-medium text-muted-foreground">
-          {total === 0 ? statusMessage : (total === 0
+          {total === 0
             ? "No hay ejercicios en esta sesión"
             : readOnly
-            ? "Sesión programada"
-            : pendingCount > 0
-              ? completedCount === 0 ? "Comienza con el primer ejercicio." : `${pendingCount} ${pendingCount === 1 ? "ejercicio pendiente" : "ejercicios pendientes"}.`
-              : completedCount === 0
-                ? "Comienza con el primer ejercicio."
-                : "Todo listo para finalizar.")}
+              ? "Sesión programada"
+              : pendingCount > 0
+                ? completedCount === 0
+                  ? "Comienza con el primer ejercicio."
+                  : `${pendingCount} ${pendingCount === 1 ? "ejercicio pendiente" : "ejercicios pendientes"}.`
+                : completedCount === 0
+                  ? "Comienza con el primer ejercicio."
+                  : "Todo listo para finalizar."}
         </p>
         <div className="mt-6 space-y-3">
           <Button className="h-12 w-full whitespace-normal"

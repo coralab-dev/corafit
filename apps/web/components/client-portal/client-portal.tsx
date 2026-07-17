@@ -3658,9 +3658,22 @@ function ClientExerciseDetailView({
   );
   const suggestedAlternative =
     selectedAlternative ?? exercise.alternatives[0] ?? null;
+  const detailStartRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    detailStartRef.current?.scrollIntoView({
+      block: "start",
+      behavior: "auto",
+    });
+  }, [index]);
 
   return (
-    <article>
+    <article
+      className={cn(
+        readOnly && "pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-0",
+      )}
+      ref={detailStartRef}
+    >
       <div className="flex items-center justify-between gap-3">
         <Button
           aria-label="Volver"
@@ -3784,7 +3797,7 @@ function ClientExerciseDetailView({
                 </>
               ) : (
                 <>
-                  <Check className="size-5" /> Siguiente
+                  <ChevronRight className="size-5" /> Siguiente
                 </>
               )}
             </Button>

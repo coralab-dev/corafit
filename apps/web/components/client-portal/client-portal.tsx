@@ -934,7 +934,7 @@ export function SessionScreen({
         className={cn(
           "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
           !detailOpen &&
-            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-[calc(100dvh+2.5rem+env(safe-area-inset-bottom))] flex-col",
+            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-dvh flex-col lg:mb-0 lg:min-h-0",
         )}
       >
         {!detailOpen ? (
@@ -1008,6 +1008,7 @@ export function SessionScreen({
                 <div className="sticky bottom-0 z-20 -mx-5 mt-auto space-y-2 border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 lg:hidden">
                   <Button
                     className="h-12 w-full"
+                    aria-busy={finalizing}
                     disabled={finalizing || total === 0}
                     onClick={() => requestFinalize(completed.length, total)}
                   >
@@ -1138,7 +1139,7 @@ export function SessionPreviewScreen({ token }: { token: string }) {
         className={cn(
           "px-5 pt-6 md:px-8 lg:px-10 lg:pt-8",
           !detailOpen &&
-            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-[calc(100dvh+2.5rem+env(safe-area-inset-bottom))] flex-col",
+            "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] flex min-h-dvh flex-col lg:mb-0 lg:min-h-0",
         )}
       >
         {!detailOpen ? (
@@ -3429,8 +3430,10 @@ function SessionOverviewCard({
   const remaining = Math.max(total - completedCount, 0);
   const exerciseLabel = `${total} ${total === 1 ? "ejercicio" : "ejercicios"}`;
   const statusMessage =
-    completedCount === 0
-      ? "Comienza con el primer ejercicio"
+    total === 0
+      ? "No hay ejercicios en esta sesión"
+      : completedCount === 0
+        ? "Comienza con el primer ejercicio"
       : remaining > 0
         ? `${remaining} ${remaining === 1 ? "ejercicio restante" : "ejercicios restantes"}`
         : "Todo listo para finalizar";
@@ -3496,6 +3499,7 @@ function SessionProgressPanel({
   total: number;
 }) {
   const progress = total ? Math.round((completedCount / total) * 100) : 0;
+  const statusMessage = "No hay ejercicios en esta sesión";
 
   return (
     <aside className="hidden lg:sticky lg:top-8 lg:block">
@@ -3512,16 +3516,19 @@ function SessionProgressPanel({
           <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
         </div> : null}
         <p className="mt-4 text-sm font-medium text-muted-foreground">
-          {readOnly
+          {total === 0 ? statusMessage : (total === 0
+            ? "No hay ejercicios en esta sesión"
+            : readOnly
             ? "Sesión programada"
             : pendingCount > 0
               ? completedCount === 0 ? "Comienza con el primer ejercicio." : `${pendingCount} ${pendingCount === 1 ? "ejercicio pendiente" : "ejercicios pendientes"}.`
               : completedCount === 0
                 ? "Comienza con el primer ejercicio."
-                : "Todo listo para finalizar."}
+                : "Todo listo para finalizar.")}
         </p>
         <div className="mt-6 space-y-3">
           <Button className="h-12 w-full whitespace-normal"
+            aria-busy={finalizing}
             disabled={finalizing || readOnly || total === 0}
             onClick={onFinalize}
             variant={readOnly ? "secondary" : "default"}

@@ -22,6 +22,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  CircleDashed,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -55,6 +56,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CoraFitApiError } from "@/lib/api/authenticated-request";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
@@ -116,6 +118,13 @@ import {
   type ClientSessionPreview,
   type CompletionCard,
 } from "@/lib/client-portal/api";
+import {
+  buildCompletionCardSvg,
+  buildCompletionPresentation,
+  buildShareText,
+  isFinalizedCompletionStatus,
+  type CompletionPresentation,
+} from "@/components/client-portal/completion-card-presentation";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
 export { ClientHomeScreen } from "@/components/client-portal/client-home-screen";
 export { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
@@ -1348,80 +1357,155 @@ export function CompletionCardScreen({
   token: string;
   sessionLogId: string;
 }) {
+  const router = useRouter();
   const [data, setData] = useState<CompletionCard | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [busyAction, setBusyAction] = useState<CompletionBusyAction>(null);
+  const [feedback, setFeedback] = useState<CompletionFeedback | null>(null);
   const [shareFallback, setShareFallback] = useState<string | null>(null);
-  const [saveFallback, setSaveFallback] = useState<string | null>(null);
   const { resolvedTheme } = useAppTheme();
+  const requestInFlightRef = useRef(false);
+  const redirectingRef = useRef(false);
 
-  useEffect(() => {
-    clientPortalRequest<CompletionCard>(
-      `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(sessionLogId)}/completion-card`,
-    )
-      .then(setData)
-      .catch((caught) =>
-        setError(errorMessage(caught, "No pudimos cargar tu logro.")),
-      );
-  }, [sessionLogId, token]);
+  const redirectToSession = useCallback(() => {
+    if (redirectingRef.current) return;
 
-  function buildShareText(card: CompletionCard) {
-    return [
-      "CoraFit",
-      "Sesion completada",
-      card.sessionName,
-      `${card.completedExercises}/${card.totalExercises} ejercicios`,
-      `${card.completionPercentage}% completado`,
-      `${card.streak} dias de racha`,
-    ].join("\n");
-  }
+    redirectingRef.current = true;
+    setIsRedirecting(true);
+    router.replace(
+      `/c/${encodeURIComponent(token)}/session/${encodeURIComponent(sessionLogId)}`,
+    );
+  }, [router, sessionLogId, token]);
 
-  async function shareCompletion() {
-    if (!data) return;
+  const load = useCallback(() => {
+    if (requestInFlightRef.current || redirectingRef.current) return;
 
-    const shareData = {
-      title: "CoraFit - Sesion completada",
-      text: buildShareText(data),
-    };
-
+    requestInFlightRef.current = true;
+    setIsLoading(true);
+    setError(null);
+    setData(null);
+    setFeedback(null);
     setShareFallback(null);
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (caught) {
-        if (caught instanceof DOMException && caught.name === "AbortError")
+    void clientPortalRequest<CompletionCard>(
+      `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(sessionLogId)}/completion-card`,
+    )
+      .then((result) => {
+        if (!isFinalizedCompletionStatus(result.status)) {
+          redirectToSession();
           return;
-      }
-    }
+        }
 
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(shareData.text);
-        setShareFallback(
-          "Copiamos tu logro para que lo compartas donde prefieras.",
+        setData(result);
+      })
+      .catch((caught: unknown) => {
+        if (caught instanceof CoraFitApiError && caught.status === 403) {
+          redirectToSession();
+          return;
+        }
+
+        setError(
+          caught instanceof CoraFitApiError && caught.status === 404
+            ? "Este logro no está disponible"
+            : errorMessage(caught, "No pudimos cargar tu logro."),
         );
-        return;
-      } catch {
-        // Fall through to visible fallback.
-      }
-    }
+      })
+      .finally(() => {
+        requestInFlightRef.current = false;
+        setIsLoading(false);
+      });
+  }, [redirectToSession, sessionLogId, token]);
 
-    setShareFallback(
-      "Tu navegador no permite compartir automaticamente. Puedes copiar el resumen de la card.",
-    );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (data && !isFinalizedCompletionStatus(data.status)) {
+      redirectToSession();
+    }
+  }, [data, redirectToSession]);
+
+  const presentation =
+    data && isFinalizedCompletionStatus(data.status)
+      ? buildCompletionPresentation(data)
+      : null;
+
+  async function shareCompletion() {
+    if (!data || !presentation || busyAction) return;
+
+    const shareData = {
+      title: `CoraFit - ${presentation.shareTitle}`,
+      text: presentation.shareText,
+    };
+
+    setBusyAction("share");
+    setFeedback(null);
+    setShareFallback(null);
+
+    try {
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          setFeedback({ tone: "success", message: "Compartir listo." });
+          return;
+        } catch (caught) {
+          if (caught instanceof DOMException && caught.name === "AbortError") {
+            return;
+          }
+          // Fall through to the clipboard fallback.
+        }
+      }
+
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(shareData.text);
+          setFeedback({
+            tone: "success",
+            message: "Copiamos tu logro para que lo compartas donde prefieras.",
+          });
+          return;
+        } catch {
+          // Fall through to the visible manual fallback.
+        }
+      }
+
+      setFeedback({
+        detail: "Selecciona y copia el texto para compartirlo donde prefieras.",
+        message: "No pudimos copiar el logro automáticamente.",
+        tone: "error",
+      });
+      setShareFallback(buildShareText(presentation));
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") {
+        return;
+      }
+
+      setFeedback({
+        detail: "Selecciona y copia el texto para compartirlo donde prefieras.",
+        message: "No pudimos compartir el logro automáticamente.",
+        tone: "error",
+      });
+      setShareFallback(buildShareText(presentation));
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function saveCompletionImage() {
-    if (!data) return;
+    if (!data || !presentation || busyAction) return;
 
-    setSaveFallback(null);
-
-    const svg = buildCompletionCardSvg(data, resolvedTheme === "dark");
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    setBusyAction("save");
+    setFeedback(null);
+    setShareFallback(null);
+    let url: string | null = null;
 
     try {
+      const svg = buildCompletionCardSvg(presentation, resolvedTheme === "dark");
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      url = URL.createObjectURL(blob);
       const image = new Image();
       const loaded = new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
@@ -1443,189 +1527,378 @@ export function CompletionCardScreen({
       link.href = pngUrl;
       link.download = `corafit-sesion-${data.scheduledDate}.png`;
       link.click();
+      setFeedback({ tone: "success", message: "Descarga iniciada." });
     } catch {
-      setSaveFallback(
-        "No pudimos guardar la imagen automaticamente. Intenta compartir el resumen o vuelve a intentarlo.",
-      );
+      setFeedback({
+        message:
+          "No pudimos guardar la imagen automáticamente. Vuelve a intentarlo.",
+        tone: "error",
+      });
     } finally {
-      URL.revokeObjectURL(url);
+      if (url) URL.revokeObjectURL(url);
+      setBusyAction(null);
     }
   }
 
   return (
     <ClientPortalShell token={token}>
-      <section className="client-portal-viewport flex flex-col px-5 py-6 md:px-8 lg:px-10">
-        <BrandMark />
-        {error ? <InlineError message={error} /> : null}
-        {data ? (
-          <div className="mx-auto mt-4 flex w-full max-w-md flex-1 flex-col">
-            <CompletionShareCard data={data} />
+      <section className="client-portal-viewport flex min-h-dvh flex-col px-5 py-6 md:px-8 md:py-8 lg:px-10">
+        <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
+          <BrandMark compact />
+          <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Resultado de sesión
+          </p>
+        </header>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button
-                className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#111111] px-5 text-sm font-bold text-white transition hover:bg-[#39393b] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2"
-                onClick={() => void shareCompletion()}
-                type="button"
-              >
-                <Share2 className="size-4" />
-                Compartir
-              </button>
-              <button
-                className="flex h-12 items-center justify-center gap-2 rounded-full border border-[#cacacb] bg-white px-5 text-sm font-bold text-[#111111] transition hover:border-[#707072] hover:bg-[#f5f5f5] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2 dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]"
-                onClick={() => void saveCompletionImage()}
-                type="button"
-              >
-                <Download className="size-4" />
-                Guardar imagen
-              </button>
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center py-6 lg:py-10">
+          {isRedirecting || (data && !presentation) ? (
+            <CompletionRedirectingState />
+          ) : isLoading ? (
+            <CompletionLoadingState />
+          ) : error ? (
+            <CompletionErrorState
+              message={error}
+              onRetry={() => load()}
+              token={token}
+            />
+          ) : presentation && data ? (
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-center">
+              <div className="w-full max-w-xl">
+                <CompletionShareCard presentation={presentation} />
+              </div>
+              <CompletionActions
+                busyAction={busyAction}
+                feedback={feedback}
+                onSave={() => void saveCompletionImage()}
+                onShare={() => void shareCompletion()}
+                shareFallback={shareFallback}
+                token={token}
+              />
             </div>
-
-            {shareFallback ? (
-              <div
-                className="mt-3 rounded-xl border border-[#ece7e3] bg-white p-4 text-sm leading-6 text-[#667080]"
-                role="status"
-              >
-                <p>{shareFallback}</p>
-                <p className="mt-2 whitespace-pre-line font-medium text-[#09111f]">
-                  {buildShareText(data)}
-                </p>
-              </div>
-            ) : null}
-
-            {saveFallback ? (
-              <div
-                className="mt-3 rounded-xl border border-[#f2c8c0] bg-[#fff4f1] p-4 text-sm font-semibold leading-6 text-[#9f3529]"
-                role="status"
-              >
-                {saveFallback}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <ScreenState title="Preparando tu logro" compact />
-        )}
-        <div className="mt-auto space-y-3 pt-6">
-          <Link
-            className="flex h-14 items-center justify-center rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)]"
-            href={`/c/${encodeURIComponent(token)}/home`}
-          >
-            Volver al inicio
-          </Link>
-          <Link
-            className="flex h-14 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-sm font-bold text-[#09111f] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8]"
-            href={`/c/${encodeURIComponent(token)}/calendar`}
-          >
-            Ver calendario
-          </Link>
+          ) : null}
         </div>
       </section>
     </ClientPortalShell>
   );
 }
 
-function CompletionShareCard({ data }: { data: CompletionCard }) {
-  const dateParts = formatCompletionDateParts(data.scheduledDate);
+type CompletionBusyAction = "share" | "save" | null;
 
+type CompletionFeedback = {
+  tone: "success" | "error";
+  message: string;
+  detail?: string;
+};
+
+function CompletionLoadingState() {
   return (
-    <article
-      aria-label="Card compartible de sesion completada"
-      className="relative w-full overflow-hidden rounded-[28px] border border-[#f2ece7] bg-white px-5 pb-5 pt-6 text-[#071026] shadow-[0_22px_60px_rgba(18,23,34,0.14)] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:shadow-none"
+    <div
+      aria-live="polite"
+      className="flex min-h-56 flex-col items-center justify-center text-center"
+      role="status"
     >
-      <div
-        className="absolute left-1/2 top-6 h-24 w-32 -translate-x-1/2 text-[var(--portal-accent)]"
-        aria-hidden
-      >
-        <span className="absolute left-1/2 top-0 h-7 w-px bg-current opacity-60" />
-        <span className="absolute left-7 top-4 h-7 w-px rotate-[-50deg] bg-current opacity-50" />
-        <span className="absolute right-7 top-4 h-7 w-px rotate-[50deg] bg-current opacity-50" />
-        <span className="absolute left-1 top-14 h-px w-10 bg-current opacity-55" />
-        <span className="absolute right-1 top-14 h-px w-10 bg-current opacity-55" />
-      </div>
+      <Loader2
+        aria-hidden="true"
+        className="size-8 animate-spin text-[var(--portal-accent)]"
+      />
+      <p className="mt-4 text-base font-semibold text-foreground">
+        Preparando tu logro
+      </p>
+    </div>
+  );
+}
 
-      <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-[var(--portal-accent-soft)]">
-        <div className="flex size-14 items-center justify-center rounded-full bg-[#ffe1d9] text-[var(--portal-accent)] dark:bg-[var(--portal-accent-soft)]">
-          <Check className="size-8 stroke-[3]" />
+function CompletionRedirectingState() {
+  return (
+    <div
+      aria-live="polite"
+      className="flex min-h-56 flex-col items-center justify-center text-center"
+      role="status"
+    >
+      <Loader2
+        aria-hidden="true"
+        className="size-8 animate-spin text-[var(--portal-accent)]"
+      />
+      <p className="mt-4 text-base font-semibold text-foreground">
+        Abriendo tu sesión
+      </p>
+    </div>
+  );
+}
+
+function CompletionErrorState({
+  message,
+  onRetry,
+  token,
+}: {
+  message: string;
+  onRetry: () => void;
+  token: string;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-lg rounded-2xl border border-destructive/25 bg-card p-6 shadow-[var(--surface-shadow-soft)] sm:p-8">
+      <div
+        aria-live="assertive"
+        className="flex items-start gap-3"
+        role="alert"
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <AlertTriangle aria-hidden="true" className="size-5" />
+        </span>
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">
+            No pudimos abrir tu logro
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {message}
+          </p>
         </div>
       </div>
 
-      <h2 className="mt-4 text-center text-[2rem] font-black leading-none text-[#071026] dark:text-[#f4f6f8]">
-        Sesion completada
-      </h2>
-
-      <div className="mt-3 flex items-center justify-center gap-3 text-[var(--portal-accent)]">
-        <span className="h-px w-10 bg-[var(--portal-accent)]/55" />
-        <p className="line-clamp-1 text-base font-black">{data.sessionName}</p>
-        <span className="h-px w-10 bg-[var(--portal-accent)]/55" />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button className="min-h-11 flex-1" onClick={onRetry} type="button">
+          <RotateCcw aria-hidden="true" className="size-4" />
+          Reintentar
+        </Button>
+        <Button asChild className="min-h-11 flex-1" variant="outline">
+          <Link href={`/c/${encodeURIComponent(token)}/home`}>Volver al inicio</Link>
+        </Button>
       </div>
+      <Button
+        asChild
+        className="mt-2 min-h-11 w-full"
+        variant="ghost"
+      >
+        <Link href={`/c/${encodeURIComponent(token)}/calendar`}>Ver calendario</Link>
+      </Button>
+    </div>
+  );
+}
 
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-[22px] border border-[#ece7e3] bg-white shadow-[0_12px_32px_rgba(7,16,38,0.08)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none">
-        <CompletionStoryMetric
-          caption="completados"
-          icon={<Dumbbell className="size-7 text-[var(--portal-accent)]" />}
-          label="Ejercicios"
-          value={`${data.completedExercises}/${data.totalExercises}`}
-        />
-        <CompletionStoryMetric
-          caption="completado"
-          icon={<TrendingUp className="size-7 text-[var(--portal-accent)]" />}
-          label="Avance"
-          value={`${data.completionPercentage}%`}
-        />
-        <CompletionStoryMetric
-          caption="dias"
-          icon={<Flame className="size-7 text-[var(--portal-accent)]" />}
-          label="Racha"
-          value={data.streak}
-        />
-        <CompletionStoryMetric
-          caption="registrado"
-          icon={<Calendar className="size-7 text-[var(--portal-accent)]" />}
-          label="Fecha"
-          value={dateParts.dayMonth}
-          valueClassName="text-xl"
-        />
-      </div>
+function CompletionShareCard({
+  presentation,
+}: {
+  presentation: CompletionPresentation;
+}) {
+  const StatusIcon =
+    presentation.variant === "completed" ? CheckCircle2 : CircleDashed;
 
-      <div className="mt-5 flex items-center gap-4 text-[var(--portal-accent)]">
-        <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
-        <span className="rounded-full border border-[#f4c8bd] bg-[var(--portal-accent-soft)] px-6 py-2 text-sm font-black dark:border-[#5d5124]">
+  return (
+    <article
+      aria-label={
+        presentation.variant === "completed"
+          ? "Resumen de sesión completada"
+          : "Resumen de sesión registrada parcialmente"
+      }
+      className="w-full overflow-hidden rounded-2xl border border-border/70 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-7"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              "flex size-11 shrink-0 items-center justify-center rounded-full",
+              presentation.variant === "completed"
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+            )}
+          >
+            <StatusIcon aria-hidden="true" className="size-5" />
+          </span>
+          <Badge
+            variant={presentation.variant === "completed" ? "success" : "warning"}
+          >
+            {presentation.statusLabel}
+          </Badge>
+        </div>
+        <span className="text-xs font-semibold tracking-[0.16em] text-muted-foreground">
           #CoraFit
         </span>
-        <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
+      </div>
+
+      <div className="mt-7">
+        <h1 className="break-words text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+          {presentation.title}
+        </h1>
+        <p className="mt-2 break-words text-lg font-semibold leading-7 text-[var(--portal-accent)]">
+          {presentation.sessionName}
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {presentation.supportingText}
+        </p>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-border/70 bg-background/60">
+        <CompletionMetric
+          detail={presentation.completedLabel}
+          icon={<Dumbbell className="size-4" />}
+          label="Ejercicios"
+          value={`${presentation.completedExercises}/${presentation.totalExercises}`}
+        />
+        <CompletionMetric
+          detail={presentation.progressLabel}
+          icon={<TrendingUp className="size-4" />}
+          label="Avance"
+          value={`${presentation.completionPercentage}%`}
+        />
+        <CompletionMetric
+          detail={presentation.streakLabel}
+          icon={<Flame className="size-4" />}
+          label="Racha"
+          value={presentation.streak}
+        />
+        <CompletionMetric
+          detail={presentation.dateLabel}
+          icon={<Calendar className="size-4" />}
+          label="Fecha"
+          value={presentation.formattedDate}
+        />
       </div>
     </article>
   );
 }
 
-function CompletionStoryMetric({
-  caption,
+function CompletionMetric({
+  detail,
   icon,
   label,
   value,
-  valueClassName,
 }: {
-  caption: string;
+  detail: string;
   icon: ReactNode;
   label: string;
   value: ReactNode;
-  valueClassName?: string;
 }) {
   return (
-    <div className="flex min-h-20 items-center gap-3 border-b border-r border-[#ece7e3] p-3 last:border-r-0 dark:border-[#3a4354] [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0">
-      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff0ec] dark:bg-[var(--portal-accent-soft)]">
+    <div className="min-w-0 border-b border-border/70 p-4 [&:nth-child(odd)]:border-r">
+      <div className="flex items-center gap-2 text-[var(--portal-accent)]">
         {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{label}</p>
-        <p
-          className={cn(
-            "mt-1 break-words text-2xl font-black leading-none text-[#071026] dark:text-[#f4f6f8]",
-            valueClassName,
-          )}
-        >
-          {value}
+        <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
         </p>
-        <p className="mt-1 text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{caption}</p>
+      </div>
+      <p className="mt-3 break-words text-2xl font-semibold leading-none text-foreground sm:text-3xl">
+        {value}
+      </p>
+      <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function CompletionActions({
+  busyAction,
+  feedback,
+  onSave,
+  onShare,
+  shareFallback,
+  token,
+}: {
+  busyAction: CompletionBusyAction;
+  feedback: CompletionFeedback | null;
+  onSave: () => void;
+  onShare: () => void;
+  shareFallback: string | null;
+  token: string;
+}) {
+  return (
+    <aside className="w-full lg:sticky lg:top-6 lg:max-w-xs">
+      <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Acciones del logro
+        </p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Guarda o comparte el resumen de tu sesión.
+        </p>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-1">
+          <Button
+            aria-busy={busyAction === "share"}
+            className="min-h-11 w-full"
+            disabled={busyAction !== null}
+            onClick={onShare}
+            type="button"
+            variant="outline"
+          >
+            {busyAction === "share" ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <Share2 aria-hidden="true" className="size-4" />
+            )}
+            Compartir
+          </Button>
+          <Button
+            aria-busy={busyAction === "save"}
+            className="min-h-11 w-full"
+            disabled={busyAction !== null}
+            onClick={onSave}
+            type="button"
+            variant="outline"
+          >
+            {busyAction === "save" ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <Download aria-hidden="true" className="size-4" />
+            )}
+            Guardar imagen
+          </Button>
+        </div>
+
+        {feedback ? <CompletionFeedbackView feedback={feedback} /> : null}
+        {shareFallback ? (
+          <div className="mt-3 rounded-xl border border-border/70 bg-background/65 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Texto para compartir
+            </p>
+            <p className="mt-2 select-text whitespace-pre-line break-words text-sm leading-6 text-foreground">
+              {shareFallback}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-5 space-y-3 border-t border-border/70 pt-5">
+          <Button asChild className="min-h-12 w-full" size="lg">
+            <Link href={`/c/${encodeURIComponent(token)}/home`}>
+              Volver al inicio
+            </Link>
+          </Button>
+          <Button asChild className="min-h-11 w-full" variant="ghost">
+            <Link href={`/c/${encodeURIComponent(token)}/calendar`}>
+              <Calendar aria-hidden="true" className="size-4" />
+              Ver calendario
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function CompletionFeedbackView({
+  feedback,
+}: {
+  feedback: CompletionFeedback;
+}) {
+  const isError = feedback.tone === "error";
+  return (
+    <div
+      aria-live={isError ? "assertive" : "polite"}
+      className={cn(
+        "mt-4 flex items-start gap-2 rounded-xl border p-3 text-sm leading-6",
+        isError
+          ? "border-destructive/25 bg-destructive/5 text-destructive"
+          : "border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300",
+      )}
+      role={isError ? "alert" : "status"}
+    >
+      {isError ? (
+        <AlertTriangle aria-hidden="true" className="mt-1 size-4 shrink-0" />
+      ) : (
+        <CheckCircle2 aria-hidden="true" className="mt-1 size-4 shrink-0" />
+      )}
+      <div>
+        <p className="font-semibold">{feedback.message}</p>
+        {feedback.detail ? <p className="mt-1">{feedback.detail}</p> : null}
       </div>
     </div>
   );
@@ -4614,112 +4887,6 @@ function formatCalendarMonth(date: string) {
     timeZone: "UTC",
     year: "numeric",
   }).format(new Date(`${date}T00:00:00.000Z`));
-}
-
-function formatCompletionDateParts(date: string) {
-  const parsed = new Date(`${date}T00:00:00`);
-  return {
-    dayMonth: parsed
-      .toLocaleDateString("es-MX", { day: "2-digit", month: "short" })
-      .replace(".", ""),
-    year: parsed.toLocaleDateString("es-MX", { year: "numeric" }),
-  };
-}
-
-function buildCompletionCardSvg(data: CompletionCard, dark = false) {
-  const sessionName = escapeSvgText(truncateText(data.sessionName, 34));
-  const dateParts = formatCompletionDateParts(data.scheduledDate);
-  const dateDayMonth = escapeSvgText(dateParts.dayMonth);
-  const percentage = escapeSvgText(String(data.completionPercentage));
-  const completed = escapeSvgText(String(data.completedExercises));
-  const total = escapeSvgText(String(data.totalExercises));
-  const streak = escapeSvgText(String(data.streak));
-  const colors = dark
-    ? {
-        card: "#121722",
-        cardStroke: "#2b3342",
-        grid: "#0d1016",
-        gridStroke: "#3a4354",
-        accent: "#F0C947",
-        accentSoft: "#2b2818",
-        accentSofter: "#3a341d",
-        text: "#f4f6f8",
-        muted: "#c7cfdb",
-        pillStroke: "#5d5124",
-      }
-    : {
-        card: "#ffffff",
-        cardStroke: "#f2ece7",
-        grid: "#ffffff",
-        gridStroke: "#ece7e3",
-        accent: "#df4d3e",
-        accentSoft: "#fff1ee",
-        accentSofter: "#ffe1d9",
-        text: "#071026",
-        muted: "#667080",
-        pillStroke: "#f4c8bd",
-      };
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1360" viewBox="0 0 1080 1360" role="img" aria-label="CoraFit sesion completada">
-  <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#000000" flood-opacity="0.34"/></filter>
-  </defs>
-  <rect x="24" y="24" width="1032" height="1312" rx="86" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2" filter="url(#shadow)"/>
-  <line x1="540" y1="80" x2="540" y2="155" stroke="${colors.accent}" stroke-width="2" opacity="0.65"/>
-  <line x1="430" y1="125" x2="380" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="650" y1="125" x2="700" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="300" y1="245" x2="405" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="675" y1="245" x2="780" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <circle cx="540" cy="205" r="105" fill="${colors.accentSoft}"/>
-  <circle cx="540" cy="205" r="72" fill="${colors.accentSofter}"/>
-  <path d="M493 205 L526 238 L596 154" fill="none" stroke="${colors.accent}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="540" y="445" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="84" font-weight="900" text-anchor="middle">Sesion completada</text>
-  <line x1="285" y1="525" x2="405" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
-  <text x="540" y="542" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="900" text-anchor="middle">${sessionName}</text>
-  <line x1="675" y1="525" x2="795" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
-  <rect x="90" y="630" width="900" height="420" rx="40" fill="${colors.grid}" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <line x1="540" y1="630" x2="540" y2="1050" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <line x1="90" y1="840" x2="990" y2="840" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <circle cx="205" cy="735" r="55" fill="${colors.accentSoft}"/>
-  <path d="M168 735 H182 M228 735 H242 M182 720 V750 M196 712 V758 M214 712 V758 M228 720 V750 M196 735 H214" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Ejercicios</text>
-  <text x="320" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${completed}/${total}</text>
-  <text x="320" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completados</text>
-  <circle cx="655" cy="735" r="55" fill="${colors.accentSoft}"/>
-  <path d="M630 752 L650 732 L666 746 L690 720 M670 720 H690 V740" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="770" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Avance</text>
-  <text x="770" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${percentage}%</text>
-  <text x="770" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completado</text>
-  <circle cx="205" cy="945" r="55" fill="${colors.accentSoft}"/>
-  <path d="M207 980 C185 976 174 959 179 941 C183 925 196 918 197 899 C214 912 221 924 218 938 C225 933 230 926 231 917 C245 933 250 949 244 963 C237 978 222 984 207 980 Z" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Racha</text>
-  <text x="320" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${streak}</text>
-  <text x="320" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">dias</text>
-  <circle cx="655" cy="945" r="55" fill="${colors.accentSoft}"/>
-  <rect x="625" y="918" width="60" height="62" rx="10" fill="none" stroke="${colors.accent}" stroke-width="8"/>
-  <path d="M625 938 H685 M640 906 V928 M670 906 V928" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round"/>
-  <text x="770" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Fecha</text>
-  <text x="770" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="48" font-weight="900">${dateDayMonth}</text>
-  <text x="770" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">registrado</text>
-  <line x1="90" y1="1190" x2="350" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <rect x="390" y="1147" width="300" height="86" rx="43" fill="${colors.accentSoft}" stroke="${colors.pillStroke}"/>
-  <text x="540" y="1203" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" text-anchor="middle">#CoraFit</text>
-  <line x1="730" y1="1190" x2="990" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-</svg>`;
-}
-
-function escapeSvgText(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function formatFullDate(date: string, dayOfWeek: string) {

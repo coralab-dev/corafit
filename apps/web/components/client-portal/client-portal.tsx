@@ -1704,34 +1704,20 @@ function CompletionShareCard({
       <div className="mt-7 flex flex-col items-center">
         <div
           className={cn(
-            "relative flex size-[4.5rem] items-center justify-center rounded-full",
+            "relative flex size-20 items-center justify-center rounded-full",
             isPartial
               ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
               : "bg-primary/10 text-primary",
           )}
         >
-          <span
-            aria-hidden="true"
-            className="absolute inset-[-0.6rem] rounded-full border border-current/15"
-          />
-          <span
-            aria-hidden="true"
-            className="absolute inset-[-1.1rem] rounded-full border border-current/10"
-          />
           <StatusIcon aria-hidden="true" className="relative size-8 sm:size-9" />
         </div>
-        <Badge className="mt-4" variant={isPartial ? "warning" : "success"}>
-          {presentation.statusLabel}
-        </Badge>
       </div>
 
       <div className="mt-5 text-center">
         <h1 className="mx-auto max-w-[18ch] break-words text-3xl font-bold leading-tight tracking-tight text-foreground">
           {presentation.title}
         </h1>
-        <p className="mx-auto mt-2 max-w-[30ch] break-words text-lg font-semibold leading-6 text-foreground">
-          {presentation.sessionName}
-        </p>
         <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-muted-foreground">
           {presentation.supportingText}
         </p>
@@ -1753,13 +1739,10 @@ function CompletionShareCard({
         />
       </div>
 
-      <div className="mt-5 text-center">
+      <div className="mt-4 text-center">
         <p className="text-sm font-semibold text-foreground">
           Entrenando con CoraFit
         </p>
-        <span className="mt-1 block text-xs font-medium tracking-[0.12em] text-muted-foreground">
-          #CoraFit
-        </span>
       </div>
     </article>
   );
@@ -1866,14 +1849,7 @@ function CompletionActions({
   return (
     <aside className="w-full lg:sticky lg:top-6 lg:max-w-xs">
       <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Acciones del logro
-        </p>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Guarda o comparte el resumen de tu sesión.
-        </p>
-
-        <div className="mt-5 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-1">
+        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-1">
           <Button
             aria-busy={busyAction === "share"}
             className="min-h-11 w-full"

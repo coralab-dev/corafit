@@ -60,6 +60,7 @@ describe("completion card presentation", () => {
     expect(presentation.streakLabel).toBe("12 días de racha");
     expect(buildShareText(card)).not.toContain("Sesión completada");
     expect(buildShareText(card)).toContain("Progreso registrado");
+    expect(buildShareText(card)).toContain("#CoraFit");
   });
 
   it("keeps long session names in the presentation model", () => {
@@ -91,20 +92,46 @@ describe("completion card presentation", () => {
         totalExercises: 6,
       }),
     );
+    const darkSvg = buildCompletionCardSvg(
+      completionCard({ sessionName: "kk" }),
+      true,
+    );
 
     expect(completedSvg).toContain("Sesión completada");
     expect(completedSvg).toContain("CoraFit");
     expect(completedSvg).toContain("ENTRENAMIENTO");
     expect(completedSvg).toContain("Entrenando con CoraFit");
-    expect(completedSvg).toContain("Upper &amp; Lower");
+    expect(completedSvg).not.toContain("Upper &amp; Lower");
+    expect(completedSvg).not.toContain(">Completada</text>");
     expect(completedSvg).toContain("6 de 6 ejercicios");
     expect(completedSvg).toContain("20 may 2026");
     expect(completedSvg).toContain("97%");
+    expect(completedSvg).toMatch(
+      /<rect width="1080" height="1360" fill="[^"]+"\/>/,
+    );
+    expect(completedSvg).not.toContain('stroke-opacity="0.16"');
+    expect(completedSvg).not.toContain('stroke-opacity="0.10"');
+    expect(darkSvg).toMatch(
+      /<rect width="1080" height="1360" fill="[^"]+"\/>/,
+    );
+    const lightCanvasFill = completedSvg.match(
+      /<rect width="1080" height="1360" fill="([^"]+)"\/>/,
+    )?.[1];
+    const darkCanvasFill = darkSvg.match(
+      /<rect width="1080" height="1360" fill="([^"]+)"\/>/,
+    )?.[1];
+    expect(lightCanvasFill).toBeDefined();
+    expect(darkCanvasFill).toBeDefined();
+    expect(lightCanvasFill).not.toBe(darkCanvasFill);
+    expect(completedSvg.indexOf('<rect width="1080" height="1360"')).toBeLessThan(
+      completedSvg.indexOf('<rect x="32" y="32"'),
+    );
+    expect(completedSvg).not.toContain("#CoraFit");
     expect(completedSvg).not.toContain('<line x1="540" y1="430"');
     expect(partialSvg).toContain("Progreso registrado");
     expect(partialSvg).toContain("Cada avance cuenta. Tu sesión quedó guardada.");
     expect(partialSvg).toContain("5 de 6 ejercicios");
-    expect(partialSvg).toContain("Parcial");
+    expect(partialSvg).not.toContain(">Parcial</text>");
     expect(partialSvg).toContain("67%");
     expect(partialSvg).not.toContain("Sesión completada");
   });

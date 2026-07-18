@@ -29,11 +29,13 @@ describe("completion card presentation", () => {
 
     expect(presentation).toMatchObject({
       statusLabel: "Completada",
+      supportingText: "¡Buen trabajo! Tu progreso quedó registrado.",
       title: "Sesión completada",
       variant: "completed",
     });
     expect(presentation.completedLabel).toBe("1 ejercicio completado");
     expect(presentation.streakLabel).toBe("1 día de racha");
+    expect(presentation.formattedDateCompact).toBe("20 may 2026");
     expect(presentation.formattedDate).toContain("20");
     expect(presentation.formattedDate).toContain("mayo");
   });
@@ -48,16 +50,16 @@ describe("completion card presentation", () => {
     const presentation = buildCompletionPresentation(card);
 
     expect(presentation).toMatchObject({
-      shareTitle: "Sesión registrada parcialmente",
+      shareTitle: "Progreso registrado",
       statusLabel: "Parcial",
-      supportingText: "Tu progreso quedó registrado parcialmente.",
-      title: "Sesión registrada",
+      supportingText: "Cada avance cuenta. Tu sesión quedó guardada.",
+      title: "Progreso registrado",
       variant: "partial",
     });
     expect(presentation.completedLabel).toBe("5 ejercicios completados");
     expect(presentation.streakLabel).toBe("12 días de racha");
     expect(buildShareText(card)).not.toContain("Sesión completada");
-    expect(buildShareText(card)).toContain("Sesión registrada parcialmente");
+    expect(buildShareText(card)).toContain("Progreso registrado");
   });
 
   it("keeps long session names in the presentation model", () => {
@@ -83,15 +85,25 @@ describe("completion card presentation", () => {
     );
     const partialSvg = buildCompletionCardSvg(
       completionCard({
+        completedExercises: 5,
         completionPercentage: 67,
         status: "partially_completed",
+        totalExercises: 6,
       }),
     );
 
     expect(completedSvg).toContain("Sesión completada");
+    expect(completedSvg).toContain("CoraFit");
+    expect(completedSvg).toContain("ENTRENAMIENTO");
+    expect(completedSvg).toContain("Entrenando con CoraFit");
     expect(completedSvg).toContain("Upper &amp; Lower");
+    expect(completedSvg).toContain("6 de 6 ejercicios");
+    expect(completedSvg).toContain("20 may 2026");
     expect(completedSvg).toContain("97%");
-    expect(partialSvg).toContain("Sesión registrada");
+    expect(completedSvg).not.toContain('<line x1="540" y1="430"');
+    expect(partialSvg).toContain("Progreso registrado");
+    expect(partialSvg).toContain("Cada avance cuenta. Tu sesión quedó guardada.");
+    expect(partialSvg).toContain("5 de 6 ejercicios");
     expect(partialSvg).toContain("Parcial");
     expect(partialSvg).toContain("67%");
     expect(partialSvg).not.toContain("Sesión completada");

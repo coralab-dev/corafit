@@ -49,7 +49,6 @@ import {
   Star,
   Sun,
   Trash2,
-  TrendingUp,
   MessageCircle,
   Monitor,
   Moon,
@@ -1682,6 +1681,7 @@ function CompletionShareCard({
 }) {
   const StatusIcon =
     presentation.variant === "completed" ? CheckCircle2 : CircleDashed;
+  const isPartial = presentation.variant === "partial";
 
   return (
     <article
@@ -1690,97 +1690,159 @@ function CompletionShareCard({
           ? "Resumen de sesión completada"
           : "Resumen de sesión registrada parcialmente"
       }
-      className="w-full overflow-hidden rounded-2xl border border-border/70 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-7"
+      className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-6"
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-full",
-              presentation.variant === "completed"
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-            )}
-          >
-            <StatusIcon aria-hidden="true" className="size-5" />
-          </span>
-          <Badge
-            variant={presentation.variant === "completed" ? "success" : "warning"}
-          >
-            {presentation.statusLabel}
-          </Badge>
-        </div>
-        <span className="text-xs font-semibold tracking-[0.16em] text-muted-foreground">
-          #CoraFit
+        <span className="text-sm font-semibold tracking-tight text-primary">
+          CoraFit
+        </span>
+        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Entrenamiento
         </span>
       </div>
 
-      <div className="mt-7">
-        <h1 className="break-words text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+      <div className="mt-7 flex flex-col items-center">
+        <div
+          className={cn(
+            "relative flex size-[4.5rem] items-center justify-center rounded-full",
+            isPartial
+              ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+              : "bg-primary/10 text-primary",
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute inset-[-0.6rem] rounded-full border border-current/15"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute inset-[-1.1rem] rounded-full border border-current/10"
+          />
+          <StatusIcon aria-hidden="true" className="relative size-8 sm:size-9" />
+        </div>
+        <Badge className="mt-4" variant={isPartial ? "warning" : "success"}>
+          {presentation.statusLabel}
+        </Badge>
+      </div>
+
+      <div className="mt-5 text-center">
+        <h1 className="mx-auto max-w-[18ch] break-words text-3xl font-bold leading-tight tracking-tight text-foreground">
           {presentation.title}
         </h1>
-        <p className="mt-2 break-words text-lg font-semibold leading-7 text-[var(--portal-accent)]">
+        <p className="mx-auto mt-2 max-w-[30ch] break-words text-lg font-semibold leading-6 text-foreground">
           {presentation.sessionName}
         </p>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-muted-foreground">
           {presentation.supportingText}
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-border/70 bg-background/60">
-        <CompletionMetric
-          detail={presentation.completedLabel}
-          icon={<Dumbbell className="size-4" />}
-          label="Ejercicios"
-          value={`${presentation.completedExercises}/${presentation.totalExercises}`}
-        />
-        <CompletionMetric
-          detail={presentation.progressLabel}
-          icon={<TrendingUp className="size-4" />}
-          label="Avance"
-          value={`${presentation.completionPercentage}%`}
-        />
-        <CompletionMetric
-          detail={presentation.streakLabel}
-          icon={<Flame className="size-4" />}
+      <CompletionPrimaryResult presentation={presentation} />
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <CompletionSecondaryStat
+          icon={<Flame aria-hidden="true" className="size-4" />}
           label="Racha"
-          value={presentation.streak}
+          value={presentation.streakCompactLabel}
         />
-        <CompletionMetric
-          detail={presentation.dateLabel}
-          icon={<Calendar className="size-4" />}
+        <CompletionSecondaryStat
+          icon={<Calendar aria-hidden="true" className="size-4" />}
           label="Fecha"
-          value={presentation.formattedDate}
+          valueClassName="whitespace-nowrap text-sm min-[360px]:text-base sm:text-xl"
+          value={presentation.formattedDateCompact}
         />
+      </div>
+
+      <div className="mt-5 text-center">
+        <p className="text-sm font-semibold text-foreground">
+          Entrenando con CoraFit
+        </p>
+        <span className="mt-1 block text-xs font-medium tracking-[0.12em] text-muted-foreground">
+          #CoraFit
+        </span>
       </div>
     </article>
   );
 }
 
-function CompletionMetric({
-  detail,
+function CompletionPrimaryResult({
+  presentation,
+}: {
+  presentation: CompletionPresentation;
+}) {
+  const isPartial = presentation.variant === "partial";
+  const progress = Math.min(
+    100,
+    Math.max(0, presentation.completionPercentage),
+  );
+
+  return (
+    <section
+      aria-label="Resultado principal de la sesión"
+      className={cn(
+        "mt-6 rounded-2xl border border-transparent p-5",
+        isPartial
+          ? "bg-amber-500/5"
+          : "bg-primary/5",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 break-words text-base font-semibold text-foreground">
+          {presentation.primaryResultLabel}
+        </p>
+        <p className="shrink-0 text-3xl font-bold leading-none text-foreground">
+          {presentation.completionPercentage}%
+        </p>
+      </div>
+      <div
+        aria-label={`${presentation.progressLabel}: ${presentation.completionPercentage}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={presentation.completionPercentage}
+        className="mt-5 h-2.5 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+      >
+        <div
+          className={cn(
+            "h-full rounded-full transition-[width]",
+            isPartial ? "bg-amber-500" : "bg-primary",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="mt-3 text-sm font-medium text-muted-foreground">
+        {presentation.progressLabel}
+      </p>
+    </section>
+  );
+}
+
+function CompletionSecondaryStat({
   icon,
   label,
   value,
+  valueClassName,
 }: {
-  detail: string;
   icon: ReactNode;
   label: string;
   value: ReactNode;
+  valueClassName?: string;
 }) {
   return (
-    <div className="min-w-0 border-b border-border/70 p-4 [&:nth-child(odd)]:border-r">
-      <div className="flex items-center gap-2 text-[var(--portal-accent)]">
+    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
-        <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.1em]">
           {label}
         </p>
       </div>
-      <p className="mt-3 break-words text-2xl font-semibold leading-none text-foreground sm:text-3xl">
+      <p
+        className={cn(
+          "mt-3 break-words text-lg font-semibold leading-tight text-foreground sm:text-xl",
+          valueClassName,
+        )}
+      >
         {value}
-      </p>
-      <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
-        {detail}
       </p>
     </div>
   );

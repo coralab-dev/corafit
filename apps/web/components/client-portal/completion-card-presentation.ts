@@ -12,6 +12,9 @@ export type CompletionPresentation = {
   progressLabel: string;
   dateLabel: string;
   formattedDate: string;
+  formattedDateCompact: string;
+  primaryResultLabel: string;
+  streakCompactLabel: string;
   sessionName: string;
   completedExercises: number;
   totalExercises: number;
@@ -43,21 +46,27 @@ export function buildCompletionPresentation(
   );
   const streakLabel = pluralize(card.streak, "día de racha", "días de racha");
   const formattedDate = formatCompletionDate(card.scheduledDate);
+  const formattedDateCompact = formatCompletionDateCompact(card.scheduledDate);
   const presentation = {
     variant: isCompleted ? "completed" : "partial",
-    title: isCompleted ? "Sesión completada" : "Sesión registrada",
+    title: isCompleted ? "Sesión completada" : "Progreso registrado",
     statusLabel: isCompleted ? "Completada" : "Parcial",
     supportingText: isCompleted
-      ? "Tu progreso quedó registrado."
-      : "Tu progreso quedó registrado parcialmente.",
+      ? "¡Buen trabajo! Tu progreso quedó registrado."
+      : "Cada avance cuenta. Tu sesión quedó guardada.",
     shareTitle: isCompleted
       ? "Sesión completada"
-      : "Sesión registrada parcialmente",
+      : "Progreso registrado",
     completedLabel,
     streakLabel,
-    progressLabel: "Avance registrado",
+    progressLabel: isCompleted
+      ? "Entrenamiento completado"
+      : "Progreso guardado",
     dateLabel: "Fecha de la sesión",
     formattedDate,
+    formattedDateCompact,
+    primaryResultLabel: `${card.completedExercises} de ${card.totalExercises} ejercicios`,
+    streakCompactLabel: pluralize(card.streak, "día", "días"),
     sessionName: card.sessionName,
     completedExercises: card.completedExercises,
     totalExercises: card.totalExercises,
@@ -89,80 +98,70 @@ export function buildCompletionCardSvg(
 ) {
   const presentation = resolvePresentation(input);
   const colors = getSvgColors(presentation.variant, dark);
-  const sessionName = escapeSvgText(truncateText(presentation.sessionName, 42));
+  const sessionName = wrapSvgText(presentation.sessionName, 42)
+    .map(escapeSvgText)
+    .map((line, index) => `<tspan x="540" dy="${index === 0 ? 0 : 44}">${line}</tspan>`)
+    .join("");
   const title = escapeSvgText(presentation.title);
   const statusLabel = escapeSvgText(presentation.statusLabel);
   const supportingText = escapeSvgText(presentation.supportingText);
-  const completedLabel = escapeSvgText(presentation.completedLabel);
-  const streakLabel = escapeSvgText(presentation.streakLabel);
+  const primaryResultLabel = escapeSvgText(presentation.primaryResultLabel);
   const progressLabel = escapeSvgText(presentation.progressLabel);
-  const dateLabel = escapeSvgText(presentation.dateLabel);
-  const formattedDate = escapeSvgText(presentation.formattedDate);
+  const formattedDate = escapeSvgText(presentation.formattedDateCompact);
+  const streak = escapeSvgText(presentation.streakCompactLabel);
   const percentage = escapeSvgText(`${presentation.completionPercentage}%`);
-  const exercises = escapeSvgText(
-    `${presentation.completedExercises}/${presentation.totalExercises}`,
+  const progress = Math.min(
+    100,
+    Math.max(0, presentation.completionPercentage),
   );
-  const streak = escapeSvgText(String(presentation.streak));
+  const progressWidth = Math.round((856 * progress) / 100);
   const ariaLabel = escapeSvgText(
     presentation.variant === "completed"
       ? "Resumen de sesión completada"
       : "Resumen de sesión registrada parcialmente",
   );
+  const statusIcon =
+    presentation.variant === "completed"
+      ? `<path d="M512 220 L531 239 L570 196" fill="none" stroke="${colors.progress}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="540" cy="220" r="27" fill="none" stroke="${colors.progress}" stroke-width="9" stroke-dasharray="10 8"/>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1360" viewBox="0 0 1080 1360" role="img" aria-label="${ariaLabel}">
   <rect x="32" y="32" width="1016" height="1296" rx="48" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2"/>
-  <circle cx="132" cy="140" r="52" fill="${colors.statusSoft}"/>
-  ${presentation.variant === "completed"
-    ? `<path d="M106 140 L124 158 L160 118" fill="none" stroke="${colors.status}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>`
-    : `<path d="M106 140 H158 M132 114 V166" fill="none" stroke="${colors.status}" stroke-width="10" stroke-linecap="round"/>`}
-  <text x="216" y="132" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="58" font-weight="750">${title}</text>
-  <rect x="216" y="164" width="182" height="48" rx="24" fill="${colors.statusSoft}"/>
-  <text x="307" y="197" fill="${colors.status}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" font-weight="750" text-anchor="middle">${statusLabel}</text>
-  <text x="72" y="292" fill="${colors.accent}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="40" font-weight="750">${sessionName}</text>
-  <text x="72" y="348" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="28" font-weight="500">${supportingText}</text>
-  <rect x="72" y="430" width="936" height="520" rx="32" fill="${colors.surface}" stroke="${colors.surfaceStroke}" stroke-width="2"/>
-  <line x1="540" y1="430" x2="540" y2="950" stroke="${colors.surfaceStroke}" stroke-width="2"/>
-  <line x1="72" y1="690" x2="1008" y2="690" stroke="${colors.surfaceStroke}" stroke-width="2"/>
-  ${svgMetric({
+  <text x="72" y="105" fill="${colors.progress}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="32" font-weight="650">CoraFit</text>
+  <text x="1008" y="105" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="3" text-anchor="end">ENTRENAMIENTO</text>
+  <circle cx="540" cy="220" r="44" fill="${colors.medalSoft}"/>
+  <circle cx="540" cy="220" r="61" fill="none" stroke="${colors.progress}" stroke-opacity="0.14" stroke-width="3"/>
+  <circle cx="540" cy="220" r="78" fill="none" stroke="${colors.progress}" stroke-opacity="0.08" stroke-width="3"/>
+  ${statusIcon}
+  <rect x="450" y="318" width="180" height="44" rx="22" fill="${colors.statusSoft}"/>
+  <text x="540" y="348" fill="${colors.status}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="24" font-weight="750" text-anchor="middle">${statusLabel}</text>
+  <text x="540" y="415" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="48" font-weight="800" text-anchor="middle">${title}</text>
+  <text x="540" y="478" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="36" font-weight="650" text-anchor="middle">${sessionName}</text>
+  <text x="540" y="566" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" font-weight="500" text-anchor="middle">${supportingText}</text>
+  <rect x="72" y="618" width="936" height="260" rx="36" fill="${colors.resultSurface}" stroke="${colors.resultStroke}" stroke-width="2"/>
+  <text x="112" y="694" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="32" font-weight="700">${primaryResultLabel}</text>
+  <text x="968" y="702" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="58" font-weight="800" text-anchor="end">${percentage}</text>
+  <rect x="112" y="760" width="856" height="18" rx="9" fill="${colors.track}"/>
+  <rect x="112" y="760" width="${progressWidth}" height="18" rx="9" fill="${colors.progress}"/>
+  <text x="112" y="828" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="24" font-weight="550">${progressLabel}</text>
+  ${svgSecondaryStat({
     colors,
-    detail: completedLabel,
-    icon: "dumbbell",
-    label: "Ejercicios",
-    value: exercises,
-    x: 120,
-    y: 520,
-  })}
-  ${svgMetric({
-    colors,
-    detail: progressLabel,
-    icon: "trend",
-    label: "Avance",
-    value: percentage,
-    x: 588,
-    y: 520,
-  })}
-  ${svgMetric({
-    colors,
-    detail: streakLabel,
     icon: "flame",
     label: "Racha",
     value: streak,
-    x: 120,
-    y: 780,
+    x: 72,
+    y: 914,
   })}
-  ${svgMetric({
+  ${svgSecondaryStat({
     colors,
-    detail: dateLabel,
     icon: "calendar",
     label: "Fecha",
     value: formattedDate,
-    valueSize: 30,
-    x: 588,
-    y: 780,
+    x: 560,
+    y: 914,
   })}
-  <line x1="72" y1="1130" x2="1008" y2="1130" stroke="${colors.surfaceStroke}" stroke-width="2"/>
-  <text x="72" y="1215" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="30" font-weight="650">CoraFit</text>
-  <text x="1008" y="1215" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" font-weight="500" text-anchor="end">${statusLabel}</text>
+  <text x="540" y="1198" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="28" font-weight="650" text-anchor="middle">Entrenando con CoraFit</text>
+  <text x="540" y="1234" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="22" font-weight="550" letter-spacing="2" text-anchor="middle">#CoraFit</text>
 </svg>`;
 }
 
@@ -172,43 +171,35 @@ function resolvePresentation(input: CompletionPresentationInput) {
 
 type SvgColors = ReturnType<typeof getSvgColors>;
 
-function svgMetric({
+function svgSecondaryStat({
   colors,
-  detail,
   icon,
   label,
   value,
-  valueSize = 54,
   x,
   y,
 }: {
   colors: SvgColors;
-  detail: string;
-  icon: "calendar" | "dumbbell" | "flame" | "trend";
+  icon: "calendar" | "flame";
   label: string;
   value: string;
-  valueSize?: number;
   x: number;
   y: number;
 }) {
-  return `<circle cx="${x + 34}" cy="${y + 4}" r="30" fill="${colors.accentSoft}"/>
-  ${svgIcon(icon, x + 34, y + 4, colors.accent)}
-  <text x="${x + 84}" y="${y - 4}" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" font-weight="650">${label}</text>
-  <text x="${x + 84}" y="${y + 62}" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="${valueSize}" font-weight="800">${value}</text>
-  <text x="${x + 84}" y="${y + 108}" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="21" font-weight="500">${detail}</text>`;
+  const surfaceX = x;
+  const textX = x + 104;
+  return `<rect x="${surfaceX}" y="${y}" width="448" height="230" rx="28" fill="${colors.surface}" stroke="${colors.surfaceStroke}" stroke-width="2"/>
+  <circle cx="${x + 52}" cy="${y + 58}" r="28" fill="${colors.accentSoft}"/>
+  ${svgIcon(icon, x + 52, y + 58, colors.accent)}
+  <text x="${textX}" y="${y + 66}" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="24" font-weight="650">${label}</text>
+  <text x="${textX}" y="${y + 134}" fill="${colors.text}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="34" font-weight="750">${value}</text>`;
 }
 
-function svgIcon(icon: "calendar" | "dumbbell" | "flame" | "trend", x: number, y: number, color: string) {
+function svgIcon(icon: "calendar" | "flame", x: number, y: number, color: string) {
   if (icon === "calendar") {
     return `<rect x="${x - 16}" y="${y - 15}" width="32" height="32" rx="5" fill="none" stroke="${color}" stroke-width="5"/><path d="M${x - 16} ${y - 4} H${x + 16} M${x - 8} ${y - 22} V${y - 10} M${x + 8} ${y - 22} V${y - 10}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"/>`;
   }
-  if (icon === "dumbbell") {
-    return `<path d="M${x - 17} ${y} H${x + 17} M${x - 11} ${y - 11} V${y + 11} M${x + 11} ${y - 11} V${y + 11} M${x - 20} ${y - 7} V${y + 7} M${x + 20} ${y - 7} V${y + 7}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"/>`;
-  }
-  if (icon === "flame") {
-    return `<path d="M${x} ${y + 16} C${x - 16} ${y + 12} ${x - 18} ${y - 1} ${x - 6} ${y - 10} C${x - 7} ${y + 1} ${x + 5} ${y + 1} ${x + 4} ${y - 17} C${x + 20} ${y - 5} ${x + 20} ${y + 10} ${x} ${y + 16} Z" fill="none" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
-  }
-  return `<path d="M${x - 17} ${y + 12} L${x - 5} ${y} L${x + 4} ${y + 8} L${x + 18} ${y - 10} M${x + 8} ${y - 10} H${x + 18} V${y}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `<path d="M${x} ${y + 16} C${x - 16} ${y + 12} ${x - 18} ${y - 1} ${x - 6} ${y - 10} C${x - 7} ${y + 1} ${x + 5} ${y + 1} ${x + 4} ${y - 17} C${x + 20} ${y - 5} ${x + 20} ${y + 10} ${x} ${y + 16} Z" fill="none" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
 }
 
 function getSvgColors(variant: CompletionPresentation["variant"], dark: boolean) {
@@ -244,7 +235,31 @@ function getSvgColors(variant: CompletionPresentation["variant"], dark: boolean)
 
   return {
     ...base,
+    resultSurface:
+      variant === "completed"
+        ? dark
+          ? "#211d24"
+          : "#fff6f3"
+        : dark
+          ? "#332914"
+          : "#fff8e5",
+    resultStroke:
+      variant === "completed"
+        ? dark
+          ? "#40333a"
+          : "#f0d8d2"
+        : dark
+          ? "#59451f"
+          : "#ecd99f",
     status,
+    medalSoft:
+      variant === "completed"
+        ? dark
+          ? "#3a2427"
+          : "#fff0eb"
+        : dark
+          ? "#3b2e12"
+          : "#fff4d6",
     statusSoft:
       variant === "completed"
         ? dark
@@ -253,6 +268,8 @@ function getSvgColors(variant: CompletionPresentation["variant"], dark: boolean)
         : dark
           ? "#3b2e12"
           : "#fff4d6",
+    track: dark ? "#303743" : "#e8e3de",
+    progress: variant === "completed" ? base.accent : dark ? "#f3c566" : "#d9a441",
   };
 }
 
@@ -270,8 +287,58 @@ function formatCompletionDate(date: string) {
   }).format(parsed);
 }
 
+function formatCompletionDateCompact(date: string) {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid completion date");
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  })
+    .format(parsed)
+    .replaceAll(".", "");
+}
+
 function pluralize(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
+}
+
+function wrapSvgText(value: string, maxLength: number) {
+  const words = truncateText(value.trim(), maxLength * 2)
+    .split(/\s+/)
+    .filter(Boolean);
+  const lines: string[] = [];
+
+  for (const word of words) {
+    const safeWord = truncateText(word, maxLength);
+    const lastLine = lines.at(-1) ?? "";
+    const nextLine = lastLine ? `${lastLine} ${safeWord}` : safeWord;
+
+    if (nextLine.length <= maxLength || lines.length === 0) {
+      if (lines.length === 0) {
+        lines.push(nextLine);
+      } else if (nextLine.length <= maxLength) {
+        lines[lines.length - 1] = nextLine;
+      } else {
+        lines.push(safeWord);
+      }
+      continue;
+    }
+
+    if (lines.length === 1) {
+      lines.push(safeWord);
+      continue;
+    }
+
+    lines[1] = truncateText(`${lines[1]} ${word}`, maxLength);
+    break;
+  }
+
+  return lines.length > 0 ? lines : [""];
 }
 
 function escapeSvgText(value: string) {

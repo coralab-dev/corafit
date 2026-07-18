@@ -517,6 +517,62 @@ describe('ClientSessionLogsService', () => {
     });
   });
 
+  it('completion-card returns the partial summary without changing the source data', async () => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({
+        status: ClientSessionStatus.partially_completed,
+        snapshotData: {
+          ...createSnapshot(),
+          progress: {
+            completedExerciseIds: ['session-exercise-1'],
+            usedAlternatives: [],
+          },
+        },
+      }),
+    );
+    vi.mocked(streakService.getCurrentStreak).mockResolvedValueOnce(1);
+
+    const result = await service.getCompletionCard(createAccess(), 'log-id');
+
+    expect(result).toEqual({
+      sessionName: 'Lower Body',
+      scheduledDate: '2026-05-20',
+      status: ClientSessionStatus.partially_completed,
+      completedExercises: 1,
+      totalExercises: 2,
+      completionPercentage: 50,
+      streak: 1,
+    });
+  });
+
+  it.each([
+    ClientSessionStatus.opened,
+    ClientSessionStatus.in_progress,
+  ])('rejects a direct completion-card route for %s logs', async (status) => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({ status }),
+    );
+
+    await expect(service.getCompletionCard(createAccess(), 'log-id')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prismaService.clientTrainingPlanAssignment.findFirst).not.toHaveBeenCalled();
+    expect(streakService.getCurrentStreak).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ClientSessionStatus.completed,
+    ClientSessionStatus.partially_completed,
+  ])('allows finalized %s logs to render a completion card', async (status) => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({ status }),
+    );
+
+    await expect(service.getCompletionCard(createAccess(), 'log-id')).resolves.toMatchObject({
+      status,
+    });
+  });
+
   it('uses snapshot data even if live plan data changes later', async () => {
     const snapshot = createSnapshot({ session: { ...createSnapshot().session, name: 'Frozen' } });
     prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(

@@ -289,6 +289,9 @@ export class ClientSessionLogsService {
     logId: string,
   ): Promise<ClientSessionCompletionCard> {
     const log = await this.getClientLog(access.clientId, logId);
+    if (!this.isFinalizedStatus(log.status)) {
+      throw new ForbiddenException('Completion card is only available after session finalization');
+    }
     const snapshot = this.snapshotService.parseSnapshotData(log.snapshotData);
     const progress = this.getProgress(snapshot);
     const totalExercises = snapshot.exercises.length;

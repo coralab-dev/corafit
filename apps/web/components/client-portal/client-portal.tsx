@@ -2036,30 +2036,32 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
               <span className="text-foreground">{selectedThemeLabel}</span>
             </p>
 
-            <div
-              aria-label="Tema del portal"
-              className="mt-5 grid gap-3"
-              role="radiogroup"
-            >
+            <fieldset className="mt-5 grid gap-3">
+              <legend className="sr-only">Tema del portal</legend>
               {portalThemeOptions.map((option) => {
                 const Icon = option.icon;
                 const isSelected = selectedTheme === option.value;
 
                 return (
-                  <button
+                  <label
                     key={option.value}
-                    aria-checked={isSelected}
                     className={cn(
-                      "flex min-h-20 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                      "flex min-h-20 w-full cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-within:outline-none focus-within:ring-[3px] focus-within:ring-ring/25",
                       isSelected
                         ? "border-primary/45 bg-primary/5 text-foreground"
                         : "border-border/70 bg-background hover:border-primary/30 hover:bg-accent/40",
                     )}
-                    onClick={() => setTheme(option.value)}
-                    role="radio"
-                    type="button"
                   >
+                    <input
+                      checked={isSelected}
+                      className="sr-only"
+                      name="portal-theme"
+                      onChange={() => setTheme(option.value)}
+                      type="radio"
+                      value={option.value}
+                    />
                     <span
+                      aria-hidden="true"
                       className={cn(
                         "flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground",
                         isSelected && "bg-primary/10 text-primary",
@@ -2076,6 +2078,7 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
                       </span>
                     </span>
                     <span
+                      aria-hidden="true"
                       className={cn(
                         "flex size-7 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-transparent",
                         isSelected &&
@@ -2084,10 +2087,10 @@ export function ClientPortalSettingsScreen({ token }: { token: string }) {
                     >
                       {isSelected ? <Check className="size-4" /> : null}
                     </span>
-                  </button>
+                  </label>
                 );
               })}
-            </div>
+            </fieldset>
           </section>
 
           <p className="mt-4 flex items-start gap-2 px-1 text-sm leading-6 text-muted-foreground">

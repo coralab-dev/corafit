@@ -1781,7 +1781,7 @@ function CompletionPrimaryResult({
         aria-label={`${presentation.progressLabel}: ${presentation.completionPercentage}%`}
         aria-valuemax={100}
         aria-valuemin={0}
-        aria-valuenow={presentation.completionPercentage}
+        aria-valuenow={progress}
         className="mt-5 h-2.5 overflow-hidden rounded-full bg-muted"
         role="progressbar"
       >
@@ -1847,7 +1847,10 @@ function CompletionActions({
   token: string;
 }) {
   return (
-    <aside className="w-full lg:sticky lg:top-6 lg:max-w-xs">
+    <aside
+      aria-label="Acciones del logro"
+      className="w-full lg:sticky lg:top-6 lg:max-w-xs"
+    >
       <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
         <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-1">
           <Button

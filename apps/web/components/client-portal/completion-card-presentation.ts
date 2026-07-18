@@ -65,7 +65,9 @@ export function buildCompletionPresentation(
     dateLabel: "Fecha de la sesión",
     formattedDate,
     formattedDateCompact,
-    primaryResultLabel: `${card.completedExercises} de ${card.totalExercises} ejercicios`,
+    primaryResultLabel: `${card.completedExercises} de ${card.totalExercises} ${
+      card.totalExercises === 1 ? "ejercicio" : "ejercicios"
+    }`,
     streakCompactLabel: pluralize(card.streak, "día", "días"),
     sessionName: card.sessionName,
     completedExercises: card.completedExercises,

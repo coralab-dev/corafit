@@ -38,6 +38,14 @@ describe("completion card presentation", () => {
     expect(presentation.formattedDateCompact).toBe("20 may 2026");
     expect(presentation.formattedDate).toContain("20");
     expect(presentation.formattedDate).toContain("mayo");
+    expect(
+      buildCompletionPresentation(
+        completionCard({
+          completedExercises: 1,
+          totalExercises: 1,
+        }),
+      ).primaryResultLabel,
+    ).toBe("1 de 1 ejercicio");
   });
 
   it("produces partial copy without presenting it as completed", () => {

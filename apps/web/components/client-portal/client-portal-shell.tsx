@@ -163,7 +163,6 @@ function ClientPortalBottomNav({
           return (
             <Link
               aria-current={selected ? "page" : undefined}
-              aria-label={item.label}
               className={cn(
                 "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 text-xs font-semibold leading-tight text-[#7d827f] transition-colors duration-200 ease-out dark:text-sidebar-foreground/60",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] ",

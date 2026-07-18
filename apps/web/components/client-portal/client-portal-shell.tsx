@@ -15,24 +15,28 @@ const clientPortalNavItems = [
   {
     key: "home",
     label: "Inicio",
+    mobileLabel: "Inicio",
     href: (token: string) => `/c/${encodeURIComponent(token)}/home`,
     icon: Home,
   },
   {
     key: "calendar",
     label: "Calendario",
+    mobileLabel: "Calendario",
     href: (token: string) => `/c/${encodeURIComponent(token)}/calendar`,
     icon: Calendar,
   },
   {
     key: "progress",
     label: "Progreso",
+    mobileLabel: "Progreso",
     href: (token: string) => `/c/${encodeURIComponent(token)}/progress`,
     icon: TrendingUp,
   },
   {
     key: "settings",
-    label: "Config.",
+    label: "Configuración",
+    mobileLabel: "Ajustes",
     href: (token: string) => `/c/${encodeURIComponent(token)}/settings`,
     icon: Settings,
   },
@@ -103,14 +107,15 @@ function ClientPortalDesktopNav({
   return (
     <aside className="hidden lg:fixed lg:bottom-0 lg:left-0 lg:top-0 lg:block lg:w-64 lg:border-r lg:border-[#ece7e3] lg:bg-[#fdfdfc] lg:px-6 lg:py-10 lg:dark:border-sidebar-border lg:dark:bg-sidebar lg:dark:text-sidebar-foreground">
       <BrandMark compact />
-      <nav className="mt-12 space-y-2">
+      <nav aria-label="Navegación principal" className="mt-12 space-y-2">
         {items.map((item) => {
           const Icon = item.icon;
           const selected = active === item.key;
           return (
             <Link
+              aria-current={selected ? "page" : undefined}
               className={cn(
-                "flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-bold text-[#667080] dark:text-sidebar-foreground/68",
+                "flex h-12 items-center gap-4 rounded-xl px-4 text-sm font-bold text-[#667080] dark:text-sidebar-foreground/68 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)]",
                 selected &&
                   "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] dark:bg-sidebar-accent dark:text-sidebar-primary",
                 !selected &&
@@ -148,7 +153,7 @@ function ClientPortalBottomNav({
 }) {
   return (
     <nav
-      aria-label="Navegacion principal"
+      aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[calc(0.65rem+env(safe-area-inset-bottom))] lg:hidden"
     >
       <div className="flex min-h-16 w-full max-w-[24rem] items-center justify-between gap-1 rounded-full border border-white/70 bg-[#f7f3ee]/82 px-2 py-1.5 shadow-[0_18px_45px_rgba(18,23,34,0.18),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[#f7f3ee]/72 dark:border-sidebar-border/80 dark:bg-sidebar/90 dark:shadow-[0_18px_45px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)] dark:supports-[backdrop-filter]:bg-sidebar/80">
@@ -158,12 +163,13 @@ function ClientPortalBottomNav({
           return (
             <Link
               aria-current={selected ? "page" : undefined}
+              aria-label={item.label}
               className={cn(
-                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 text-[0.64rem] font-bold leading-none text-[#7d827f] transition-all duration-200 ease-out dark:text-sidebar-foreground/60",
+                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 text-xs font-semibold leading-tight text-[#7d827f] transition-colors duration-200 ease-out dark:text-sidebar-foreground/60",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--portal-accent)] ",
                 selected
-                  ? "min-h-12 bg-white text-[var(--portal-accent)] shadow-[0_8px_22px_rgba(18,23,34,0.14),inset_0_1px_0_rgba(255,255,255,0.95)] dark:bg-sidebar-accent dark:text-sidebar-primary dark:shadow-[0_8px_22px_rgba(0,0,0,0.3)]"
-                  : "min-h-11 hover:bg-white/45 hover:text-[#565d66] dark:hover:bg-sidebar-accent/70 dark:hover:text-sidebar-foreground",
+                  ? "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] shadow-[0_6px_18px_rgba(18,23,34,0.10)] dark:bg-sidebar-accent dark:text-sidebar-primary dark:shadow-none"
+                  : "hover:bg-white/45 hover:text-[#565d66] dark:hover:bg-sidebar-accent/70 dark:hover:text-sidebar-foreground",
               )}
               href={item.href(token)}
               key={item.key}
@@ -171,10 +177,12 @@ function ClientPortalBottomNav({
               <Icon
                 className={cn(
                   "size-5 shrink-0 stroke-[2.1]",
-                  selected && "size-6 stroke-[2.4]",
+                  selected && "stroke-[2.4]",
                 )}
               />
-              <span className="max-w-full truncate">{item.label}</span>
+              <span className="max-w-full whitespace-nowrap">
+                {item.mobileLabel}
+              </span>
             </Link>
           );
         })}

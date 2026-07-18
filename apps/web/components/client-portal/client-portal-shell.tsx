@@ -77,7 +77,10 @@ export function ClientPortalShell({
         ) : null}
         <div
           className={cn(
-            "client-portal-viewport pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10",
+            "client-portal-viewport",
+            active
+              ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10"
+              : "pb-0",
             active && "lg:pl-64",
           )}
         >

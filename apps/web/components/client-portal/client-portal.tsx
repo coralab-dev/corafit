@@ -233,12 +233,19 @@ const mobileCalendarStatusToneClasses: Record<CalendarDayTone, string> = {
     "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950",
 };
 
-export function PinAccessScreen({ token }: { token: string }) {
+export function PinAccessScreen({
+  token,
+  clientName,
+}: {
+  token: string;
+  clientName?: string;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pin, setPin] = useState("");
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const digits = 6;
 
   const submitPin = useCallback(
@@ -246,6 +253,7 @@ export function PinAccessScreen({ token }: { token: string }) {
       if (value.length !== digits) return;
       setState("loading");
       setError(null);
+      setHelpMessage(null);
       try {
         const result = await verifyPin(token, value);
         if (result.success) {
@@ -255,9 +263,7 @@ export function PinAccessScreen({ token }: { token: string }) {
         if (result.locked) {
           setError(formatPortalLockMessage(result.lockedUntil));
         } else {
-          setError(
-            `PIN incorrecto. Intentos restantes: ${result.remainingAttempts}.`,
-          );
+          setError(formatRemainingAttempts(result.remainingAttempts));
         }
         setPin("");
       } catch (caught) {
@@ -280,6 +286,7 @@ export function PinAccessScreen({ token }: { token: string }) {
     const nextPin = value.replace(/\D/g, "").slice(0, digits);
     setPin(nextPin);
     setError(null);
+    setHelpMessage(null);
 
     if (nextPin.length === digits) {
       void submitPin(nextPin);
@@ -288,85 +295,163 @@ export function PinAccessScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="client-portal-viewport flex flex-col px-8 py-12 md:px-10 lg:px-12">
-        <div className="mb-12">
-          <BrandMark />
-          <h1 className="mt-10 text-3xl font-bold">CoraFit</h1>
-          <p className="mt-10 max-w-[250px] text-base font-medium leading-7 text-[#4e5968]">
-            Ingresa tu PIN para acceder a tu portal
+      <section className="client-portal-viewport flex items-center justify-center px-5 py-8 sm:px-6 md:px-8">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex justify-center">
+            <BrandMark compact />
+          </div>
+
+          <div className="rounded-3xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow)] sm:p-7">
+            <div className="flex flex-col items-center text-center">
+              <span className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Lock aria-hidden="true" className="size-5" />
+              </span>
+              <h1 className="mt-5 text-2xl font-semibold leading-tight text-foreground">
+                Ingresa tu PIN
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Usa el PIN de 6 dígitos que te compartió tu coach.
+              </p>
+              {clientName ? (
+                <p className="mt-3 text-sm font-medium text-primary">
+                  Hola, {clientName}
+                </p>
+              ) : null}
+            </div>
+
+            <div
+              className="mt-6 rounded-2xl focus-within:outline-none focus-within:ring-[3px] focus-within:ring-ring/25"
+              onClick={() => inputRef.current?.focus()}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                inputRef.current?.focus();
+              }}
+            >
+              <input
+                aria-describedby="pin-access-feedback"
+                aria-invalid={Boolean(error)}
+                aria-label="PIN de acceso de 6 dígitos"
+                autoComplete="one-time-code"
+                className="sr-only"
+                disabled={state === "loading"}
+                enterKeyHint="done"
+                inputMode="numeric"
+                maxLength={digits}
+                onChange={(event) => handlePinChange(event.target.value)}
+                pattern="[0-9]*"
+                ref={inputRef}
+                value={pin}
+              />
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "grid grid-cols-6 gap-2 sm:gap-3",
+                  state === "loading" && "opacity-80",
+                )}
+              >
+                {Array.from({ length: digits }).map((_, index) => {
+                  const isCurrent =
+                    state !== "loading" &&
+                    !error &&
+                    index === pin.length &&
+                    index < digits;
+
+                  return (
+                    <span
+                      className={cn(
+                        "flex aspect-square min-w-0 items-center justify-center rounded-xl border border-border bg-background text-xl font-semibold text-foreground transition-colors",
+                        pin[index] && "border-primary/50 bg-primary/5",
+                        isCurrent && "border-primary ring-2 ring-primary/20",
+                        error &&
+                          "border-destructive bg-destructive/5 text-destructive",
+                      )}
+                      key={index}
+                    >
+                      {pin[index] ? "•" : ""}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              className="mt-5 min-h-14 text-center text-sm leading-6"
+              id="pin-access-feedback"
+            >
+              {state === "loading" ? (
+                <div
+                  aria-live="polite"
+                  className="inline-flex items-center gap-2 text-muted-foreground"
+                  role="status"
+                >
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                  Validando PIN…
+                </div>
+              ) : error ? (
+                <div
+                  className="inline-flex items-start gap-2 text-left text-destructive"
+                  role="alert"
+                >
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0"
+                  />
+                  <span>{error}</span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              <button
+                className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  setError(null);
+                  setHelpMessage(
+                    "Pide a tu coach que regenere tu acceso y te comparta un nuevo PIN.",
+                  );
+                  inputRef.current?.focus();
+                }}
+                type="button"
+              >
+                ¿Olvidaste tu PIN?
+              </button>
+              {pin ? (
+                <button
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={state === "loading"}
+                  onClick={() => {
+                    setPin("");
+                    setError(null);
+                    setHelpMessage(null);
+                    inputRef.current?.focus();
+                  }}
+                  type="button"
+                >
+                  <RotateCcw aria-hidden="true" className="size-4" />
+                  Borrar PIN
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3 min-h-10 text-center text-sm leading-6 text-muted-foreground">
+              {helpMessage ? (
+                <div
+                  aria-live="polite"
+                  className="inline-flex items-start gap-2 text-left"
+                  role="status"
+                >
+                  <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span>{helpMessage}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <p className="mt-5 flex items-start justify-center gap-2 px-1 text-center text-sm leading-6 text-muted-foreground">
+            <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span>Tu coach te compartió este enlace privado y un PIN de acceso.</span>
           </p>
         </div>
-        <input
-          aria-label="PIN de acceso"
-          autoComplete="one-time-code"
-          className="sr-only"
-          disabled={state === "loading"}
-          enterKeyHint="done"
-          inputMode="numeric"
-          maxLength={digits}
-          onChange={(event) => handlePinChange(event.target.value)}
-          pattern="[0-9]*"
-          ref={inputRef}
-          value={pin}
-        />
-        <button
-          aria-label="Ingresar PIN"
-          className="grid w-full grid-cols-6 gap-2"
-          onClick={() => inputRef.current?.focus()}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            inputRef.current?.focus();
-          }}
-          tabIndex={-1}
-          type="button"
-        >
-          {Array.from({ length: digits }).map((_, index) => (
-            <span
-              className={cn(
-                "flex h-12 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-lg font-bold shadow-sm",
-                pin[index] && "border-[var(--portal-accent)] bg-[#fff3f0]",
-              )}
-              key={index}
-            >
-              {pin[index] ? "•" : ""}
-            </span>
-          ))}
-        </button>
-        <div className="mt-6 min-h-8 text-center text-sm font-semibold text-[var(--portal-accent)]">
-          {state === "loading" ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin" /> Validando
-            </span>
-          ) : (
-            error
-          )}
-        </div>
-        <button
-          className="mt-4 text-sm font-bold text-[#3b5f9f]"
-          onClick={() => {
-            setError(
-              "Pide a tu coach que regenere tu acceso y te comparta un nuevo PIN.",
-            );
-            inputRef.current?.focus();
-          }}
-          type="button"
-        >
-          ¿Olvidaste tu PIN?
-        </button>
-        <button
-          className="mt-auto text-sm font-bold text-[#667080] disabled:opacity-50"
-          disabled={state === "loading" || !pin}
-          onClick={() => {
-            setPin("");
-            inputRef.current?.focus();
-          }}
-          type="button"
-        >
-          Borrar PIN
-        </button>
-        <p className="mt-10 text-center text-sm leading-6 text-[#8b929d]">
-          Tu coach te compartio un link privado y un PIN.
-        </p>
       </section>
     </ClientPortalShell>
   );
@@ -4747,17 +4832,23 @@ function errorMessage(caught: unknown, fallback: string) {
   return fallback;
 }
 
+function formatRemainingAttempts(count: number) {
+  return count === 1
+    ? "PIN incorrecto. Te queda 1 intento."
+    : `PIN incorrecto. Te quedan ${count} intentos.`;
+}
+
 function formatPortalLockMessage(lockedUntil?: string | null) {
   if (!lockedUntil) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+    return "Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta más tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
   const parsed = new Date(lockedUntil);
   if (Number.isNaN(parsed.getTime())) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+    return "Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta más tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
-  return `Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta despues de las ${parsed.toLocaleTimeString(
+  return `Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta después de las ${parsed.toLocaleTimeString(
     "es-MX",
     {
       hour: "2-digit",

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Link2Off, Loader2, Lock } from "lucide-react";
 import { CoraFitApiError } from "@/lib/api/authenticated-request";
 import {
   getClientPortalSession,
@@ -73,13 +73,22 @@ export function ClientPortalAccessGate({ token }: { token: string }) {
   }, [router, token]);
 
   if (state.type === "pin") {
-    return <PinAccessScreen token={token} />;
+    return (
+      <PinAccessScreen
+        clientName={state.tokenStatus.clientName}
+        token={token}
+      />
+    );
   }
 
   if (state.type === "invalid") {
     return (
       <ClientPortalShell token={token}>
-        <AccessState title="Este acceso ya no esta disponible" description="Pide a tu coach que te comparta un nuevo link." />
+        <AccessState
+          description="Pide a tu coach que te comparta un nuevo enlace."
+          icon={<Link2Off className="size-5" />}
+          title="Este acceso ya no está disponible"
+        />
       </ClientPortalShell>
     );
   }
@@ -88,6 +97,7 @@ export function ClientPortalAccessGate({ token }: { token: string }) {
     return (
       <ClientPortalShell token={token}>
         <AccessState
+          icon={<Lock className="size-5" />}
           title="Acceso bloqueado temporalmente"
           description={formatLockedDescription(state.lockedUntil)}
         />
@@ -98,14 +108,18 @@ export function ClientPortalAccessGate({ token }: { token: string }) {
   if (state.type === "error") {
     return (
       <ClientPortalShell token={token}>
-        <AccessState title="No pudimos validar tu acceso" description={state.message} />
+        <AccessState
+          description={state.message}
+          icon={<AlertTriangle className="size-5" />}
+          title="No pudimos validar tu acceso"
+        />
       </ClientPortalShell>
     );
   }
 
   return (
     <ClientPortalShell token={token}>
-      <AccessState loading title="Validando tu acceso..." />
+      <AccessState loading title="Validando tu acceso…" />
     </ClientPortalShell>
   );
 }
@@ -114,16 +128,36 @@ function AccessState({
   title,
   description,
   loading,
+  icon,
 }: {
   title: string;
   description?: string;
   loading?: boolean;
+  icon?: ReactNode;
 }) {
   return (
-    <section className="client-portal-viewport flex flex-col items-center justify-center px-8 text-center">
-      {loading ? <Loader2 className="mb-4 size-8 animate-spin text-[#df4d3e]" /> : null}
-      <h1 className="text-xl font-bold">{title}</h1>
-      {description ? <p className="mt-3 text-sm leading-6 text-[#667080]">{description}</p> : null}
+    <section className="client-portal-viewport flex items-center justify-center px-5 py-8 text-center sm:px-6 md:px-8">
+      <div
+        aria-live={loading ? "polite" : undefined}
+        className="w-full max-w-md rounded-3xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow)] sm:p-7"
+        role={loading ? "status" : "alert"}
+      >
+        <span className="mx-auto flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          {loading ? (
+            <Loader2 aria-hidden="true" className="size-5 animate-spin" />
+          ) : (
+            <span aria-hidden="true">{icon}</span>
+          )}
+        </span>
+        <h1 className="mt-5 text-2xl font-semibold leading-tight text-foreground">
+          {title}
+        </h1>
+        {description ? (
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -133,13 +167,18 @@ function isExpectedMissingSession(caught: unknown) {
 }
 
 function formatLockedDescription(lockedUntil?: string | null) {
-  const coachHelp = "Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
-  if (!lockedUntil) return `Por seguridad, intenta nuevamente mas tarde. ${coachHelp}`;
+  const coachHelp =
+    "Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+  if (!lockedUntil) {
+    return `Por seguridad, intenta nuevamente más tarde. ${coachHelp}`;
+  }
 
   const date = new Date(lockedUntil);
-  if (Number.isNaN(date.getTime())) return `Por seguridad, intenta nuevamente mas tarde. ${coachHelp}`;
+  if (Number.isNaN(date.getTime())) {
+    return `Por seguridad, intenta nuevamente más tarde. ${coachHelp}`;
+  }
 
-  return `Intenta nuevamente despues de ${date.toLocaleString("es-MX", {
+  return `Intenta nuevamente después de ${date.toLocaleString("es-MX", {
     dateStyle: "medium",
     timeStyle: "short",
   })}. ${coachHelp}`;

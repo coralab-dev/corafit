@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentProps,
   type Dispatch,
   type ReactNode,
@@ -49,6 +50,7 @@ import {
   Trash2,
   TrendingUp,
   MessageCircle,
+  Monitor,
   Moon,
   X,
 } from "lucide-react";
@@ -137,6 +139,27 @@ const shortDayLabels: Record<string, string> = {
   saturday: "Sab",
   sunday: "Dom",
 };
+
+const portalThemeOptions = [
+  {
+    value: "light",
+    label: "Claro",
+    description: "Fondo claro, ideal para el día.",
+    icon: Sun,
+  },
+  {
+    value: "dark",
+    label: "Oscuro",
+    description: "Reduce el brillo en lugares con poca luz.",
+    icon: Moon,
+  },
+  {
+    value: "system",
+    label: "Sistema",
+    description: "Se adapta al tema de tu dispositivo.",
+    icon: Monitor,
+  },
+] as const;
 
 type CalendarDayTone =
   | "rest"
@@ -1969,83 +1992,112 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
 
 export function ClientPortalSettingsScreen({ token }: { token: string }) {
   const { resolvedTheme, setTheme, theme } = useAppTheme();
-  const isDark = resolvedTheme === "dark";
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const selectedTheme = isMounted ? theme : "system";
+  const selectedThemeLabel =
+    selectedTheme === "system"
+      ? `Sistema · ${resolvedTheme === "dark" ? "oscuro" : "claro"}`
+      : selectedTheme === "dark"
+        ? "Oscuro"
+        : "Claro";
 
   return (
     <ClientPortalShell token={token} active="settings">
-      <section className="px-5 pb-10 pt-6 lg:px-10 lg:pt-10">
-        <div className="rounded-[1.75rem] border border-[#ece7e3] bg-white p-5 shadow-[0_18px_50px_rgba(18,23,34,0.08)] dark:border-[#222936] dark:bg-[#121722] dark:shadow-none">
-          <div className="flex items-start gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] ">
-              <Settings className="size-6" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--portal-accent)] ">
-                Configuracion
-              </p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-[#09111f] dark:text-[#f4f6f8]">
-                Preferencias del portal
-              </h1>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#667080] dark:text-[#aab2bf]">
-                Ajusta como quieres ver tu entrenamiento desde este dispositivo.
-              </p>
+      <section className="px-5 pb-10 pt-6 md:px-8 lg:px-10 lg:pt-10">
+        <div className="mx-auto max-w-3xl lg:mx-0">
+          <h1 className="text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+            Configuración
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+            Personaliza cómo se ve el portal en este dispositivo.
+          </p>
+
+          <section className="mt-8 rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Settings className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Apariencia
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Elige cómo quieres ver el portal.
+                </p>
+              </div>
             </div>
-          </div>
+
+            <p className="mt-4 text-sm font-medium text-muted-foreground">
+              Estado actual:{" "}
+              <span className="text-foreground">{selectedThemeLabel}</span>
+            </p>
+
+            <div
+              aria-label="Tema del portal"
+              className="mt-5 grid gap-3"
+              role="radiogroup"
+            >
+              {portalThemeOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = selectedTheme === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    aria-checked={isSelected}
+                    className={cn(
+                      "flex min-h-20 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25",
+                      isSelected
+                        ? "border-primary/45 bg-primary/5 text-foreground"
+                        : "border-border/70 bg-background hover:border-primary/30 hover:bg-accent/40",
+                    )}
+                    onClick={() => setTheme(option.value)}
+                    role="radio"
+                    type="button"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground",
+                        isSelected && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-semibold text-foreground">
+                        {option.label}
+                      </span>
+                      <span className="mt-0.5 block text-sm leading-6 text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-transparent",
+                        isSelected &&
+                          "border-primary bg-primary text-primary-foreground",
+                      )}
+                    >
+                      {isSelected ? <Check className="size-4" /> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <p className="mt-4 flex items-start gap-2 px-1 text-sm leading-6 text-muted-foreground">
+            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span>
+              Esta preferencia solo cambia la apariencia del portal en este
+              dispositivo.
+            </span>
+          </p>
         </div>
-
-        <section className="mt-5 rounded-[1.5rem] border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
-                Tema
-              </h2>
-              <p className="mt-1 text-sm font-semibold text-[#667080] dark:text-[#aab2bf]">
-                Modo actual:{" "}
-                <span suppressHydrationWarning>
-                  {isDark ? "oscuro" : "claro"}
-                </span>
-              </p>
-            </div>
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-[#f7f4f1] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#1a202b] ">
-              {isDark ? (
-                <Moon className="size-5" />
-              ) : (
-                <Sun className="size-5" />
-              )}
-            </span>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button
-              className={cn(
-                "flex min-h-28 flex-col items-start justify-between rounded-2xl border p-4 text-left transition",
-                theme === "light"
-                  ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[#5f4a08] shadow-[0_12px_30px_var(--portal-accent-shadow)]"
-                  : "border-[#ece7e3] bg-[#fdfdfc] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#aab2bf]",
-              )}
-              type="button"
-              aria-pressed={theme === "light"}
-              onClick={() => setTheme("light")}
-            >
-              <Sun className="size-6" />
-              <span className="text-base font-black">Claro</span>
-            </button>
-            <button
-              className={cn(
-                "flex min-h-28 flex-col items-start justify-between rounded-2xl border p-4 text-left transition",
-                theme === "dark"
-                  ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] shadow-[0_12px_30px_var(--portal-accent-shadow)]"
-                  : "border-[#ece7e3] bg-[#fdfdfc] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#aab2bf]",
-              )}
-              type="button"
-              aria-pressed={theme === "dark"}
-              onClick={() => setTheme("dark")}
-            >
-              <Moon className="size-6" />
-              <span className="text-base font-black">Oscuro</span>
-            </button>
-          </div>
-        </section>
       </section>
     </ClientPortalShell>
   );

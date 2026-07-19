@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentProps,
   type Dispatch,
   type ReactNode,
@@ -17,8 +18,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  CalendarClock,
   Camera,
   Check,
+  CheckCircle2,
+  CircleDashed,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -45,12 +49,13 @@ import {
   Star,
   Sun,
   Trash2,
-  TrendingUp,
   MessageCircle,
+  Monitor,
   Moon,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CoraFitApiError } from "@/lib/api/authenticated-request";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
@@ -112,6 +117,14 @@ import {
   type ClientSessionPreview,
   type CompletionCard,
 } from "@/lib/client-portal/api";
+import {
+  buildCompletionCardSvg,
+  buildCompletionPresentation,
+  buildShareText,
+  isFinalizedCompletionStatus,
+  type CompletionPresentation,
+} from "@/components/client-portal/completion-card-presentation";
+import { getYouTubeEmbedUrl } from "@/lib/youtube";
 export { ClientHomeScreen } from "@/components/client-portal/client-home-screen";
 export { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
 
@@ -134,6 +147,27 @@ const shortDayLabels: Record<string, string> = {
   saturday: "Sab",
   sunday: "Dom",
 };
+
+const portalThemeOptions = [
+  {
+    value: "light",
+    label: "Claro",
+    description: "Fondo claro, ideal para el día.",
+    icon: Sun,
+  },
+  {
+    value: "dark",
+    label: "Oscuro",
+    description: "Reduce el brillo en lugares con poca luz.",
+    icon: Moon,
+  },
+  {
+    value: "system",
+    label: "Sistema",
+    description: "Se adapta al tema de tu dispositivo.",
+    icon: Monitor,
+  },
+] as const;
 
 type CalendarDayTone =
   | "rest"
@@ -207,12 +241,19 @@ const mobileCalendarStatusToneClasses: Record<CalendarDayTone, string> = {
     "border-amber-500 bg-amber-500 text-white dark:border-amber-300 dark:bg-amber-400 dark:text-amber-950",
 };
 
-export function PinAccessScreen({ token }: { token: string }) {
+export function PinAccessScreen({
+  token,
+  clientName,
+}: {
+  token: string;
+  clientName?: string;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pin, setPin] = useState("");
   const [state, setState] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const digits = 6;
 
   const submitPin = useCallback(
@@ -220,6 +261,7 @@ export function PinAccessScreen({ token }: { token: string }) {
       if (value.length !== digits) return;
       setState("loading");
       setError(null);
+      setHelpMessage(null);
       try {
         const result = await verifyPin(token, value);
         if (result.success) {
@@ -229,9 +271,7 @@ export function PinAccessScreen({ token }: { token: string }) {
         if (result.locked) {
           setError(formatPortalLockMessage(result.lockedUntil));
         } else {
-          setError(
-            `PIN incorrecto. Intentos restantes: ${result.remainingAttempts}.`,
-          );
+          setError(formatRemainingAttempts(result.remainingAttempts));
         }
         setPin("");
       } catch (caught) {
@@ -254,6 +294,7 @@ export function PinAccessScreen({ token }: { token: string }) {
     const nextPin = value.replace(/\D/g, "").slice(0, digits);
     setPin(nextPin);
     setError(null);
+    setHelpMessage(null);
 
     if (nextPin.length === digits) {
       void submitPin(nextPin);
@@ -262,85 +303,163 @@ export function PinAccessScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="client-portal-viewport flex flex-col px-8 py-12 md:px-10 lg:px-12">
-        <div className="mb-12">
-          <BrandMark />
-          <h1 className="mt-10 text-3xl font-bold">CoraFit</h1>
-          <p className="mt-10 max-w-[250px] text-base font-medium leading-7 text-[#4e5968]">
-            Ingresa tu PIN para acceder a tu portal
+      <section className="client-portal-viewport flex items-center justify-center px-5 py-8 sm:px-6 md:px-8">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex justify-center">
+            <BrandMark compact />
+          </div>
+
+          <div className="rounded-3xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow)] sm:p-7">
+            <div className="flex flex-col items-center text-center">
+              <span className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Lock aria-hidden="true" className="size-5" />
+              </span>
+              <h1 className="mt-5 text-2xl font-semibold leading-tight text-foreground">
+                Ingresa tu PIN
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Usa el PIN de 6 dígitos que te compartió tu coach.
+              </p>
+              {clientName ? (
+                <p className="mt-3 text-sm font-medium text-primary">
+                  Hola, {clientName}
+                </p>
+              ) : null}
+            </div>
+
+            <div
+              className="mt-6 rounded-2xl focus-within:outline-none focus-within:ring-[3px] focus-within:ring-ring/25"
+              onClick={() => inputRef.current?.focus()}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                inputRef.current?.focus();
+              }}
+            >
+              <input
+                aria-describedby="pin-access-feedback"
+                aria-invalid={Boolean(error)}
+                aria-label="PIN de acceso de 6 dígitos"
+                autoComplete="one-time-code"
+                className="sr-only"
+                disabled={state === "loading"}
+                enterKeyHint="done"
+                inputMode="numeric"
+                maxLength={digits}
+                onChange={(event) => handlePinChange(event.target.value)}
+                pattern="[0-9]*"
+                ref={inputRef}
+                value={pin}
+              />
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "grid grid-cols-6 gap-2 sm:gap-3",
+                  state === "loading" && "opacity-80",
+                )}
+              >
+                {Array.from({ length: digits }).map((_, index) => {
+                  const isCurrent =
+                    state !== "loading" &&
+                    !error &&
+                    index === pin.length &&
+                    index < digits;
+
+                  return (
+                    <span
+                      className={cn(
+                        "flex aspect-square min-w-0 items-center justify-center rounded-xl border border-border bg-background text-xl font-semibold text-foreground transition-colors",
+                        pin[index] && "border-primary/50 bg-primary/5",
+                        isCurrent && "border-primary ring-2 ring-primary/20",
+                        error &&
+                          "border-destructive bg-destructive/5 text-destructive",
+                      )}
+                      key={index}
+                    >
+                      {pin[index] ? "•" : ""}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              className="mt-5 min-h-14 text-center text-sm leading-6"
+              id="pin-access-feedback"
+            >
+              {state === "loading" ? (
+                <div
+                  aria-live="polite"
+                  className="inline-flex items-center gap-2 text-muted-foreground"
+                  role="status"
+                >
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                  Validando PIN…
+                </div>
+              ) : error ? (
+                <div
+                  className="inline-flex items-start gap-2 text-left text-destructive"
+                  role="alert"
+                >
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0"
+                  />
+                  <span>{error}</span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              <button
+                className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  setError(null);
+                  setHelpMessage(
+                    "Pide a tu coach que regenere tu acceso y te comparta un nuevo PIN.",
+                  );
+                  inputRef.current?.focus();
+                }}
+                type="button"
+              >
+                ¿Olvidaste tu PIN?
+              </button>
+              {pin ? (
+                <button
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={state === "loading"}
+                  onClick={() => {
+                    setPin("");
+                    setError(null);
+                    setHelpMessage(null);
+                    inputRef.current?.focus();
+                  }}
+                  type="button"
+                >
+                  <RotateCcw aria-hidden="true" className="size-4" />
+                  Borrar PIN
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3 min-h-10 text-center text-sm leading-6 text-muted-foreground">
+              {helpMessage ? (
+                <div
+                  aria-live="polite"
+                  className="inline-flex items-start gap-2 text-left"
+                  role="status"
+                >
+                  <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span>{helpMessage}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <p className="mt-5 flex items-start justify-center gap-2 px-1 text-center text-sm leading-6 text-muted-foreground">
+            <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span>Tu coach te compartió este enlace privado y un PIN de acceso.</span>
           </p>
         </div>
-        <input
-          aria-label="PIN de acceso"
-          autoComplete="one-time-code"
-          className="sr-only"
-          disabled={state === "loading"}
-          enterKeyHint="done"
-          inputMode="numeric"
-          maxLength={digits}
-          onChange={(event) => handlePinChange(event.target.value)}
-          pattern="[0-9]*"
-          ref={inputRef}
-          value={pin}
-        />
-        <button
-          aria-label="Ingresar PIN"
-          className="grid w-full grid-cols-6 gap-2"
-          onClick={() => inputRef.current?.focus()}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            inputRef.current?.focus();
-          }}
-          tabIndex={-1}
-          type="button"
-        >
-          {Array.from({ length: digits }).map((_, index) => (
-            <span
-              className={cn(
-                "flex h-12 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-lg font-bold shadow-sm",
-                pin[index] && "border-[var(--portal-accent)] bg-[#fff3f0]",
-              )}
-              key={index}
-            >
-              {pin[index] ? "•" : ""}
-            </span>
-          ))}
-        </button>
-        <div className="mt-6 min-h-8 text-center text-sm font-semibold text-[var(--portal-accent)]">
-          {state === "loading" ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin" /> Validando
-            </span>
-          ) : (
-            error
-          )}
-        </div>
-        <button
-          className="mt-4 text-sm font-bold text-[#3b5f9f]"
-          onClick={() => {
-            setError(
-              "Pide a tu coach que regenere tu acceso y te comparta un nuevo PIN.",
-            );
-            inputRef.current?.focus();
-          }}
-          type="button"
-        >
-          ¿Olvidaste tu PIN?
-        </button>
-        <button
-          className="mt-auto text-sm font-bold text-[#667080] disabled:opacity-50"
-          disabled={state === "loading" || !pin}
-          onClick={() => {
-            setPin("");
-            inputRef.current?.focus();
-          }}
-          type="button"
-        >
-          Borrar PIN
-        </button>
-        <p className="mt-10 text-center text-sm leading-6 text-[#8b929d]">
-          Tu coach te compartio un link privado y un PIN.
-        </p>
       </section>
     </ClientPortalShell>
   );
@@ -928,13 +1047,23 @@ export function SessionScreen({
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section
+        className={cn(
+          "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] px-5 pt-6 md:px-8 lg:mb-0 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-dvh flex-col lg:min-h-0",
+        )}
+      >
         {!detailOpen ? (
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
+        <div
+          className={cn(
+            "mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
+            !detailOpen && "flex flex-1 flex-col",
+          )}
+        >
+          <div className={cn("min-w-0", !detailOpen && "flex flex-1 flex-col")}>
             {detailOpen && activeExercise ? (
               <ClientExerciseDetailView
                 completed={completed.includes(activeExercise.sessionExerciseId)}
@@ -946,7 +1075,6 @@ export function SessionScreen({
                 onComplete={() =>
                   void complete(activeExercise.sessionExerciseId)
                 }
-                onFinalize={() => requestFinalize(completed.length, total)}
                 onNext={() =>
                   setActiveExerciseIndex((current) =>
                     Math.min(current + 1, total - 1),
@@ -954,9 +1082,6 @@ export function SessionScreen({
                 }
                 onPrevious={() =>
                   setActiveExerciseIndex((current) => Math.max(current - 1, 0))
-                }
-                onSave={() =>
-                  router.push(`/c/${encodeURIComponent(token)}/home`)
                 }
                 onUseAlternative={(alternativeId) =>
                   void applyAlternative(
@@ -968,69 +1093,56 @@ export function SessionScreen({
                 selectedAlternativeId={selectedAlternativeId}
                 total={total}
               />
-            ) : activeExercise ? (
-              <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:hidden">
-                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
-                    <span>Progreso de la sesion</span>
-                    <span>
-                      {completed.length} / {total}
-                    </span>
+            ) : (
+              <div className="flex flex-1 flex-col">
+                <SessionOverviewCard completedCount={completed.length} total={total} />
+                {activeExercise ? (
+                  <div className="mt-4 space-y-3">
+                    {log.snapshotData.exercises.map((exercise, index) => (
+                      <SessionExerciseListCard
+                        completed={completed.includes(exercise.sessionExerciseId)}
+                        exercise={exercise}
+                        index={index}
+                        key={exercise.sessionExerciseId}
+                        loading={busyId === exercise.sessionExerciseId}
+                        onComplete={() => void complete(exercise.sessionExerciseId)}
+                        onOpen={() => {
+                          setActiveExerciseIndex(index);
+                          setDetailOpen(true);
+                        }}
+                        total={total}
+                      />
+                    ))}
                   </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
-                    <div
-                      className="h-2 rounded-full bg-[var(--portal-accent)]"
-                      style={{
-                        width: `${total ? (completed.length / total) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3 lg:mt-0">
-                  {log.snapshotData.exercises.map((exercise, index) => (
-                    <SessionExerciseListCard
-                      completed={completed.includes(exercise.sessionExerciseId)}
-                      exercise={exercise}
-                      index={index}
-                      key={exercise.sessionExerciseId}
-                      loading={busyId === exercise.sessionExerciseId}
-                      onComplete={() =>
-                        void complete(exercise.sessionExerciseId)
-                      }
-                      onOpen={() => {
-                        setActiveExerciseIndex(index);
-                        setDetailOpen(true);
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 grid grid-cols-2 gap-3 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
-                  <button
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-                    onClick={() =>
-                      router.push(`/c/${encodeURIComponent(token)}/home`)
-                    }
-                    type="button"
-                  >
-                    <Home className="size-4" /> Guardar y salir
-                  </button>
-                  <button
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60"
-                    disabled={finalizing}
+                ) : (
+                  <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>
+                )}
+                <div className="sticky bottom-0 z-20 -mx-5 mt-auto space-y-2 border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 lg:hidden">
+                  <Button
+                    className="h-12 w-full"
+                    aria-busy={finalizing}
+                    disabled={finalizing || total === 0}
                     onClick={() => requestFinalize(completed.length, total)}
-                    type="button"
                   >
                     {finalizing ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <RotateCcw className="size-4" />
+                      <CheckCircle2 className="size-4" />
                     )}{" "}
-                    Finalizar sesion
-                  </button>
+                    Finalizar sesión
+                  </Button>
+                  <Button
+                    className="h-12 w-full"
+                    disabled={finalizing}
+                    onClick={() =>
+                      router.push(`/c/${encodeURIComponent(token)}/home`)
+                    }
+                    variant="ghost"
+                  >
+                    <Home className="size-4" /> Salir por ahora
+                  </Button>
                 </div>
-              </>
-            ) : (
-              <EmptyCard title="No hay ejercicios en esta sesion." />
+              </div>
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -1135,17 +1247,27 @@ export function SessionPreviewScreen({ token }: { token: string }) {
 
   return (
     <ClientPortalShell token={token}>
-      <section className="px-5 pt-6 md:px-8 lg:px-10 lg:pt-8">
+      <section
+        className={cn(
+          "-mb-[calc(7.5rem+env(safe-area-inset-bottom))] px-5 pt-6 md:px-8 lg:mb-0 lg:px-10 lg:pt-8",
+          !detailOpen && "flex min-h-dvh flex-col lg:min-h-0",
+        )}
+      >
         {!detailOpen ? (
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
         {error ? <InlineError message={error} /> : null}
-        <div className="mt-6 rounded-xl border border-[#f5dfda] bg-[#fff8f7] p-4 text-sm font-semibold leading-6 text-[#8b3c31] dark:border-[#4b2b24] dark:bg-[#271716] dark:text-[#ffb4a8]">
-          Esta sesion esta programada para despues. Puedes revisar ejercicios y
-          notas, pero todavia no se puede iniciar.
+        <div className="mt-6 flex gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm font-medium leading-6 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
+          <CalendarClock className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+          <p>Esta sesión está programada para después. Puedes revisar ejercicios y notas, pero todavía no se puede iniciar.</p>
         </div>
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
+        <div
+          className={cn(
+            "mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
+            !detailOpen && "flex flex-1 flex-col",
+          )}
+        >
+          <div className={cn("min-w-0", !detailOpen && "flex flex-1 flex-col")}>
             {detailOpen && activeExercise ? (
               <ClientExerciseDetailView
                 completed={false}
@@ -1155,7 +1277,6 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 loading={false}
                 onBack={() => setDetailOpen(false)}
                 onComplete={() => undefined}
-                onFinalize={() => undefined}
                 onNext={() =>
                   setActiveExerciseIndex((current) =>
                     Math.min(current + 1, total - 1),
@@ -1164,24 +1285,15 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                 onPrevious={() =>
                   setActiveExerciseIndex((current) => Math.max(current - 1, 0))
                 }
-                onSave={() =>
-                  router.push(`/c/${encodeURIComponent(token)}/calendar`)
-                }
                 onUseAlternative={() => undefined}
                 readOnly
                 selectedAlternativeId={null}
                 total={total}
               />
-            ) : activeExercise ? (
-              <>
-                <div className="rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-                  <div className="flex items-center justify-between text-sm font-bold text-[#09111f] dark:text-[#f4f6f8]">
-                    <span>Vista de lectura</span>
-                    <span>{total} ejercicios</span>
-                  </div>
-                  <div className="mt-4 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]" />
-                </div>
-                <div className="mt-4 space-y-3">
+            ) : (
+              <div className="flex flex-1 flex-col">
+                <SessionOverviewCard readOnly completedCount={0} total={total} />
+                {activeExercise ? <div className="mt-4 space-y-3">
                   {preview.snapshotData.exercises.map((exercise, index) => (
                     <SessionExerciseListCard
                       completed={false}
@@ -1195,21 +1307,20 @@ export function SessionPreviewScreen({ token }: { token: string }) {
                         setActiveExerciseIndex(index);
                         setDetailOpen(true);
                       }}
+                      total={total}
                     />
                   ))}
-                </div>
-                <div className="sticky bottom-0 -mx-5 mt-8 border-t border-[#ece7e3] bg-white/95 px-5 py-5 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
-                  <button
-                    className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
+                </div> : <div className="mt-4"><EmptyCard title="No hay ejercicios en esta sesión." /></div>}
+                <div className="sticky bottom-0 z-20 -mx-5 mt-auto border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 lg:hidden">
+                  <Button
+                    className="h-12 w-full whitespace-normal"
                     disabled
-                    type="button"
+                    variant="secondary"
                   >
                     Disponible en la fecha programada
-                  </button>
+                  </Button>
                 </div>
-              </>
-            ) : (
-              <EmptyCard title="No hay ejercicios en esta sesion." />
+              </div>
             )}
             {detailOpen ? (
               <ExerciseMiniNavigation
@@ -1245,80 +1356,155 @@ export function CompletionCardScreen({
   token: string;
   sessionLogId: string;
 }) {
+  const router = useRouter();
   const [data, setData] = useState<CompletionCard | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [busyAction, setBusyAction] = useState<CompletionBusyAction>(null);
+  const [feedback, setFeedback] = useState<CompletionFeedback | null>(null);
   const [shareFallback, setShareFallback] = useState<string | null>(null);
-  const [saveFallback, setSaveFallback] = useState<string | null>(null);
   const { resolvedTheme } = useAppTheme();
+  const requestInFlightRef = useRef(false);
+  const redirectingRef = useRef(false);
 
-  useEffect(() => {
-    clientPortalRequest<CompletionCard>(
-      `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(sessionLogId)}/completion-card`,
-    )
-      .then(setData)
-      .catch((caught) =>
-        setError(errorMessage(caught, "No pudimos cargar tu logro.")),
-      );
-  }, [sessionLogId, token]);
+  const redirectToSession = useCallback(() => {
+    if (redirectingRef.current) return;
 
-  function buildShareText(card: CompletionCard) {
-    return [
-      "CoraFit",
-      "Sesion completada",
-      card.sessionName,
-      `${card.completedExercises}/${card.totalExercises} ejercicios`,
-      `${card.completionPercentage}% completado`,
-      `${card.streak} dias de racha`,
-    ].join("\n");
-  }
+    redirectingRef.current = true;
+    setIsRedirecting(true);
+    router.replace(
+      `/c/${encodeURIComponent(token)}/session/${encodeURIComponent(sessionLogId)}`,
+    );
+  }, [router, sessionLogId, token]);
 
-  async function shareCompletion() {
-    if (!data) return;
+  const load = useCallback(() => {
+    if (requestInFlightRef.current || redirectingRef.current) return;
 
-    const shareData = {
-      title: "CoraFit - Sesion completada",
-      text: buildShareText(data),
-    };
-
+    requestInFlightRef.current = true;
+    setIsLoading(true);
+    setError(null);
+    setData(null);
+    setFeedback(null);
     setShareFallback(null);
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (caught) {
-        if (caught instanceof DOMException && caught.name === "AbortError")
+    void clientPortalRequest<CompletionCard>(
+      `/client-portal/${encodeURIComponent(token)}/session-logs/${encodeURIComponent(sessionLogId)}/completion-card`,
+    )
+      .then((result) => {
+        if (!isFinalizedCompletionStatus(result.status)) {
+          redirectToSession();
           return;
-      }
-    }
+        }
 
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(shareData.text);
-        setShareFallback(
-          "Copiamos tu logro para que lo compartas donde prefieras.",
+        setData(result);
+      })
+      .catch((caught: unknown) => {
+        if (caught instanceof CoraFitApiError && caught.status === 403) {
+          redirectToSession();
+          return;
+        }
+
+        setError(
+          caught instanceof CoraFitApiError && caught.status === 404
+            ? "Este logro no está disponible"
+            : errorMessage(caught, "No pudimos cargar tu logro."),
         );
-        return;
-      } catch {
-        // Fall through to visible fallback.
-      }
-    }
+      })
+      .finally(() => {
+        requestInFlightRef.current = false;
+        setIsLoading(false);
+      });
+  }, [redirectToSession, sessionLogId, token]);
 
-    setShareFallback(
-      "Tu navegador no permite compartir automaticamente. Puedes copiar el resumen de la card.",
-    );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (data && !isFinalizedCompletionStatus(data.status)) {
+      redirectToSession();
+    }
+  }, [data, redirectToSession]);
+
+  const presentation =
+    data && isFinalizedCompletionStatus(data.status)
+      ? buildCompletionPresentation(data)
+      : null;
+
+  async function shareCompletion() {
+    if (!data || !presentation || busyAction) return;
+
+    const shareData = {
+      title: `CoraFit - ${presentation.shareTitle}`,
+      text: presentation.shareText,
+    };
+
+    setBusyAction("share");
+    setFeedback(null);
+    setShareFallback(null);
+
+    try {
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          setFeedback({ tone: "success", message: "Compartir listo." });
+          return;
+        } catch (caught) {
+          if (caught instanceof DOMException && caught.name === "AbortError") {
+            return;
+          }
+          // Fall through to the clipboard fallback.
+        }
+      }
+
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(shareData.text);
+          setFeedback({
+            tone: "success",
+            message: "Copiamos tu logro para que lo compartas donde prefieras.",
+          });
+          return;
+        } catch {
+          // Fall through to the visible manual fallback.
+        }
+      }
+
+      setFeedback({
+        detail: "Selecciona y copia el texto para compartirlo donde prefieras.",
+        message: "No pudimos copiar el logro automáticamente.",
+        tone: "error",
+      });
+      setShareFallback(buildShareText(presentation));
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") {
+        return;
+      }
+
+      setFeedback({
+        detail: "Selecciona y copia el texto para compartirlo donde prefieras.",
+        message: "No pudimos compartir el logro automáticamente.",
+        tone: "error",
+      });
+      setShareFallback(buildShareText(presentation));
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function saveCompletionImage() {
-    if (!data) return;
+    if (!data || !presentation || busyAction) return;
 
-    setSaveFallback(null);
-
-    const svg = buildCompletionCardSvg(data, resolvedTheme === "dark");
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    setBusyAction("save");
+    setFeedback(null);
+    setShareFallback(null);
+    let url: string | null = null;
 
     try {
+      const svg = buildCompletionCardSvg(presentation, resolvedTheme === "dark");
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      url = URL.createObjectURL(blob);
       const image = new Image();
       const loaded = new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
@@ -1340,189 +1526,420 @@ export function CompletionCardScreen({
       link.href = pngUrl;
       link.download = `corafit-sesion-${data.scheduledDate}.png`;
       link.click();
+      setFeedback({ tone: "success", message: "Descarga iniciada." });
     } catch {
-      setSaveFallback(
-        "No pudimos guardar la imagen automaticamente. Intenta compartir el resumen o vuelve a intentarlo.",
-      );
+      setFeedback({
+        message:
+          "No pudimos guardar la imagen automáticamente. Vuelve a intentarlo.",
+        tone: "error",
+      });
     } finally {
-      URL.revokeObjectURL(url);
+      if (url) URL.revokeObjectURL(url);
+      setBusyAction(null);
     }
   }
 
   return (
     <ClientPortalShell token={token}>
-      <section className="client-portal-viewport flex flex-col px-5 py-6 md:px-8 lg:px-10">
-        <BrandMark />
-        {error ? <InlineError message={error} /> : null}
-        {data ? (
-          <div className="mx-auto mt-4 flex w-full max-w-md flex-1 flex-col">
-            <CompletionShareCard data={data} />
+      <section className="client-portal-viewport flex min-h-dvh flex-col px-5 py-6 md:px-8 md:py-8 lg:px-10">
+        <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
+          <BrandMark compact />
+          <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Resultado de sesión
+          </p>
+        </header>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button
-                className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#111111] px-5 text-sm font-bold text-white transition hover:bg-[#39393b] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2"
-                onClick={() => void shareCompletion()}
-                type="button"
-              >
-                <Share2 className="size-4" />
-                Compartir
-              </button>
-              <button
-                className="flex h-12 items-center justify-center gap-2 rounded-full border border-[#cacacb] bg-white px-5 text-sm font-bold text-[#111111] transition hover:border-[#707072] hover:bg-[#f5f5f5] focus:outline-none focus:ring-2 focus:ring-[#275dc5] focus:ring-offset-2 dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:hover:bg-[#1a202b]"
-                onClick={() => void saveCompletionImage()}
-                type="button"
-              >
-                <Download className="size-4" />
-                Guardar imagen
-              </button>
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center py-6 lg:py-10">
+          {isRedirecting || (data && !presentation) ? (
+            <CompletionRedirectingState />
+          ) : isLoading ? (
+            <CompletionLoadingState />
+          ) : error ? (
+            <CompletionErrorState
+              message={error}
+              onRetry={() => load()}
+              token={token}
+            />
+          ) : presentation && data ? (
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-center">
+              <div className="w-full max-w-xl">
+                <CompletionShareCard presentation={presentation} />
+              </div>
+              <CompletionActions
+                busyAction={busyAction}
+                feedback={feedback}
+                onSave={() => void saveCompletionImage()}
+                onShare={() => void shareCompletion()}
+                shareFallback={shareFallback}
+                token={token}
+              />
             </div>
-
-            {shareFallback ? (
-              <div
-                className="mt-3 rounded-xl border border-[#ece7e3] bg-white p-4 text-sm leading-6 text-[#667080]"
-                role="status"
-              >
-                <p>{shareFallback}</p>
-                <p className="mt-2 whitespace-pre-line font-medium text-[#09111f]">
-                  {buildShareText(data)}
-                </p>
-              </div>
-            ) : null}
-
-            {saveFallback ? (
-              <div
-                className="mt-3 rounded-xl border border-[#f2c8c0] bg-[#fff4f1] p-4 text-sm font-semibold leading-6 text-[#9f3529]"
-                role="status"
-              >
-                {saveFallback}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <ScreenState title="Preparando tu logro" compact />
-        )}
-        <div className="mt-auto space-y-3 pt-6">
-          <Link
-            className="flex h-14 items-center justify-center rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)]"
-            href={`/c/${encodeURIComponent(token)}/home`}
-          >
-            Volver al inicio
-          </Link>
-          <Link
-            className="flex h-14 items-center justify-center rounded-xl border border-[#ece7e3] bg-white text-sm font-bold text-[#09111f] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8]"
-            href={`/c/${encodeURIComponent(token)}/calendar`}
-          >
-            Ver calendario
-          </Link>
+          ) : null}
         </div>
       </section>
     </ClientPortalShell>
   );
 }
 
-function CompletionShareCard({ data }: { data: CompletionCard }) {
-  const dateParts = formatCompletionDateParts(data.scheduledDate);
+type CompletionBusyAction = "share" | "save" | null;
 
+type CompletionFeedback = {
+  tone: "success" | "error";
+  message: string;
+  detail?: string;
+};
+
+function CompletionLoadingState() {
   return (
-    <article
-      aria-label="Card compartible de sesion completada"
-      className="relative w-full overflow-hidden rounded-[28px] border border-[#f2ece7] bg-white px-5 pb-5 pt-6 text-[#071026] shadow-[0_22px_60px_rgba(18,23,34,0.14)] dark:border-[#2b3342] dark:bg-[#121722] dark:text-[#f4f6f8] dark:shadow-none"
+    <div
+      aria-live="polite"
+      className="flex min-h-56 flex-col items-center justify-center text-center"
+      role="status"
     >
-      <div
-        className="absolute left-1/2 top-6 h-24 w-32 -translate-x-1/2 text-[var(--portal-accent)]"
-        aria-hidden
-      >
-        <span className="absolute left-1/2 top-0 h-7 w-px bg-current opacity-60" />
-        <span className="absolute left-7 top-4 h-7 w-px rotate-[-50deg] bg-current opacity-50" />
-        <span className="absolute right-7 top-4 h-7 w-px rotate-[50deg] bg-current opacity-50" />
-        <span className="absolute left-1 top-14 h-px w-10 bg-current opacity-55" />
-        <span className="absolute right-1 top-14 h-px w-10 bg-current opacity-55" />
-      </div>
+      <Loader2
+        aria-hidden="true"
+        className="size-8 animate-spin text-[var(--portal-accent)]"
+      />
+      <p className="mt-4 text-base font-semibold text-foreground">
+        Preparando tu logro
+      </p>
+    </div>
+  );
+}
 
-      <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-[var(--portal-accent-soft)]">
-        <div className="flex size-14 items-center justify-center rounded-full bg-[#ffe1d9] text-[var(--portal-accent)] dark:bg-[var(--portal-accent-soft)]">
-          <Check className="size-8 stroke-[3]" />
+function CompletionRedirectingState() {
+  return (
+    <div
+      aria-live="polite"
+      className="flex min-h-56 flex-col items-center justify-center text-center"
+      role="status"
+    >
+      <Loader2
+        aria-hidden="true"
+        className="size-8 animate-spin text-[var(--portal-accent)]"
+      />
+      <p className="mt-4 text-base font-semibold text-foreground">
+        Abriendo tu sesión
+      </p>
+    </div>
+  );
+}
+
+function CompletionErrorState({
+  message,
+  onRetry,
+  token,
+}: {
+  message: string;
+  onRetry: () => void;
+  token: string;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-lg rounded-2xl border border-destructive/25 bg-card p-6 shadow-[var(--surface-shadow-soft)] sm:p-8">
+      <div
+        aria-live="assertive"
+        className="flex items-start gap-3"
+        role="alert"
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <AlertTriangle aria-hidden="true" className="size-5" />
+        </span>
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">
+            No pudimos abrir tu logro
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {message}
+          </p>
         </div>
       </div>
 
-      <h2 className="mt-4 text-center text-[2rem] font-black leading-none text-[#071026] dark:text-[#f4f6f8]">
-        Sesion completada
-      </h2>
-
-      <div className="mt-3 flex items-center justify-center gap-3 text-[var(--portal-accent)]">
-        <span className="h-px w-10 bg-[var(--portal-accent)]/55" />
-        <p className="line-clamp-1 text-base font-black">{data.sessionName}</p>
-        <span className="h-px w-10 bg-[var(--portal-accent)]/55" />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button className="min-h-11 flex-1" onClick={onRetry} type="button">
+          <RotateCcw aria-hidden="true" className="size-4" />
+          Reintentar
+        </Button>
+        <Button asChild className="min-h-11 flex-1" variant="outline">
+          <Link href={`/c/${encodeURIComponent(token)}/home`}>Volver al inicio</Link>
+        </Button>
       </div>
+      <Button
+        asChild
+        className="mt-2 min-h-11 w-full"
+        variant="ghost"
+      >
+        <Link href={`/c/${encodeURIComponent(token)}/calendar`}>Ver calendario</Link>
+      </Button>
+    </div>
+  );
+}
 
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-[22px] border border-[#ece7e3] bg-white shadow-[0_12px_32px_rgba(7,16,38,0.08)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none">
-        <CompletionStoryMetric
-          caption="completados"
-          icon={<Dumbbell className="size-7 text-[var(--portal-accent)]" />}
-          label="Ejercicios"
-          value={`${data.completedExercises}/${data.totalExercises}`}
-        />
-        <CompletionStoryMetric
-          caption="completado"
-          icon={<TrendingUp className="size-7 text-[var(--portal-accent)]" />}
-          label="Avance"
-          value={`${data.completionPercentage}%`}
-        />
-        <CompletionStoryMetric
-          caption="dias"
-          icon={<Flame className="size-7 text-[var(--portal-accent)]" />}
-          label="Racha"
-          value={data.streak}
-        />
-        <CompletionStoryMetric
-          caption="registrado"
-          icon={<Calendar className="size-7 text-[var(--portal-accent)]" />}
-          label="Fecha"
-          value={dateParts.dayMonth}
-          valueClassName="text-xl"
-        />
-      </div>
+function CompletionShareCard({
+  presentation,
+}: {
+  presentation: CompletionPresentation;
+}) {
+  const StatusIcon =
+    presentation.variant === "completed" ? CheckCircle2 : CircleDashed;
+  const isPartial = presentation.variant === "partial";
 
-      <div className="mt-5 flex items-center gap-4 text-[var(--portal-accent)]">
-        <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
-        <span className="rounded-full border border-[#f4c8bd] bg-[var(--portal-accent-soft)] px-6 py-2 text-sm font-black dark:border-[#5d5124]">
-          #CoraFit
+  return (
+    <article
+      aria-label={
+        presentation.variant === "completed"
+          ? "Resumen de sesión completada"
+          : "Resumen de sesión registrada parcialmente"
+      }
+      className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-6"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm font-semibold tracking-tight text-primary">
+          CoraFit
         </span>
-        <span className="h-px flex-1 bg-[var(--portal-accent)]/45" />
+        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Entrenamiento
+        </span>
+      </div>
+
+      <div className="mt-7 flex flex-col items-center">
+        <div
+          className={cn(
+            "relative flex size-20 items-center justify-center rounded-full",
+            isPartial
+              ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+              : "bg-primary/10 text-primary",
+          )}
+        >
+          <StatusIcon aria-hidden="true" className="relative size-8 sm:size-9" />
+        </div>
+      </div>
+
+      <div className="mt-5 text-center">
+        <h1 className="mx-auto max-w-[18ch] break-words text-3xl font-bold leading-tight tracking-tight text-foreground">
+          {presentation.title}
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-muted-foreground">
+          {presentation.supportingText}
+        </p>
+      </div>
+
+      <CompletionPrimaryResult presentation={presentation} />
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <CompletionSecondaryStat
+          icon={<Flame aria-hidden="true" className="size-4" />}
+          label="Racha"
+          value={presentation.streakCompactLabel}
+        />
+        <CompletionSecondaryStat
+          icon={<Calendar aria-hidden="true" className="size-4" />}
+          label="Fecha"
+          valueClassName="whitespace-nowrap text-sm min-[360px]:text-base sm:text-xl"
+          value={presentation.formattedDateCompact}
+        />
+      </div>
+
+      <div className="mt-4 text-center">
+        <p className="text-sm font-semibold text-foreground">
+          Entrenando con CoraFit
+        </p>
       </div>
     </article>
   );
 }
 
-function CompletionStoryMetric({
-  caption,
+function CompletionPrimaryResult({
+  presentation,
+}: {
+  presentation: CompletionPresentation;
+}) {
+  const isPartial = presentation.variant === "partial";
+  const progress = Math.min(
+    100,
+    Math.max(0, presentation.completionPercentage),
+  );
+
+  return (
+    <section
+      aria-label="Resultado principal de la sesión"
+      className={cn(
+        "mt-6 rounded-2xl border border-transparent p-5",
+        isPartial
+          ? "bg-amber-500/5"
+          : "bg-primary/5",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 break-words text-base font-semibold text-foreground">
+          {presentation.primaryResultLabel}
+        </p>
+        <p className="shrink-0 text-3xl font-bold leading-none text-foreground">
+          {presentation.completionPercentage}%
+        </p>
+      </div>
+      <div
+        aria-label={`${presentation.progressLabel}: ${presentation.completionPercentage}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={progress}
+        className="mt-5 h-2.5 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+      >
+        <div
+          className={cn(
+            "h-full rounded-full transition-[width]",
+            isPartial ? "bg-amber-500" : "bg-primary",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="mt-3 text-sm font-medium text-muted-foreground">
+        {presentation.progressLabel}
+      </p>
+    </section>
+  );
+}
+
+function CompletionSecondaryStat({
   icon,
   label,
   value,
   valueClassName,
 }: {
-  caption: string;
   icon: ReactNode;
   label: string;
   value: ReactNode;
   valueClassName?: string;
 }) {
   return (
-    <div className="flex min-h-20 items-center gap-3 border-b border-r border-[#ece7e3] p-3 last:border-r-0 dark:border-[#3a4354] [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0">
-      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff0ec] dark:bg-[var(--portal-accent-soft)]">
+    <div className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{label}</p>
-        <p
-          className={cn(
-            "mt-1 break-words text-2xl font-black leading-none text-[#071026] dark:text-[#f4f6f8]",
-            valueClassName,
-          )}
-        >
-          {value}
+        <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.1em]">
+          {label}
         </p>
-        <p className="mt-1 text-xs font-semibold text-[#667080] dark:text-[#c7cfdb]">{caption}</p>
+      </div>
+      <p
+        className={cn(
+          "mt-3 break-words text-lg font-semibold leading-tight text-foreground sm:text-xl",
+          valueClassName,
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function CompletionActions({
+  busyAction,
+  feedback,
+  onSave,
+  onShare,
+  shareFallback,
+  token,
+}: {
+  busyAction: CompletionBusyAction;
+  feedback: CompletionFeedback | null;
+  onSave: () => void;
+  onShare: () => void;
+  shareFallback: string | null;
+  token: string;
+}) {
+  return (
+    <aside
+      aria-label="Acciones del logro"
+      className="w-full lg:sticky lg:top-6 lg:max-w-xs"
+    >
+      <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[var(--surface-shadow-soft)] sm:p-5">
+        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-1">
+          <Button
+            aria-busy={busyAction === "share"}
+            className="min-h-11 w-full"
+            disabled={busyAction !== null}
+            onClick={onShare}
+            type="button"
+            variant="outline"
+          >
+            {busyAction === "share" ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <Share2 aria-hidden="true" className="size-4" />
+            )}
+            Compartir
+          </Button>
+          <Button
+            aria-busy={busyAction === "save"}
+            className="min-h-11 w-full"
+            disabled={busyAction !== null}
+            onClick={onSave}
+            type="button"
+            variant="outline"
+          >
+            {busyAction === "save" ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <Download aria-hidden="true" className="size-4" />
+            )}
+            Guardar imagen
+          </Button>
+        </div>
+
+        {feedback ? <CompletionFeedbackView feedback={feedback} /> : null}
+        {shareFallback ? (
+          <div className="mt-3 rounded-xl border border-border/70 bg-background/65 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Texto para compartir
+            </p>
+            <p className="mt-2 select-text whitespace-pre-line break-words text-sm leading-6 text-foreground">
+              {shareFallback}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-5 space-y-3 border-t border-border/70 pt-5">
+          <Button asChild className="min-h-12 w-full" size="lg">
+            <Link href={`/c/${encodeURIComponent(token)}/home`}>
+              Volver al inicio
+            </Link>
+          </Button>
+          <Button asChild className="min-h-11 w-full" variant="ghost">
+            <Link href={`/c/${encodeURIComponent(token)}/calendar`}>
+              <Calendar aria-hidden="true" className="size-4" />
+              Ver calendario
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function CompletionFeedbackView({
+  feedback,
+}: {
+  feedback: CompletionFeedback;
+}) {
+  const isError = feedback.tone === "error";
+  return (
+    <div
+      aria-live={isError ? "assertive" : "polite"}
+      className={cn(
+        "mt-4 flex items-start gap-2 rounded-xl border p-3 text-sm leading-6",
+        isError
+          ? "border-destructive/25 bg-destructive/5 text-destructive"
+          : "border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300",
+      )}
+      role={isError ? "alert" : "status"}
+    >
+      {isError ? (
+        <AlertTriangle aria-hidden="true" className="mt-1 size-4 shrink-0" />
+      ) : (
+        <CheckCircle2 aria-hidden="true" className="mt-1 size-4 shrink-0" />
+      )}
+      <div>
+        <p className="font-semibold">{feedback.message}</p>
+        {feedback.detail ? <p className="mt-1">{feedback.detail}</p> : null}
       </div>
     </div>
   );
@@ -1974,83 +2391,115 @@ export function ClientPortalProgressScreen({ token }: { token: string }) {
 
 export function ClientPortalSettingsScreen({ token }: { token: string }) {
   const { resolvedTheme, setTheme, theme } = useAppTheme();
-  const isDark = resolvedTheme === "dark";
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const selectedTheme = isMounted ? theme : "system";
+  const selectedThemeLabel =
+    selectedTheme === "system"
+      ? `Sistema · ${resolvedTheme === "dark" ? "oscuro" : "claro"}`
+      : selectedTheme === "dark"
+        ? "Oscuro"
+        : "Claro";
 
   return (
     <ClientPortalShell token={token} active="settings">
-      <section className="px-5 pb-10 pt-6 lg:px-10 lg:pt-10">
-        <div className="rounded-[1.75rem] border border-[#ece7e3] bg-white p-5 shadow-[0_18px_50px_rgba(18,23,34,0.08)] dark:border-[#222936] dark:bg-[#121722] dark:shadow-none">
-          <div className="flex items-start gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] ">
-              <Settings className="size-6" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--portal-accent)] ">
-                Configuracion
-              </p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-[#09111f] dark:text-[#f4f6f8]">
-                Preferencias del portal
-              </h1>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#667080] dark:text-[#aab2bf]">
-                Ajusta como quieres ver tu entrenamiento desde este dispositivo.
-              </p>
+      <section className="px-5 pb-10 pt-6 md:px-8 lg:px-10 lg:pt-10">
+        <div className="mx-auto max-w-3xl lg:mx-0">
+          <h1 className="text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+            Configuración
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+            Personaliza cómo se ve el portal en este dispositivo.
+          </p>
+
+          <section className="mt-8 rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)] md:p-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Settings className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Apariencia
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Elige cómo quieres ver el portal.
+                </p>
+              </div>
             </div>
-          </div>
+
+            <p className="mt-4 text-sm font-medium text-muted-foreground">
+              Estado actual:{" "}
+              <span className="text-foreground">{selectedThemeLabel}</span>
+            </p>
+
+            <fieldset className="mt-5 grid gap-3">
+              <legend className="sr-only">Tema del portal</legend>
+              {portalThemeOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = selectedTheme === option.value;
+
+                return (
+                  <label
+                    key={option.value}
+                    className={cn(
+                      "flex min-h-20 w-full cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-within:outline-none focus-within:ring-[3px] focus-within:ring-ring/25",
+                      isSelected
+                        ? "border-primary/45 bg-primary/5 text-foreground"
+                        : "border-border/70 bg-background hover:border-primary/30 hover:bg-accent/40",
+                    )}
+                  >
+                    <input
+                      checked={isSelected}
+                      className="sr-only"
+                      name="portal-theme"
+                      onChange={() => setTheme(option.value)}
+                      type="radio"
+                      value={option.value}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground",
+                        isSelected && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-semibold text-foreground">
+                        {option.label}
+                      </span>
+                      <span className="mt-0.5 block text-sm leading-6 text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 text-transparent",
+                        isSelected &&
+                          "border-primary bg-primary text-primary-foreground",
+                      )}
+                    >
+                      {isSelected ? <Check className="size-4" /> : null}
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          </section>
+
+          <p className="mt-4 flex items-start gap-2 px-1 text-sm leading-6 text-muted-foreground">
+            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+            <span>
+              Esta preferencia solo cambia la apariencia del portal en este
+              dispositivo.
+            </span>
+          </p>
         </div>
-
-        <section className="mt-5 rounded-[1.5rem] border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#222936] dark:bg-[#121722]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-black text-[#09111f] dark:text-[#f4f6f8]">
-                Tema
-              </h2>
-              <p className="mt-1 text-sm font-semibold text-[#667080] dark:text-[#aab2bf]">
-                Modo actual:{" "}
-                <span suppressHydrationWarning>
-                  {isDark ? "oscuro" : "claro"}
-                </span>
-              </p>
-            </div>
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-[#f7f4f1] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#1a202b] ">
-              {isDark ? (
-                <Moon className="size-5" />
-              ) : (
-                <Sun className="size-5" />
-              )}
-            </span>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button
-              className={cn(
-                "flex min-h-28 flex-col items-start justify-between rounded-2xl border p-4 text-left transition",
-                theme === "light"
-                  ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[#5f4a08] shadow-[0_12px_30px_var(--portal-accent-shadow)]"
-                  : "border-[#ece7e3] bg-[#fdfdfc] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#aab2bf]",
-              )}
-              type="button"
-              aria-pressed={theme === "light"}
-              onClick={() => setTheme("light")}
-            >
-              <Sun className="size-6" />
-              <span className="text-base font-black">Claro</span>
-            </button>
-            <button
-              className={cn(
-                "flex min-h-28 flex-col items-start justify-between rounded-2xl border p-4 text-left transition",
-                theme === "dark"
-                  ? "border-[var(--portal-accent)] bg-[var(--portal-accent-soft)] text-[var(--portal-accent)] shadow-[0_12px_30px_var(--portal-accent-shadow)]"
-                  : "border-[#ece7e3] bg-[#fdfdfc] text-[#4e5968] dark:border-[#2b3342] dark:bg-[#0d1016] dark:text-[#aab2bf]",
-              )}
-              type="button"
-              aria-pressed={theme === "dark"}
-              onClick={() => setTheme("dark")}
-            >
-              <Moon className="size-6" />
-              <span className="text-base font-black">Oscuro</span>
-            </button>
-          </div>
-        </section>
       </section>
     </ClientPortalShell>
   );
@@ -3413,6 +3862,70 @@ function UpcomingDays({ days }: { days: ClientPortalDay[] }) {
   );
 }
 
+function SessionOverviewCard({
+  completedCount,
+  readOnly = false,
+  total,
+}: {
+  completedCount: number;
+  readOnly?: boolean;
+  total: number;
+}) {
+  const percentage = total ? Math.round((completedCount / total) * 100) : 0;
+  const remaining = Math.max(total - completedCount, 0);
+  const exerciseLabel = `${total} ${total === 1 ? "ejercicio" : "ejercicios"}`;
+  const statusMessage =
+    total === 0
+      ? "No hay ejercicios en esta sesión"
+      : completedCount === 0
+        ? "Comienza con el primer ejercicio"
+      : remaining > 0
+        ? `${remaining} ${remaining === 1 ? "ejercicio restante" : "ejercicios restantes"}`
+        : "Todo listo para finalizar";
+
+  return (
+    <section className="rounded-2xl border border-transparent bg-card p-4 shadow-[var(--surface-shadow-soft)]">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="min-w-0 text-base font-bold text-foreground">
+          {readOnly ? "Vista de lectura" : "Progreso de la sesión"}
+        </h2>
+        <span className="shrink-0 text-sm font-bold text-foreground">
+          {readOnly ? exerciseLabel : `${completedCount} de ${total}`}
+        </span>
+      </div>
+      {readOnly ? (
+        <>
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            Revisa la rutina antes de la fecha programada.
+          </p>
+          <div className="mt-3 h-1.5 rounded-full bg-muted" aria-hidden="true" />
+        </>
+      ) : (
+        <>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="min-w-0 text-sm leading-5 text-muted-foreground">
+              {statusMessage}
+            </p>
+            <span className="shrink-0 text-sm font-bold text-foreground">
+              {percentage}%
+            </span>
+          </div>
+          <div
+            aria-label={`${percentage}% de la sesión completada`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={percentage}
+            className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+          >
+            <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percentage}%` }} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function SessionProgressPanel({
   completedCount,
   finalizing,
@@ -3430,66 +3943,56 @@ function SessionProgressPanel({
   readOnly?: boolean;
   total: number;
 }) {
-  const progress = total ? (completedCount / total) * 100 : 0;
-
+  const progress = total ? Math.round((completedCount / total) * 100) : 0;
   return (
     <aside className="hidden lg:sticky lg:top-8 lg:block">
-      <div className="rounded-xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
-        <p className="text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">Progreso actual</p>
+      <div className="rounded-2xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow-soft)]">
+        <p className="text-sm font-bold text-muted-foreground">{readOnly ? "Vista de lectura" : "Progreso actual"}</p>
         <div className="mt-3 flex items-end justify-between gap-4">
           <div>
-            <p className="text-3xl font-bold text-[#09111f] dark:text-[#f4f6f8]">
-              {completedCount}/{total}
-            </p>
-            <p className="mt-1 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
-              ejercicios completados
-            </p>
+            <p className="text-3xl font-bold text-foreground">{readOnly ? total : `${completedCount}/${total}`}</p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">{readOnly ? (total === 1 ? "ejercicio" : "ejercicios") : "ejercicios completados"}</p>
           </div>
-          <span className="rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
-            {Math.round(progress)}%
-          </span>
+          {!readOnly ? <Badge variant="muted">{progress}%</Badge> : null}
         </div>
-        <div className="mt-5 h-2 rounded-full bg-[#f0eeee] dark:bg-[#242b36]">
-          <div
-            className="h-2 rounded-full bg-[var(--portal-accent)]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="mt-4 text-sm font-medium text-[#667080] dark:text-[#c7cfdb]">
-          {readOnly
-            ? "Vista previa de la sesion programada."
-            : pendingCount > 0
-              ? `${pendingCount} ejercicios pendientes.`
-              : "Todos los ejercicios estan listos para finalizar."}
+        {!readOnly ? <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${progress}% de la sesión completada`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+        </div> : null}
+        <p className="mt-4 text-sm font-medium text-muted-foreground">
+          {total === 0
+            ? "No hay ejercicios en esta sesión"
+            : readOnly
+              ? "Sesión programada"
+              : pendingCount > 0
+                ? completedCount === 0
+                  ? "Comienza con el primer ejercicio."
+                  : `${pendingCount} ${pendingCount === 1 ? "ejercicio pendiente" : "ejercicios pendientes"}.`
+                : completedCount === 0
+                  ? "Comienza con el primer ejercicio."
+                  : "Todo listo para finalizar."}
         </p>
         <div className="mt-6 space-y-3">
-          <button
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent)]"
-            onClick={onSave}
-            type="button"
-          >
-            <Home className="size-4" /> Guardar y salir
-          </button>
-          <button
-            className={cn(
-              "flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60",
-              readOnly
-                ? "bg-[#ece7e3] text-[#667080] shadow-none dark:bg-[#242b36] dark:text-[#c7cfdb]"
-                : "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
-            )}
-            disabled={finalizing || readOnly}
+          <Button className="h-12 w-full whitespace-normal"
+            aria-busy={finalizing}
+            disabled={finalizing || readOnly || total === 0}
             onClick={onFinalize}
-            type="button"
+            variant={readOnly ? "secondary" : "default"}
           >
             {readOnly ? (
               "Disponible en la fecha programada"
             ) : finalizing ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <RotateCcw className="size-4" />
+              <CheckCircle2 className="size-4" />
             )}
-            {readOnly ? null : "Finalizar sesion"}
-          </button>
+            {readOnly ? null : "Finalizar sesión"}
+          </Button>
+          <Button className="h-12 w-full" variant="outline"
+            disabled={finalizing}
+            onClick={onSave}
+          >
+            <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Salir por ahora"}
+          </Button>
         </div>
       </div>
     </aside>
@@ -3505,6 +4008,7 @@ function SessionExerciseListCard({
   completed,
   loading,
   readOnly = false,
+  total,
   onComplete,
   onOpen,
 }: {
@@ -3513,49 +4017,49 @@ function SessionExerciseListCard({
   completed: boolean;
   loading: boolean;
   readOnly?: boolean;
+  total: number;
   onComplete: () => void;
   onOpen: () => void;
 }) {
   return (
-    <article className="flex min-h-24 items-center gap-4 rounded-xl border border-[#d8d1ca] bg-white p-4 shadow-sm transition hover:border-[#c9cdd3] dark:border-[#293140] dark:bg-[#121722] dark:hover:border-[#3a4354]">
+    <article className="flex min-h-24 min-w-0 items-center gap-2 rounded-2xl border border-transparent bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:gap-3 sm:p-4">
       <button
-        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+        aria-label={`Abrir detalle de ${exercise.exercise.name}, ejercicio ${index + 1} de ${total}${readOnly ? ", modo lectura" : ""}`}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 sm:gap-4"
         onClick={onOpen}
         type="button"
       >
         <div
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-            completed
-              ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]"
-              : "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]",
+            "flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary sm:size-11",
+            completed && !readOnly && "bg-primary text-primary-foreground",
           )}
         >
-          {completed ? <Check className="size-4" /> : index + 1}
+          {completed && !readOnly ? <Check className="size-4" /> : index + 1}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+          <h3 className="text-base font-bold leading-5 text-foreground sm:text-lg">
             {exercise.exercise.name}
           </h3>
-          <p className="mt-2 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-            {exercise.sets ?? "-"} series x {exercise.reps} reps
+          <p className="mt-1.5 text-sm font-medium leading-5 text-muted-foreground">
+            {exercise.sets ?? "-"} series × {exercise.reps}
           </p>
-          <p className="mt-1 text-sm font-bold text-[#667080] dark:text-[#c7cfdb]">
-            {exercise.restSeconds ?? "-"} seg descanso
+          <p className="mt-0.5 text-sm font-medium leading-5 text-muted-foreground">
+            {exercise.restSeconds != null ? `${exercise.restSeconds} seg de descanso` : "Sin descanso indicado"}
           </p>
         </div>
+        {readOnly ? <Badge variant="muted">Lectura</Badge> : null}
+        <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
-      {readOnly ? (
-        <div className="rounded-lg bg-[#f4f1ef] px-3 py-2 text-xs font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]">
-          Lectura
-        </div>
-      ) : (
-        <button
-          aria-label="Completar ejercicio"
+      {!readOnly ? (
+        <div className="flex shrink-0 items-center">
+          <button
+          aria-busy={loading}
+          aria-label={`Marcar ${exercise.exercise.name} como completado`}
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#8b929d] bg-white text-[#09111f] dark:border-[#5f6a7b] dark:bg-[#0d1016] dark:text-[#f4f6f8]",
+            "flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35",
             completed &&
-              "border-[var(--portal-accent)] bg-[var(--portal-accent)] text-[var(--portal-accent-on)]",
+              "border-primary bg-primary text-primary-foreground",
           )}
           disabled={completed || loading}
           onClick={onComplete}
@@ -3566,8 +4070,9 @@ function SessionExerciseListCard({
           ) : completed ? (
             <Check className="size-5" />
           ) : null}
-        </button>
-      )}
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -3586,8 +4091,6 @@ function ClientExerciseDetailView({
   onPrevious,
   onComplete,
   onUseAlternative,
-  onSave,
-  onFinalize,
 }: {
   exercise: ClientSessionExercise;
   index: number;
@@ -3602,8 +4105,6 @@ function ClientExerciseDetailView({
   onPrevious: () => void;
   onComplete: () => void;
   onUseAlternative: (alternativeId: string) => void;
-  onSave: () => void;
-  onFinalize: () => void;
 }) {
   const progress = total ? (completedCount / total) * 100 : 0;
   const selectedAlternative = exercise.alternatives.find(
@@ -3611,53 +4112,75 @@ function ClientExerciseDetailView({
   );
   const suggestedAlternative =
     selectedAlternative ?? exercise.alternatives[0] ?? null;
+  const detailStartRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    detailStartRef.current?.scrollIntoView({
+      block: "start",
+      behavior: "auto",
+    });
+  }, [index]);
 
   return (
-    <article>
+    <article
+      className={cn(
+        readOnly && "pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-0",
+      )}
+      ref={detailStartRef}
+    >
       <div className="flex items-center justify-between gap-3">
-        <button
+        <Button
           aria-label="Volver"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[#ece7e3] bg-white text-[#09111f] shadow-sm dark:border-[#293140] dark:bg-[#121722] dark:text-[#f4f6f8]"
+          className="shrink-0"
           onClick={onBack}
+          size="icon"
           type="button"
+          variant="outline"
         >
           <ArrowLeft className="size-5" />
-        </button>
+        </Button>
         <div className="min-w-0 text-center">
-          <p className="truncate text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+          <p className="truncate text-base font-semibold text-foreground">
             Detalle del ejercicio
           </p>
-          <p className="mt-1 text-xs font-bold text-[#8b929d] dark:text-[#c7cfdb]">
-            Sesion cliente
-          </p>
         </div>
-        <div className="size-11 shrink-0" aria-hidden="true" />
+        <div className="size-10 shrink-0" aria-hidden="true" />
       </div>
 
       <div className="mt-7">
-        <div className="flex items-center justify-between gap-4 text-sm font-bold">
-          <span className="text-[#09111f] dark:text-[#f4f6f8]">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-semibold text-foreground">
             Ejercicio {index + 1} de {total}
           </span>
-          <span className="text-[#4e5968] dark:text-[#c7cfdb]">
+          <span className="text-sm font-medium text-muted-foreground">
             {Math.round(progress)}% completado
           </span>
         </div>
-        <div className="mt-3 h-2 rounded-full bg-[#eceff2] dark:bg-[#242b36]">
+        <div
+          aria-label={`${Math.round(progress)}% de la sesión completada`}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={Math.round(progress)}
+          className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+        >
           <div
-            className="h-2 rounded-full bg-[var(--portal-accent)]"
+            className="h-full rounded-full bg-primary transition-[width]"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-8 flex items-end justify-between gap-4">
-        <h1 className="min-w-0 text-4xl font-black leading-tight tracking-normal text-[#09111f] dark:text-[#f4f6f8] md:text-5xl">
+      <div className="mt-7 flex items-end justify-between gap-4">
+        <h1 className="min-w-0 break-words text-2xl font-semibold leading-tight tracking-normal text-foreground sm:text-3xl">
           {exercise.exercise.name}
         </h1>
       </div>
 
-      <ExerciseMediaHero exercise={exercise.exercise} />
+      <ExerciseMediaHero
+        exercise={exercise.exercise}
+        key={exercise.sessionExerciseId}
+      />
       <ExerciseMetricGrid exercise={exercise} />
 
       <div className="mt-6 space-y-4">
@@ -3695,77 +4218,62 @@ function ClientExerciseDetailView({
       </div>
 
       <div className="mt-6 hidden items-center justify-between gap-3 lg:flex">
-        <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
+        <Button
           disabled={index === 0}
           onClick={onPrevious}
           type="button"
+          variant="outline"
         >
           <ChevronLeft className="size-4" /> Anterior
-        </button>
-        <button
-          className="flex h-11 items-center gap-2 rounded-xl border border-[#ece7e3] bg-white px-4 text-sm font-bold text-[#4e5968] disabled:opacity-50 dark:border-[#293140] dark:bg-[#121722] dark:text-[#c7cfdb]"
+        </Button>
+        <Button
           disabled={index >= total - 1}
           onClick={onNext}
           type="button"
+          variant="outline"
         >
           Siguiente <ChevronRight className="size-4" />
-        </button>
+        </Button>
       </div>
 
-      <div className="sticky bottom-0 -mx-5 mt-6 border-t border-[#ece7e3] bg-white/95 px-5 py-4 backdrop-blur dark:border-[#293140] dark:bg-[#0d1016]/95 lg:hidden">
-        {readOnly ? (
-          <button
-            className="flex h-14 w-full items-center justify-center rounded-xl bg-[#ece7e3] text-sm font-bold text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]"
-            disabled
-            type="button"
-          >
-            Disponible en la fecha programada
-          </button>
-        ) : completed ? (
-          <button
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#121722] text-sm font-bold text-white disabled:opacity-60"
-            disabled={index >= total - 1}
-            onClick={onNext}
-            type="button"
-          >
-            <Check className="size-5" />{" "}
-            {index >= total - 1 ? "Completado" : "Siguiente"}
-          </button>
-        ) : (
-          <button
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[var(--portal-accent)] text-sm font-bold text-[var(--portal-accent-on)] shadow-[0_10px_24px_var(--portal-accent-shadow)] disabled:opacity-60"
-            disabled={loading}
-            onClick={onComplete}
-            type="button"
-          >
-            {loading ? (
-              <Loader2 className="size-5 animate-spin" />
-            ) : (
-              <Check className="size-5" />
-            )}{" "}
-            Marcar completado
-          </button>
-        )}
-        {!readOnly ? (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#ece7e3] text-xs font-bold text-[#4e5968] dark:border-[#3a4354] dark:text-[#c7cfdb]"
-              onClick={onSave}
+      {!readOnly ? (
+        <div className="sticky bottom-0 z-20 -mx-5 mt-6 border-t border-border/50 bg-background/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur md:-mx-8 md:px-8 lg:hidden">
+          {completed ? (
+            <Button
+              className="h-14 w-full whitespace-normal"
+              onClick={index >= total - 1 ? onBack : onNext}
               type="button"
+              variant="default"
             >
-              <Home className="size-4" /> Guardar y salir
-            </button>
-            <button
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#f1c7bd] text-xs font-bold text-[var(--portal-accent)]"
-              onClick={onFinalize}
+              {index >= total - 1 ? (
+                <>
+                  <ArrowLeft className="size-5" /> Volver a la sesión
+                </>
+              ) : (
+                <>
+                  <ChevronRight className="size-5" /> Siguiente
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              aria-busy={loading}
+              className="h-14 w-full whitespace-normal"
+              disabled={loading}
+              onClick={onComplete}
               type="button"
+              variant="default"
             >
-              <RotateCcw className="size-4" /> Finalizar sesion
-            </button>
-          </div>
-        ) : null}
-      </div>
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Check className="size-5" />
+              )}{" "}
+              Marcar completado
+            </Button>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -3776,99 +4284,128 @@ function ExerciseMediaHero({
   exercise: ClientSessionExercise["exercise"];
 }) {
   const [isImageOpen, setIsImageOpen] = useState(false);
+  const [mediaMode, setMediaMode] = useState<"image" | "video">(
+    exercise.mediaUrl ? "image" : "video",
+  );
+  const embedUrl = getYouTubeEmbedUrl(exercise.videoUrl);
+  const hasImage = Boolean(exercise.mediaUrl);
+  const hasVideo = Boolean(exercise.videoUrl);
 
-  if (!exercise.mediaUrl && !exercise.videoUrl) {
+  if (!hasImage && !hasVideo) {
     return (
-      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#121722]">
+      <div className="mt-5 flex aspect-video min-h-56 items-center justify-center rounded-2xl border border-dashed border-border bg-muted text-center">
         <div>
-          <FileText className="mx-auto size-8 text-[#8b929d] dark:text-[#c7cfdb]" />
-          <p className="mt-3 text-sm font-bold text-[#4e5968] dark:text-[#c7cfdb]">
-            Sin demostracion adjunta
+          <FileText className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-bold text-muted-foreground">
+            Sin demostración adjunta
           </p>
         </div>
       </div>
     );
   }
 
-  if (!exercise.mediaUrl && exercise.videoUrl) {
-    return (
-      <div className="mt-5 flex aspect-[16/10] min-h-56 items-center justify-center rounded-2xl border border-[#ece7e3] bg-[#121722] p-5 text-white shadow-sm">
-        <a
-          className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-[#09111f] dark:bg-[#f4f6f8] dark:text-[#09111f]"
-          href={exercise.videoUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <PlayCircle className="size-5 text-[var(--portal-accent)]" /> Ver
-          demostracion
-        </a>
-      </div>
-    );
-  }
-
-  if (!exercise.mediaUrl) {
-    return null;
-  }
-
   const imageUrl = exercise.mediaUrl;
+  const showImage = Boolean(imageUrl) && (mediaMode === "image" || !embedUrl);
+  const showVideo = mediaMode === "video" && Boolean(embedUrl);
 
   return (
     <div className="mt-5">
-      <button
-        className="relative block aspect-[16/10] min-h-56 w-full overflow-hidden rounded-2xl border border-[#ece7e3] bg-[#f4f1ef] shadow-sm dark:border-[#293140] dark:bg-[#121722]"
-        type="button"
-        aria-label={`Ampliar imagen de ${exercise.name}`}
-        onClick={() => setIsImageOpen(true)}
-      >
-        <NextImage
-          alt={`Demostracion de ${exercise.name}`}
-          className="size-full object-cover"
-          fill
-          sizes="(max-width: 640px) 100vw, 560px"
-          src={imageUrl}
-          unoptimized
-        />
-      </button>
-      {exercise.videoUrl ? (
-        <a
-          className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl border border-[#c9cdd3] bg-white px-4 text-sm font-extrabold text-[#09111f] dark:border-[#3a4354] dark:bg-[#121722] dark:text-[#f4f6f8]"
-          href={exercise.videoUrl}
-          rel="noreferrer"
-          target="_blank"
+      {hasImage && hasVideo ? (
+        <div className="mb-3 flex w-fit items-center gap-1 rounded-xl border border-border/60 bg-card p-1">
+          <Button
+            aria-pressed={mediaMode === "image"}
+            onClick={() => setMediaMode("image")}
+            size="sm"
+            type="button"
+            variant={mediaMode === "image" ? "secondary" : "ghost"}
+          >
+            <Camera className="size-4" /> Imagen
+          </Button>
+          <Button
+            aria-pressed={mediaMode === "video"}
+            onClick={() => setMediaMode("video")}
+            size="sm"
+            type="button"
+            variant={mediaMode === "video" ? "secondary" : "ghost"}
+          >
+            <PlayCircle className="size-4" /> Video
+          </Button>
+        </div>
+      ) : null}
+      {showImage ? (
+        <button
+          className="relative block aspect-video min-h-56 w-full overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-[var(--surface-shadow-soft)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
+          type="button"
+          aria-label={`Ampliar imagen de ${exercise.name}`}
+          onClick={() => setIsImageOpen(true)}
         >
-          <PlayCircle className="size-5 text-[var(--portal-accent)]" /> Ver
-          video
-        </a>
+          <NextImage
+            alt={`Demostración de ${exercise.name}`}
+            className="size-full object-cover"
+            fill
+            sizes="(max-width: 640px) 100vw, 560px"
+            src={imageUrl!}
+            unoptimized
+          />
+        </button>
+      ) : showVideo ? (
+        <div className="aspect-video overflow-hidden rounded-2xl border border-border/60 bg-foreground shadow-[var(--surface-shadow-soft)]">
+          <iframe
+            allow="encrypted-media; picture-in-picture"
+            allowFullScreen
+            className="size-full"
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src={embedUrl!}
+            title={`Video de demostración de ${exercise.name}`}
+          />
+        </div>
+      ) : (
+        <div className="flex aspect-video min-h-56 items-center justify-center rounded-2xl border border-border/60 bg-foreground p-5 text-center text-background shadow-[var(--surface-shadow-soft)]">
+          <div>
+            <PlayCircle className="mx-auto size-8" />
+            <p className="mt-3 text-sm font-bold">Video no disponible aquí</p>
+          </div>
+        </div>
+      )}
+      {exercise.videoUrl && (mediaMode === "video" || !hasImage) ? (
+        <Button asChild className="mt-3" size="sm" variant="outline">
+          <a href={exercise.videoUrl} rel="noreferrer" target="_blank">
+            <PlayCircle className="size-4 text-primary" /> Abrir en YouTube
+          </a>
+        </Button>
       ) : null}
       {isImageOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#09111f]/95 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/95 p-4"
           role="dialog"
           aria-modal="true"
           aria-label={`Imagen completa de ${exercise.name}`}
           onClick={() => setIsImageOpen(false)}
         >
-          <button
-            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white text-[#09111f] shadow-lg dark:bg-[#f4f6f8]"
+          <Button
+            className="absolute right-4 top-4 z-10"
             type="button"
             aria-label="Cerrar imagen"
             onClick={(event) => {
               event.stopPropagation();
               setIsImageOpen(false);
             }}
+            size="icon"
+            variant="secondary"
           >
             <X className="size-5" />
-          </button>
+          </Button>
           <div
             className="relative h-[calc(100dvh-7rem)] w-full max-w-3xl"
             onClick={(event) => event.stopPropagation()}
           >
             <NextImage
-              alt={`Demostracion de ${exercise.name}`}
+              alt={`Demostración de ${exercise.name}`}
               className="object-contain"
               fill
               sizes="100vw"
-              src={imageUrl}
+              src={imageUrl!}
               unoptimized
             />
           </div>
@@ -3904,14 +4441,14 @@ function ExerciseMetricGrid({ exercise }: { exercise: ClientSessionExercise }) {
         const Icon = metric.icon;
         return (
           <div
-            className="min-h-28 rounded-xl border border-[#ece7e3] bg-white p-4 shadow-sm dark:border-[#293140] dark:bg-[#121722]"
+            className="min-h-28 min-w-0 rounded-xl border border-border/60 bg-card p-4 shadow-[var(--surface-shadow-soft)]"
             key={metric.label}
           >
-            <Icon className="size-6 text-[var(--portal-accent)]" />
-            <p className="mt-3 text-xs font-bold leading-4 text-[#667080] dark:text-[#c7cfdb]">
+            <Icon className="size-6 text-primary" />
+            <p className="mt-3 break-words text-xs font-medium leading-4 text-muted-foreground">
               {metric.label}
             </p>
-            <p className="mt-1 text-base font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+            <p className="mt-1 break-words text-base font-semibold text-foreground">
               {metric.value}
             </p>
           </div>
@@ -3933,33 +4470,36 @@ function ExerciseInfoCard({
   muted?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const contentId = `exercise-info-${title.toLowerCase().replaceAll(" ", "-")}`;
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+    <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-[var(--surface-shadow-soft)]">
       <button
-        className="flex w-full items-center gap-3 text-left"
+        aria-controls={contentId}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
         onClick={() => setExpanded((current) => !current)}
         type="button"
       >
-        <span className="text-[var(--portal-accent)]">{icon}</span>
-        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">{title}</h2>
+        <span className="text-primary">{icon}</span>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
         <ChevronDown
           className={cn(
-            "ml-auto size-5 text-[#667080] transition dark:text-[#c7cfdb]",
+            "ml-auto size-5 text-muted-foreground transition-transform duration-200",
             !expanded && "-rotate-90",
           )}
         />
       </button>
-      {expanded ? (
-        <p
-          className={cn(
-            "mt-3 whitespace-pre-line text-base leading-7",
-            muted ? "text-[#8b929d] dark:text-[#8893a3]" : "text-[#4e5968] dark:text-[#d6dbe3]",
-          )}
-        >
-          {value}
-        </p>
-      ) : null}
+      <p
+        id={contentId}
+        hidden={!expanded}
+        className={cn(
+          "mt-3 whitespace-pre-line text-sm leading-6 sm:text-base sm:leading-7",
+          muted ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {value}
+      </p>
     </section>
   );
 }
@@ -3981,6 +4521,8 @@ function AlternativeSuggestion({
 }) {
   const isSelected = selectedAlternativeId === alternative.id;
   const [showDetails, setShowDetails] = useState(false);
+  const detailsId = `alternative-details-${alternative.id}`;
+  const alternativeEmbedUrl = getYouTubeEmbedUrl(alternative.exercise.videoUrl);
   const canView = Boolean(
     alternative.exercise.mediaUrl ||
     alternative.exercise.videoUrl ||
@@ -3988,71 +4530,120 @@ function AlternativeSuggestion({
   );
 
   return (
-    <section className="rounded-2xl border border-[#ece7e3] bg-white p-5 shadow-sm dark:border-[#293140] dark:bg-[#121722]">
+    <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-[var(--surface-shadow-soft)]">
       <div className="flex items-center gap-3">
-        <RotateCcw className="size-7 text-[var(--portal-accent)]" />
-        <h2 className="text-xl font-extrabold text-[#09111f] dark:text-[#f4f6f8]">
+        <RotateCcw className="size-7 text-primary" />
+        <h2 className="text-base font-semibold text-foreground">
           Alternativa sugerida
         </h2>
       </div>
-      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-[#ece7e3] bg-white p-3 shadow-[0_8px_22px_rgba(18,23,34,0.06)] dark:border-[#3a4354] dark:bg-[#0d1016] dark:shadow-none sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-[8rem_minmax(0,1fr)] gap-3 rounded-xl border border-border/60 bg-card p-3 shadow-[var(--surface-shadow-soft)] sm:grid-cols-[9.5rem_minmax(0,1fr)]">
         <AlternativeMediaPreview alternative={alternative} />
-        <div className="min-w-0 rounded-xl border border-[#f0eeee] bg-white p-3 dark:border-[#293140] dark:bg-[#121722]">
+        <div className="min-w-0 rounded-xl border border-border/60 bg-card p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-lg font-extrabold leading-snug text-[#09111f] dark:text-[#f4f6f8]">
+              <h3 className="break-words text-base font-semibold leading-snug text-foreground">
                 {alternative.exercise.name}
               </h3>
               {alternative.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#667080] dark:text-[#c7cfdb]">
+                <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
                   {alternative.note}
                 </p>
               ) : null}
-              <p className="mt-2 text-sm font-semibold text-[#667080] dark:text-[#c7cfdb]">
+              <p className="mt-2 break-words text-sm font-medium text-muted-foreground">
                 {exercise.sets ?? "-"} series x {exercise.reps} reps ·{" "}
                 {exercise.restSeconds ?? "-"} seg descanso
               </p>
             </div>
             {isSelected ? (
-              <span className="shrink-0 rounded-full bg-[var(--portal-accent-soft)] px-3 py-1 text-xs font-bold text-[var(--portal-accent)]">
+              <Badge
+                className="border-primary/20 bg-primary/10 text-primary"
+                variant="outline"
+              >
                 En uso
-              </span>
+              </Badge>
             ) : null}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {alternative.exercise.videoUrl ? (
-              <a
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
-                href={alternative.exercise.videoUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Ver video
-              </a>
-            ) : canView ? (
-              <button
-                className="flex h-11 items-center justify-center rounded-xl border border-[#c9cdd3] text-sm font-extrabold text-[#09111f] shadow-sm dark:border-[#3a4354] dark:text-[#f4f6f8]"
+              <Button
+                aria-controls={detailsId}
+                aria-expanded={showDetails}
+                className="h-11 min-w-0 whitespace-normal text-center"
                 onClick={() => setShowDetails((current) => !current)}
                 type="button"
+                variant="outline"
+              >
+                <PlayCircle className="size-4 text-primary" />
+                {showDetails ? "Ocultar video" : "Ver video"}
+              </Button>
+            ) : canView ? (
+              <Button
+                aria-controls={detailsId}
+                aria-expanded={showDetails}
+                className="h-11 min-w-0 whitespace-normal text-center"
+                onClick={() => setShowDetails((current) => !current)}
+                type="button"
+                variant="outline"
               >
                 Ver alternativa
-              </button>
+              </Button>
             ) : null}
             {!readOnly ? (
-              <button
-                className="flex h-11 items-center justify-center rounded-xl border border-[var(--portal-accent)] text-sm font-extrabold text-[var(--portal-accent)] disabled:opacity-60"
+              <Button
+                className="h-11 min-w-0 whitespace-normal text-center"
                 disabled={loading || isSelected}
                 onClick={() => onUseAlternative(alternative.id)}
                 type="button"
+                variant="outline"
               >
                 {isSelected ? "En uso" : "Usar alternativa"}
-              </button>
+              </Button>
             ) : null}
           </div>
-          {showDetails && alternative.exercise.instructions ? (
-            <p className="mt-4 whitespace-pre-line rounded-xl bg-[#f7f4f1] p-4 text-sm leading-6 text-[#4e5968] dark:bg-[#0d1016] dark:text-[#d6dbe3]">
-              {alternative.exercise.instructions}
-            </p>
+          {showDetails ? (
+            <div
+              className="mt-4 space-y-4 rounded-xl bg-muted p-4 text-sm leading-6 text-foreground"
+              id={detailsId}
+            >
+              {alternative.exercise.videoUrl ? (
+                alternativeEmbedUrl ? (
+                  <div className="aspect-video overflow-hidden rounded-lg bg-foreground">
+                    <iframe
+                      allow="encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      className="size-full"
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      src={alternativeEmbedUrl}
+                      title={`Video de demostración de ${alternative.exercise.name}`}
+                    />
+                  </div>
+                ) : (
+                  <p>
+                    El video no se puede reproducir aquí. Puedes abrirlo en
+                    YouTube.
+                  </p>
+                )
+              ) : null}
+              {alternative.exercise.instructions ? (
+                <p className="whitespace-pre-line">
+                  {alternative.exercise.instructions}
+                </p>
+              ) : null}
+              {alternative.exercise.videoUrl ? (
+                <Button asChild size="sm" variant="outline">
+                  <a
+                    href={alternative.exercise.videoUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <PlayCircle className="size-4 text-primary" /> Abrir en
+                    YouTube
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -4067,11 +4658,11 @@ function AlternativeMediaPreview({
 }) {
   if (!alternative.exercise.mediaUrl && !alternative.exercise.videoUrl) {
     return (
-      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-[#d8d1ca] bg-[#f7f4f1] text-center dark:border-[#3a4354] dark:bg-[#0d1016]">
+      <div className="flex h-full min-h-32 items-center justify-center rounded-xl border border-dashed border-border bg-muted text-center">
         <div className="px-3">
-          <FileText className="mx-auto size-6 text-[#8b929d] dark:text-[#c7cfdb]" />
-          <p className="mt-2 text-xs font-bold leading-5 text-[#667080] dark:text-[#c7cfdb]">
-            Sin demostracion adjunta
+          <FileText className="mx-auto size-6 text-muted-foreground" />
+          <p className="mt-2 text-xs font-medium leading-5 text-muted-foreground">
+            Sin demostración adjunta
           </p>
         </div>
       </div>
@@ -4081,20 +4672,20 @@ function AlternativeMediaPreview({
   if (!alternative.exercise.mediaUrl && alternative.exercise.videoUrl) {
     return (
       <a
-        className="flex h-full min-h-32 items-center justify-center rounded-xl bg-[#121722] text-white"
+        className="flex h-full min-h-32 items-center justify-center rounded-xl bg-foreground text-background"
         href={alternative.exercise.videoUrl}
         rel="noreferrer"
         target="_blank"
         aria-label={`Ver alternativa ${alternative.exercise.name}`}
       >
-        <PlayCircle className="size-9 text-white" />
+        <PlayCircle className="size-9" />
       </a>
     );
   }
 
   return (
     <div
-      className="h-full min-h-32 rounded-xl bg-[#f4f1ef] bg-cover bg-center"
+      className="h-full min-h-32 rounded-xl bg-muted bg-cover bg-center"
       role="img"
       aria-label={`Demostracion de ${alternative.exercise.name}`}
       style={{ backgroundImage: `url(${alternative.exercise.mediaUrl})` }}
@@ -4119,10 +4710,10 @@ function ExerciseMiniNavigation({
 
   return (
     <nav
-      className="mt-6 hidden rounded-xl border border-[#ece7e3] bg-white p-3 shadow-sm dark:border-[#293140] dark:bg-[#121722] lg:block"
+      className="mt-6 hidden rounded-xl border border-border/60 bg-card p-3 shadow-[var(--surface-shadow-soft)] lg:block"
       aria-label="Ejercicios de la sesion"
     >
-      <p className="px-2 pb-2 text-xs font-bold uppercase text-[#8b929d] dark:text-[#c7cfdb]">
+      <p className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">
         {readOnly ? "Vista previa" : "Ejercicios"}
       </p>
       <div className="space-y-2">
@@ -4130,29 +4721,31 @@ function ExerciseMiniNavigation({
           const isActive = itemIndex === activeIndex;
           const isCompleted = completedIds.includes(exercise.sessionExerciseId);
           return (
-            <button
+            <Button
+              aria-current={isActive ? "step" : undefined}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-bold",
+                "h-auto w-full justify-start gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold",
                 isActive
-                  ? "bg-[var(--portal-accent-soft)] text-[var(--portal-accent)]"
-                  : "text-[#4e5968] hover:bg-[#f7f4f1] dark:text-[#c7cfdb] dark:hover:bg-[#1a202b]",
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               key={exercise.sessionExerciseId}
               onClick={() => onSelect(itemIndex)}
               type="button"
+              variant="ghost"
             >
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-xs",
                   isCompleted
-                    ? "bg-[var(--portal-accent)] text-[var(--portal-accent-on)]"
-                    : "bg-[#eceff2] text-[#667080] dark:bg-[#242b36] dark:text-[#c7cfdb]",
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 {isCompleted ? <Check className="size-4" /> : itemIndex + 1}
               </span>
               <span className="truncate">{exercise.exercise.name}</span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -4337,112 +4930,6 @@ function formatCalendarMonth(date: string) {
   }).format(new Date(`${date}T00:00:00.000Z`));
 }
 
-function formatCompletionDateParts(date: string) {
-  const parsed = new Date(`${date}T00:00:00`);
-  return {
-    dayMonth: parsed
-      .toLocaleDateString("es-MX", { day: "2-digit", month: "short" })
-      .replace(".", ""),
-    year: parsed.toLocaleDateString("es-MX", { year: "numeric" }),
-  };
-}
-
-function buildCompletionCardSvg(data: CompletionCard, dark = false) {
-  const sessionName = escapeSvgText(truncateText(data.sessionName, 34));
-  const dateParts = formatCompletionDateParts(data.scheduledDate);
-  const dateDayMonth = escapeSvgText(dateParts.dayMonth);
-  const percentage = escapeSvgText(String(data.completionPercentage));
-  const completed = escapeSvgText(String(data.completedExercises));
-  const total = escapeSvgText(String(data.totalExercises));
-  const streak = escapeSvgText(String(data.streak));
-  const colors = dark
-    ? {
-        card: "#121722",
-        cardStroke: "#2b3342",
-        grid: "#0d1016",
-        gridStroke: "#3a4354",
-        accent: "#F0C947",
-        accentSoft: "#2b2818",
-        accentSofter: "#3a341d",
-        text: "#f4f6f8",
-        muted: "#c7cfdb",
-        pillStroke: "#5d5124",
-      }
-    : {
-        card: "#ffffff",
-        cardStroke: "#f2ece7",
-        grid: "#ffffff",
-        gridStroke: "#ece7e3",
-        accent: "#df4d3e",
-        accentSoft: "#fff1ee",
-        accentSofter: "#ffe1d9",
-        text: "#071026",
-        muted: "#667080",
-        pillStroke: "#f4c8bd",
-      };
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1360" viewBox="0 0 1080 1360" role="img" aria-label="CoraFit sesion completada">
-  <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#000000" flood-opacity="0.34"/></filter>
-  </defs>
-  <rect x="24" y="24" width="1032" height="1312" rx="86" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2" filter="url(#shadow)"/>
-  <line x1="540" y1="80" x2="540" y2="155" stroke="${colors.accent}" stroke-width="2" opacity="0.65"/>
-  <line x1="430" y1="125" x2="380" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="650" y1="125" x2="700" y2="75" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="300" y1="245" x2="405" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <line x1="675" y1="245" x2="780" y2="245" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <circle cx="540" cy="205" r="105" fill="${colors.accentSoft}"/>
-  <circle cx="540" cy="205" r="72" fill="${colors.accentSofter}"/>
-  <path d="M493 205 L526 238 L596 154" fill="none" stroke="${colors.accent}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="540" y="445" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="84" font-weight="900" text-anchor="middle">Sesion completada</text>
-  <line x1="285" y1="525" x2="405" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
-  <text x="540" y="542" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="900" text-anchor="middle">${sessionName}</text>
-  <line x1="675" y1="525" x2="795" y2="525" stroke="${colors.accent}" stroke-width="3" opacity="0.65"/>
-  <rect x="90" y="630" width="900" height="420" rx="40" fill="${colors.grid}" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <line x1="540" y1="630" x2="540" y2="1050" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <line x1="90" y1="840" x2="990" y2="840" stroke="${colors.gridStroke}" stroke-width="2"/>
-  <circle cx="205" cy="735" r="55" fill="${colors.accentSoft}"/>
-  <path d="M168 735 H182 M228 735 H242 M182 720 V750 M196 712 V758 M214 712 V758 M228 720 V750 M196 735 H214" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Ejercicios</text>
-  <text x="320" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${completed}/${total}</text>
-  <text x="320" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completados</text>
-  <circle cx="655" cy="735" r="55" fill="${colors.accentSoft}"/>
-  <path d="M630 752 L650 732 L666 746 L690 720 M670 720 H690 V740" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="770" y="710" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Avance</text>
-  <text x="770" y="780" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${percentage}%</text>
-  <text x="770" y="830" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">completado</text>
-  <circle cx="205" cy="945" r="55" fill="${colors.accentSoft}"/>
-  <path d="M207 980 C185 976 174 959 179 941 C183 925 196 918 197 899 C214 912 221 924 218 938 C225 933 230 926 231 917 C245 933 250 949 244 963 C237 978 222 984 207 980 Z" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="320" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Racha</text>
-  <text x="320" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="58" font-weight="900">${streak}</text>
-  <text x="320" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">dias</text>
-  <circle cx="655" cy="945" r="55" fill="${colors.accentSoft}"/>
-  <rect x="625" y="918" width="60" height="62" rx="10" fill="none" stroke="${colors.accent}" stroke-width="8"/>
-  <path d="M625 938 H685 M640 906 V928 M670 906 V928" fill="none" stroke="${colors.accent}" stroke-width="8" stroke-linecap="round"/>
-  <text x="770" y="920" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Fecha</text>
-  <text x="770" y="990" fill="${colors.text}" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="48" font-weight="900">${dateDayMonth}</text>
-  <text x="770" y="1040" fill="${colors.muted}" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">registrado</text>
-  <line x1="90" y1="1190" x2="350" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-  <rect x="390" y="1147" width="300" height="86" rx="43" fill="${colors.accentSoft}" stroke="${colors.pillStroke}"/>
-  <text x="540" y="1203" fill="${colors.accent}" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" text-anchor="middle">#CoraFit</text>
-  <line x1="730" y1="1190" x2="990" y2="1190" stroke="${colors.accent}" stroke-width="2" opacity="0.55"/>
-</svg>`;
-}
-
-function escapeSvgText(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
-}
-
 function formatFullDate(date: string, dayOfWeek: string) {
   const parsed = new Date(`${date}T00:00:00`);
   const formatted = parsed.toLocaleDateString("es-MX", {
@@ -4553,17 +5040,23 @@ function errorMessage(caught: unknown, fallback: string) {
   return fallback;
 }
 
+function formatRemainingAttempts(count: number) {
+  return count === 1
+    ? "PIN incorrecto. Te queda 1 intento."
+    : `PIN incorrecto. Te quedan ${count} intentos.`;
+}
+
 function formatPortalLockMessage(lockedUntil?: string | null) {
   if (!lockedUntil) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+    return "Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta más tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
   const parsed = new Date(lockedUntil);
   if (Number.isNaN(parsed.getTime())) {
-    return "Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta mas tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
+    return "Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta más tarde. Si no recuerdas tu PIN, pide a tu coach que regenere tu acceso.";
   }
 
-  return `Tu acceso esta bloqueado temporalmente por intentos fallidos. Intenta despues de las ${parsed.toLocaleTimeString(
+  return `Tu acceso está bloqueado temporalmente por intentos fallidos. Intenta después de las ${parsed.toLocaleTimeString(
     "es-MX",
     {
       hour: "2-digit",

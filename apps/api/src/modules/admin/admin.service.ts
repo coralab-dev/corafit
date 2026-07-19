@@ -208,69 +208,65 @@ export class AdminService {
       throw new BadRequestException('organizationId is required');
     }
 
-    const organization = await this.prismaService.organization.findUnique({
-      where: { id: normalizedOrganizationId },
-      select: { id: true, status: true },
-    });
-
-    if (!organization) {
-      throw new NotFoundException('Organization was not found');
-    }
-
-    if (organization.status === OrganizationStatus.cancelled) {
-      throw new BadRequestException('Cancelled organizations cannot change status');
-    }
-
-    if (
-      organization.status === OrganizationStatus.active &&
-      status === OrganizationStatus.active
-    ) {
-      return this.getOrganization(normalizedOrganizationId);
-    }
-
-    const isRealReactivation =
-      organization.status !== OrganizationStatus.active &&
-      status === OrganizationStatus.active;
-    const shouldInvalidateForDisable =
-      status === OrganizationStatus.suspended ||
-      status === OrganizationStatus.cancelled;
-
-    if (organization.status !== status || shouldInvalidateForDisable) {
-      await runSerializableWithRetry(this.prismaService, async (transaction) => {
-        if (isRealReactivation) {
-          await transaction.clientPortalSession.updateMany({
-            where: {
-              invalidated: false,
-              access: {
-                client: { organizationId: normalizedOrganizationId },
-              },
-            },
-            data: { invalidated: true },
-          });
-        }
-
-        if (organization.status !== status) {
-          await transaction.organization.update({
-            where: { id: normalizedOrganizationId },
-            data: { status },
-          });
-        }
-
-        if (
-          shouldInvalidateForDisable
-        ) {
-          await transaction.clientPortalSession.updateMany({
-            where: {
-              invalidated: false,
-              access: {
-                client: { organizationId: normalizedOrganizationId },
-              },
-            },
-            data: { invalidated: true },
-          });
-        }
+    await runSerializableWithRetry(this.prismaService, async (transaction) => {
+      const organization = await transaction.organization.findUnique({
+        where: { id: normalizedOrganizationId },
+        select: { id: true, status: true },
       });
-    }
+
+      if (!organization) {
+        throw new NotFoundException('Organization was not found');
+      }
+
+      if (organization.status === OrganizationStatus.cancelled) {
+        throw new BadRequestException('Cancelled organizations cannot change status');
+      }
+
+      if (
+        organization.status === OrganizationStatus.active &&
+        status === OrganizationStatus.active
+      ) {
+        return;
+      }
+
+      const isRealReactivation =
+        organization.status !== OrganizationStatus.active &&
+        status === OrganizationStatus.active;
+      const shouldInvalidateForDisable =
+        status === OrganizationStatus.suspended ||
+        status === OrganizationStatus.cancelled;
+
+      if (isRealReactivation) {
+        await transaction.clientPortalSession.updateMany({
+          where: {
+            invalidated: false,
+            access: {
+              client: { organizationId: normalizedOrganizationId },
+            },
+          },
+          data: { invalidated: true },
+        });
+      }
+
+      if (organization.status !== status) {
+        await transaction.organization.update({
+          where: { id: normalizedOrganizationId },
+          data: { status },
+        });
+      }
+
+      if (shouldInvalidateForDisable) {
+        await transaction.clientPortalSession.updateMany({
+          where: {
+            invalidated: false,
+            access: {
+              client: { organizationId: normalizedOrganizationId },
+            },
+          },
+          data: { invalidated: true },
+        });
+      }
+    });
 
     return this.getOrganization(normalizedOrganizationId);
   }

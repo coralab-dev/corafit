@@ -444,6 +444,75 @@ describe('ClientPortalService', () => {
     expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
   });
 
+  it('rejects a PIN with 429 when a temporary lock appears before session emission', async () => {
+    const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({
+        pinHash: validPinHash,
+        status: ClientAccessStatus.temporarily_locked,
+        lockedUntil,
+      }));
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: 'Too many failed PIN attempts',
+        retryAfter: expect.any(Number),
+        lockedUntil,
+      }),
+    });
+    expect(prismaService.clientAccess.update).not.toHaveBeenCalled();
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it('does not create a session when a retry finds a temporary lock', async () => {
+    const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({
+        pinHash: validPinHash,
+        status: ClientAccessStatus.temporarily_locked,
+        lockedUntil,
+      }));
+    prismaService.$transaction.mockRejectedValueOnce({ code: 'P2034' });
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ message: 'Too many failed PIN attempts' }),
+    });
+    expect(prismaService.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it('normalizes an expired temporary lock inside the emission transaction', async () => {
+    const expiredAt = new Date(Date.now() - 15 * 60 * 1000);
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({
+        pinHash: validPinHash,
+        status: ClientAccessStatus.temporarily_locked,
+        lockedUntil: expiredAt,
+        failedAttempts: 5,
+      }));
+
+    const result = await service.verifyPin('plain-token', { pin: '123456' });
+
+    expect(result.success).toBe(true);
+    expect(prismaService.clientAccess.update).toHaveBeenCalledWith({
+      where: { id: 'access-id' },
+      data: {
+        failedAttempts: 0,
+        lockedUntil: null,
+        status: ClientAccessStatus.active,
+        lastAccessAt: expect.any(Date),
+      },
+    });
+    expect(prismaService.clientPortalSession.create).toHaveBeenCalledTimes(1);
+  });
+
   it('retries the complete session emission after a serializable conflict', async () => {
     prismaService.clientAccess.findUnique.mockResolvedValue(
       createAccess({ pinHash: validPinHash }),

@@ -439,6 +439,40 @@ describe('AdminService', () => {
     expect(prismaService.clientPortalSession.updateMany).not.toHaveBeenCalled();
   });
 
+  it('re-reads organization status after a serializable conflict before deciding a suspension', async () => {
+    const suspendedOrganization = {
+      ...organization,
+      status: OrganizationStatus.suspended,
+    };
+    const activeOrganization = {
+      ...organization,
+      status: OrganizationStatus.active,
+    };
+    prismaService.organization.findUnique
+      .mockResolvedValueOnce(suspendedOrganization)
+      .mockResolvedValueOnce(activeOrganization)
+      .mockResolvedValueOnce(suspendedOrganization);
+    const serializationConflict = Object.assign(
+      new Error('serialization conflict'),
+      { code: 'P2034' },
+    );
+    prismaService.$transaction.mockImplementationOnce(
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      async (callback: (transaction: PrismaServiceMock) => Promise<unknown>) => {
+        await callback(prismaService);
+        throw serializationConflict;
+      },
+    );
+
+    await service.suspendOrganization('organization-id');
+
+    expect(prismaService.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaService.organization.update).toHaveBeenCalledWith({
+      where: { id: 'organization-id' },
+      data: { status: OrganizationStatus.suspended },
+    });
+  });
+
   it('returns 404 when changing status for an unknown organization', async () => {
     prismaService.organization.findUnique.mockResolvedValueOnce(null);
 

@@ -526,6 +526,34 @@ export class ClientPortalService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      const currentNow = new Date();
+      const currentLockedUntil = currentAccess.lockedUntil;
+      const isCurrentlyLocked =
+        currentLockedUntil !== null &&
+        currentLockedUntil > currentNow;
+
+      if (isCurrentlyLocked) {
+        throw new HttpException({
+          message: 'Too many failed PIN attempts',
+          retryAfter: Math.ceil(
+            (currentLockedUntil.getTime() - currentNow.getTime()) / 1000,
+          ),
+          lockedUntil: currentLockedUntil,
+        }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+
+      const isExpiredTemporaryLock =
+        currentAccess.status === ClientAccessStatus.temporarily_locked &&
+        currentLockedUntil !== null &&
+        currentLockedUntil <= currentNow;
+
+      if (
+        currentAccess.status !== ClientAccessStatus.active &&
+        !isExpiredTemporaryLock
+      ) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       const token = this.generateToken();
       await transaction.clientAccess.update({
         where: { id: currentAccess.id },

@@ -1,7 +1,7 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { ClientAccessStatus, ClientType } from 'db';
+import { ClientAccessStatus, ClientType, OrganizationStatus } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import { ClientPortalAuthGuard } from './client-portal-auth.guard';
@@ -55,6 +55,10 @@ function createSession(overrides: Record<string, unknown> = {}) {
         operationalStatus: 'active',
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        organization: {
+          id: 'organization-id',
+          status: OrganizationStatus.active,
+        },
       },
     },
     ...overrides,
@@ -104,7 +108,15 @@ describe('ClientPortalAuthGuard', () => {
     await expect(guard.canActivate(createExecutionContext(request))).resolves.toBe(true);
     expect(prismaService.clientPortalSession.findUnique).toHaveBeenCalledWith({
       where: { sessionTokenHash: hashToken('session-token') },
-      include: { access: { include: { client: true } } },
+      include: {
+        access: {
+          include: {
+            client: {
+              include: { organization: true },
+            },
+          },
+        },
+      },
     });
     expect(request.clientPortalSession?.id).toBe('session-id');
     expect(request.clientPortalAccess?.clientId).toBe('client-id');
@@ -169,5 +181,31 @@ describe('ClientPortalAuthGuard', () => {
         }),
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('forbids sessions when the organization is suspended', async () => {
+    prismaService.clientPortalSession.findUnique.mockResolvedValueOnce(
+      createSession({
+        access: {
+          ...createSession().access,
+          client: {
+            ...createSession().access.client,
+            organization: {
+              id: 'organization-id',
+              status: OrganizationStatus.suspended,
+            },
+          },
+        },
+      }),
+    );
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          headers: { cookie: 'corafit_client_session=session-token' },
+          params: { token: 'route-token' },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

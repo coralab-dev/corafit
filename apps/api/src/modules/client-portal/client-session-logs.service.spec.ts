@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -29,7 +30,7 @@ type PrismaServiceMock = {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
   clientTrainingPlanAssignment: {
     findFirst: ReturnType<typeof vi.fn>;
@@ -188,6 +189,7 @@ function createLog(overrides: Record<string, unknown> = {}) {
     completedAt: null,
     createdAt: new Date('2026-05-20T18:00:00.000Z'),
     updatedAt: new Date('2026-05-20T18:00:00.000Z'),
+    assignment: { status: ClientTrainingPlanAssignmentStatus.active },
     ...overrides,
   };
 }
@@ -199,15 +201,20 @@ describe('ClientSessionLogsService', () => {
   let service: ClientSessionLogsService;
 
   beforeEach(() => {
+    let lastMutation: Record<string, unknown> = {};
     prismaService = {
       client: {
         findUnique: vi.fn().mockResolvedValue(createClient()),
       },
       clientSessionLog: {
         create: vi.fn().mockImplementation(({ data }) => Promise.resolve(createLog(data))),
-        findFirst: vi.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockImplementation(({ where }: { where?: { id?: string } }) =>
+          Promise.resolve(where?.id ? createLog(lastMutation) : null)),
         findMany: vi.fn().mockResolvedValue([]),
-        update: vi.fn().mockImplementation(({ data }) => Promise.resolve(createLog(data))),
+        updateMany: vi.fn().mockImplementation(({ data }) => {
+          lastMutation = data as Record<string, unknown>;
+          return Promise.resolve({ count: 1 });
+        }),
       },
       clientTrainingPlanAssignment: {
         findFirst: vi.fn().mockResolvedValue(createAssignment()),
@@ -350,8 +357,13 @@ describe('ClientSessionLogsService', () => {
       sessionExerciseId: 'session-exercise-1',
     });
 
-    expect(prismaService.clientSessionLog.update).toHaveBeenCalledWith({
-      where: { id: 'log-id' },
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'log-id',
+        clientId: 'client-id',
+        updatedAt: expect.any(Date),
+        status: { in: [ClientSessionStatus.opened, ClientSessionStatus.in_progress] },
+      }),
       data: {
         snapshotData: expect.objectContaining({
           progress: { completedExerciseIds: ['session-exercise-1'], usedAlternatives: [] },
@@ -375,8 +387,13 @@ describe('ClientSessionLogsService', () => {
       alternativeId: 'alternative-1',
     });
 
-    expect(prismaService.clientSessionLog.update).toHaveBeenCalledWith({
-      where: { id: 'log-id' },
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'log-id',
+        clientId: 'client-id',
+        updatedAt: expect.any(Date),
+        status: { in: [ClientSessionStatus.opened, ClientSessionStatus.in_progress] },
+      }),
       data: {
         snapshotData: expect.objectContaining({
           progress: {
@@ -430,8 +447,13 @@ describe('ClientSessionLogsService', () => {
 
     const result = await service.finalizeSession(createAccess(), 'log-id');
 
-    expect(prismaService.clientSessionLog.update).toHaveBeenCalledWith({
-      where: { id: 'log-id' },
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'log-id',
+        clientId: 'client-id',
+        updatedAt: expect.any(Date),
+        status: { in: [ClientSessionStatus.opened, ClientSessionStatus.in_progress] },
+      }),
       data: {
         status: ClientSessionStatus.completed,
         completedAt: expect.any(Date),
@@ -583,5 +605,231 @@ describe('ClientSessionLogsService', () => {
 
     expect(result.snapshotData.session.name).toBe('Frozen');
     expect(prismaService.clientTrainingPlanAssignment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('preserves both exercise completions when the first write loses an optimistic race', async () => {
+    const firstLog = createLog({
+      updatedAt: new Date('2026-05-20T18:00:00.000Z'),
+      snapshotData: {
+        ...createSnapshot(),
+        progress: {
+          completedExerciseIds: ['session-exercise-1'],
+          usedAlternatives: [],
+        },
+      },
+    });
+    const latestLog = createLog({
+      updatedAt: new Date('2026-05-20T18:01:00.000Z'),
+      snapshotData: {
+        ...createSnapshot(),
+        progress: {
+          completedExerciseIds: ['session-exercise-1'],
+          usedAlternatives: [],
+        },
+      },
+    });
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(firstLog)
+      .mockResolvedValueOnce(latestLog)
+      .mockResolvedValueOnce(createLog({
+        snapshotData: {
+          ...createSnapshot(),
+          progress: {
+            completedExerciseIds: ['session-exercise-1', 'session-exercise-2'],
+            usedAlternatives: [],
+          },
+        },
+        status: ClientSessionStatus.in_progress,
+      }));
+    prismaService.clientSessionLog.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.completeExercise(createAccess(), 'log-id', {
+      sessionExerciseId: 'session-exercise-2',
+    });
+
+    expect(result.snapshotData.progress?.completedExerciseIds).toEqual([
+      'session-exercise-1',
+      'session-exercise-2',
+    ]);
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves an alternative and an exercise completion across an optimistic retry', async () => {
+    const alternativeLog = createLog({
+      updatedAt: new Date('2026-05-20T18:01:00.000Z'),
+      snapshotData: {
+        ...createSnapshot(),
+        progress: {
+          completedExerciseIds: [],
+          usedAlternatives: [{
+            sessionExerciseId: 'session-exercise-1',
+            alternativeId: 'alternative-1',
+            alternativeExerciseId: 'exercise-alt-1',
+          }],
+        },
+      },
+    });
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(createLog())
+      .mockResolvedValueOnce(alternativeLog)
+      .mockResolvedValueOnce(createLog({
+        status: ClientSessionStatus.in_progress,
+        snapshotData: {
+          ...createSnapshot(),
+          progress: {
+            completedExerciseIds: ['session-exercise-2'],
+            usedAlternatives: alternativeLog.snapshotData.progress?.usedAlternatives ?? [],
+          },
+        },
+      }));
+    prismaService.clientSessionLog.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.completeExercise(createAccess(), 'log-id', {
+      sessionExerciseId: 'session-exercise-2',
+    });
+
+    expect(result.snapshotData.progress).toEqual({
+      completedExerciseIds: ['session-exercise-2'],
+      usedAlternatives: [{
+        sessionExerciseId: 'session-exercise-1',
+        alternativeId: 'alternative-1',
+        alternativeExerciseId: 'exercise-alt-1',
+      }],
+    });
+  });
+
+  it('retries a stale mutation from the newest snapshot', async () => {
+    const staleLog = createLog({ updatedAt: new Date('2026-05-20T18:00:00.000Z') });
+    const newestLog = createLog({
+      updatedAt: new Date('2026-05-20T18:01:00.000Z'),
+      snapshotData: {
+        ...createSnapshot(),
+        progress: { completedExerciseIds: ['session-exercise-1'], usedAlternatives: [] },
+      },
+    });
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(staleLog)
+      .mockResolvedValueOnce(newestLog)
+      .mockResolvedValueOnce(createLog({
+        snapshotData: {
+          ...newestLog.snapshotData,
+          progress: {
+            completedExerciseIds: ['session-exercise-1'],
+            usedAlternatives: [{
+              sessionExerciseId: 'session-exercise-1',
+              alternativeId: 'alternative-1',
+              alternativeExerciseId: 'exercise-alt-1',
+            }],
+          },
+        },
+      }));
+    prismaService.clientSessionLog.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.useAlternative(createAccess(), 'log-id', {
+      sessionExerciseId: 'session-exercise-1',
+      alternativeId: 'alternative-1',
+    });
+
+    expect(result.snapshotData.progress?.completedExerciseIds).toEqual(['session-exercise-1']);
+    expect(result.snapshotData.progress?.usedAlternatives).toEqual([{
+      sessionExerciseId: 'session-exercise-1',
+      alternativeId: 'alternative-1',
+      alternativeExerciseId: 'exercise-alt-1',
+    }]);
+  });
+
+  it('does not write after another request finalizes the session', async () => {
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(createLog({ status: ClientSessionStatus.in_progress }))
+      .mockResolvedValueOnce(createLog({ status: ClientSessionStatus.completed }));
+    prismaService.clientSessionLog.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      service.completeExercise(createAccess(), 'log-id', {
+        sessionExerciseId: 'session-exercise-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries finalization when another exercise completes during the operation', async () => {
+    prismaService.clientSessionLog.findFirst
+      .mockResolvedValueOnce(createLog({
+        snapshotData: {
+          ...createSnapshot(),
+          progress: { completedExerciseIds: ['session-exercise-1'], usedAlternatives: [] },
+        },
+      }))
+      .mockResolvedValueOnce(createLog({
+        updatedAt: new Date('2026-05-20T18:01:00.000Z'),
+        snapshotData: {
+          ...createSnapshot(),
+          progress: {
+            completedExerciseIds: ['session-exercise-1', 'session-exercise-2'],
+            usedAlternatives: [],
+          },
+        },
+      }))
+      .mockResolvedValueOnce(createLog({ status: ClientSessionStatus.completed }));
+    prismaService.clientSessionLog.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.finalizeSession(createAccess(), 'log-id');
+
+    expect(result.status).toBe(ClientSessionStatus.completed);
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns conflict after exhausting three optimistic attempts', async () => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValue(createLog());
+    prismaService.clientSessionLog.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.completeExercise(createAccess(), 'log-id', {
+        sessionExerciseId: 'session-exercise-1',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prismaService.clientSessionLog.updateMany).toHaveBeenCalledTimes(3);
+  });
+
+  it('reports active assignment mutability explicitly', async () => {
+    const result = await service.getSessionLog(createAccess(), 'log-id');
+
+    expect(result.canModify).toBe(true);
+  });
+
+  it('marks finalized and finished-assignment sessions as read-only', async () => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({ status: ClientSessionStatus.completed }),
+    );
+    await expect(service.getSessionLog(createAccess(), 'log-id')).resolves.toMatchObject({
+      canModify: false,
+    });
+
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({
+        assignment: { status: ClientTrainingPlanAssignmentStatus.finished },
+      }),
+    );
+    await expect(service.getSessionLog(createAccess(), 'log-id')).resolves.toMatchObject({
+      canModify: false,
+    });
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({
+        assignment: { status: ClientTrainingPlanAssignmentStatus.finished },
+      }),
+    );
+    await expect(
+      service.completeExercise(createAccess(), 'log-id', {
+        sessionExerciseId: 'session-exercise-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

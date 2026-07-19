@@ -11,6 +11,7 @@ import {
   ClientSessionStatus,
   ClientTrainingPlanAssignmentStatus,
   DayOfWeek,
+  OrganizationStatus,
   TrainingDayType,
   type Client,
   type ClientAccess,
@@ -189,7 +190,11 @@ export class ClientPortalService {
 
     const access = await this.prismaService.clientAccess.findUnique({
       where: { tokenHash },
-      include: { client: true },
+      include: {
+        client: {
+          include: { organization: true },
+        },
+      },
     });
 
     if (!access) {
@@ -197,6 +202,10 @@ export class ClientPortalService {
     }
 
     if (access.status === ClientAccessStatus.disabled) {
+      return { valid: false, requiresPin: false };
+    }
+
+    if (access.client.organization.status !== OrganizationStatus.active) {
       return { valid: false, requiresPin: false };
     }
 
@@ -416,7 +425,11 @@ export class ClientPortalService {
 
     const access = await this.prismaService.clientAccess.findUnique({
       where: { tokenHash },
-      include: { client: true },
+      include: {
+        client: {
+          include: { organization: true },
+        },
+      },
     });
 
     if (!access) {
@@ -424,6 +437,10 @@ export class ClientPortalService {
     }
 
     if (access.status === ClientAccessStatus.disabled) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (access.client.organization.status !== OrganizationStatus.active) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

@@ -886,6 +886,7 @@ export function SessionScreen({
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [confirmPartialOpen, setConfirmPartialOpen] = useState(false);
+  const isMutating = busyId !== null || finalizing;
 
   const load = useCallback(() => {
     clientPortalRequest<ClientSessionLog>(
@@ -916,7 +917,7 @@ export function SessionScreen({
   }, [log, router, sessionLogId, token]);
 
   async function complete(sessionExerciseId: string) {
-    if (isFinalized(log?.status)) return;
+    if (!log?.canModify || isMutating) return;
     setBusyId(sessionExerciseId);
     try {
       const updated = await clientPortalRequest<ClientSessionLog>(
@@ -956,7 +957,7 @@ export function SessionScreen({
     sessionExerciseId: string,
     alternativeId: string,
   ) {
-    if (isFinalized(log?.status)) return;
+    if (!log?.canModify || isMutating) return;
     setBusyId(sessionExerciseId);
     try {
       const updated = await clientPortalRequest<ClientSessionLog>(
@@ -975,6 +976,7 @@ export function SessionScreen({
   }
 
   async function finalize({ rethrow = false }: { rethrow?: boolean } = {}) {
+    if (!log?.canModify || busyId !== null || finalizing) return;
     setFinalizing(true);
     try {
       await clientPortalRequest<ClientSessionLog>(
@@ -998,6 +1000,7 @@ export function SessionScreen({
   }
 
   function requestFinalize(completedCount: number, totalExercises: number) {
+    if (!log?.canModify || isMutating) return;
     if (completedCount === 0) {
       setError("Completa al menos un ejercicio antes de finalizar.");
       return;
@@ -1037,6 +1040,7 @@ export function SessionScreen({
           alternative.sessionExerciseId === activeExercise.sessionExerciseId,
       )?.alternativeId ?? null)
     : null;
+  const readOnly = !log.canModify;
 
   if (isFinalized(log.status))
     return (
@@ -1057,6 +1061,12 @@ export function SessionScreen({
           <SessionBackLink href={`/c/${encodeURIComponent(token)}/calendar`} />
         ) : null}
         {error ? <InlineError message={error} /> : null}
+        {readOnly ? (
+          <div className="mt-6 flex gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm font-medium leading-6 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-100">
+            <CalendarClock className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+            <p>Este entrenamiento pertenece a un plan que ya terminó. Puedes consultarlo, pero ya no es posible registrar cambios.</p>
+          </div>
+        ) : null}
         <div
           className={cn(
             "mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
@@ -1070,7 +1080,7 @@ export function SessionScreen({
                 completedCount={completed.length}
                 exercise={activeExercise}
                 index={activeExerciseIndex}
-                loading={busyId === activeExercise.sessionExerciseId}
+                loading={isMutating}
                 onBack={() => setDetailOpen(false)}
                 onComplete={() =>
                   void complete(activeExercise.sessionExerciseId)
@@ -1089,13 +1099,17 @@ export function SessionScreen({
                     alternativeId,
                   )
                 }
-                readOnly={false}
+                readOnly={readOnly}
                 selectedAlternativeId={selectedAlternativeId}
                 total={total}
               />
             ) : (
               <div className="flex flex-1 flex-col">
-                <SessionOverviewCard completedCount={completed.length} total={total} />
+                <SessionOverviewCard
+                  completedCount={completed.length}
+                  readOnly={readOnly}
+                  total={total}
+                />
                 {activeExercise ? (
                   <div className="mt-4 space-y-3">
                     {log.snapshotData.exercises.map((exercise, index) => (
@@ -1105,12 +1119,14 @@ export function SessionScreen({
                         index={index}
                         key={exercise.sessionExerciseId}
                         loading={busyId === exercise.sessionExerciseId}
+                        disabled={isMutating}
                         onComplete={() => void complete(exercise.sessionExerciseId)}
                         onOpen={() => {
                           setActiveExerciseIndex(index);
                           setDetailOpen(true);
                         }}
                         total={total}
+                        readOnly={readOnly}
                       />
                     ))}
                   </div>
@@ -1121,7 +1137,7 @@ export function SessionScreen({
                   <Button
                     className="h-12 w-full"
                     aria-busy={finalizing}
-                    disabled={finalizing || total === 0}
+                    disabled={isMutating || readOnly || total === 0}
                     onClick={() => requestFinalize(completed.length, total)}
                   >
                     {finalizing ? (
@@ -1150,15 +1166,18 @@ export function SessionScreen({
                 completedIds={completed}
                 exercises={log.snapshotData.exercises}
                 onSelect={setActiveExerciseIndex}
+                readOnly={readOnly}
               />
             ) : null}
           </div>
           <SessionProgressPanel
             completedCount={completed.length}
             finalizing={finalizing}
+            mutating={isMutating}
             onFinalize={() => requestFinalize(completed.length, total)}
             onSave={() => router.push(`/c/${encodeURIComponent(token)}/home`)}
             pendingCount={pendingCount}
+            readOnly={readOnly}
             total={total}
           />
         </div>
@@ -1335,6 +1354,7 @@ export function SessionPreviewScreen({ token }: { token: string }) {
           <SessionProgressPanel
             completedCount={0}
             finalizing={false}
+            mutating={false}
             onFinalize={() => undefined}
             onSave={() =>
               router.push(`/c/${encodeURIComponent(token)}/calendar`)
@@ -3929,6 +3949,7 @@ function SessionOverviewCard({
 function SessionProgressPanel({
   completedCount,
   finalizing,
+  mutating,
   onFinalize,
   onSave,
   pendingCount,
@@ -3937,6 +3958,7 @@ function SessionProgressPanel({
 }: {
   completedCount: number;
   finalizing: boolean;
+  mutating: boolean;
   onFinalize: () => void;
   onSave: () => void;
   pendingCount: number;
@@ -3974,7 +3996,7 @@ function SessionProgressPanel({
         <div className="mt-6 space-y-3">
           <Button className="h-12 w-full whitespace-normal"
             aria-busy={finalizing}
-            disabled={finalizing || readOnly || total === 0}
+            disabled={mutating || readOnly || total === 0}
             onClick={onFinalize}
             variant={readOnly ? "secondary" : "default"}
           >
@@ -3988,7 +4010,7 @@ function SessionProgressPanel({
             {readOnly ? null : "Finalizar sesión"}
           </Button>
           <Button className="h-12 w-full" variant="outline"
-            disabled={finalizing}
+            disabled={mutating}
             onClick={onSave}
           >
             <Home className="size-4" /> {readOnly ? "Volver al calendario" : "Salir por ahora"}
@@ -4003,6 +4025,7 @@ type ClientSessionExercise =
   ClientSessionLog["snapshotData"]["exercises"][number];
 
 function SessionExerciseListCard({
+  disabled = false,
   exercise,
   index,
   completed,
@@ -4012,6 +4035,7 @@ function SessionExerciseListCard({
   onComplete,
   onOpen,
 }: {
+  disabled?: boolean;
   exercise: ClientSessionExercise;
   index: number;
   completed: boolean;
@@ -4027,6 +4051,7 @@ function SessionExerciseListCard({
         aria-label={`Abrir detalle de ${exercise.exercise.name}, ejercicio ${index + 1} de ${total}${readOnly ? ", modo lectura" : ""}`}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 sm:gap-4"
         onClick={onOpen}
+        disabled={disabled}
         type="button"
       >
         <div
@@ -4061,7 +4086,7 @@ function SessionExerciseListCard({
             completed &&
               "border-primary bg-primary text-primary-foreground",
           )}
-          disabled={completed || loading}
+          disabled={disabled || completed || loading}
           onClick={onComplete}
           type="button"
         >

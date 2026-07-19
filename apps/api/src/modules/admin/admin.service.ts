@@ -221,9 +221,26 @@ export class AdminService {
     }
 
     if (organization.status !== status) {
-      await this.prismaService.organization.update({
-        where: { id: normalizedOrganizationId },
-        data: { status },
+      await this.prismaService.$transaction(async (transaction) => {
+        await transaction.organization.update({
+          where: { id: normalizedOrganizationId },
+          data: { status },
+        });
+
+        if (
+          status === OrganizationStatus.suspended ||
+          status === OrganizationStatus.cancelled
+        ) {
+          await transaction.clientPortalSession.updateMany({
+            where: {
+              invalidated: false,
+              access: {
+                client: { organizationId: normalizedOrganizationId },
+              },
+            },
+            data: { invalidated: true },
+          });
+        }
       });
     }
 

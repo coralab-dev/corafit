@@ -1,11 +1,12 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { ClientAccessStatus } from 'db';
+import { ClientAccessStatus, OrganizationStatus } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { ClientPortalRequest } from './client-portal-request';
 
@@ -24,7 +25,11 @@ export class ClientPortalAuthGuard implements CanActivate {
       where: { sessionTokenHash: this.hashToken(sessionToken) },
       include: {
         access: {
-          include: { client: true },
+          include: {
+            client: {
+              include: { organization: true },
+            },
+          },
         },
       },
     });
@@ -39,6 +44,10 @@ export class ClientPortalAuthGuard implements CanActivate {
       session.access.tokenHash !== this.hashToken(routeToken)
     ) {
       throw new UnauthorizedException('Invalid client portal session');
+    }
+
+    if (session.access.client.organization.status !== OrganizationStatus.active) {
+      throw new ForbiddenException('Client portal access is unavailable');
     }
 
     request.clientPortalSession = session;

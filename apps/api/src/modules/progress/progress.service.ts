@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -67,6 +68,10 @@ type SupabaseDatabase = {
 };
 
 type ClientPortalAccessWithClient = ClientAccess & { client: Client };
+type ClientPhotoResponse = Pick<
+  ProgressPhoto,
+  'id' | 'photoType' | 'recordedAt' | 'uploadedByType'
+> & { signedUrl: string };
 type DateRange = { gte?: Date; lte?: Date };
 type MeasurementField = 'armCm' | 'chestCm' | 'gluteCm' | 'hipCm' | 'legCm' | 'waistCm';
 type ParsedCommonFields = { note?: string | null; recordedAt?: Date };
@@ -89,6 +94,7 @@ const maxPhotoSidePx = 1600;
 
 @Injectable()
 export class ProgressService {
+  private readonly logger = new Logger(ProgressService.name);
   private readonly supabase: SupabaseClient<SupabaseDatabase>;
   private progressPhotosBucketReady = false;
 
@@ -268,15 +274,21 @@ export class ProgressService {
     const storagePath = this.buildPhotoStoragePath(client.organizationId, clientId);
     await this.uploadPhoto(storagePath, file);
 
-    const photo = await this.prismaService.progressPhoto.create({
-      data: {
-        clientId,
-        uploadedByType: ProgressRecordActor.coach,
-        uploadedByMemberId: activeMember.id,
-        storagePath,
-        ...data,
-      },
-    });
+    let photo: ProgressPhoto;
+    try {
+      photo = await this.prismaService.progressPhoto.create({
+        data: {
+          clientId,
+          uploadedByType: ProgressRecordActor.coach,
+          uploadedByMemberId: activeMember.id,
+          storagePath,
+          ...data,
+        },
+      });
+    } catch (error) {
+      await this.tryRemovePhotoForCompensation(storagePath);
+      throw error;
+    }
 
     return this.attachSignedUrl(photo);
   }
@@ -297,13 +309,11 @@ export class ProgressService {
       throw new ForbiddenException('Coach can only delete own photos');
     }
 
-    const deleted = await this.prismaService.progressPhoto.update({
+    await this.removePhotoOrThrow(photo.storagePath);
+    return this.prismaService.progressPhoto.update({
       where: { id: photoId },
       data: { deletedAt: new Date() },
     });
-    await this.tryRemovePhoto(photo.storagePath);
-
-    return deleted;
   }
 
   async listNotes(
@@ -467,7 +477,7 @@ export class ProgressService {
       take: this.parseLimit(query.limit),
     });
 
-    return this.attachSignedUrls(photos);
+    return this.attachClientSignedUrls(photos);
   }
 
   async createClientPhoto(
@@ -479,17 +489,23 @@ export class ProgressService {
     const storagePath = this.buildPhotoStoragePath(access.client.organizationId, access.clientId);
     await this.uploadPhoto(storagePath, file);
 
-    const photo = await this.prismaService.progressPhoto.create({
-      data: {
-        clientId: access.clientId,
-        uploadedByType: ProgressRecordActor.client,
-        uploadedByMemberId: null,
-        storagePath,
-        ...data,
-      },
-    });
+    let photo: ProgressPhoto;
+    try {
+      photo = await this.prismaService.progressPhoto.create({
+        data: {
+          clientId: access.clientId,
+          uploadedByType: ProgressRecordActor.client,
+          uploadedByMemberId: null,
+          storagePath,
+          ...data,
+        },
+      });
+    } catch (error) {
+      await this.tryRemovePhotoForCompensation(storagePath);
+      throw error;
+    }
 
-    return this.attachSignedUrl(photo);
+    return this.attachClientSignedUrl(photo);
   }
 
   async deleteClientPhoto(access: ClientPortalAccessWithClient, photoId: string) {
@@ -498,13 +514,13 @@ export class ProgressService {
       throw new ForbiddenException('Client can only delete own photos');
     }
 
+    await this.removePhotoOrThrow(photo.storagePath);
     const deleted = await this.prismaService.progressPhoto.update({
       where: { id: photoId },
       data: { deletedAt: new Date() },
     });
-    await this.tryRemovePhoto(photo.storagePath);
 
-    return deleted;
+    return { id: deleted.id };
   }
 
   async listClientNotes(
@@ -799,6 +815,10 @@ export class ProgressService {
     return Promise.all(photos.map((photo) => this.attachSignedUrl(photo)));
   }
 
+  private async attachClientSignedUrls(photos: ProgressPhoto[]): Promise<ClientPhotoResponse[]> {
+    return Promise.all(photos.map((photo) => this.attachClientSignedUrl(photo)));
+  }
+
   private async attachSignedUrl<T extends ProgressPhoto>(photo: T) {
     const { data, error } = await this.supabase.storage
       .from(progressPhotosBucketName)
@@ -811,11 +831,39 @@ export class ProgressService {
     return { ...photo, signedUrl: data.signedUrl };
   }
 
-  private async tryRemovePhoto(storagePath: string) {
+  private async attachClientSignedUrl(photo: ProgressPhoto): Promise<ClientPhotoResponse> {
+    const photoWithUrl = await this.attachSignedUrl(photo);
+
+    return {
+      id: photoWithUrl.id,
+      photoType: photoWithUrl.photoType,
+      recordedAt: photoWithUrl.recordedAt,
+      signedUrl: photoWithUrl.signedUrl,
+      uploadedByType: photoWithUrl.uploadedByType,
+    };
+  }
+
+  private async removePhotoOrThrow(storagePath: string): Promise<void> {
+    const { error } = await this.supabase.storage
+      .from(progressPhotosBucketName)
+      .remove([storagePath]);
+
+    if (error) {
+      throw new BadRequestException(`Photo deletion failed: ${error.message}`);
+    }
+  }
+
+  private async tryRemovePhotoForCompensation(storagePath: string): Promise<void> {
     try {
-      await this.supabase.storage.from(progressPhotosBucketName).remove([storagePath]);
-    } catch {
-      return;
+      const { error } = await this.supabase.storage
+        .from(progressPhotosBucketName)
+        .remove([storagePath]);
+
+      if (error) {
+        this.logger.error('photo cleanup failed', error);
+      }
+    } catch (error) {
+      this.logger.error('photo cleanup failed', error);
     }
   }
 

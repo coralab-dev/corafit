@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import {
@@ -475,14 +475,108 @@ describe('ProgressService', () => {
     );
   });
 
-  it('allows client to list own photos', async () => {
-    await service.listClientPhotos(createAccess(createClient()), {});
+  it('allows client to list own photos without exposing storage paths', async () => {
+    const result = await service.listClientPhotos(createAccess(createClient()), {});
 
     expect(prismaService.progressPhoto.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ clientId: 'client-id', deletedAt: null }),
       }),
     );
+    expect(result[0]).toEqual(expect.objectContaining({
+      id: 'photo-id',
+      photoType: ProgressPhotoType.front,
+      recordedAt: expect.any(Date),
+      signedUrl: 'https://signed.example/photo.webp',
+      uploadedByType: ProgressRecordActor.client,
+    }));
+    expect(result[0]).not.toHaveProperty('storagePath');
+  });
+
+  it('does not soft delete a photo when strict storage removal fails', async () => {
+    removeMock.mockResolvedValueOnce({ error: { message: 'storage unavailable' } });
+
+    await expect(
+      service.deleteClientPhoto(createAccess(createClient()), 'photo-id'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prismaService.progressPhoto.update).not.toHaveBeenCalled();
+  });
+
+  it('removes storage before soft deleting a client photo', async () => {
+    removeMock.mockImplementationOnce(() => {
+      expect(prismaService.progressPhoto.update).not.toHaveBeenCalled();
+      return { error: null };
+    });
+
+    await service.deleteClientPhoto(createAccess(createClient()), 'photo-id');
+
+    expect(removeMock).toHaveBeenCalledWith([
+      'progress-photos/organization-id/client-id/photo-id.webp',
+    ]);
+    expect(prismaService.progressPhoto.update).toHaveBeenCalledWith({
+      where: { id: 'photo-id' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('tries to compensate an orphaned coach upload when Prisma create fails', async () => {
+    const prismaError = new Error('database unavailable');
+    prismaService.progressPhoto.create.mockRejectedValueOnce(prismaError);
+
+    await expect(
+      service.createPhoto('client-id', { photoType: 'front' }, createFile(), createMember()),
+    ).rejects.toBe(prismaError);
+    expect(removeMock).toHaveBeenCalledWith([
+      'progress-photos/organization-id/client-id/photo-id.webp',
+    ]);
+  });
+
+  it('logs compensation failures while preserving the original Prisma error', async () => {
+    const prismaError = new Error('database unavailable');
+    const storageError = new Error('storage cleanup unavailable');
+    const loggerError = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    prismaService.progressPhoto.create.mockRejectedValueOnce(prismaError);
+    removeMock.mockResolvedValueOnce({ error: storageError });
+
+    try {
+      await expect(
+        service.createClientPhoto(createAccess(createClient()), { photoType: 'front' }, createFile()),
+      ).rejects.toBe(prismaError);
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.stringContaining('photo cleanup failed'),
+        storageError,
+      );
+    } finally {
+      loggerError.mockRestore();
+    }
+  });
+
+  it('does not expose storage paths from a client photo upload', async () => {
+    prismaService.progressPhoto.create.mockResolvedValueOnce({
+      id: 'photo-id',
+      clientId: 'client-id',
+      uploadedByType: ProgressRecordActor.client,
+      uploadedByMemberId: null,
+      storagePath: 'progress-photos/organization-id/client-id/photo-id.webp',
+      photoType: ProgressPhotoType.front,
+      recordedAt: new Date('2026-06-01T00:00:00.000Z'),
+      deletedAt: null,
+      createdAt: new Date('2026-06-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    const result = await service.createClientPhoto(
+      createAccess(createClient()),
+      { photoType: 'front' },
+      createFile(),
+    );
+
+    expect(result).toEqual(expect.objectContaining({
+      id: 'photo-id',
+      photoType: ProgressPhotoType.front,
+      signedUrl: 'https://signed.example/photo.webp',
+      uploadedByType: ProgressRecordActor.client,
+    }));
+    expect(result).not.toHaveProperty('storagePath');
   });
 
   it('forbids client from deleting coach uploaded photos', async () => {

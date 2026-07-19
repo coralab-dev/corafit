@@ -11,6 +11,7 @@ import {
   ClientSessionStatus,
   ClientTrainingPlanAssignmentStatus,
   DayOfWeek,
+  OrganizationStatus,
   TrainingDayType,
 } from 'db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,7 +55,14 @@ function createAccess(overrides: Record<string, unknown> = {}) {
     lastAccessAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    client: { id: 'client-id', name: 'Client One' },
+    client: {
+      id: 'client-id',
+      name: 'Client One',
+      organization: {
+        id: 'org-id',
+        status: OrganizationStatus.active,
+      },
+    },
     ...overrides,
   };
 }
@@ -221,6 +229,54 @@ describe('ClientPortalService', () => {
       prismaService as unknown as PrismaService,
       streakService,
     );
+  });
+
+  it('keeps an active organization token available for PIN verification', async () => {
+    await expect(service.getTokenStatus('plain-token')).resolves.toMatchObject({
+      valid: true,
+      requiresPin: true,
+    });
+  });
+
+  it('hides a suspended organization as an unavailable token', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce(
+      createAccess({
+        client: {
+          ...createAccess().client,
+          organization: {
+            id: 'org-id',
+            status: OrganizationStatus.suspended,
+          },
+        },
+      }),
+    );
+
+    await expect(service.getTokenStatus('plain-token')).resolves.toEqual({
+      valid: false,
+      requiresPin: false,
+    });
+  });
+
+  it('does not create a portal session when the organization is suspended', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce(
+      createAccess({
+        client: {
+          ...createAccess().client,
+          organization: {
+            id: 'org-id',
+            status: OrganizationStatus.suspended,
+          },
+        },
+      }),
+    );
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ message: 'Invalid credentials' }),
+    });
+    expect(prismaService.clientAccess.update).not.toHaveBeenCalled();
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
   });
 
   it('rejects malformed PINs before verification', async () => {

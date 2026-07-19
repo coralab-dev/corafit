@@ -22,6 +22,10 @@ type PrismaServiceMock = {
     findUnique: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  clientPortalSession: {
+    updateMany: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
   organizationSubscription: {
     upsert: ReturnType<typeof vi.fn>;
   };
@@ -160,6 +164,13 @@ describe('AdminService', () => {
         }),
       },
     };
+    prismaService.clientPortalSession = {
+      updateMany: vi.fn().mockResolvedValue({ count: 2 }),
+    };
+    prismaService.$transaction = vi.fn().mockImplementation(
+      async (callback: (transaction: PrismaServiceMock) => Promise<unknown>) =>
+        callback(prismaService),
+    );
     service = new AdminService(prismaService as unknown as PrismaService);
   });
 
@@ -316,7 +327,7 @@ describe('AdminService', () => {
     });
   });
 
-  it('suspends an active organization by updating only its status', async () => {
+  it('suspends an active organization and invalidates its portal sessions atomically', async () => {
     const suspendedOrganization = {
       ...organization,
       status: OrganizationStatus.suspended,
@@ -335,6 +346,15 @@ describe('AdminService', () => {
     expect(prismaService.organization.update).toHaveBeenCalledWith({
       where: { id: 'organization-id' },
       data: { status: OrganizationStatus.suspended },
+    });
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        invalidated: false,
+        access: {
+          client: { organizationId: 'organization-id' },
+        },
+      },
+      data: { invalidated: true },
     });
   });
 
@@ -375,6 +395,7 @@ describe('AdminService', () => {
       where: { id: 'organization-id' },
       data: { status: OrganizationStatus.active },
     });
+    expect(prismaService.clientPortalSession.updateMany).not.toHaveBeenCalled();
   });
 
   it('keeps reactivating an active organization idempotent', async () => {

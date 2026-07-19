@@ -168,6 +168,7 @@ export type ClientSessionLog = {
   status: ClientPortalStatus;
   openedAt?: string;
   completedAt: string | null;
+  canModify: boolean;
   snapshotData: ClientSessionSnapshot;
 };
 

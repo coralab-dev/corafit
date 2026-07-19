@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -60,6 +61,17 @@ type ClientWithOrganization = Client & {
 
 type LogWithSnapshot = Omit<ClientSessionLog, 'snapshotData'> & {
   snapshotData: ClientSessionSnapshotV1;
+  canModify: boolean;
+};
+
+type LogWithAssignment = ClientSessionLog & {
+  assignment: Pick<ClientTrainingPlanAssignment, 'status'>;
+};
+
+type ClientLogMutation = {
+  completedAt?: Date;
+  snapshotData?: ClientSessionSnapshotV1;
+  status?: ClientSessionStatus;
 };
 
 export type ClientSessionCompletionCard = {
@@ -123,7 +135,7 @@ export class ClientSessionLogsService {
     });
 
     if (existingLog) {
-      return this.serializeLog(existingLog);
+      return this.serializeLog(existingLog, ClientTrainingPlanAssignmentStatus.active);
     }
 
     const snapshot = await this.snapshotService.buildSnapshotForSession(trainingSessionId);
@@ -139,7 +151,7 @@ export class ClientSessionLogsService {
         },
       });
 
-      return this.serializeLog(createdLog);
+      return this.serializeLog(createdLog, ClientTrainingPlanAssignmentStatus.active);
     } catch (error) {
       if (!this.isUniqueConstraintError(error)) {
         throw error;
@@ -158,7 +170,7 @@ export class ClientSessionLogsService {
         throw error;
       }
 
-      return this.serializeLog(concurrentLog);
+      return this.serializeLog(concurrentLog, ClientTrainingPlanAssignmentStatus.active);
     }
   }
 
@@ -202,22 +214,22 @@ export class ClientSessionLogsService {
       body.sessionExerciseId,
       'sessionExerciseId',
     );
-    const log = await this.getMutableClientLog(access.clientId, logId);
-    const snapshot = this.snapshotService.parseSnapshotData(log.snapshotData);
-    const exercise = snapshot.exercises.find(
-      (snapshotExercise) => snapshotExercise.sessionExerciseId === sessionExerciseId,
-    );
+    return this.mutateClientLogWithRetry(access.clientId, logId, (log, snapshot) => {
+      const exercise = snapshot.exercises.find(
+        (snapshotExercise) => snapshotExercise.sessionExerciseId === sessionExerciseId,
+      );
 
-    if (!exercise) {
-      throw new BadRequestException('Exercise does not exist in this session snapshot');
-    }
+      if (!exercise) {
+        throw new BadRequestException('Exercise does not exist in this session snapshot');
+      }
 
-    const progress = this.getProgress(snapshot);
-    if (!progress.completedExerciseIds.includes(sessionExerciseId)) {
-      progress.completedExerciseIds.push(sessionExerciseId);
-    }
+      const progress = this.getProgress(snapshot);
+      if (!progress.completedExerciseIds.includes(sessionExerciseId)) {
+        progress.completedExerciseIds.push(sessionExerciseId);
+      }
 
-    return this.updateProgress(log, snapshot, progress);
+      return this.buildProgressMutation(log, snapshot, progress);
+    });
   }
 
   async useAlternative(
@@ -230,58 +242,52 @@ export class ClientSessionLogsService {
       'sessionExerciseId',
     );
     const alternativeId = this.parseRequiredString(body.alternativeId, 'alternativeId');
-    const log = await this.getMutableClientLog(access.clientId, logId);
-    const snapshot = this.snapshotService.parseSnapshotData(log.snapshotData);
-    const exercise = snapshot.exercises.find(
-      (snapshotExercise) => snapshotExercise.sessionExerciseId === sessionExerciseId,
-    );
-    const alternative = exercise?.alternatives.find(
-      (snapshotAlternative) => snapshotAlternative.id === alternativeId,
-    );
+    return this.mutateClientLogWithRetry(access.clientId, logId, (log, snapshot) => {
+      const exercise = snapshot.exercises.find(
+        (snapshotExercise) => snapshotExercise.sessionExerciseId === sessionExerciseId,
+      );
+      const alternative = exercise?.alternatives.find(
+        (snapshotAlternative) => snapshotAlternative.id === alternativeId,
+      );
 
-    if (!exercise || !alternative) {
-      throw new BadRequestException('Alternative does not exist in this session snapshot');
-    }
+      if (!exercise || !alternative) {
+        throw new BadRequestException('Alternative does not exist in this session snapshot');
+      }
 
-    const progress = this.getProgress(snapshot);
-    progress.usedAlternatives = progress.usedAlternatives.filter(
-      (usedAlternative) => usedAlternative.sessionExerciseId !== sessionExerciseId,
-    );
-    progress.usedAlternatives.push({
-      sessionExerciseId,
-      alternativeId,
-      alternativeExerciseId: alternative.alternativeExerciseId,
+      const progress = this.getProgress(snapshot);
+      progress.usedAlternatives = progress.usedAlternatives.filter(
+        (usedAlternative) => usedAlternative.sessionExerciseId !== sessionExerciseId,
+      );
+      progress.usedAlternatives.push({
+        sessionExerciseId,
+        alternativeId,
+        alternativeExerciseId: alternative.alternativeExerciseId,
+      });
+
+      return this.buildProgressMutation(log, snapshot, progress);
     });
-
-    return this.updateProgress(log, snapshot, progress);
   }
 
   async finalizeSession(
     access: ClientAccess & { client: Client },
     logId: string,
   ): Promise<LogWithSnapshot> {
-    const log = await this.getMutableClientLog(access.clientId, logId);
-    const snapshot = this.snapshotService.parseSnapshotData(log.snapshotData);
-    const progress = this.getProgress(snapshot);
-    const totalExercises = snapshot.exercises.length;
-    const completedExercises = progress.completedExerciseIds.length;
+    return this.mutateClientLogWithRetry(access.clientId, logId, (log, snapshot) => {
+      const progress = this.getProgress(snapshot);
+      const totalExercises = snapshot.exercises.length;
+      const completedExercises = progress.completedExerciseIds.length;
 
-    if (completedExercises === 0) {
-      throw new BadRequestException('Cannot finalize a session without completed exercises');
-    }
+      if (completedExercises === 0) {
+        throw new BadRequestException('Cannot finalize a session without completed exercises');
+      }
 
-    const status = completedExercises >= totalExercises
-      ? ClientSessionStatus.completed
-      : ClientSessionStatus.partially_completed;
-    const updatedLog = await this.prismaService.clientSessionLog.update({
-      where: { id: log.id },
-      data: {
-        status,
+      return {
+        status: completedExercises >= totalExercises
+          ? ClientSessionStatus.completed
+          : ClientSessionStatus.partially_completed,
         completedAt: this.getCurrentDate(),
-      },
+      };
     });
-
-    return this.serializeLog(updatedLog);
   }
 
   async getCompletionCard(
@@ -400,6 +406,11 @@ export class ClientSessionLogsService {
         id: logId,
         clientId,
       },
+      include: {
+        assignment: {
+          select: { status: true },
+        },
+      },
     });
 
     if (!log) {
@@ -412,7 +423,16 @@ export class ClientSessionLogsService {
   private async getMutableClientLog(clientId: string, logId: string) {
     const log = await this.getClientLog(clientId, logId);
 
-    if (this.isFinalizedStatus(log.status)) {
+    if (log.assignment.status !== ClientTrainingPlanAssignmentStatus.active) {
+      throw new ForbiddenException(
+        'Session log cannot be modified because the plan assignment is not active',
+      );
+    }
+
+    if (
+      log.status !== ClientSessionStatus.opened &&
+      log.status !== ClientSessionStatus.in_progress
+    ) {
       throw new ForbiddenException('Session log cannot be modified after finalization');
     }
 
@@ -444,30 +464,75 @@ export class ClientSessionLogsService {
     return planDay?.session || null;
   }
 
-  private updateProgress(
+  private buildProgressMutation(
     log: ClientSessionLog,
     snapshot: ClientSessionSnapshotV1,
     progress: ClientSessionSnapshotProgress,
-  ): Promise<LogWithSnapshot> {
+  ): ClientLogMutation {
     const updatedSnapshot = {
       ...snapshot,
       progress,
     };
 
-    return this.prismaService.clientSessionLog.update({
-      where: { id: log.id },
-      data: {
-        snapshotData: updatedSnapshot,
-        status: log.status === ClientSessionStatus.opened
-          ? ClientSessionStatus.in_progress
-          : log.status,
-      },
-    }).then((updatedLog) => this.serializeLog(updatedLog));
+    return {
+      snapshotData: updatedSnapshot,
+      status: log.status === ClientSessionStatus.opened
+        ? ClientSessionStatus.in_progress
+        : log.status,
+    };
   }
 
-  private serializeLog(log: ClientSessionLog): LogWithSnapshot {
+  private async mutateClientLogWithRetry(
+    clientId: string,
+    logId: string,
+    mutate: (
+      log: LogWithAssignment,
+      snapshot: ClientSessionSnapshotV1,
+    ) => ClientLogMutation,
+  ): Promise<LogWithSnapshot> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const log = await this.getMutableClientLog(clientId, logId);
+      const snapshot = this.snapshotService.parseSnapshotData(log.snapshotData);
+      const mutation = mutate(log, snapshot);
+      const result = await this.prismaService.clientSessionLog.updateMany({
+        where: {
+          id: log.id,
+          clientId,
+          updatedAt: log.updatedAt,
+          status: {
+            in: [ClientSessionStatus.opened, ClientSessionStatus.in_progress],
+          },
+          assignment: {
+            is: { status: ClientTrainingPlanAssignmentStatus.active },
+          },
+        },
+        data: mutation,
+      });
+
+      if (result.count === 0) {
+        continue;
+      }
+
+      return this.serializeLog(await this.getClientLog(clientId, logId));
+    }
+
+    throw new ConflictException('Session log was modified concurrently');
+  }
+
+  private serializeLog(
+    log: ClientSessionLog | LogWithAssignment,
+    fallbackAssignmentStatus = ClientTrainingPlanAssignmentStatus.active,
+  ): LogWithSnapshot {
+    const assignmentStatus = 'assignment' in log
+      ? log.assignment.status
+      : fallbackAssignmentStatus;
+    const { assignment: _assignment, ...serializedLog } = log as LogWithAssignment;
+    void _assignment;
+
     return {
-      ...log,
+      ...serializedLog,
+      canModify: assignmentStatus === ClientTrainingPlanAssignmentStatus.active
+        && !this.isFinalizedStatus(log.status),
       snapshotData: this.snapshotService.parseSnapshotData(log.snapshotData),
     };
   }

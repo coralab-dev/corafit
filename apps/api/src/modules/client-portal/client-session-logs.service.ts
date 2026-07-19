@@ -22,6 +22,7 @@ import {
   type TrainingSession,
 } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { runSerializableWithRetry } from '../../common/prisma/serializable-transaction';
 import {
   ClientSessionSnapshotService,
   type ClientSessionSnapshotProgress,
@@ -117,6 +118,24 @@ export class ClientSessionLogsService {
       throw new BadRequestException('Cannot open a future session');
     }
 
+    const scheduledDate = this.toScheduledDate(scheduledDateKey);
+    const existingLog = await this.prismaService.clientSessionLog.findFirst({
+      where: {
+        clientId: access.clientId,
+        trainingSessionId,
+        scheduledDate,
+      },
+      include: {
+        assignment: {
+          select: { status: true },
+        },
+      },
+    });
+
+    if (existingLog) {
+      return this.serializeLog(existingLog);
+    }
+
     const assignment = await this.getActiveAssignment(access.clientId);
     const scheduledSession = this.findScheduledSession(assignment, scheduledDateKey);
 
@@ -124,27 +143,11 @@ export class ClientSessionLogsService {
       throw new BadRequestException('Training session is not scheduled for this date');
     }
 
-    const scheduledDate = this.toScheduledDate(scheduledDateKey);
     const snapshot = await this.snapshotService.buildSnapshotForSession(trainingSessionId);
 
     try {
-      return await this.prismaService.$transaction(async (transaction) => {
-        const activeAssignment = await transaction.clientTrainingPlanAssignment.findFirst({
-          where: {
-            id: assignment.id,
-            clientId: access.clientId,
-            status: ClientTrainingPlanAssignmentStatus.active,
-          },
-          select: { id: true },
-        });
-
-        if (!activeAssignment) {
-          throw new ForbiddenException(
-            'Session log cannot be opened because the plan assignment is not active',
-          );
-        }
-
-        const existingLog = await transaction.clientSessionLog.findFirst({
+      return await runSerializableWithRetry(this.prismaService, async (transaction) => {
+        const concurrentLog = await transaction.clientSessionLog.findFirst({
           where: {
             clientId: access.clientId,
             assignmentId: assignment.id,
@@ -158,8 +161,23 @@ export class ClientSessionLogsService {
           },
         });
 
-        if (existingLog) {
-          return this.serializeLog(existingLog);
+        if (concurrentLog) {
+          return this.serializeLog(concurrentLog);
+        }
+
+        const activeAssignment = await transaction.clientTrainingPlanAssignment.findFirst({
+          where: {
+            id: assignment.id,
+            clientId: access.clientId,
+            status: ClientTrainingPlanAssignmentStatus.active,
+          },
+          select: { id: true },
+        });
+
+        if (!activeAssignment) {
+          throw new ForbiddenException(
+            'Session log cannot be opened because the plan assignment is not active',
+          );
         }
 
         const createdLog = await transaction.clientSessionLog.create({

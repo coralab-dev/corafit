@@ -10,6 +10,7 @@ import {
   type User,
 } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { runSerializableWithRetry } from '../../common/prisma/serializable-transaction';
 
 type OrganizationWithAdminRelations = Organization & {
   owner: Pick<User, 'email' | 'id' | 'name'>;
@@ -220,14 +221,23 @@ export class AdminService {
       throw new BadRequestException('Cancelled organizations cannot change status');
     }
 
-    const shouldInvalidateSessions =
-      status === OrganizationStatus.active ||
+    if (
+      organization.status === OrganizationStatus.active &&
+      status === OrganizationStatus.active
+    ) {
+      return this.getOrganization(normalizedOrganizationId);
+    }
+
+    const isRealReactivation =
+      organization.status !== OrganizationStatus.active &&
+      status === OrganizationStatus.active;
+    const shouldInvalidateForDisable =
       status === OrganizationStatus.suspended ||
       status === OrganizationStatus.cancelled;
 
-    if (organization.status !== status || shouldInvalidateSessions) {
-      await this.prismaService.$transaction(async (transaction) => {
-        if (status === OrganizationStatus.active) {
+    if (organization.status !== status || shouldInvalidateForDisable) {
+      await runSerializableWithRetry(this.prismaService, async (transaction) => {
+        if (isRealReactivation) {
           await transaction.clientPortalSession.updateMany({
             where: {
               invalidated: false,
@@ -247,8 +257,7 @@ export class AdminService {
         }
 
         if (
-          status === OrganizationStatus.suspended ||
-          status === OrganizationStatus.cancelled
+          shouldInvalidateForDisable
         ) {
           await transaction.clientPortalSession.updateMany({
             where: {

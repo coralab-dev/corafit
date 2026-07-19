@@ -42,6 +42,7 @@ import type {
 } from '../training-plans/dto/training-plan.dto';
 import type { AppConfig } from '../../config/env.schema';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { runSerializableWithRetry } from '../../common/prisma/serializable-transaction';
 
 type ClientAccessTokenResult = {
   access: {
@@ -949,22 +950,26 @@ export class ClientsService {
     const organizationId = this.getOrganizationId(member);
     await this.getClientForOrganization(clientId, organizationId);
 
-    const assignment = await this.getCurrentAssignmentForClient(clientId);
+    return runSerializableWithRetry(this.prismaService, async (transaction) => {
+      const assignment = await transaction.clientTrainingPlanAssignment.findFirst({
+        where: {
+          clientId,
+          status: ClientTrainingPlanAssignmentStatus.active,
+        },
+      });
 
-    if (!assignment) {
-      throw new NotFoundException('ACTIVE_ASSIGNMENT_NOT_FOUND');
-    }
+      if (!assignment) {
+        throw new NotFoundException('ACTIVE_ASSIGNMENT_NOT_FOUND');
+      }
 
-    const updatedAssignment =
-      await this.prismaService.clientTrainingPlanAssignment.update({
+      return transaction.clientTrainingPlanAssignment.update({
         where: { id: assignment.id },
         data: {
           status: ClientTrainingPlanAssignmentStatus.finished,
           endedAt: new Date(),
         },
       });
-
-    return updatedAssignment;
+    });
   }
 
   async createCurrentAssignmentWeek(

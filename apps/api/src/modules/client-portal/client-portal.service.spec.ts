@@ -20,6 +20,7 @@ import { ClientPortalService } from './client-portal.service';
 import { ClientStreakService } from './client-streak.service';
 
 type PrismaServiceMock = {
+  $transaction: ReturnType<typeof vi.fn>;
   client: {
     findUnique: ReturnType<typeof vi.fn>;
   };
@@ -221,6 +222,10 @@ describe('ClientPortalService', () => {
       clientTrainingPlanAssignment: {
         findFirst: vi.fn().mockResolvedValue(null),
       },
+      $transaction: vi.fn().mockImplementation(
+        async (callback: (transaction: PrismaServiceMock) => Promise<unknown>) =>
+          callback(prismaService),
+      ),
     };
     getCurrentStreak = vi.fn().mockResolvedValue(6);
     streakService = {
@@ -375,7 +380,7 @@ describe('ClientPortalService', () => {
   });
 
   it('creates a session with a hashed opaque token after a valid PIN', async () => {
-    prismaService.clientAccess.findUnique.mockResolvedValueOnce(
+    prismaService.clientAccess.findUnique.mockResolvedValue(
       createAccess({ pinHash: validPinHash }),
     );
 
@@ -393,12 +398,18 @@ describe('ClientPortalService', () => {
   });
 
   it('does not create a session when the organization is suspended during PIN verification', async () => {
-    prismaService.clientAccess.findUnique.mockResolvedValueOnce(
-      createAccess({ pinHash: validPinHash }),
-    );
-    prismaService.client.findUnique.mockResolvedValueOnce({
-      organization: { status: OrganizationStatus.suspended },
-    });
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({
+        pinHash: validPinHash,
+        client: {
+          ...createAccess().client,
+          organization: {
+            id: 'org-id',
+            status: OrganizationStatus.suspended,
+          },
+        },
+      }));
 
     await expect(
       service.verifyPin('plain-token', { pin: '123456' }),
@@ -406,6 +417,44 @@ describe('ClientPortalService', () => {
       response: expect.objectContaining({ message: 'Invalid credentials' }),
     });
     expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a PIN when its hash changes before session emission', async () => {
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({ pinHash: `${validPinHash}-rotated` }));
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a PIN when access is disabled before session emission', async () => {
+    prismaService.clientAccess.findUnique
+      .mockResolvedValueOnce(createAccess({ pinHash: validPinHash }))
+      .mockResolvedValueOnce(createAccess({
+        pinHash: validPinHash,
+        status: ClientAccessStatus.disabled,
+      }));
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it('retries the complete session emission after a serializable conflict', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValue(
+      createAccess({ pinHash: validPinHash }),
+    );
+    prismaService.$transaction.mockRejectedValueOnce({ code: 'P2034' });
+
+    const result = await service.verifyPin('plain-token', { pin: '123456' });
+
+    expect(result.sessionToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(prismaService.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaService.clientPortalSession.create).toHaveBeenCalledTimes(1);
   });
 
   it('invalidates an existing portal session on logout', async () => {

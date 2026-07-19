@@ -515,7 +515,7 @@ describe('ProgressService', () => {
     createSignedUrlMock
       .mockResolvedValueOnce({
         data: null,
-        error: { message: 'Object not found', statusCode: '404' },
+        error: { code: 'NoSuchKey', message: 'Object not found', statusCode: '404' },
       })
       .mockResolvedValueOnce({
         data: { signedUrl: 'https://signed.example/valid.webp' },
@@ -530,6 +530,21 @@ describe('ProgressService', () => {
       where: { id: 'missing-photo-id' },
       data: { deletedAt: expect.any(Date) },
     });
+  });
+
+  it.each([
+    ['NoSuchBucket', { code: 'NoSuchBucket', statusCode: '404' }],
+    ['TenantNotFound', { code: 'TenantNotFound', statusCode: '404' }],
+    ['Unauthorized', { code: 'Unauthorized', statusCode: '403' }],
+    ['ambiguous 404', { statusCode: '404', message: 'Object not found' }],
+    ['server error', { code: 'InternalError', statusCode: '500' }],
+  ])('propagates %s without reconciling the database row', async (_name, error) => {
+    createSignedUrlMock.mockResolvedValueOnce({ data: null, error });
+
+    await expect(
+      service.listClientPhotos(createAccess(createClient()), {}),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prismaService.progressPhoto.update).not.toHaveBeenCalled();
   });
 
   it('propagates general signed URL errors instead of reconciling them', async () => {

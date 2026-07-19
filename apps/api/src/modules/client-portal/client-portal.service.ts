@@ -24,6 +24,7 @@ import {
   type TrainingSession,
 } from 'db';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { runSerializableWithRetry } from '../../common/prisma/serializable-transaction';
 import { ClientStreakService } from './client-streak.service';
 import type { VerifyPinDto } from './dto/verify-pin.dto';
 
@@ -505,34 +506,45 @@ export class ClientPortalService {
       };
     }
 
-    await this.prismaService.clientAccess.update({
-      where: { id: access.id },
-      data: {
-        failedAttempts: 0,
-        lockedUntil: null,
-        status: ClientAccessStatus.active,
-        lastAccessAt: now,
-      },
-    });
+    const sessionToken = await runSerializableWithRetry(this.prismaService, async (transaction) => {
+      const currentAccess = await transaction.clientAccess.findUnique({
+        where: { id: access.id },
+        include: {
+          client: {
+            include: { organization: true },
+          },
+        },
+      });
 
-    const currentClient = await this.prismaService.client.findUnique({
-      where: { id: access.clientId },
-      select: { organization: { select: { status: true } } },
-    });
-    if (
-      !currentClient ||
-      currentClient.organization.status !== OrganizationStatus.active
-    ) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+      if (
+        !currentAccess ||
+        currentAccess.status === ClientAccessStatus.disabled ||
+        currentAccess.tokenHash !== tokenHash ||
+        currentAccess.pinHash !== access.pinHash ||
+        currentAccess.client.organization.status !== OrganizationStatus.active
+      ) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
 
-    const sessionToken = this.generateToken();
-    await this.prismaService.clientPortalSession.create({
-      data: {
-        accessId: access.id,
-        sessionTokenHash: this.hashToken(sessionToken),
-        expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
-      },
+      const token = this.generateToken();
+      await transaction.clientAccess.update({
+        where: { id: currentAccess.id },
+        data: {
+          failedAttempts: 0,
+          lockedUntil: null,
+          status: ClientAccessStatus.active,
+          lastAccessAt: now,
+        },
+      });
+      await transaction.clientPortalSession.create({
+        data: {
+          accessId: currentAccess.id,
+          sessionTokenHash: this.hashToken(token),
+          expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+        },
+      });
+
+      return token;
     });
 
     return {

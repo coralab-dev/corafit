@@ -894,20 +894,12 @@ export class ProgressService {
 
   private isMissingPhotoObjectError(error: unknown) {
     const cause = error instanceof PhotoSignedUrlError ? error.cause : error;
-    if (!cause || typeof cause !== 'object') {
-      return false;
-    }
-
-    const statusCode = 'statusCode' in cause ? cause.statusCode : undefined;
-    if (statusCode === 404 || statusCode === '404') {
-      return true;
-    }
-
-    const message = 'message' in cause && typeof cause.message === 'string'
-      ? cause.message
-      : '';
-
-    return /(?:object )?(?:not found|does not exist)|no such object/i.test(message);
+    return (
+      typeof cause === 'object' &&
+      cause !== null &&
+      'code' in cause &&
+      cause.code === 'NoSuchKey'
+    );
   }
 
   private toSignedUrlException(error: unknown) {

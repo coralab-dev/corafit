@@ -1333,5 +1333,17 @@ describe('ClientsService', () => {
         },
       });
     });
+
+    it('retries a serializable conflict and rejects when the assignment is no longer active', async () => {
+      prismaService.$transaction.mockRejectedValueOnce({ code: 'P2034' });
+      prismaService.clientTrainingPlanAssignment.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.endCurrentPlanAssignment('client-id', createMember()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(prismaService.$transaction).toHaveBeenCalledTimes(2);
+      expect(prismaService.clientTrainingPlanAssignment.update).not.toHaveBeenCalled();
+    });
   });
 });

@@ -366,6 +366,7 @@ describe('AdminService', () => {
     prismaService.organization.findUnique
       .mockResolvedValueOnce(suspendedOrganization)
       .mockResolvedValueOnce(suspendedOrganization);
+    prismaService.clientPortalSession.updateMany.mockResolvedValueOnce({ count: 0 });
 
     await expect(service.suspendOrganization('organization-id')).resolves.toMatchObject({
       id: 'organization-id',
@@ -373,9 +374,18 @@ describe('AdminService', () => {
     });
 
     expect(prismaService.organization.update).not.toHaveBeenCalled();
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        invalidated: false,
+        access: {
+          client: { organizationId: 'organization-id' },
+        },
+      },
+      data: { invalidated: true },
+    });
   });
 
-  it('reactivates a suspended organization by updating only its status', async () => {
+  it('reactivates a suspended organization by invalidating sessions before enabling it', async () => {
     const suspendedOrganization = {
       ...organization,
       status: OrganizationStatus.suspended,
@@ -383,7 +393,15 @@ describe('AdminService', () => {
     prismaService.organization.findUnique
       .mockResolvedValueOnce(suspendedOrganization)
       .mockResolvedValueOnce(organization);
-    prismaService.organization.update.mockResolvedValueOnce(organization);
+    const operationOrder: string[] = [];
+    prismaService.clientPortalSession.updateMany.mockImplementationOnce(() => {
+      operationOrder.push('invalidate');
+      return { count: 2 };
+    });
+    prismaService.organization.update.mockImplementationOnce(() => {
+      operationOrder.push('update');
+      return organization;
+    });
 
     await expect(service.reactivateOrganization('organization-id')).resolves.toMatchObject({
       id: 'organization-id',
@@ -395,10 +413,19 @@ describe('AdminService', () => {
       where: { id: 'organization-id' },
       data: { status: OrganizationStatus.active },
     });
-    expect(prismaService.clientPortalSession.updateMany).not.toHaveBeenCalled();
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        invalidated: false,
+        access: {
+          client: { organizationId: 'organization-id' },
+        },
+      },
+      data: { invalidated: true },
+    });
+    expect(operationOrder).toEqual(['invalidate', 'update']);
   });
 
-  it('keeps reactivating an active organization idempotent', async () => {
+  it('invalidates sessions when reactivating an already active organization', async () => {
     prismaService.organization.findUnique
       .mockResolvedValueOnce(organization)
       .mockResolvedValueOnce(organization);
@@ -409,6 +436,15 @@ describe('AdminService', () => {
     });
 
     expect(prismaService.organization.update).not.toHaveBeenCalled();
+    expect(prismaService.clientPortalSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        invalidated: false,
+        access: {
+          client: { organizationId: 'organization-id' },
+        },
+      },
+      data: { invalidated: true },
+    });
   });
 
   it('returns 404 when changing status for an unknown organization', async () => {

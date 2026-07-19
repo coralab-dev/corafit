@@ -35,6 +35,7 @@ type PrismaServiceMock = {
   clientTrainingPlanAssignment: {
     findFirst: ReturnType<typeof vi.fn>;
   };
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
 function createAccess() {
@@ -219,6 +220,10 @@ describe('ClientSessionLogsService', () => {
       clientTrainingPlanAssignment: {
         findFirst: vi.fn().mockResolvedValue(createAssignment()),
       },
+      $transaction: vi.fn().mockImplementation(
+        async (callback: (transaction: PrismaServiceMock) => Promise<unknown>) =>
+          callback(prismaService),
+      ),
     };
     snapshotService = {
       buildSnapshotForSession: vi.fn().mockResolvedValue(createSnapshot()),
@@ -255,8 +260,14 @@ describe('ClientSessionLogsService', () => {
           status: ClientSessionStatus.opened,
           snapshotData: createSnapshot(),
         },
+        include: {
+          assignment: {
+            select: { status: true },
+          },
+        },
       });
       expect(result.snapshotData).toMatchObject({ session: { name: 'Lower Body' } });
+      expect(result.canModify).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -273,11 +284,14 @@ describe('ClientSessionLogsService', () => {
 
     expect(result.id).toBe('log-id');
     expect(prismaService.clientSessionLog.create).not.toHaveBeenCalled();
-    expect(snapshotService.buildSnapshotForSession).not.toHaveBeenCalled();
+    expect(snapshotService.buildSnapshotForSession).toHaveBeenCalledWith('session-1');
   });
 
   it('open returns an existing log when concurrent creation hits the unique constraint', async () => {
-    const existingLog = createLog({ status: ClientSessionStatus.opened });
+    const existingLog = createLog({
+      status: ClientSessionStatus.opened,
+      assignment: { status: ClientTrainingPlanAssignmentStatus.finished },
+    });
     prismaService.clientSessionLog.create.mockRejectedValueOnce({ code: 'P2002' });
     prismaService.clientSessionLog.findFirst
       .mockResolvedValueOnce(null)
@@ -296,7 +310,43 @@ describe('ClientSessionLogsService', () => {
         trainingSessionId: 'session-1',
         scheduledDate: new Date(Date.UTC(2026, 4, 20)),
       },
+      include: {
+        assignment: {
+          select: { status: true },
+        },
+      },
     });
+    expect(result.canModify).toBe(false);
+  });
+
+  it('does not create a log if the assignment finishes before the transactional recheck', async () => {
+    prismaService.clientTrainingPlanAssignment.findFirst
+      .mockResolvedValueOnce(createAssignment())
+      .mockResolvedValueOnce(null);
+
+    await expect(
+      service.openSession(createAccess(), {
+        trainingSessionId: 'session-1',
+        scheduledDate: '2026-05-20',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prismaService.clientSessionLog.create).not.toHaveBeenCalled();
+  });
+
+  it('serializes an existing log with the assignment status returned by the database', async () => {
+    prismaService.clientSessionLog.findFirst.mockResolvedValueOnce(
+      createLog({
+        assignment: { status: ClientTrainingPlanAssignmentStatus.finished },
+      }),
+    );
+
+    const result = await service.openSession(createAccess(), {
+      trainingSessionId: 'session-1',
+      scheduledDate: '2026-05-20',
+    });
+
+    expect(result.canModify).toBe(false);
   });
 
   it('does not allow opening a future session', async () => {

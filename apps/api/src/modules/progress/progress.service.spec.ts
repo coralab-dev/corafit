@@ -493,6 +493,57 @@ describe('ProgressService', () => {
     expect(result[0]).not.toHaveProperty('storagePath');
   });
 
+  it('omits a missing storage object and reconciles its database row', async () => {
+    const missingPhoto = {
+      id: 'missing-photo-id',
+      clientId: 'client-id',
+      uploadedByType: ProgressRecordActor.client,
+      uploadedByMemberId: null,
+      storagePath: 'progress-photos/organization-id/client-id/missing-photo-id.webp',
+      photoType: ProgressPhotoType.front,
+      recordedAt: new Date('2026-06-02T00:00:00.000Z'),
+      deletedAt: null,
+      createdAt: new Date('2026-06-02T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-02T00:00:00.000Z'),
+    };
+    const validPhoto = {
+      ...missingPhoto,
+      id: 'valid-photo-id',
+      storagePath: 'progress-photos/organization-id/client-id/valid-photo-id.webp',
+    };
+    prismaService.progressPhoto.findMany.mockResolvedValueOnce([missingPhoto, validPhoto]);
+    createSignedUrlMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Object not found', statusCode: '404' },
+      })
+      .mockResolvedValueOnce({
+        data: { signedUrl: 'https://signed.example/valid.webp' },
+        error: null,
+      });
+
+    const result = await service.listClientPhotos(createAccess(createClient()), {});
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(expect.objectContaining({ id: 'valid-photo-id' }));
+    expect(prismaService.progressPhoto.update).toHaveBeenCalledWith({
+      where: { id: 'missing-photo-id' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('propagates general signed URL errors instead of reconciling them', async () => {
+    createSignedUrlMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Storage service unavailable', statusCode: '500' },
+    });
+
+    await expect(
+      service.listClientPhotos(createAccess(createClient()), {}),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prismaService.progressPhoto.update).not.toHaveBeenCalled();
+  });
+
   it('does not soft delete a photo when strict storage removal fails', async () => {
     removeMock.mockResolvedValueOnce({ error: { message: 'storage unavailable' } });
 
@@ -517,6 +568,36 @@ describe('ProgressService', () => {
       where: { id: 'photo-id' },
       data: { deletedAt: expect.any(Date) },
     });
+  });
+
+  it('retries the database tombstone after storage removal', async () => {
+    const prismaError = new Error('temporary database failure');
+    prismaService.progressPhoto.update
+      .mockRejectedValueOnce(prismaError)
+      .mockResolvedValueOnce({ id: 'photo-id' });
+
+    await service.deleteClientPhoto(createAccess(createClient()), 'photo-id');
+
+    expect(prismaService.progressPhoto.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs deletion reconciliation context and preserves the database error after retries', async () => {
+    const prismaError = new Error('database unavailable');
+    const loggerError = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    prismaService.progressPhoto.update.mockRejectedValue(prismaError);
+
+    try {
+      await expect(
+        service.deleteClientPhoto(createAccess(createClient()), 'photo-id'),
+      ).rejects.toBe(prismaError);
+      expect(prismaService.progressPhoto.update).toHaveBeenCalledTimes(3);
+      expect(loggerError).toHaveBeenCalledWith(
+        'photo deletion reconciliation failed',
+        expect.stringContaining('"photoId":"photo-id"'),
+      );
+    } finally {
+      loggerError.mockRestore();
+    }
   });
 
   it('tries to compensate an orphaned coach upload when Prisma create fails', async () => {

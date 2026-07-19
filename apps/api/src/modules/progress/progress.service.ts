@@ -72,6 +72,11 @@ type ClientPhotoResponse = Pick<
   ProgressPhoto,
   'id' | 'photoType' | 'recordedAt' | 'uploadedByType'
 > & { signedUrl: string };
+type PhotoDeletionContext = {
+  storagePath: string;
+  clientId: string;
+  organizationId: string;
+};
 type DateRange = { gte?: Date; lte?: Date };
 type MeasurementField = 'armCm' | 'chestCm' | 'gluteCm' | 'hipCm' | 'legCm' | 'waistCm';
 type ParsedCommonFields = { note?: string | null; recordedAt?: Date };
@@ -91,6 +96,13 @@ const signedUrlExpiresInSeconds = 60 * 60;
 const allowedPhotoMimeTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
 const maxPhotoUploadBytes = 8 * 1024 * 1024;
 const maxPhotoSidePx = 1600;
+
+class PhotoSignedUrlError extends Error {
+  constructor(readonly cause: unknown) {
+    super('Could not create signed photo URL');
+    this.name = 'PhotoSignedUrlError';
+  }
+}
 
 @Injectable()
 export class ProgressService {
@@ -248,7 +260,7 @@ export class ProgressService {
     query: ProgressListQuery,
     member: OrganizationMember | undefined,
   ) {
-    await this.getAuthorizedClient(clientId, member);
+    const client = await this.getAuthorizedClient(clientId, member);
     const photos = await this.prismaService.progressPhoto.findMany({
       where: {
         clientId,
@@ -259,7 +271,7 @@ export class ProgressService {
       take: this.parseLimit(query.limit),
     });
 
-    return this.attachSignedUrls(photos);
+    return this.attachSignedUrls(photos, client.organizationId);
   }
 
   async createPhoto(
@@ -290,7 +302,7 @@ export class ProgressService {
       throw error;
     }
 
-    return this.attachSignedUrl(photo);
+    return this.attachSignedUrlOrThrow(photo);
   }
 
   async deletePhoto(
@@ -299,7 +311,7 @@ export class ProgressService {
     member: OrganizationMember | undefined,
   ) {
     const activeMember = this.requireMember(member);
-    await this.getAuthorizedClient(clientId, activeMember);
+    const client = await this.getAuthorizedClient(clientId, activeMember);
     const photo = await this.getPhotoForClient(clientId, photoId);
 
     if (
@@ -310,10 +322,13 @@ export class ProgressService {
     }
 
     await this.removePhotoOrThrow(photo.storagePath);
-    return this.prismaService.progressPhoto.update({
-      where: { id: photoId },
-      data: { deletedAt: new Date() },
+    await this.markPhotoDeletedWithRetry(photo.id, 3, {
+      storagePath: photo.storagePath,
+      clientId,
+      organizationId: client.organizationId,
     });
+
+    return { id: photo.id };
   }
 
   async listNotes(
@@ -477,7 +492,7 @@ export class ProgressService {
       take: this.parseLimit(query.limit),
     });
 
-    return this.attachClientSignedUrls(photos);
+    return this.attachClientSignedUrls(photos, access.client.organizationId);
   }
 
   async createClientPhoto(
@@ -515,12 +530,13 @@ export class ProgressService {
     }
 
     await this.removePhotoOrThrow(photo.storagePath);
-    const deleted = await this.prismaService.progressPhoto.update({
-      where: { id: photoId },
-      data: { deletedAt: new Date() },
+    await this.markPhotoDeletedWithRetry(photo.id, 3, {
+      storagePath: photo.storagePath,
+      clientId: access.clientId,
+      organizationId: access.client.organizationId,
     });
 
-    return { id: deleted.id };
+    return { id: photo.id };
   }
 
   async listClientNotes(
@@ -811,12 +827,37 @@ export class ProgressService {
     return `${progressPhotosBucketName}/${organizationId}/${clientId}/${randomUUID()}.webp`;
   }
 
-  private async attachSignedUrls(photos: ProgressPhoto[]) {
-    return Promise.all(photos.map((photo) => this.attachSignedUrl(photo)));
+  private async attachSignedUrls(photos: ProgressPhoto[], organizationId: string) {
+    const photosWithUrls: Array<ProgressPhoto & { signedUrl: string }> = [];
+
+    for (const photo of photos) {
+      try {
+        photosWithUrls.push(await this.attachSignedUrl(photo));
+      } catch (error) {
+        if (!this.isMissingPhotoObjectError(error)) {
+          throw this.toSignedUrlException(error);
+        }
+
+        await this.markPhotoDeletedBestEffort(photo, organizationId);
+      }
+    }
+
+    return photosWithUrls;
   }
 
-  private async attachClientSignedUrls(photos: ProgressPhoto[]): Promise<ClientPhotoResponse[]> {
-    return Promise.all(photos.map((photo) => this.attachClientSignedUrl(photo)));
+  private async attachClientSignedUrls(
+    photos: ProgressPhoto[],
+    organizationId: string,
+  ): Promise<ClientPhotoResponse[]> {
+    const photosWithUrls = await this.attachSignedUrls(photos, organizationId);
+
+    return photosWithUrls.map((photo) => ({
+      id: photo.id,
+      photoType: photo.photoType,
+      recordedAt: photo.recordedAt,
+      signedUrl: photo.signedUrl,
+      uploadedByType: photo.uploadedByType,
+    }));
   }
 
   private async attachSignedUrl<T extends ProgressPhoto>(photo: T) {
@@ -825,14 +866,22 @@ export class ProgressService {
       .createSignedUrl(photo.storagePath, signedUrlExpiresInSeconds);
 
     if (error || !data?.signedUrl) {
-      throw new BadRequestException('Could not create signed photo URL');
+      throw new PhotoSignedUrlError(error ?? new Error('Signed URL was not returned'));
     }
 
     return { ...photo, signedUrl: data.signedUrl };
   }
 
+  private async attachSignedUrlOrThrow<T extends ProgressPhoto>(photo: T) {
+    try {
+      return await this.attachSignedUrl(photo);
+    } catch (error) {
+      throw this.toSignedUrlException(error);
+    }
+  }
+
   private async attachClientSignedUrl(photo: ProgressPhoto): Promise<ClientPhotoResponse> {
-    const photoWithUrl = await this.attachSignedUrl(photo);
+    const photoWithUrl = await this.attachSignedUrlOrThrow(photo);
 
     return {
       id: photoWithUrl.id,
@@ -841,6 +890,77 @@ export class ProgressService {
       signedUrl: photoWithUrl.signedUrl,
       uploadedByType: photoWithUrl.uploadedByType,
     };
+  }
+
+  private isMissingPhotoObjectError(error: unknown) {
+    const cause = error instanceof PhotoSignedUrlError ? error.cause : error;
+    if (!cause || typeof cause !== 'object') {
+      return false;
+    }
+
+    const statusCode = 'statusCode' in cause ? cause.statusCode : undefined;
+    if (statusCode === 404 || statusCode === '404') {
+      return true;
+    }
+
+    const message = 'message' in cause && typeof cause.message === 'string'
+      ? cause.message
+      : '';
+
+    return /(?:object )?(?:not found|does not exist)|no such object/i.test(message);
+  }
+
+  private toSignedUrlException(error: unknown) {
+    if (error instanceof BadRequestException) {
+      return error;
+    }
+
+    return new BadRequestException('Could not create signed photo URL');
+  }
+
+  private async markPhotoDeletedWithRetry(
+    photoId: string,
+    attempts = 3,
+    context?: PhotoDeletionContext,
+  ): Promise<void> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        await this.prismaService.progressPhoto.update({
+          where: { id: photoId },
+          data: { deletedAt: new Date() },
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    this.logger.error(
+      'photo deletion reconciliation failed',
+      JSON.stringify({
+        photoId,
+        ...context,
+        error: lastError instanceof Error ? lastError.message : lastError,
+      }),
+    );
+    throw lastError;
+  }
+
+  private async markPhotoDeletedBestEffort(photo: ProgressPhoto, organizationId: string) {
+    try {
+      await this.markPhotoDeletedWithRetry(photo.id, 3, {
+        storagePath: photo.storagePath,
+        clientId: photo.clientId,
+        organizationId,
+      });
+    } catch (error) {
+      this.logger.error(
+        'photo listing reconciliation failed',
+        error instanceof Error ? error : String(error),
+      );
+    }
   }
 
   private async removePhotoOrThrow(storagePath: string): Promise<void> {

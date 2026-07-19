@@ -125,33 +125,61 @@ export class ClientSessionLogsService {
     }
 
     const scheduledDate = this.toScheduledDate(scheduledDateKey);
-    const existingLog = await this.prismaService.clientSessionLog.findFirst({
-      where: {
-        clientId: access.clientId,
-        assignmentId: assignment.id,
-        trainingSessionId,
-        scheduledDate,
-      },
-    });
-
-    if (existingLog) {
-      return this.serializeLog(existingLog, ClientTrainingPlanAssignmentStatus.active);
-    }
-
     const snapshot = await this.snapshotService.buildSnapshotForSession(trainingSessionId);
-    try {
-      const createdLog = await this.prismaService.clientSessionLog.create({
-        data: {
-          clientId: access.clientId,
-          assignmentId: assignment.id,
-          trainingSessionId,
-          scheduledDate,
-          status: ClientSessionStatus.opened,
-          snapshotData: snapshot,
-        },
-      });
 
-      return this.serializeLog(createdLog, ClientTrainingPlanAssignmentStatus.active);
+    try {
+      return await this.prismaService.$transaction(async (transaction) => {
+        const activeAssignment = await transaction.clientTrainingPlanAssignment.findFirst({
+          where: {
+            id: assignment.id,
+            clientId: access.clientId,
+            status: ClientTrainingPlanAssignmentStatus.active,
+          },
+          select: { id: true },
+        });
+
+        if (!activeAssignment) {
+          throw new ForbiddenException(
+            'Session log cannot be opened because the plan assignment is not active',
+          );
+        }
+
+        const existingLog = await transaction.clientSessionLog.findFirst({
+          where: {
+            clientId: access.clientId,
+            assignmentId: assignment.id,
+            trainingSessionId,
+            scheduledDate,
+          },
+          include: {
+            assignment: {
+              select: { status: true },
+            },
+          },
+        });
+
+        if (existingLog) {
+          return this.serializeLog(existingLog);
+        }
+
+        const createdLog = await transaction.clientSessionLog.create({
+          data: {
+            clientId: access.clientId,
+            assignmentId: assignment.id,
+            trainingSessionId,
+            scheduledDate,
+            status: ClientSessionStatus.opened,
+            snapshotData: snapshot,
+          },
+          include: {
+            assignment: {
+              select: { status: true },
+            },
+          },
+        });
+
+        return this.serializeLog(createdLog);
+      });
     } catch (error) {
       if (!this.isUniqueConstraintError(error)) {
         throw error;
@@ -164,13 +192,18 @@ export class ClientSessionLogsService {
           trainingSessionId,
           scheduledDate,
         },
+        include: {
+          assignment: {
+            select: { status: true },
+          },
+        },
       });
 
       if (!concurrentLog) {
         throw error;
       }
 
-      return this.serializeLog(concurrentLog, ClientTrainingPlanAssignmentStatus.active);
+      return this.serializeLog(concurrentLog);
     }
   }
 

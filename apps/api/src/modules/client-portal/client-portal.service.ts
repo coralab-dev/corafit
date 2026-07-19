@@ -515,6 +515,17 @@ export class ClientPortalService {
       },
     });
 
+    const currentClient = await this.prismaService.client.findUnique({
+      where: { id: access.clientId },
+      select: { organization: { select: { status: true } } },
+    });
+    if (
+      !currentClient ||
+      currentClient.organization.status !== OrganizationStatus.active
+    ) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const sessionToken = this.generateToken();
     await this.prismaService.clientPortalSession.create({
       data: {

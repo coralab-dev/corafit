@@ -91,6 +91,7 @@ function createClient(overrides: Record<string, unknown> = {}) {
       id: 'org-id',
       name: 'Org',
       timezone: 'America/Mexico_City',
+      status: OrganizationStatus.active,
     },
     ...overrides,
   };
@@ -389,6 +390,22 @@ describe('ClientPortalService', () => {
       },
     });
     expect(result.sessionToken).not.toBe('session-id');
+  });
+
+  it('does not create a session when the organization is suspended during PIN verification', async () => {
+    prismaService.clientAccess.findUnique.mockResolvedValueOnce(
+      createAccess({ pinHash: validPinHash }),
+    );
+    prismaService.client.findUnique.mockResolvedValueOnce({
+      organization: { status: OrganizationStatus.suspended },
+    });
+
+    await expect(
+      service.verifyPin('plain-token', { pin: '123456' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ message: 'Invalid credentials' }),
+    });
+    expect(prismaService.clientPortalSession.create).not.toHaveBeenCalled();
   });
 
   it('invalidates an existing portal session on logout', async () => {

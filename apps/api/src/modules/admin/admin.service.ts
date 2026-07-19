@@ -220,12 +220,31 @@ export class AdminService {
       throw new BadRequestException('Cancelled organizations cannot change status');
     }
 
-    if (organization.status !== status) {
+    const shouldInvalidateSessions =
+      status === OrganizationStatus.active ||
+      status === OrganizationStatus.suspended ||
+      status === OrganizationStatus.cancelled;
+
+    if (organization.status !== status || shouldInvalidateSessions) {
       await this.prismaService.$transaction(async (transaction) => {
-        await transaction.organization.update({
-          where: { id: normalizedOrganizationId },
-          data: { status },
-        });
+        if (status === OrganizationStatus.active) {
+          await transaction.clientPortalSession.updateMany({
+            where: {
+              invalidated: false,
+              access: {
+                client: { organizationId: normalizedOrganizationId },
+              },
+            },
+            data: { invalidated: true },
+          });
+        }
+
+        if (organization.status !== status) {
+          await transaction.organization.update({
+            where: { id: normalizedOrganizationId },
+            data: { status },
+          });
+        }
 
         if (
           status === OrganizationStatus.suspended ||

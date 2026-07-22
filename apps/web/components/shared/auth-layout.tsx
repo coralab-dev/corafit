@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { DumbbellIcon } from "lucide-react";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { cn } from "@/lib/utils";
 
 interface AuthLayoutProps {
@@ -25,14 +25,9 @@ export function AuthLayout({
       )}
     >
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <DumbbellIcon className="size-5" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-xl font-bold tracking-tight">{title}</p>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
-          </div>
+        <div className="mb-6 flex flex-col items-center justify-center gap-3">
+          <CoraFitBrand alt={title} className="h-9 w-auto" />
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         {children}
       </div>

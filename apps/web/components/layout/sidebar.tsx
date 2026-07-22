@@ -1,7 +1,8 @@
 "use client";
 
-import { DumbbellIcon, LogOutIcon } from "lucide-react";
+import { LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { navItems } from "./nav-items";
@@ -27,10 +28,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pb-8 pt-7">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-primary">
-          <DumbbellIcon className="size-5" />
-        </div>
-        <span className="text-xl font-bold tracking-normal">CoraFit</span>
+        <CoraFitBrand className="h-8 w-auto" />
       </div>
 
       {/* Navegación */}

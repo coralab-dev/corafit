@@ -1694,9 +1694,7 @@ function CompletionShareCard({
       className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-6"
     >
       <div className="flex items-center justify-between gap-4">
-        <span className="text-sm font-semibold tracking-tight text-primary">
-          CoraFit
-        </span>
+        <CoraFitBrand className="h-5 w-auto shrink-0" />
         <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Entrenamiento
         </span>

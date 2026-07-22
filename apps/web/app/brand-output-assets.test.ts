@@ -4,12 +4,22 @@ import { describe, expect, it } from "vitest";
 const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 describe("official brand output assets", () => {
-  it("uses a square SVG wrapper with the official isotipo and safe whitespace", () => {
+  it("embeds the official isotipo in a square SVG without external references", () => {
     const iconSvg = readFileSync(new URL("./icon.svg", import.meta.url), "utf8");
+    const masterSvg = readFileSync(
+      new URL("../public/brand/isotipo-color.svg", import.meta.url),
+      "utf8",
+    );
 
     expect(iconSvg).toContain('viewBox="0 0 100 100"');
-    expect(iconSvg).toContain('href="/brand/isotipo-color.svg"');
-    expect(iconSvg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(iconSvg).not.toContain('href="/brand/');
+    expect(iconSvg).not.toMatch(/\b(?:href|xlink:href)\s*=\s*["']https?:\/\//);
+    expect(iconSvg).not.toMatch(/\bhref\s*=/);
+    expect(extractGroupTransforms(iconSvg)).toEqual([
+      "translate(12.5 21.77734375) scale(0.09765625)",
+      ...extractGroupTransforms(masterSvg),
+    ]);
+    expect(extractPathAttributes(iconSvg)).toEqual(extractPathAttributes(masterSvg));
   });
 
   it("stores a real multi-size ICO with PNG image entries", () => {
@@ -45,3 +55,17 @@ describe("official brand output assets", () => {
     expect(appleIcon.readUInt32BE(20)).toBe(180);
   });
 });
+
+function extractPathAttributes(svg: string) {
+  return Array.from(
+    svg.matchAll(/<path\s+d="([^"]+)"\s+style="([^"]+)"\s*\/>/g),
+    ([, d, style]) => ({ d, style }),
+  );
+}
+
+function extractGroupTransforms(svg: string) {
+  return Array.from(
+    svg.matchAll(/<g\b[^>]*\btransform="([^"]+)"/g),
+    ([, transform]) => transform,
+  );
+}

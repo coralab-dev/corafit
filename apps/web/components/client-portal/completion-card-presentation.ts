@@ -1,4 +1,5 @@
 import type { CompletionCard } from "@/lib/client-portal/api";
+import { getCompletionCardBrandDataUri } from "./completion-card-brand";
 
 export type CompletionPresentation = {
   variant: "completed" | "partial";
@@ -101,6 +102,7 @@ export function buildCompletionCardSvg(
 ) {
   const presentation = resolvePresentation(input);
   const colors = getSvgColors(presentation.variant, dark);
+  const brandDataUri = getCompletionCardBrandDataUri(dark);
   const title = escapeSvgText(presentation.title);
   const supportingText = escapeSvgText(presentation.supportingText);
   const primaryResultLabel = escapeSvgText(presentation.primaryResultLabel);
@@ -126,7 +128,7 @@ export function buildCompletionCardSvg(
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1360" viewBox="0 0 1080 1360" role="img" aria-label="${ariaLabel}">
   <rect width="1080" height="1360" fill="${colors.canvas}"/>
   <rect x="32" y="32" width="1016" height="1296" rx="48" fill="${colors.card}" stroke="${colors.cardStroke}" stroke-width="2"/>
-  <text x="72" y="105" fill="${colors.progress}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="32" font-weight="650">CoraFit</text>
+  <image x="72" y="58" width="220" height="48" preserveAspectRatio="xMinYMid meet" href="${brandDataUri}" />
   <text x="1008" y="105" fill="${colors.muted}" font-family="Inter, Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="3" text-anchor="end">ENTRENAMIENTO</text>
   <circle cx="540" cy="220" r="48" fill="${colors.medalSoft}"/>
   ${statusIcon}

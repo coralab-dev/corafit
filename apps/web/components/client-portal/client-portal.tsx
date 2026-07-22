@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CoraFitApiError } from "@/lib/api/authenticated-request";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAppTheme } from "@/components/providers/theme-provider";
 import { ClientPortalShell } from "@/components/client-portal/client-portal-shell";
@@ -306,7 +307,7 @@ export function PinAccessScreen({
       <section className="client-portal-viewport flex items-center justify-center px-5 py-8 sm:px-6 md:px-8">
         <div className="w-full max-w-md">
           <div className="mb-6 flex justify-center">
-            <BrandMark compact />
+            <CoraFitBrand className="h-8 w-auto" />
           </div>
 
           <div className="rounded-3xl border border-transparent bg-card p-5 shadow-[var(--surface-shadow)] sm:p-7">
@@ -1543,7 +1544,7 @@ export function CompletionCardScreen({
     <ClientPortalShell token={token}>
       <section className="client-portal-viewport flex min-h-dvh flex-col px-5 py-6 md:px-8 md:py-8 lg:px-10">
         <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
-          <BrandMark compact />
+          <CoraFitBrand className="h-8 w-auto" />
           <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Resultado de sesión
           </p>
@@ -1693,9 +1694,7 @@ function CompletionShareCard({
       className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-5 text-foreground shadow-[var(--surface-shadow-soft)] sm:p-6"
     >
       <div className="flex items-center justify-between gap-4">
-        <span className="text-sm font-semibold tracking-tight text-primary">
-          CoraFit
-        </span>
+        <CoraFitBrand className="h-5 w-auto shrink-0" />
         <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Entrenamiento
         </span>
@@ -4877,17 +4876,6 @@ function InlineError({ message }: { message: string }) {
   return (
     <div className="mt-4 rounded-xl border border-[#f2c8c0] bg-[#fff4f1] p-3 text-sm font-semibold text-[#9f3529]">
       {message}
-    </div>
-  );
-}
-
-function BrandMark({ compact }: { compact?: boolean }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex size-8 items-center justify-center text-[var(--portal-accent)]">
-        <Dumbbell className="size-5 rotate-[-25deg]" />
-      </div>
-      {compact ? <span className="text-2xl font-bold">CoraFit</span> : null}
     </div>
   );
 }

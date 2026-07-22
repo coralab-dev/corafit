@@ -4,11 +4,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   Calendar,
-  Dumbbell,
   Home,
   Settings,
   TrendingUp,
 } from "lucide-react";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { cn } from "@/lib/utils";
 
 const clientPortalNavItems = [
@@ -109,7 +109,7 @@ function ClientPortalDesktopNav({
 }) {
   return (
     <aside className="hidden lg:fixed lg:bottom-0 lg:left-0 lg:top-0 lg:block lg:w-64 lg:border-r lg:border-[#ece7e3] lg:bg-[#fdfdfc] lg:px-6 lg:py-10 lg:dark:border-sidebar-border lg:dark:bg-sidebar lg:dark:text-sidebar-foreground">
-      <BrandMark compact />
+      <CoraFitBrand className="h-7 w-auto" />
       <nav aria-label="Navegación principal" className="mt-12 space-y-2">
         {items.map((item) => {
           const Icon = item.icon;
@@ -190,16 +190,5 @@ function ClientPortalBottomNav({
         })}
       </div>
     </nav>
-  );
-}
-
-function BrandMark({ compact }: { compact?: boolean }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex size-8 items-center justify-center text-[var(--portal-accent)]">
-        <Dumbbell className="size-5 rotate-[-25deg]" />
-      </div>
-      {compact ? <span className="text-2xl font-bold">CoraFit</span> : null}
-    </div>
   );
 }

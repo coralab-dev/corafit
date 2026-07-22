@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { getCompletionCardBrandDataUri } from "./completion-card-brand";
 import type { CompletionCard } from "@/lib/client-portal/api";
 import {
   buildCompletionCardSvg,
@@ -22,6 +24,20 @@ function completionCard(
 }
 
 describe("completion card presentation", () => {
+  it("embeds the untouched official light and dark imagotipo masters", () => {
+    const lightMaster = readFileSync(
+      new URL("../../public/brand/imagotipo-texto-negro.svg", import.meta.url),
+      "utf8",
+    );
+    const darkMaster = readFileSync(
+      new URL("../../public/brand/imagotipo-texto-blanco.svg", import.meta.url),
+      "utf8",
+    );
+
+    expect(decodeSvgDataUri(getCompletionCardBrandDataUri(false))).toBe(lightMaster);
+    expect(decodeSvgDataUri(getCompletionCardBrandDataUri(true))).toBe(darkMaster);
+  });
+
   it("produces completed copy and singular/plural labels", () => {
     const presentation = buildCompletionPresentation(
       completionCard({ completedExercises: 1, streak: 1, totalExercises: 6 }),
@@ -106,6 +122,11 @@ describe("completion card presentation", () => {
     );
 
     expect(completedSvg).toContain("Sesión completada");
+    expect(completedSvg).toContain(getCompletionCardBrandDataUri(false));
+    expect(darkSvg).toContain(getCompletionCardBrandDataUri(true));
+    expect(completedSvg).not.toMatch(/<text[^>]*>CoraFit<\/text>/);
+    expect(completedSvg).not.toContain("/brand/");
+    expect(completedSvg).not.toMatch(/(?:href|src)="https?:\/\//);
     expect(completedSvg).toContain("CoraFit");
     expect(completedSvg).toContain("ENTRENAMIENTO");
     expect(completedSvg).toContain("Entrenando con CoraFit");
@@ -144,3 +165,9 @@ describe("completion card presentation", () => {
     expect(partialSvg).not.toContain("Sesión completada");
   });
 });
+
+function decodeSvgDataUri(dataUri: string) {
+  const prefix = "data:image/svg+xml;base64,";
+  expect(dataUri.startsWith(prefix)).toBe(true);
+  return Buffer.from(dataUri.slice(prefix.length), "base64").toString("utf8");
+}

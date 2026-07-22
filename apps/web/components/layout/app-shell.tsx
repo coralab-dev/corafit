@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { Sidebar } from "./sidebar";
 import { MobileNav } from "./mobile-nav";
 
@@ -15,7 +16,7 @@ export function AppShell({ children }: AppShellProps) {
       <main className="flex min-w-0 flex-1 flex-col lg:ml-56">
         <div className="flex h-14 items-center gap-2 border-b bg-card px-4 lg:hidden">
           <MobileNav />
-          <span className="text-sm font-semibold">CoraFit</span>
+          <CoraFitBrand className="h-6 w-auto" />
         </div>
         {children}
       </main>

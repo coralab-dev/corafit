@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { DumbbellIcon, MenuIcon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
@@ -35,11 +36,8 @@ export function MobileNav({ className }: MobileNavProps) {
         <SheetHeader className="sr-only">
           <SheetTitle>Navegacion principal</SheetTitle>
         </SheetHeader>
-        <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex size-9 items-center justify-center rounded-md text-sidebar-primary">
-            <DumbbellIcon className="size-5" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">CoraFit</span>
+        <div className="flex items-center px-5 py-5">
+          <CoraFitBrand className="h-7 w-auto" />
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
           {visibleNavItems.map((item) => (

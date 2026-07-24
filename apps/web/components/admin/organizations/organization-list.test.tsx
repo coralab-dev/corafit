@@ -16,7 +16,7 @@ const item: AdminOrganization = {
 };
 
 describe("OrganizationList", () => {
-  it("renders visual columns, compact row data, selected aria state, and focus styling", () => {
+  it("renders the Clients-style table, pills, selected state, and focus styling", () => {
     const markup = renderToStaticMarkup(
       <OrganizationList
         items={[item]}
@@ -35,10 +35,36 @@ describe("OrganizationList", () => {
     expect(markup).toContain("Organización");
     expect(markup).toContain("Owner");
     expect(markup).toContain("Clientes");
-    expect(markup).toContain("Plan / suscripción");
+    expect(markup).toContain("Uso");
+    expect(markup).toContain("Plan");
+    expect(markup).toContain("Estado");
+    expect(markup).toContain("min-w-[820px]");
+    expect(markup).toContain("Todos");
+    expect(markup).toContain("Activas");
+    expect(markup).toContain("Canceladas");
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("focus-visible:ring");
     expect(markup).toContain("Revisión");
+  });
+
+  it("does not show a visible refresh banner", () => {
+    const markup = renderToStaticMarkup(
+      <OrganizationList
+        items={[item]}
+        selectedId=""
+        isInitialLoading={false}
+        isRefreshing={true}
+        search=""
+        status="all"
+        onSelect={vi.fn()}
+        onSearchChange={vi.fn()}
+        onStatusChange={vi.fn()}
+        onClearFilters={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('class="sr-only" role="status" aria-live="polite">Actualizando resultados.');
+    expect(markup).not.toContain("border-b px-4 py-2 text-xs text-muted-foreground");
   });
 
   it("offers a clear-filters action for a filtered empty result", () => {

@@ -1,10 +1,7 @@
 "use client";
 
-import { Building2Icon, ShieldCheckIcon, UsersIcon } from "lucide-react";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ErrorState } from "@/components/shared/error-state";
+import { MailIcon, UsersIcon } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { WorkspacePanel } from "@/components/layout/workspace-shell";
 import type {
   AdminOrganization,
   AdminOrganizationStatusAction,
@@ -22,8 +19,6 @@ import {
 import { OrganizationActions } from "./organization-actions";
 
 type OrganizationDetailProps = {
-  detailError: string;
-  isLoading: boolean;
   isPlansLoading: boolean;
   plansError: string;
   organization: AdminOrganization | null;
@@ -38,8 +33,6 @@ type OrganizationDetailProps = {
 };
 
 export function OrganizationDetail({
-  detailError,
-  isLoading,
   isPlansLoading,
   plansError,
   organization,
@@ -49,35 +42,19 @@ export function OrganizationDetail({
   onChangePlan,
   onChangeStatus,
 }: OrganizationDetailProps) {
-  if (detailError) {
-    return <div className="p-4"><ErrorState message={detailError} /></div>;
-  }
-
   if (!organization) {
-    if (isLoading) {
-      return <OrganizationDetailSkeleton />;
-    }
-
-    return (
-      <div className="p-4">
-        <EmptyState
-          icon={ShieldCheckIcon}
-          title="Selecciona una organización"
-          description="El detalle operativo aparecerá aquí."
-        />
-      </div>
-    );
+    return null;
   }
 
   const status = getStatusBadgeProps(organization.status);
   const usage = getUsagePresentation(organization);
 
   return (
-    <div className="space-y-4 p-4">
-      <WorkspacePanel>
-        <div className="flex items-start gap-3 p-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
-            <Building2Icon aria-hidden="true" className="size-5" />
+    <div className="flex min-h-full flex-col bg-card">
+      <header className="border-b px-5 pb-5 pt-7">
+        <div className="flex items-start gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent text-sm font-semibold text-primary">
+            {getOrganizationInitials(organization.name)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -89,30 +66,30 @@ export function OrganizationDetail({
             </p>
           </div>
         </div>
-        <div className="divide-y border-t">
-          <DetailRow label="Tipo" value={formatOrganizationType(organization.type)} />
-          <DetailRow label="Creada" value={formatDateTime(organization.createdAt)} />
-        </div>
-      </WorkspacePanel>
+      </header>
 
-      <WorkspacePanel title="Owner" icon={<UsersIcon aria-hidden="true" className="size-4" />}>
-        <div className="divide-y">
-          <DetailRow label="Nombre" value={organization.owner.name} />
-          <DetailRow label="Email" value={organization.owner.email} />
-        </div>
-      </WorkspacePanel>
+      <div className="divide-y">
+        <section className="space-y-4 px-5 py-5" aria-label="Resumen">
+          <SectionHeading icon={<UsersIcon aria-hidden="true" className="size-4" />} title="Resumen" />
+          <div className="space-y-3">
+            <DetailRow label="Owner" value={organization.owner.name} />
+            <DetailRow label="Email" value={organization.owner.email} icon={<MailIcon aria-hidden="true" className="size-3.5" />} />
+            <DetailRow label="Tipo" value={formatOrganizationType(organization.type)} />
+            <DetailRow label="Clientes" value={`${usage.used}${usage.limit === null ? "" : ` de ${usage.limit}`}`} />
+          </div>
+        </section>
 
-      <WorkspacePanel title="Plan y uso" icon={<ShieldCheckIcon aria-hidden="true" className="size-4" />}>
-        <div className="divide-y">
-          <DetailRow label="Suscripción" value={formatSubscriptionStatus(organization.subscription?.status)} />
-          <DetailRow label="Plan" value={formatPlanLabel(organization)} />
-          <DetailRow label="Código" value={organization.plan?.code ?? "N/A"} />
-          <DetailRow label="Clientes usados" value={`${usage.used}`} />
-          <DetailRow label="Límite" value={usage.limit ?? "Sin plan"} />
-        </div>
-        <UsageProgress organization={organization} />
+        <section className="space-y-4 px-5 py-5" aria-label="Uso y suscripción">
+          <SectionHeading title="Suscripción" />
+          <div className="space-y-3">
+            <DetailRow label="Estado" value={formatSubscriptionStatus(organization.subscription?.status)} />
+            <DetailRow label="Plan" value={formatPlanLabel(organization)} />
+            {organization.plan ? <DetailRow label="Código" value={organization.plan.code} /> : null}
+          </div>
+          <UsageProgress organization={organization} />
+        </section>
+
         <OrganizationActions
-          key={`${organization.id}-${organization.plan?.code ?? "none"}`}
           organization={organization}
           subscriptionPlans={subscriptionPlans}
           isPlansLoading={isPlansLoading}
@@ -122,7 +99,16 @@ export function OrganizationDetail({
           onChangePlan={onChangePlan}
           onChangeStatus={onChangeStatus}
         />
-      </WorkspacePanel>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ icon, title }: { icon?: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {icon ? <span className="text-primary">{icon}</span> : null}
+      <h3 className="text-sm font-semibold">{title}</h3>
     </div>
   );
 }
@@ -135,10 +121,10 @@ function UsageProgress({ organization }: { organization: AdminOrganization }) {
       ? "Sobre el límite"
       : usage.state === "at-limit"
         ? "En el límite"
-        : "Dentro del límite";
+        : `${usage.percent}% del límite`;
 
   return (
-    <div className="space-y-2 border-t p-4">
+    <div className="space-y-2 rounded-xl bg-muted/40 p-3">
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="font-medium">Uso de clientes</span>
         <span className="text-muted-foreground">{label}</span>
@@ -163,7 +149,7 @@ function UsageProgress({ organization }: { organization: AdminOrganization }) {
         />
       </div>
       {usage.state === "no-plan" ? (
-        <p className="text-xs text-muted-foreground">No hay una suscripción activa para calcular el límite.</p>
+        <p className="text-xs text-muted-foreground">Sin plan para calcular el límite.</p>
       ) : usage.state === "over-limit" ? (
         <p className="text-xs font-medium text-destructive">El uso actual supera el límite del plan.</p>
       ) : usage.state === "at-limit" ? (
@@ -173,25 +159,32 @@ function UsageProgress({ organization }: { organization: AdminOrganization }) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
-    <div className="grid grid-cols-[112px,minmax(0,1fr)] gap-3 px-4 py-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <div className="min-w-0 break-words text-right text-sm font-medium sm:text-left">{value}</div>
+    <div className="flex min-w-0 items-start justify-between gap-4 text-sm">
+      <p className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+        {icon}
+        {label}
+      </p>
+      <div className="min-w-0 truncate text-right font-medium">{value}</div>
     </div>
   );
 }
 
-function OrganizationDetailSkeleton() {
-  return (
-    <div className="space-y-4 p-4" role="status" aria-label="Cargando detalle">
-      {[0, 1, 2].map((section) => (
-        <div key={section} className="space-y-3 rounded-2xl bg-card p-4 shadow-[var(--surface-shadow-soft)]">
-          <div className="h-5 w-40 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-full animate-pulse rounded bg-muted" />
-          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-        </div>
-      ))}
-    </div>
-  );
+function getOrganizationInitials(name: string) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  return initials || "OR";
 }

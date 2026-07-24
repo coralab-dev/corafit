@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   WorkspaceFrame,
   WorkspaceHeader,
-  WorkspaceSplit,
 } from "@/components/layout/workspace-shell";
 import {
   type AdminOrganizationStatus,
@@ -26,12 +25,9 @@ export function AdminOrganizationsWorkspace() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<AdminOrganizationStatus | "all">("all");
-  const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [drawerOrganizationId, setDrawerOrganizationId] = useState("");
 
   const {
-    detailError,
-    isDetailLoading,
     isInitialLoading,
     isPlansLoading,
     isRefreshing,
@@ -54,17 +50,7 @@ export function AdminOrganizationsWorkspace() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 1279px)");
-    const updateLayout = () => setIsCompactLayout(mediaQuery.matches);
-    updateLayout();
-    mediaQuery.addEventListener("change", updateLayout);
-    return () => mediaQuery.removeEventListener("change", updateLayout);
-  }, []);
-
   const metrics = getOrganizationMetrics(items);
-  const hasFilters = Boolean(search.trim() || status !== "all");
-  const selectedListItem = items.find((item) => item.id === selectedId) ?? null;
 
   function handleClearFilters() {
     setSearch("");
@@ -74,17 +60,13 @@ export function AdminOrganizationsWorkspace() {
 
   function handleSelect(organizationId: string) {
     selectOrganization(organizationId);
-    if (isCompactLayout) {
-      setDrawerOrganizationId(organizationId);
-    }
+    setDrawerOrganizationId(organizationId);
   }
 
   function renderOrganizationDetail() {
     return (
       <OrganizationDetail
-          detailError={detailError}
-          isLoading={isDetailLoading}
-          isPlansLoading={isPlansLoading}
+        isPlansLoading={isPlansLoading}
         plansError={plansError}
         organization={selectedOrganization}
         subscriptionPlans={subscriptionPlans}
@@ -121,48 +103,41 @@ export function AdminOrganizationsWorkspace() {
         />
       }
     >
-      <WorkspaceSplit
-        main={
-          <section className="min-w-0 space-y-5 bg-background p-4 md:p-5">
-            {isInitialLoading && items.length === 0 ? (
-              <OrganizationMetricsSkeleton />
-            ) : (
-              <OrganizationMetrics metrics={metrics} />
-            )}
-            <OrganizationList
-              items={items}
-              selectedId={selectedId}
-              isInitialLoading={isInitialLoading}
-              isRefreshing={isRefreshing}
-              listError={listError}
-              search={search}
-              status={status}
-              onSearchChange={setSearch}
-              onStatusChange={setStatus}
-              onSelect={handleSelect}
-              onClearFilters={handleClearFilters}
-              onRetry={() => void refresh()}
-            />
-          </section>
-        }
-        side={renderOrganizationDetail()}
-        sideClassName="hidden xl:block xl:w-[380px] xl:min-w-[340px]"
-      />
-      {isCompactLayout ? (
-        <DetailDrawer
-          open={drawerOrganizationId === selectedId && Boolean(selectedId)}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDrawerOrganizationId("");
-            }
-          }}
-          title={selectedOrganization?.name ?? selectedListItem?.name ?? "Detalle de organización"}
-          description="Detalle operativo y acciones administrativas."
-        >
-          <div className="h-full overflow-y-auto">{renderOrganizationDetail()}</div>
-        </DetailDrawer>
-      ) : null}
-      {hasFilters ? <span className="sr-only">Filtros activos</span> : null}
+      <section className="min-w-0 flex-1 bg-background p-4 md:p-5">
+        <div className="mx-auto w-full max-w-[1600px] space-y-5">
+          {isInitialLoading && items.length === 0 ? (
+            <OrganizationMetricsSkeleton />
+          ) : (
+            <OrganizationMetrics metrics={metrics} />
+          )}
+          <OrganizationList
+            items={items}
+            selectedId={selectedId}
+            isInitialLoading={isInitialLoading}
+            isRefreshing={isRefreshing}
+            listError={listError}
+            search={search}
+            status={status}
+            onSearchChange={setSearch}
+            onStatusChange={setStatus}
+            onSelect={handleSelect}
+            onClearFilters={handleClearFilters}
+            onRetry={() => void refresh()}
+          />
+        </div>
+      </section>
+      <DetailDrawer
+        open={drawerOrganizationId === selectedId && Boolean(selectedId) && Boolean(selectedOrganization)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDrawerOrganizationId("");
+          }
+        }}
+        title={selectedOrganization?.name ?? "Detalle de organización"}
+        description="Detalle operativo y acciones administrativas."
+      >
+        <div className="h-full overflow-y-auto">{renderOrganizationDetail()}</div>
+      </DetailDrawer>
     </WorkspaceFrame>
   );
 }

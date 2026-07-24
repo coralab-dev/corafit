@@ -2,100 +2,68 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import {
-  createLatestRequestController,
-  getNextSelectedId,
-} from "@/components/admin/organizations/organization-state";
+import { useAdminOrganizationsContext } from "@/components/providers/admin-organizations-provider";
+import { getOrganizationQueryKey, matchesOrganizationFilters } from "@/components/admin/organizations/organization-cache";
+import { getNextSelectedId } from "@/components/admin/organizations/organization-state";
+import type {
+  AdminOrganization,
+  AdminOrganizationFilters,
+  AdminOrganizationStatusAction,
+  OrganizationMutation,
+} from "@/components/admin/organizations/organization-types";
 import { authenticatedRequest } from "@/lib/api/authenticated-request";
 
-export type AdminOrganizationStatus = "active" | "suspended" | "cancelled";
-
-export type AdminOrganizationFilters = {
-  search?: string;
-  status?: AdminOrganizationStatus | "all";
-};
-
-export type AdminOrganization = {
-  id: string;
-  name: string;
-  type: string;
-  status: AdminOrganizationStatus;
-  createdAt: string;
-  owner: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  subscription: {
-    status: string;
-  } | null;
-  plan: {
-    id: string;
-    code: string;
-    name: string;
-    clientLimit: number;
-  } | null;
-  clientsUsed: number;
-};
-
-export type AdminOrganizationStatusAction = "reactivate" | "suspend";
-
-export type AdminSubscriptionPlan = {
-  id: string;
-  code: string;
-  name: string;
-  status: "active" | "inactive";
-  isPublic: boolean;
-  betaPrice: number;
-  postBetaPrice: number | null;
-  currency: string;
-  clientLimit: number;
-  memberLimit: number;
-  sortOrder: number | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OrganizationMutation = {
-  organizationId: string;
-  kind: "plan" | "status";
-};
+export type {
+  AdminOrganization,
+  AdminOrganizationFilters,
+  AdminOrganizationStatus,
+  AdminOrganizationStatusAction,
+  AdminSubscriptionPlan,
+  OrganizationMutation,
+} from "@/components/admin/organizations/organization-types";
 
 export function useAdminOrganizations(filters: AdminOrganizationFilters) {
   const { profile, session, status: authStatus } = useAuth();
-  const [items, setItems] = useState<AdminOrganization[]>([]);
-  const [selectedOrganization, setSelectedOrganization] = useState<AdminOrganization | null>(null);
-  const [selectedId, setSelectedId] = useState("");
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [isPlansLoading, setIsPlansLoading] = useState(false);
-  const [listError, setListError] = useState("");
-  const [detailError, setDetailError] = useState("");
-  const [plansError, setPlansError] = useState("");
-  const [subscriptionPlans, setSubscriptionPlans] = useState<AdminSubscriptionPlan[]>([]);
+  const context = useAdminOrganizationsContext();
+  const [selectedIdState, setSelectedId] = useState("");
   const [mutation, setMutation] = useState<OrganizationMutation | null>(null);
-
-  const itemsRef = useRef<AdminOrganization[]>([]);
-  const selectedIdRef = useRef("");
-  const selectedOrganizationRef = useRef<AdminOrganization | null>(null);
   const mutationRef = useRef<OrganizationMutation | null>(null);
-  const listRequests = useMemo(() => createLatestRequestController(), []);
-  const detailRequests = useMemo(() => createLatestRequestController(), []);
-  const plansRequests = useMemo(() => createLatestRequestController(), []);
-
-  const isApiReady =
-    authStatus === "authenticated" &&
-    Boolean(session) &&
-    profile?.user.platformRole === "admin_saas";
+  const selectedIdRef = useRef("");
+  const filtersRef = useRef<AdminOrganizationFilters>({});
+  const {
+    cache,
+    ensureOrganizations,
+    ensureSubscriptionPlans,
+    invalidateReads,
+    isPlansLoading,
+    loadingKeys,
+    mergeOrganization,
+    plans,
+    plansError,
+  } = context;
 
   const normalizedFilters = useMemo(
     () => ({
       search: filters.search?.trim() ?? "",
       status: filters.status ?? "all",
-    }),
+    } satisfies AdminOrganizationFilters),
     [filters.search, filters.status],
   );
+  const queryKey = getOrganizationQueryKey(normalizedFilters);
+  const cacheEntry = cache[queryKey];
+  const items = useMemo(() => cacheEntry?.items ?? [], [cacheEntry]);
+  const selectedId = selectedIdState && items.some((item) => item.id === selectedIdState)
+    ? selectedIdState
+    : "";
+  const isApiReady =
+    authStatus === "authenticated" &&
+    Boolean(session) &&
+    profile?.user.platformRole === "admin_saas";
+
+  const selectedOrganization = items.find((item) => item.id === selectedId) ?? null;
+  const isInitialLoading = isApiReady && !cacheEntry;
+  const isRefreshing = Boolean(cacheEntry && loadingKeys[queryKey]);
+  const listError = cacheEntry?.error ?? (!isApiReady && authStatus !== "loading" ? "Inicia sesión como admin." : "");
 
   const adminRequest = useCallback(
     <T,>(path: string, init: RequestInit = {}) =>
@@ -103,208 +71,48 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     [session],
   );
 
-  const commitItems = useCallback((nextItems: AdminOrganization[]) => {
-    itemsRef.current = nextItems;
-    setItems(nextItems);
-  }, []);
-
-  const commitSelectedId = useCallback((nextId: string) => {
-    selectedIdRef.current = nextId;
-    setSelectedId(nextId);
-  }, []);
-
-  const commitSelectedOrganization = useCallback((organization: AdminOrganization | null) => {
-    selectedOrganizationRef.current = organization;
-    setSelectedOrganization(organization);
-  }, []);
-
   const selectOrganization = useCallback(
     (organizationId: string) => {
-      commitSelectedId(organizationId);
-      commitSelectedOrganization(null);
-      setDetailError("");
+      if (!items.some((item) => item.id === organizationId)) {
+        return;
+      }
+      selectedIdRef.current = organizationId;
+      setSelectedId(organizationId);
     },
-    [commitSelectedId, commitSelectedOrganization],
+    [items],
   );
-
-  const loadOrganizations = useCallback(async () => {
-    const request = listRequests.begin();
-
-    if (!isApiReady) {
-      commitItems([]);
-      commitSelectedId("");
-      commitSelectedOrganization(null);
-      setIsInitialLoading(false);
-      setIsRefreshing(false);
-      setListError(authStatus === "loading" ? "" : "Inicia sesión como admin.");
-      return [];
-    }
-
-    const hasPreviousItems = itemsRef.current.length > 0;
-    setIsInitialLoading(!hasPreviousItems);
-    setIsRefreshing(hasPreviousItems);
-    setListError("");
-
-    try {
-      const searchParams = new URLSearchParams();
-
-      if (normalizedFilters.search) {
-        searchParams.set("search", normalizedFilters.search);
-      }
-
-      if (normalizedFilters.status !== "all") {
-        searchParams.set("status", normalizedFilters.status);
-      }
-
-      const query = searchParams.toString();
-      const response = await adminRequest<AdminOrganization[]>(
-        `/admin/organizations${query ? `?${query}` : ""}`,
-        { method: "GET", signal: request.controller.signal },
-      );
-
-      if (!listRequests.isCurrent(request.id)) {
-        return [];
-      }
-
-      const previousSelectedId = selectedIdRef.current;
-      const nextSelectedId = getNextSelectedId(response, previousSelectedId, itemsRef.current);
-      commitItems(response);
-      commitSelectedId(nextSelectedId);
-      if (nextSelectedId !== previousSelectedId) {
-        commitSelectedOrganization(null);
-      }
-
-      return response;
-    } catch (caughtError) {
-      if (isCurrentNonAborted(listRequests, request.id, request.controller)) {
-        setListError(getErrorMessage(caughtError));
-      }
-      return [];
-    } finally {
-      if (listRequests.isCurrent(request.id)) {
-        setIsInitialLoading(false);
-        setIsRefreshing(false);
-      }
-    }
-  }, [
-    adminRequest,
-    authStatus,
-    commitItems,
-    commitSelectedId,
-    commitSelectedOrganization,
-    isApiReady,
-    listRequests,
-    normalizedFilters,
-  ]);
-
-  const loadOrganization = useCallback(
-    async (organizationId: string) => {
-      const request = detailRequests.begin();
-
-      if (!isApiReady || !organizationId) {
-        commitSelectedOrganization(null);
-        setDetailError("");
-        setIsDetailLoading(false);
-        return null;
-      }
-
-      setIsDetailLoading(true);
-      setDetailError("");
-
-      try {
-        const organization = await adminRequest<AdminOrganization>(
-          `/admin/organizations/${organizationId}`,
-          { method: "GET", signal: request.controller.signal },
-        );
-
-        if (!isCurrentNonAborted(detailRequests, request.id, request.controller)) {
-          return null;
-        }
-
-        if (selectedIdRef.current !== organizationId) {
-          return null;
-        }
-
-        commitSelectedOrganization(organization);
-        return organization;
-      } catch (caughtError) {
-        if (isCurrentNonAborted(detailRequests, request.id, request.controller)) {
-          commitSelectedOrganization(null);
-          setDetailError(getErrorMessage(caughtError));
-        }
-        return null;
-      } finally {
-        if (detailRequests.isCurrent(request.id)) {
-          setIsDetailLoading(false);
-        }
-      }
-    },
-    [adminRequest, commitSelectedOrganization, detailRequests, isApiReady],
-  );
-
-  const loadSubscriptionPlans = useCallback(async () => {
-    const request = plansRequests.begin();
-
-    if (!isApiReady) {
-      setSubscriptionPlans([]);
-      setPlansError(authStatus === "loading" ? "" : "Inicia sesión como admin.");
-      setIsPlansLoading(false);
-      return [];
-    }
-
-    setIsPlansLoading(true);
-    setPlansError("");
-
-    try {
-      const plans = await adminRequest<AdminSubscriptionPlan[]>(
-        "/admin/subscription-plans",
-        { method: "GET", signal: request.controller.signal },
-      );
-
-      if (!isCurrentNonAborted(plansRequests, request.id, request.controller)) {
-        return [];
-      }
-
-      setSubscriptionPlans(plans);
-      return plans;
-    } catch (caughtError) {
-      if (isCurrentNonAborted(plansRequests, request.id, request.controller)) {
-        setPlansError(getErrorMessage(caughtError));
-      }
-      return [];
-    } finally {
-      if (plansRequests.isCurrent(request.id)) {
-        setIsPlansLoading(false);
-      }
-    }
-  }, [adminRequest, authStatus, isApiReady, plansRequests]);
 
   const refresh = useCallback(async () => {
-    const response = await loadOrganizations();
-    const currentSelectedId = selectedIdRef.current;
-
-    if (currentSelectedId && response.some((item) => item.id === currentSelectedId)) {
-      await loadOrganization(currentSelectedId);
+    if (!isApiReady) {
+      return [];
     }
-
-    return response;
-  }, [loadOrganization, loadOrganizations]);
+    return ensureOrganizations(filtersRef.current, { force: true });
+  }, [ensureOrganizations, isApiReady]);
 
   const beginMutation = useCallback((nextMutation: OrganizationMutation) => {
     if (mutationRef.current) {
       throw new Error("Ya hay una actualización en curso.");
     }
 
+    invalidateReads();
     mutationRef.current = nextMutation;
     setMutation(nextMutation);
-  }, []);
+  }, [invalidateReads]);
 
   const finishMutation = useCallback((nextMutation: OrganizationMutation) => {
-    if (mutationRef.current?.organizationId === nextMutation.organizationId && mutationRef.current.kind === nextMutation.kind) {
+    if (
+      mutationRef.current?.organizationId === nextMutation.organizationId &&
+      mutationRef.current.kind === nextMutation.kind
+    ) {
       mutationRef.current = null;
       setMutation(null);
     }
   }, []);
+
+  const syncCurrentFilters = useCallback(() => {
+    const currentFilters = filtersRef.current;
+    void ensureOrganizations(currentFilters, { force: true });
+  }, [ensureOrganizations]);
 
   const updateOrganizationSubscription = useCallback(
     async (organizationId: string, planCode: string) => {
@@ -319,20 +127,15 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
             body: JSON.stringify({ planCode }),
           },
         );
-
-        const nextItems = itemsRef.current.map((item) =>
-          item.id === organization.id ? organization : item,
-        );
-        commitItems(nextItems);
-        if (selectedIdRef.current === organization.id) {
-          commitSelectedOrganization(organization);
-        }
-
+        mergeOrganization(organization);
         return organization;
       } finally {
         finishMutation(nextMutation);
+        if (!mutationRef.current) {
+          syncCurrentFilters();
+        }
       }
-    }, [adminRequest, beginMutation, commitItems, commitSelectedOrganization, finishMutation],
+    }, [adminRequest, beginMutation, finishMutation, mergeOrganization, syncCurrentFilters],
   );
 
   const updateOrganizationStatus = useCallback(
@@ -345,84 +148,41 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
           `/admin/organizations/${organizationId}/${action}`,
           { method: "POST" },
         );
-        const previousItems = itemsRef.current;
-        const shouldKeep =
-          normalizedFilters.status === "all" || normalizedFilters.status === organization.status;
-        const nextItems = shouldKeep
-          ? previousItems.map((item) => (item.id === organization.id ? organization : item))
-          : previousItems.filter((item) => item.id !== organization.id);
-
-        commitItems(nextItems);
-
-        if (shouldKeep) {
-          if (selectedIdRef.current === organization.id) {
-            commitSelectedOrganization(organization);
-          }
-        } else {
-          const previousSelectedId = selectedIdRef.current;
-          const nextSelectedId = getNextSelectedId(nextItems, previousSelectedId, previousItems);
-          commitSelectedId(nextSelectedId);
-          if (previousSelectedId === organization.id || !nextSelectedId) {
-            commitSelectedOrganization(null);
-          }
+        const currentFilters = filtersRef.current;
+        const previousItems = items;
+        const shouldKeep = matchesOrganizationFilters(organization, currentFilters);
+        if (!shouldKeep && selectedIdRef.current === organizationId) {
+          const nextItems = previousItems.filter((item) => item.id !== organizationId);
+          const nextSelectedId = getNextSelectedId(nextItems, organizationId, previousItems);
+          selectedIdRef.current = nextSelectedId;
+          setSelectedId(nextSelectedId);
         }
-
+        mergeOrganization(organization);
         return organization;
       } finally {
         finishMutation(nextMutation);
+        if (!mutationRef.current) {
+          syncCurrentFilters();
+        }
       }
-    }, [
-      adminRequest,
-      beginMutation,
-      commitItems,
-      commitSelectedId,
-      commitSelectedOrganization,
-      finishMutation,
-      normalizedFilters.status,
-    ],
+    }, [adminRequest, beginMutation, finishMutation, items, mergeOrganization, syncCurrentFilters],
   );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadOrganizations();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadOrganizations]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadOrganization(selectedId);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadOrganization, selectedId]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadSubscriptionPlans();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadSubscriptionPlans]);
-
-  useEffect(() => {
-    return () => {
-      listRequests.abort();
-      detailRequests.abort();
-      plansRequests.abort();
-    };
-  }, [detailRequests, listRequests, plansRequests]);
-
-  useEffect(() => {
-    if (selectedOrganizationRef.current && selectedOrganizationRef.current.id !== selectedId) {
-      commitSelectedOrganization(null);
+    if (!isApiReady) {
+      return;
     }
-  }, [commitSelectedOrganization, selectedId]);
+
+    void ensureOrganizations(normalizedFilters);
+    void ensureSubscriptionPlans();
+  }, [ensureOrganizations, ensureSubscriptionPlans, isApiReady, normalizedFilters, queryKey]);
+
+  useEffect(() => {
+    filtersRef.current = normalizedFilters;
+    selectedIdRef.current = selectedId;
+  }, [normalizedFilters, selectedId]);
 
   return {
-    detailError,
-    isDetailLoading,
     isInitialLoading,
     isPlansLoading,
     isRefreshing,
@@ -430,25 +190,16 @@ export function useAdminOrganizations(filters: AdminOrganizationFilters) {
     plansError,
     items,
     refresh,
-    retryPlans: loadSubscriptionPlans,
+    retryPlans: useCallback(
+      () => ensureSubscriptionPlans({ force: true }),
+      [ensureSubscriptionPlans],
+    ),
     selectOrganization,
     selectedId,
     selectedOrganization,
-    subscriptionPlans,
+    subscriptionPlans: plans,
     mutation,
     updateOrganizationSubscription,
     updateOrganizationStatus,
   };
-}
-
-function isCurrentNonAborted(
-  requests: ReturnType<typeof createLatestRequestController>,
-  id: number,
-  controller: AbortController,
-) {
-  return requests.isCurrent(id) && !controller.signal.aborted;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Ocurrió un error inesperado";
 }

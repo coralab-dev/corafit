@@ -3,8 +3,10 @@ import type { AdminOrganization } from "@/hooks/use-admin-organizations";
 import type { AdminSubscriptionPlan } from "@/hooks/use-admin-organizations";
 import {
   canSubmitPlan,
+  createDataRevisionController,
   createLatestRequestController,
   getNextSelectedId,
+  getSelectedIdAfterListRefresh,
   isMutationFor,
 } from "./organization-state";
 
@@ -47,5 +49,21 @@ describe("organization state helpers", () => {
     expect(isMutationFor(mutation, "org-a", "plan")).toBe(true);
     expect(isMutationFor(mutation, "org-a", "status")).toBe(false);
     expect(isMutationFor(mutation, "org-b", "plan")).toBe(false);
+  });
+
+  it("does not auto-select an organization after a list refresh", () => {
+    expect(getSelectedIdAfterListRefresh(items, "")).toBe("");
+    expect(getSelectedIdAfterListRefresh(items, "org-b")).toBe("org-b");
+    expect(getSelectedIdAfterListRefresh(items.filter((item) => item.id !== "org-b"), "org-b")).toBe("");
+  });
+
+  it("invalidates reads that started before a mutation", () => {
+    const revision = createDataRevisionController();
+    const readRevision = revision.capture();
+
+    revision.invalidate();
+
+    expect(revision.isCurrent(readRevision)).toBe(false);
+    expect(revision.isCurrent(revision.capture())).toBe(true);
   });
 });

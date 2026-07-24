@@ -23,6 +23,27 @@ export function getNextSelectedId(
   return items[previousIndex]?.id ?? items[0]?.id ?? "";
 }
 
+export function getSelectedIdAfterListRefresh(items: AdminOrganization[], currentId: string) {
+  return currentId && items.some((item) => item.id === currentId) ? currentId : "";
+}
+
+export function createDataRevisionController() {
+  let revision = 0;
+
+  return {
+    capture() {
+      return revision;
+    },
+    invalidate() {
+      revision += 1;
+      return revision;
+    },
+    isCurrent(readRevision: number) {
+      return readRevision === revision;
+    },
+  };
+}
+
 export function canSubmitPlan(
   currentPlanCode: string | null | undefined,
   selectedPlan: AdminSubscriptionPlan | undefined,

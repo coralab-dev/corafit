@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BanIcon, RotateCcwIcon } from "lucide-react";
+import { BanIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import type {
@@ -11,7 +11,7 @@ import type {
   OrganizationMutation,
 } from "@/hooks/use-admin-organizations";
 import { cn } from "@/lib/utils";
-import { formatPlanLabel, formatPlanPrice } from "./organization-formatters";
+import { formatPlanLabel, formatPlanPrice, formatSubscriptionStatus } from "./organization-formatters";
 import { canSubmitPlan, isMutationFor } from "./organization-state";
 
 type OrganizationActionsProps = {
@@ -89,10 +89,8 @@ function PlanAction({
     }
 
     setError("");
-
     try {
       await onChangePlan(organization.id, selectedPlan.code);
-      setConfirmOpen(false);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
       throw caughtError;
@@ -100,13 +98,20 @@ function PlanAction({
   }
 
   return (
-    <section className="space-y-3 p-4" aria-label="Cambio de plan">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Cambiar plan</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Solo se pueden activar planes disponibles.</p>
+    <section className="space-y-4 p-5" aria-label="Suscripción">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Plan actual
+          </p>
+          <p className="mt-2 truncate text-base font-semibold">
+            {formatPlanLabel(organization)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatSubscriptionStatus(organization.subscription?.status)}
+          </p>
         </div>
-        {isChanging ? <span className="text-xs text-muted-foreground">Guardando…</span> : null}
+        <ChevronRightIcon aria-hidden="true" className="mt-1 size-4 text-muted-foreground" />
       </div>
       {plansError ? (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive" role="alert">
@@ -118,47 +123,57 @@ function PlanAction({
           ) : null}
         </div>
       ) : null}
-      <select
-        aria-label="Seleccionar plan"
-        className="flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isPlansLoading || isChanging || isBlocked || Boolean(plansError)}
-        value={selectedPlanCode}
-        onChange={(event) => {
-          setSelectedPlanCode(event.target.value);
-          setError("");
-        }}
-      >
-        <option value="">Selecciona un plan</option>
-        {subscriptionPlans.map((plan) => (
-          <option key={plan.id} value={plan.code} disabled={plan.status !== "active"}>
-            {plan.name} ({plan.code}) · {plan.status === "active" ? "Activo" : "Inactivo"}
-            {plan.isPublic ? "" : " · Privado"}
-          </option>
-        ))}
-      </select>
-      {selectedPlan ? <PlanPreview plan={selectedPlan} /> : null}
       <Button
         type="button"
-        className="w-full shadow-none"
-        disabled={isPlansLoading || isChanging || isBlocked || !canSubmit}
+        variant="outline"
+        className="w-full justify-between shadow-none"
+        disabled={isPlansLoading || isChanging || isBlocked || Boolean(plansError)}
         onClick={() => {
           setError("");
+          setSelectedPlanCode(organization.plan?.code ?? "");
           setConfirmOpen(true);
         }}
       >
-        {isChanging ? "Cambiando…" : "Revisar cambio de plan"}
+        {isChanging ? "Guardando…" : "Cambiar plan"}
+        <ChevronRightIcon aria-hidden="true" className="size-4" />
       </Button>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Confirmar cambio de plan"
-        description={`Cambiar de ${formatPlanLabel(organization)} a ${selectedPlan ? `${selectedPlan.code} · ${selectedPlan.name}` : "el nuevo plan"}. La suscripción quedará activa.`}
-        confirmLabel="Confirmar cambio"
+        title="Cambiar plan"
+        description={`Plan actual: ${formatPlanLabel(organization)}. Selecciona el nuevo plan; la suscripción quedará activa.`}
+        confirmLabel="Guardar cambio"
         confirmVariant="default"
+        confirmDisabled={!canSubmit}
         error={error}
         isLoading={isChanging}
         onConfirm={confirmPlanChange}
-      />
+      >
+        <div className="space-y-3">
+          <label className="space-y-1.5 text-sm font-medium">
+            <span>Nuevo plan</span>
+            <select
+              aria-label="Seleccionar plan"
+              className="flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isPlansLoading || isChanging || isBlocked || Boolean(plansError)}
+              value={selectedPlanCode}
+              onChange={(event) => {
+                setSelectedPlanCode(event.target.value);
+                setError("");
+              }}
+            >
+              <option value="">Selecciona un plan</option>
+              {subscriptionPlans.map((plan) => (
+                <option key={plan.id} value={plan.code} disabled={plan.status !== "active"}>
+                  {plan.name} ({plan.code}) · {plan.status === "active" ? "Activo" : "Inactivo"}
+                  {plan.isPublic ? "" : " · Privado"}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedPlan ? <PlanPreview plan={selectedPlan} /> : null}
+        </div>
+      </ConfirmDialog>
     </section>
   );
 }
@@ -169,7 +184,9 @@ function PlanPreview({ plan }: { plan: AdminSubscriptionPlan }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">{plan.name}</p>
-          <p className="text-xs text-muted-foreground">{plan.code}{plan.isPublic ? "" : " · Privado"}</p>
+          <p className="text-xs text-muted-foreground">
+            {plan.code}{plan.isPublic ? "" : " · Privado"}
+          </p>
         </div>
         <p className="shrink-0 font-semibold">{formatPlanPrice(plan)} beta</p>
       </div>
@@ -200,11 +217,11 @@ function StatusAction({
 
   if (organization.status === "cancelled") {
     return (
-      <div className="border-t p-4">
+      <section className="border-t px-5 py-5" aria-label="Administración">
         <p className="text-xs text-muted-foreground">
           Una organización cancelada no puede cambiar de estado mediante estas acciones.
         </p>
-      </div>
+      </section>
     );
   }
 
@@ -213,10 +230,8 @@ function StatusAction({
 
   async function confirmStatusChange() {
     setError("");
-
     try {
       await onChangeStatus(organization.id, action);
-      setConfirmOpen(false);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
       throw caughtError;
@@ -224,11 +239,19 @@ function StatusAction({
   }
 
   return (
-    <div className="border-t p-4">
+    <section className="border-t px-5 py-5" aria-label="Administración">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Administración
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {isSuspending
+          ? "Suspender temporalmente esta cuenta y bloquear su operación."
+          : "Reactivar esta cuenta para que vuelva a operar."}
+      </p>
       <Button
         type="button"
         variant={isSuspending ? "destructive" : "outline"}
-        className={cn("w-full shadow-none", !isSuspending && "text-primary")}
+        className={cn("mt-4 w-full shadow-none", !isSuspending && "text-primary")}
         disabled={isChanging || isBlocked}
         onClick={() => {
           setError("");
@@ -236,7 +259,7 @@ function StatusAction({
         }}
       >
         {isSuspending ? <BanIcon aria-hidden="true" className="size-4" /> : <RotateCcwIcon aria-hidden="true" className="size-4" />}
-        {isChanging ? "Actualizando…" : isSuspending ? "Suspender" : "Reactivar"}
+        {isChanging ? "Actualizando…" : isSuspending ? "Suspender organización" : "Reactivar organización"}
       </Button>
       <ConfirmDialog
         open={confirmOpen}
@@ -253,7 +276,7 @@ function StatusAction({
         isLoading={isChanging}
         onConfirm={confirmStatusChange}
       />
-    </div>
+    </section>
   );
 }
 

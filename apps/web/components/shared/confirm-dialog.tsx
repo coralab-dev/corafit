@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import type { ReactNode } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -19,6 +20,8 @@ interface ConfirmDialogProps {
   confirmVariant?: ButtonProps["variant"];
   cancelLabel?: string;
   error?: string;
+  children?: ReactNode;
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
 }
@@ -32,11 +35,21 @@ export function ConfirmDialog({
   confirmVariant = "destructive",
   cancelLabel = "Cancelar",
   error,
+  children,
+  confirmDisabled = false,
   onConfirm,
   isLoading = false,
 }: ConfirmDialogProps) {
+  function handleOpenChange(nextOpen: boolean) {
+    if (!canCloseConfirmDialog(isLoading, nextOpen)) {
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -47,6 +60,7 @@ export function ConfirmDialog({
             </p>
           ) : null}
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button
             variant="outline"
@@ -65,7 +79,7 @@ export function ConfirmDialog({
                 // Keep the dialog open so the caller can show the failure inline.
               }
             }}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
           >
             {confirmLabel}
           </Button>
@@ -73,4 +87,8 @@ export function ConfirmDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+export function canCloseConfirmDialog(isLoading: boolean, nextOpen: boolean) {
+  return !isLoading || nextOpen;
 }

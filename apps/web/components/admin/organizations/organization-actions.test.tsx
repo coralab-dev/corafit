@@ -52,7 +52,7 @@ const plans: AdminSubscriptionPlan[] = [
 ];
 
 describe("OrganizationActions", () => {
-  it("disables inactive plans and renders the active organization action", () => {
+  it("keeps plan selection behind the explicit change action", () => {
     const markup = renderToStaticMarkup(
       <OrganizationActions
         organization={organization}
@@ -65,8 +65,8 @@ describe("OrganizationActions", () => {
     );
 
     expect(markup).toContain("Suspender");
-    expect(markup).toContain("Inactivo");
-    expect(markup).toMatch(/value="legacy"[^>]*disabled/);
+    expect(markup).toContain("Cambiar plan");
+    expect(markup).not.toContain("Seleccionar plan");
   });
 
   it("explains cancelled organizations have no state action", () => {
@@ -102,7 +102,22 @@ describe("OrganizationActions", () => {
 
     expect(markup).toContain("No se pudieron cargar los planes");
     expect(markup).toContain("Reintentar planes");
-    expect(markup).toContain("beta");
-    expect(markup).toContain("Clientes: 10");
+    expect(markup).toContain("Cambiar plan");
+  });
+
+  it("keeps plan selection closed until the administrator asks to change it", () => {
+    const markup = renderToStaticMarkup(
+      <OrganizationActions
+        organization={organization}
+        subscriptionPlans={plans}
+        isPlansLoading={false}
+        mutation={null}
+        onChangePlan={vi.fn()}
+        onChangeStatus={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Cambiar plan");
+    expect(markup).not.toContain("Seleccionar plan");
   });
 });

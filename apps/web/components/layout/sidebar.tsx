@@ -1,76 +1,28 @@
 "use client";
 
-import { LogOutIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { useAuth } from "@/components/providers/auth-provider";
-import { Button } from "@/components/ui/button";
-import { navItems } from "./nav-items";
-import { NavItem } from "./nav-item";
+import { getVisibleNavSections } from "./nav-items";
+import { NavigationSections } from "./navigation-sections";
+import { UserNavigationCard } from "./user-navigation-card";
 
 export function Sidebar() {
-  const router = useRouter();
-  const { logout, profile } = useAuth();
-  const name = profile?.user?.name ?? "Coach";
-  const initials = getInitials(name);
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (!item.platformRole || item.platformRole === profile?.user.platformRole) &&
-      (!item.requiresOrganization || Boolean(profile?.organization)),
-  );
-
-  async function handleLogout() {
-    await logout();
-    router.replace("/login");
-  }
+  const { profile } = useAuth();
+  const visibleNavSections = getVisibleNavSections(profile);
 
   return (
     <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
-      {/* Logo */}
       <div className="flex items-center gap-3 px-5 pb-8 pt-7">
         <CoraFitBrand className="h-8 w-auto" />
       </div>
 
-      {/* Navegación */}
-      <nav className="flex flex-1 flex-col gap-1 px-2 py-2">
-        {visibleNavItems.map((item) => (
-          <NavItem key={item.href} {...item} />
-        ))}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <NavigationSections sections={visibleNavSections} />
       </nav>
 
-      {/* Usuario */}
       <div className="px-4 pb-5">
-        <div className="flex items-center gap-3 rounded-2xl border border-sidebar-border bg-sidebar-accent/65 p-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-sidebar-foreground/55">
-              {profile?.user.platformRole === "admin_saas" ? "Admin SaaS" : "Coach"}
-            </p>
-          </div>
-          <Button
-            aria-label="Cerrar sesion"
-            className="size-8 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            size="icon"
-            type="button"
-            variant="ghost"
-            onClick={handleLogout}
-          >
-            <LogOutIcon className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
+        <UserNavigationCard />
       </div>
     </aside>
   );
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }

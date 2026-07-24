@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { CoraFitBrand } from "@/components/shared/corafit-brand";
 import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
-import { navItems } from "./nav-items";
-import { NavItem } from "./nav-item";
+import { getVisibleNavSections } from "./nav-items";
+import { NavigationSections } from "./navigation-sections";
+import { UserNavigationCard } from "./user-navigation-card";
 
 interface MobileNavProps {
   className?: string;
@@ -17,53 +18,38 @@ interface MobileNavProps {
 export function MobileNav({ className }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const { profile } = useAuth();
-  const name = profile?.user.name ?? "Coach";
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (!item.platformRole || item.platformRole === profile?.user.platformRole) &&
-      (!item.requiresOrganization || Boolean(profile?.organization)),
-  );
+  const visibleNavSections = getVisibleNavSections(profile);
+  const handleNavigate = createMobileNavigationHandler(setOpen);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className={cn("lg:hidden", className)}>
-          <MenuIcon className="size-5" />
-          <span className="sr-only">Abrir menu</span>
+          <MenuIcon aria-hidden="true" className="size-5" />
+          <span className="sr-only">Abrir menú</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex w-64 flex-col gap-0 border-none bg-sidebar p-0 text-sidebar-foreground">
+      <SheetContent
+        side="left"
+        className="flex w-[calc(100vw-1rem)] max-w-72 flex-col gap-0 overflow-hidden border-none bg-sidebar p-0 text-sidebar-foreground"
+      >
         <SheetHeader className="sr-only">
-          <SheetTitle>Navegacion principal</SheetTitle>
+          <SheetTitle>Navegación principal</SheetTitle>
         </SheetHeader>
         <div className="flex items-center px-5 py-5">
           <CoraFitBrand className="h-7 w-auto" />
         </div>
-        <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
-          {visibleNavItems.map((item) => (
-            <NavItem key={item.href} {...item} />
-          ))}
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+          <NavigationSections sections={visibleNavSections} onNavigate={handleNavigate} />
         </nav>
-        <div className="border-t border-white/10 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-full bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-              {getInitials(name)}
-            </div>
-            <p className="text-sm font-medium">
-              {profile?.user.platformRole === "admin_saas" ? "Admin SaaS" : "Coach"}
-            </p>
-          </div>
+        <div className="border-t border-sidebar-border px-3 py-4">
+          <UserNavigationCard onLogout={() => setOpen(false)} />
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+export function createMobileNavigationHandler(setOpen: (open: boolean) => void) {
+  return () => setOpen(false);
 }

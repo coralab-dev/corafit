@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -16,7 +16,9 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  confirmVariant?: ButtonProps["variant"];
   cancelLabel?: string;
+  error?: string;
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
 }
@@ -27,7 +29,9 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirmar",
+  confirmVariant = "destructive",
   cancelLabel = "Cancelar",
+  error,
   onConfirm,
   isLoading = false,
 }: ConfirmDialogProps) {
@@ -37,6 +41,11 @@ export function ConfirmDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
+          {error ? (
+            <p className="text-sm font-medium text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
         </DialogHeader>
         <DialogFooter>
           <Button
@@ -47,10 +56,14 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant="destructive"
+            variant={confirmVariant}
             onClick={async () => {
-              await onConfirm();
-              onOpenChange(false);
+              try {
+                await onConfirm();
+                onOpenChange(false);
+              } catch {
+                // Keep the dialog open so the caller can show the failure inline.
+              }
             }}
             disabled={isLoading}
           >

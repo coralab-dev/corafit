@@ -28,6 +28,12 @@ const statusBadgeVariants = cva(
           "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
         "access-pending":
           "border-yellow-500/20 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+        success:
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        warning:
+          "border-yellow-500/20 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+        danger:
+          "border-destructive/20 bg-destructive/10 text-destructive",
         completed:
           "border-primary/20 bg-primary/10 text-primary",
         pending:
